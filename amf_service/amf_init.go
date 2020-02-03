@@ -17,7 +17,9 @@ import (
 	"gofree5gc/src/amf/amf_consumer"
 	"gofree5gc/src/amf/amf_context"
 	"gofree5gc/src/amf/amf_handler"
+	"gofree5gc/src/amf/amf_ngap/ngap_message"
 	"gofree5gc/src/amf/amf_ngap/ngap_sctp"
+	"gofree5gc/src/amf/amf_producer/amf_producer_callback"
 	"gofree5gc/src/amf/amf_util"
 	"gofree5gc/src/amf/factory"
 	"gofree5gc/src/amf/logger"
@@ -184,4 +186,29 @@ func (amf *AMF) Exec(c *cli.Context) error {
 	wg.Wait()
 
 	return err
+}
+
+// Used in AMF planned removal procedure
+func (amf *AMF) Terminate() {
+	logger.InitLog.Infof("Terminating AMF...")
+	amfSelf := amf_context.AMF_Self()
+
+	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
+
+	// deregister with NRF
+	problemDetails, err := amf_consumer.SendDeregisterNFInstance()
+	if problemDetails != nil {
+		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
+	} else if err != nil {
+		logger.InitLog.Errorf("Deregister NF instance Error[%+v]", err)
+	}
+
+	// send AMF status indication to ran to notify ran that this AMF will be unavailable
+	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
+	for _, ran := range amfSelf.AmfRanPool {
+		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
+	}
+
+	amf_producer_callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+	logger.InitLog.Infof("AMF terminated")
 }
