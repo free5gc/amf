@@ -529,12 +529,10 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 	case nasMessage.MobileIdentity5GSTypeNoIdentity:
 		logger.GmmLog.Debugf("No Identity")
 	case nasMessage.MobileIdentity5GSTypeSuci:
-		ue.Suci = mobileIdentity5GSContents
 		var plmnId string
-		// TODO: handle the situation if suci is encrypted
-		plmnId, ue.Supi = nasConvert.GetPlmnIdAndSupiFromSuci(mobileIdentity5GSContents)
+		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentity5GSContents)
 		ue.PlmnId = amf_util.PlmnIdStringToModels(plmnId)
-		logger.GmmLog.Debugf("SUCI[SUPI: %s]", ue.Supi)
+		logger.GmmLog.Debugf("SUCI: %s", ue.Suci)
 		ue.IsCleartext = true
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		guami, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
@@ -1369,12 +1367,10 @@ func HandleIdentityResponse(ue *amf_context.AmfUe, identityResponse *nasMessage.
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
-		ue.Suci = mobileIdentityContents
 		var plmnId string
-		// TODO: handle the situation if suci is encrypted
-		plmnId, ue.Supi = nasConvert.GetPlmnIdAndSupiFromSuci(mobileIdentityContents)
+		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentityContents)
 		ue.PlmnId = amf_util.PlmnIdStringToModels(plmnId)
-		logger.GmmLog.Debugf("get SUCI[SUPI: %s]", ue.Supi)
+		logger.GmmLog.Debugf("get SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		_, guti := nasConvert.GutiToString(mobileIdentityContents)
 		ue.Guti = guti
@@ -1448,9 +1444,7 @@ func startAuthenticationProcedure(ue *amf_context.AmfUe, anType models.AccessTyp
 
 	amfSelf := amf_context.AMF_Self()
 	// TODO: consider ausf group id, Routing ID part of SUCI
-	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
-		Supi: optional.NewString(ue.Supi),
-	}
+	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{}
 	resp, err := amf_consumer.SendSearchNFInstances(amfSelf.NrfUri, models.NfType_AUSF, models.NfType_AMF, &param)
 	if err != nil {
 		logger.GmmLog.Error("AMF can not select an AUSF by NRF")
@@ -1801,6 +1795,7 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 		case models.AuthResult_SUCCESS:
 			ue.UnauthenticatedSupi = false
 			ue.Kseaf = response.Kseaf
+			ue.Supi = response.Supi
 			ue.DerivateKamf()
 			gmm_message.SendSecurityModeCommand(ue.RanUe[anType], false, "")
 			return ue.Sm[anType].Transfer(gmm_state.SECURITY_MODE, nil)
@@ -1827,6 +1822,7 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 		case models.AuthResult_SUCCESS:
 			ue.UnauthenticatedSupi = false
 			ue.Kseaf = response.KSeaf
+			ue.Supi = response.Supi
 			ue.DerivateKamf()
 			// TODO: select enc/int algorithm based on ue security capability & amf's policy,
 			// then generate KnasEnc, KnasInt
