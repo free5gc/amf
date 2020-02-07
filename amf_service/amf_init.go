@@ -24,8 +24,11 @@ import (
 	"gofree5gc/src/amf/factory"
 	"gofree5gc/src/amf/logger"
 	"gofree5gc/src/app"
+	"os"
 	"os/exec"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type AMF struct{}
@@ -51,6 +54,7 @@ var amfCLi = []cli.Flag{
 }
 
 var initLog *logrus.Entry
+var sctpListener *amf_ngap_sctp.SCTPListener
 
 func init() {
 	initLog = logger.InitLog
@@ -123,7 +127,7 @@ func (amf *AMF) Start() {
 	addr := fmt.Sprintf("%s:%d", self.HttpIPv4Address, self.HttpIpv4Port)
 
 	for _, ngapAddr := range self.NgapIpList {
-		amf_ngap_sctp.Server(ngapAddr)
+		sctpListener = amf_ngap_sctp.Server(ngapAddr)
 	}
 	go amf_handler.Handle()
 
@@ -134,6 +138,14 @@ func (amf *AMF) Start() {
 	}
 
 	_, self.NfId, _ = amf_consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
+
+	signalChannel := make(chan os.Signal, 1)
+	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalChannel
+		amf.Terminate()
+		os.Exit(0)
+	}()
 
 	server, err := http2_util.NewServer(addr, amf_util.AmfLogPath, router)
 	if err == nil && server != nil {
@@ -208,6 +220,7 @@ func (amf *AMF) Terminate() {
 	for _, ran := range amfSelf.AmfRanPool {
 		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
 	}
+	sctpListener.Close()
 
 	amf_producer_callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")

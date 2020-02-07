@@ -67,7 +67,7 @@ func (l *SCTPListener) Close() {
 		delete(l.conn, key)
 		amf_message.SendMessage(msg)
 	}
-	logger.NgapLog.Errorln(l.ln.Addr())
+	logger.NgapLog.Infoln(l.ln.Addr())
 	l.ln.Close()
 	time.Sleep(10 * time.Millisecond)
 	l.mtx.Unlock()
