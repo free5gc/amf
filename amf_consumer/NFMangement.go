@@ -73,7 +73,7 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 		_, res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
 		if err != nil || res == nil {
 			//TODO : add log
-			fmt.Println(fmt.Errorf("AFM register to NRF Error[%s]", err.Error()))
+			fmt.Println(fmt.Errorf("AMF register to NRF Error[%s]", err.Error()))
 			time.Sleep(2 * time.Second)
 			continue
 		}
