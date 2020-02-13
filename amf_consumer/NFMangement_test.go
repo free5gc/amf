@@ -34,3 +34,15 @@ func TestRegisterNFInstance(t *testing.T) {
 		TestAmf.Config.Dump(uri)
 	}
 }
+
+func TestDeregisterNFInstance(t *testing.T) {
+
+	TestRegisterNFInstance(t)
+
+	problemDetails, err := amf_consumer.SendDeregisterNFInstance()
+	if err != nil {
+		t.Error(err.Error())
+	} else if problemDetails != nil {
+		t.Errorf("Problem Detail[%+v]", problemDetails)
+	}
+}

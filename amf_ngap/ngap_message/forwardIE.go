@@ -128,3 +128,17 @@ func BuildIEMobilityRestrictionList(ue *amf_context.AmfUe) (mobilityRestrictionL
 
 	return
 }
+
+func BuildUnavailableGUAMIList(guamiList []models.Guami) (unavailableGUAMIList ngapType.UnavailableGUAMIList) {
+	for _, guami := range guamiList {
+		item := ngapType.UnavailableGUAMIItem{}
+		item.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*guami.PlmnId)
+		regionId, setId, ptrId := ngapConvert.AmfIdToNgap(guami.AmfId)
+		item.GUAMI.AMFRegionID.Value = regionId
+		item.GUAMI.AMFSetID.Value = setId
+		item.GUAMI.AMFPointer.Value = ptrId
+		// TODO: item.TimerApproachForGUAMIRemoval and item.BackupAMFName not support yet
+		unavailableGUAMIList.List = append(unavailableGUAMIList.List, item)
+	}
+	return
+}
