@@ -213,14 +213,20 @@ func (amf *AMF) Terminate() {
 		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
 	} else if err != nil {
 		logger.InitLog.Errorf("Deregister NF instance Error[%+v]", err)
+	} else {
+		logger.InitLog.Infof("[AMF] Deregister from NRF successfully")
 	}
 
 	// send AMF status indication to ran to notify ran that this AMF will be unavailable
+	logger.InitLog.Infof("Send AMF Status Indication to Notify RANs due to AMF terminating")
 	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
 	for _, ran := range amfSelf.AmfRanPool {
 		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
 	}
+
+	logger.InitLog.Infof("Close SCTP server...")
 	sctpListener.Close()
+	logger.InitLog.Infof("SCTP server closed")
 
 	amf_producer_callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")
