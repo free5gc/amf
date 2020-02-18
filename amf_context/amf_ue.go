@@ -42,7 +42,7 @@ type AmfUe struct {
 	DeregistrationTargetAccessType  uint8 // only used when deregistration procedure is initialized by the network
 	/* Ue Identity*/
 	PlmnId              models.PlmnId
-	Suci                []byte
+	Suci                string
 	Supi                string
 	UnauthenticatedSupi bool
 	Gpsi                string
