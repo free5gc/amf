@@ -97,7 +97,7 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 
 func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 
-	logger.ConsumerLog.Infof("[AMF] SendDeregisterNFInstance")
+	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
 
 	amfSelf := amf_context.AMF_Self()
 	// Set client and set url
