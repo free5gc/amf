@@ -116,8 +116,8 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 	var pduSession models.PduSessionContext
 	pduSession.PduSessionId = pduSessionID
 	pduSession.AccessType = anType
+	amfSelf := amf_context.AMF_Self()
 	if requestType == models.RequestType_INITIAL_REQUEST {
-		amfSelf := amf_context.AMF_Self()
 
 		if sNssai == nil {
 			if ue.SmfSelectionData != nil {
@@ -173,8 +173,9 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 				Payload:           payload,
 			}
 			updateData := models.SmContextUpdateData{
-				Release: true,
-				Cause:   models.Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
+				Release:            true,
+				Cause:              models.Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
+				SmContextStatusUri: fmt.Sprintf("%s/namf-callback/v1/smContextStatus/%s/%d", amfSelf.GetIPv4Uri(), ue.Guti, pduSessionID),
 			}
 			response, _, _, err := amf_consumer.SendUpdateSmContextRequest(ue, smContext.SmfUri, smContext.PduSessionContext.SmContextRef, updateData, nil, nil)
 			if err != nil {
