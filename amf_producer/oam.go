@@ -9,12 +9,19 @@ import (
 	"net/http"
 )
 
+type PduSession struct {
+	PduSessionId int32
+	Snssai       models.Snssai
+	Dnn          string
+}
+
 type UEInfo struct {
-	Supi    string
-	Guti    string
-	RanId   models.GlobalRanNodeId
-	Tai     models.Tai
-	CmState models.CmState
+	AccessType  models.AccessType
+	Supi        string
+	Guti        string
+	Tai         models.Tai
+	PduSessions []PduSession
+	CmState     models.CmState
 }
 
 func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMessage) {
@@ -24,32 +31,47 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 	amfSelf := amf_context.AMF_Self()
 
 	for _, ue := range amfSelf.UePool {
-		if ue.Sm[models.AccessType__3_GPP_ACCESS].Check(gmm_state.REGISTERED) {
-			ueInfo := UEInfo{
-				Supi: ue.Supi,
-				Guti: ue.Guti,
-				Tai:  ue.Tai,
-			}
-			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-				ueInfo.CmState = models.CmState_CONNECTED
-			} else {
-				ueInfo.CmState = models.CmState_IDLE
-			}
-			ueInfos = append(ueInfos, ueInfo)
+		ueInfo := buildUEInfo(ue, models.AccessType__3_GPP_ACCESS)
+		if ueInfo != nil {
+			ueInfos = append(ueInfos, *ueInfo)
 		}
-		if ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(gmm_state.REGISTERED) {
-			ueInfo := UEInfo{
-				Supi: ue.Supi,
-				Guti: ue.Guti,
-				Tai:  ue.Tai,
-			}
-			ueInfos = append(ueInfos, ueInfo)
+		ueInfo = buildUEInfo(ue, models.AccessType_NON_3_GPP_ACCESS)
+		if ueInfo != nil {
+			ueInfos = append(ueInfos, *ueInfo)
 		}
 	}
 
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, ueInfos)
 }
 
-// func aaa(ue *amf_context.AmfUe) (ueInfo UEInfo) {
+func buildUEInfo(ue *amf_context.AmfUe, accessType models.AccessType) (ueInfo *UEInfo) {
+	if ue.Sm[accessType].Check(gmm_state.REGISTERED) {
+		ueInfo = &UEInfo{
+			AccessType: models.AccessType__3_GPP_ACCESS,
+			Supi:       ue.Supi,
+			Guti:       ue.Guti,
+			Tai:        ue.Tai,
+		}
 
-// }
+		for _, smContext := range ue.SmContextList {
+			pduSessionContext := smContext.PduSessionContext
+			if pduSessionContext != nil {
+				if pduSessionContext.AccessType == accessType {
+					pduSession := PduSession{
+						PduSessionId: pduSessionContext.PduSessionId,
+						Snssai:       *pduSessionContext.SNssai,
+						Dnn:          pduSessionContext.Dnn,
+					}
+					ueInfo.PduSessions = append(ueInfo.PduSessions, pduSession)
+				}
+			}
+		}
+
+		if ue.CmConnect(accessType) {
+			ueInfo.CmState = models.CmState_CONNECTED
+		} else {
+			ueInfo.CmState = models.CmState_IDLE
+		}
+	}
+	return
+}
