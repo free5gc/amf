@@ -14,6 +14,7 @@ import (
 	"gofree5gc/src/amf/HttpCallback"
 	"gofree5gc/src/amf/Location"
 	"gofree5gc/src/amf/MT"
+	"gofree5gc/src/amf/OAM"
 	"gofree5gc/src/amf/amf_consumer"
 	"gofree5gc/src/amf/amf_context"
 	"gofree5gc/src/amf/amf_handler"
@@ -108,6 +109,7 @@ func (amf *AMF) Start() {
 	router := gin.Default()
 
 	Namf_Callback.AddService(router)
+	Namf_OAM.AddService(router)
 	for _, serviceName := range factory.AmfConfig.Configuration.ServiceNameList {
 		switch models.ServiceName(serviceName) {
 		case models.ServiceName_NAMF_COMM:
