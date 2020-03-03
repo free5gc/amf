@@ -34,13 +34,17 @@ type PduSession struct {
 	Dnn          string
 }
 
-type UEInfo struct {
+type UEContext struct {
 	AccessType  models.AccessType
 	Supi        string
 	Guti        string
 	Tai         models.Tai
 	PduSessions []PduSession
 	CmState     models.CmState
+}
+
+type UEContexts struct {
+	UEContexts []UEContext
 }
 
 func TestRegisteredUEContext(t *testing.T) {
@@ -73,7 +77,7 @@ func TestRegisteredUEContext(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		var body []UEInfo
+		var body UEContexts
 		json.NewDecoder(resp.Body).Decode(&body)
 		t.Logf("response body: %+v", body)
 		resp.Body.Close()

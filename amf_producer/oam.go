@@ -15,7 +15,7 @@ type PduSession struct {
 	Dnn          string
 }
 
-type UEInfo struct {
+type UEContext struct {
 	AccessType  models.AccessType
 	Supi        string
 	Guti        string
@@ -24,29 +24,35 @@ type UEInfo struct {
 	CmState     models.CmState
 }
 
+type UEContexts struct {
+	UEContexts []UEContext
+}
+
 func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMessage) {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
-	var ueInfos []UEInfo
+	var response UEContexts
+	response.UEContexts = make([]UEContext, 0) // initialize slice with length 0
+
 	amfSelf := amf_context.AMF_Self()
 
 	for _, ue := range amfSelf.UePool {
-		ueInfo := buildUEInfo(ue, models.AccessType__3_GPP_ACCESS)
-		if ueInfo != nil {
-			ueInfos = append(ueInfos, *ueInfo)
+		ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
+		if ueContext != nil {
+			response.UEContexts = append(response.UEContexts, *ueContext)
 		}
-		ueInfo = buildUEInfo(ue, models.AccessType_NON_3_GPP_ACCESS)
-		if ueInfo != nil {
-			ueInfos = append(ueInfos, *ueInfo)
+		ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
+		if ueContext != nil {
+			response.UEContexts = append(response.UEContexts, *ueContext)
 		}
 	}
 
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, ueInfos)
+	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
 }
 
-func buildUEInfo(ue *amf_context.AmfUe, accessType models.AccessType) (ueInfo *UEInfo) {
+func buildUEContext(ue *amf_context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
 	if ue.Sm[accessType].Check(gmm_state.REGISTERED) {
-		ueInfo = &UEInfo{
+		ueContext = &UEContext{
 			AccessType: models.AccessType__3_GPP_ACCESS,
 			Supi:       ue.Supi,
 			Guti:       ue.Guti,
@@ -62,15 +68,15 @@ func buildUEInfo(ue *amf_context.AmfUe, accessType models.AccessType) (ueInfo *U
 						Snssai:       *pduSessionContext.SNssai,
 						Dnn:          pduSessionContext.Dnn,
 					}
-					ueInfo.PduSessions = append(ueInfo.PduSessions, pduSession)
+					ueContext.PduSessions = append(ueContext.PduSessions, pduSession)
 				}
 			}
 		}
 
 		if ue.CmConnect(accessType) {
-			ueInfo.CmState = models.CmState_CONNECTED
+			ueContext.CmState = models.CmState_CONNECTED
 		} else {
-			ueInfo.CmState = models.CmState_IDLE
+			ueContext.CmState = models.CmState_IDLE
 		}
 	}
 	return
