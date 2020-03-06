@@ -85,8 +85,10 @@ type AmfUe struct {
 	Kseaf                             string
 	Kamf                              string
 	/* context about PCF */
+	PcfId                        string
 	PcfUri                       string
 	PolicyAssociationId          string
+	AmPolicyUri                  string
 	AmPolicyAssociation          *models.PolicyAssociation
 	RequestTriggerLocationChange bool // true if AmPolicyAssociation.Trigger contains RequestTrigger_LOC_CH
 	ConfigurationUpdateMessage   []byte

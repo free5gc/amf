@@ -808,6 +808,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 			for _, nfProfile := range resp.NfInstances {
 				pcfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfServiceStatus_REGISTERED)
 				if pcfUri != "" {
+					ue.PcfId = nfProfile.NfInstanceId
 					break
 				}
 			}

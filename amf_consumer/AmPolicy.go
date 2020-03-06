@@ -38,8 +38,11 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	if localErr == nil {
 		locationHeader := httpResp.Header.Get("Location")
 		logger.ConsumerLog.Debugf("location header: %+v", locationHeader)
+		ue.AmPolicyUri = locationHeader
+
 		re := regexp.MustCompile("/policies/.*")
 		match := re.FindStringSubmatch(locationHeader)
+
 		ue.PolicyAssociationId = match[0][10:]
 		ue.AmPolicyAssociation = &res
 
