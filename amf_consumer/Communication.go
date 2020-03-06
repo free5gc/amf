@@ -3,6 +3,7 @@ package amf_consumer
 import (
 	"context"
 	"gofree5gc/lib/Namf_Communication"
+	"gofree5gc/lib/nas/nasMessage"
 	"gofree5gc/lib/openapi/common"
 	"gofree5gc/lib/openapi/models"
 	"gofree5gc/src/amf/amf_context"
@@ -130,7 +131,39 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ueContex
 	return
 }
 
-func ReleaseUEContextRequest(ue *amf_context.AmfUe) (problemDetails models.ProblemDetails, err error) {
+func ReleaseUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ngapCause models.NgApCause) (problemDetails *models.ProblemDetails, err error) {
+	configuration := Namf_Communication.NewConfiguration()
+	configuration.SetBasePath(targetAmfUri)
+	client := Namf_Communication.NewAPIClient(configuration)
+
+	var ueContextId string
+	if ue.Supi != "" {
+		ueContextId = ue.Supi
+	} else {
+		ueContextId = ue.Pei
+	}
+
+	ueContextRelease := models.UeContextRelease{
+		NgapCause: &ngapCause,
+	}
+	if ue.RegistrationType5GS == nasMessage.RegistrationType5GSEmergencyRegistration && ue.UnauthenticatedSupi {
+		ueContextRelease.Supi = ue.Supi
+		ueContextRelease.UnauthenticatedSupi = true
+	}
+
+	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(context.TODO(), ueContextId, ueContextRelease)
+	if localErr == nil {
+		return
+	} else if httpResp != nil {
+		if httpResp.Status != localErr.Error() {
+			err = localErr
+			return
+		}
+		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problemDetails = &problem
+	} else {
+		err = common.ReportError("%s: erver no response", targetAmfUri)
+	}
 	return
 }
 
