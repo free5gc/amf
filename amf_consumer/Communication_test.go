@@ -5,6 +5,9 @@ import (
 	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"gofree5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	"gofree5gc/lib/http2_util"
+	"gofree5gc/lib/nas/nasMessage"
+	"gofree5gc/lib/nas/nasTestpacket"
+	"gofree5gc/lib/nas/nasType"
 	"gofree5gc/lib/ngap/ngapType"
 	"gofree5gc/lib/openapi/models"
 	"gofree5gc/src/amf/Communication"
@@ -42,7 +45,7 @@ func TestCreateUEContextRequest(t *testing.T) {
 	} else if problemDetails != nil {
 		t.Errorf("Create Ue Context Request Failed: %+v", problemDetails)
 	} else {
-		t.Logf("response[UeContextCreatedData]: %+v", ueContextCreatedData)
+		TestAmf.Config.Dump(ueContextCreatedData)
 	}
 }
 
@@ -70,5 +73,35 @@ func TestReleaseUEContextRequest(t *testing.T) {
 		t.Error(err)
 	} else if problemDetails != nil {
 		t.Errorf("Release Ue Context Request Failed: %+v", problemDetails)
+	}
+}
+
+func TestUEContextTransferRequest(t *testing.T) {
+	if len(TestAmf.TestAmf.UePool) == 0 {
+		TestCreateUEContextRequest(t)
+	}
+
+	/* init ue info*/
+	self := amf_context.AMF_Self()
+	supi := "imsi-0010202"
+	ue := self.NewAmfUe(supi)
+	if err := gmm.InitAmfUeSm(ue); err != nil {
+		t.Errorf("InitAmfUeSm error: %v", err.Error())
+	}
+	mobileIdentity5GS := nasType.MobileIdentity5GS{
+		Len:    12, // suci
+		Buffer: []uint8{0x01, 0x02, 0xf8, 0x39, 0xf0, 0xff, 0x00, 0x00, 0x00, 0x00, 0x47, 0x78},
+	}
+	registrationRequest := nasTestpacket.GetRegistrationRequestWith5GMM(nasMessage.RegistrationType5GSInitialRegistration, mobileIdentity5GS, nil, nil)
+	ue.RegistrationRequest = nasMessage.NewRegistrationRequest(0)
+	ue.RegistrationRequest.DecodeRegistrationRequest(&registrationRequest)
+
+	ueContextTransferRspData, problemDetails, err := amf_consumer.UEContextTransferRequest(ue, "https://localhost:29518", models.AccessType__3_GPP_ACCESS, models.TransferReason_INIT_REG)
+	if err != nil {
+		t.Error(err)
+	} else if problemDetails != nil {
+		t.Errorf("Ue Context Transfer Request Failed: %+v", problemDetails)
+	} else {
+		TestAmf.Config.Dump(ueContextTransferRspData)
 	}
 }

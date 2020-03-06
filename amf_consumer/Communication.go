@@ -1,7 +1,10 @@
 package amf_consumer
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
+	"fmt"
 	"gofree5gc/lib/Namf_Communication"
 	"gofree5gc/lib/nas/nasMessage"
 	"gofree5gc/lib/openapi/common"
@@ -116,8 +119,8 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ueContex
 	}
 	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(context.TODO(), ue.Guti, req)
 	if localErr == nil {
-		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *res.JsonData)
 		ueContextCreatedData = res.JsonData
+		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
 			err = localErr
@@ -126,7 +129,7 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ueContex
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: erver no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", targetAmfUri)
 	}
 	return
 }
@@ -162,12 +165,51 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ngapCau
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: erver no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", targetAmfUri)
 	}
 	return
 }
 
-func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
+func UEContextTransferRequest(ue *amf_context.AmfUe, targetAmfUri string, accessType models.AccessType, transferReason models.TransferReason) (ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
+	configuration := Namf_Communication.NewConfiguration()
+	configuration.SetBasePath(targetAmfUri)
+	client := Namf_Communication.NewAPIClient(configuration)
+
+	ueContextTransferReqData := models.UeContextTransferReqData{
+		Reason:     transferReason,
+		AccessType: accessType,
+	}
+
+	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
+		var buf bytes.Buffer
+		ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
+		ueContextTransferReqData.RegRequest = &models.N1MessageContainer{
+			N1MessageClass: models.N1MessageClass__5_GMM,
+			N1MessageContent: &models.RefToBinaryData{
+				ContentId: hex.EncodeToString(buf.Bytes()),
+			},
+		}
+	}
+
+	req := models.UeContextTransferRequest{
+		JsonData: &ueContextTransferReqData,
+	}
+	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti) // guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
+
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
+	if localErr == nil {
+		ueContextTransferRspData = res.JsonData
+		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
+	} else if httpResp != nil {
+		if httpResp.Status != localErr.Error() {
+			err = localErr
+			return
+		}
+		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problemDetails = &problem
+	} else {
+		err = common.ReportError("%s: server no response", targetAmfUri)
+	}
 	return
 }
 
