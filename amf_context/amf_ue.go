@@ -512,3 +512,8 @@ func (ue *AmfUe) ClearRegistrationRequestData() {
 	ue.IdentityTypeUsedForRegistration = 0
 	ue.ServingAmfChanged = false
 }
+
+func (ue *AmfUe) RemoveAmPolicyAssociation() {
+	ue.AmPolicyAssociation = nil
+	ue.PolicyAssociationId = ""
+}

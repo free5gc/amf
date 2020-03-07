@@ -2049,9 +2049,6 @@ func HandleDeregistrationRequest(ue *amf_context.AmfUe, anType models.AccessType
 				logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
 			}
 		}
-		// delete am policy context
-		ue.AmPolicyAssociation = nil
-		ue.PolicyAssociationId = ""
 	}
 
 	// if Deregistration type is not switch-off, send Deregistration Accept

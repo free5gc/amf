@@ -213,7 +213,26 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, targetAmfUri string, access
 	return
 }
 
-func RegistrationCompleteNotify(ue *amf_context.AmfUe) (problemDetails models.ProblemDetails, err error) {
+// This operation is called "RegistrationCompleteNotify" at TS 23.502
+func RegistrationStatusUpdate(ue *amf_context.AmfUe, targetAmfUri string, request models.UeRegStatusUpdateReqData) (regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
+	configuration := Namf_Communication.NewConfiguration()
+	configuration.SetBasePath(targetAmfUri)
+	client := Namf_Communication.NewAPIClient(configuration)
+
+	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(context.TODO(), ueContextId, request)
+	if localErr == nil {
+		regStatusTransferComplete = res.RegStatusTransferComplete
+	} else if httpResp != nil {
+		if httpResp.Status != localErr.Error() {
+			err = localErr
+			return
+		}
+		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problemDetails = &problem
+	} else {
+		err = common.ReportError("%s: server no response", targetAmfUri)
+	}
 	return
 }
 

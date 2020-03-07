@@ -152,7 +152,4 @@ func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.Han
 	} else if err != nil {
 		logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
 	}
-
-	ue.PolicyAssociationId = ""
-	ue.AmPolicyAssociation = nil
 }

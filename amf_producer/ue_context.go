@@ -2,6 +2,7 @@ package amf_producer
 
 import (
 	"gofree5gc/lib/openapi/models"
+	"gofree5gc/src/amf/amf_consumer"
 	"gofree5gc/src/amf/amf_context"
 	"gofree5gc/src/amf/amf_handler/amf_message"
 	"gofree5gc/src/amf/gmm"
@@ -380,21 +381,9 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 	var ok bool
 	amfSelf := amf_context.AMF_Self()
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
-			problem.Status = 404
-			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
-		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
-			if ue1.Pei == ueContextId {
-				ue = ue1
-				break
-			}
-		}
-		if ue == nil {
+	if strings.HasPrefix(ueContextId, "5g-guti") {
+		guti := ueContextId[strings.LastIndex(ueContextId, "-")+1:]
+		if ue, ok = amfSelf.GutiPool[guti]; !ok {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
@@ -410,15 +399,33 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 	if ue != nil {
 		if body.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
 			// remove the individual ueContext resource and release any PDU session(s)
-			ue.Remove()
-			if body.PcfReselectedInd {
-				// TODO: send terminate AM Policy Association to the old PCF
-			} else {
-
+			for _, pduSessionId := range body.ToReleaseSessionList {
+				cause := models.Cause_REL_DUE_TO_SLICE_NOT_AVAILABLE
+				causeAll := &amf_context.CauseAll{
+					Cause: &cause,
+				}
+				smContextReleaseRequest := amf_consumer.BuildReleaseSmContextRequest(ue, causeAll, "", nil)
+				problemDetails, err := amf_consumer.SendReleaseSmContextRequest(ue, pduSessionId, smContextReleaseRequest)
+				if problemDetails != nil {
+					logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problemDetails)
+				} else if err != nil {
+					logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Error[%v]", pduSessionId, err.Error())
+				}
 			}
+
+			if body.PcfReselectedInd {
+				problemDetails, err := amf_consumer.AMPolicyControlDelete(ue)
+				if problemDetails != nil {
+					logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
+				} else if err != nil {
+					logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
+				}
+			}
+
+			ue.Remove()
 		} else {
 			// NOT_TRANSFERRED
-
+			logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")
 		}
 	}
 	response.RegStatusTransferComplete = true

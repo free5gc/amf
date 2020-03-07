@@ -105,3 +105,20 @@ func TestUEContextTransferRequest(t *testing.T) {
 		TestAmf.Config.Dump(ueContextTransferRspData)
 	}
 }
+
+func TestRegistrationStatusUpdate(t *testing.T) {
+	if len(TestAmf.TestAmf.UePool) == 0 {
+		TestCreateUEContextRequest(t)
+	}
+
+	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ueRegStatusUpdateReqData := TestComm.ConsumerRegistrationStatusUpdateTable[TestComm.RegistrationStatusUpdate200]
+	regStatusTransferComplete, problemDetails, err := amf_consumer.RegistrationStatusUpdate(ue, "https://localhost:29518", ueRegStatusUpdateReqData)
+	if err != nil {
+		t.Error(err)
+	} else if problemDetails != nil {
+		t.Errorf("Registration Status Update Failed: %+v", problemDetails)
+	} else {
+		TestAmf.Config.Dump(regStatusTransferComplete)
+	}
+}

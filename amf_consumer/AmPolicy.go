@@ -117,7 +117,7 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 
 	httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdDelete(context.Background(), ue.PolicyAssociationId)
 	if localErr == nil {
-		return
+		ue.RemoveAmPolicyAssociation()
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
 			err = localErr
