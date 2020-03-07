@@ -40,6 +40,8 @@ type AmfUe struct {
 	RegistrationRequest             *nasMessage.RegistrationRequest
 	ServingAmfChanged               bool
 	DeregistrationTargetAccessType  uint8 // only used when deregistration procedure is initialized by the network
+	/* Used for AMF relocation */
+	TargetAmfUri string
 	/* Ue Identity*/
 	PlmnId              models.PlmnId
 	Suci                string

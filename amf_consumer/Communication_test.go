@@ -39,7 +39,8 @@ func TestCreateUEContextRequest(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	ueContextCreateData := TestComm.ConsumerAMFCreateUEContextRequsetTable[TestComm.CreateUEContext201]
-	ueContextCreatedData, problemDetails, err := amf_consumer.CreateUEContextRequest(ue, "https://localhost:29518", *ueContextCreateData.JsonData)
+	ue.TargetAmfUri = "https://localhost:29518"
+	ueContextCreatedData, problemDetails, err := amf_consumer.CreateUEContextRequest(ue, *ueContextCreateData.JsonData)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -68,7 +69,8 @@ func TestReleaseUEContextRequest(t *testing.T) {
 		Group: int32(ngapType.CausePresentProtocol),
 		Value: int32(ngapType.CauseProtocolPresentUnspecified),
 	}
-	problemDetails, err := amf_consumer.ReleaseUEContextRequest(ue, "https://localhost:29518", ngapCause)
+	ue.TargetAmfUri = "https://localhost:29518"
+	problemDetails, err := amf_consumer.ReleaseUEContextRequest(ue, ngapCause)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -95,8 +97,8 @@ func TestUEContextTransferRequest(t *testing.T) {
 	registrationRequest := nasTestpacket.GetRegistrationRequestWith5GMM(nasMessage.RegistrationType5GSInitialRegistration, mobileIdentity5GS, nil, nil)
 	ue.RegistrationRequest = nasMessage.NewRegistrationRequest(0)
 	ue.RegistrationRequest.DecodeRegistrationRequest(&registrationRequest)
-
-	ueContextTransferRspData, problemDetails, err := amf_consumer.UEContextTransferRequest(ue, "https://localhost:29518", models.AccessType__3_GPP_ACCESS, models.TransferReason_INIT_REG)
+	ue.TargetAmfUri = "https://localhost:29518"
+	ueContextTransferRspData, problemDetails, err := amf_consumer.UEContextTransferRequest(ue, models.AccessType__3_GPP_ACCESS, models.TransferReason_INIT_REG)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -113,7 +115,8 @@ func TestRegistrationStatusUpdate(t *testing.T) {
 
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	ueRegStatusUpdateReqData := TestComm.ConsumerRegistrationStatusUpdateTable[TestComm.RegistrationStatusUpdate200]
-	regStatusTransferComplete, problemDetails, err := amf_consumer.RegistrationStatusUpdate(ue, "https://localhost:29518", ueRegStatusUpdateReqData)
+	ue.TargetAmfUri = "https://localhost:29518"
+	regStatusTransferComplete, problemDetails, err := amf_consumer.RegistrationStatusUpdate(ue, ueRegStatusUpdateReqData)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

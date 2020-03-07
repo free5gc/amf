@@ -109,9 +109,9 @@ func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTrig
 	return
 }
 
-func CreateUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ueContextCreateData models.UeContextCreateData) (ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error) {
+func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(targetAmfUri)
+	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	req := models.CreateUeContextRequest{
@@ -129,14 +129,14 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ueContex
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
 
-func ReleaseUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ngapCause models.NgApCause) (problemDetails *models.ProblemDetails, err error) {
+func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(targetAmfUri)
+	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	var ueContextId string
@@ -165,14 +165,14 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, targetAmfUri string, ngapCau
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
 
-func UEContextTransferRequest(ue *amf_context.AmfUe, targetAmfUri string, accessType models.AccessType, transferReason models.TransferReason) (ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
+func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(targetAmfUri)
+	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextTransferReqData := models.UeContextTransferReqData{
@@ -208,15 +208,15 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, targetAmfUri string, access
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
 
 // This operation is called "RegistrationCompleteNotify" at TS 23.502
-func RegistrationStatusUpdate(ue *amf_context.AmfUe, targetAmfUri string, request models.UeRegStatusUpdateReqData) (regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
+func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(targetAmfUri)
+	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
@@ -231,7 +231,7 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, targetAmfUri string, reques
 		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", targetAmfUri)
+		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
