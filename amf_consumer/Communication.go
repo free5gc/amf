@@ -235,11 +235,3 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, targetAmfUri string, reques
 	}
 	return
 }
-
-func N2InfoNotify(ue *amf_context.AmfUe) (problemDetails models.ProblemDetails, err error) {
-	return
-}
-
-func N1MessageNotify(ue *amf_context.AmfUe) (problemDetails models.ProblemDetails, err error) {
-	return
-}

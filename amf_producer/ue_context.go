@@ -202,13 +202,7 @@ func HandleUEContextTransferRequest(httpChannel chan amf_message.HandlerResponse
 		}
 	} else if strings.HasPrefix(ueContextId, "5g-guti") {
 		guti := ueContextId[strings.LastIndex(ueContextId, "-")+1:]
-		for _, ue1 := range amfSelf.UePool {
-			if ue1.Guti == guti {
-				ue = ue1
-				break
-			}
-		}
-		if ue == nil {
+		if ue, ok = amfSelf.GutiPool[guti]; !ok {
 			problem.Status = 403
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
