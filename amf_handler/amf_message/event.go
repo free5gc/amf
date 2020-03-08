@@ -29,4 +29,5 @@ const (
 	EventGMMT3522
 	EventAmPolicyControlUpdateNotifyUpdate
 	EventAmPolicyControlUpdateNotifyTerminate
+	EventOAMRegisteredUEContext
 )
