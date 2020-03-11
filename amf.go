@@ -1,12 +1,14 @@
 package main
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 	"gofree5gc/src/amf/amf_service"
 	"gofree5gc/src/amf/logger"
+	"gofree5gc/src/amf/version"
 	"gofree5gc/src/app"
 	"os"
+
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 var AMF = &amf_service.AMF{}
@@ -21,6 +23,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "amf"
 	appLog.Infoln(app.Name)
+	appLog.Infoln("AMF version: ", version.GetVersion())
 	app.Usage = "-free5gccfg common configuration file -amfcfg amf configuration file"
 	app.Action = action
 	app.Flags = AMF.GetCliCmd()
