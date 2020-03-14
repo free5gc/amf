@@ -15,10 +15,144 @@ import (
 
 func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId, sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation, n2NotifyUri string, ngapCause *models.NgApCause) (ueContextCreateData models.UeContextCreateData) {
 
-	ueContext := models.UeContext{
-		Supi:          ue.Supi,
-		SupiUnauthInd: ue.UnauthenticatedSupi,
+	ueContext := BuildUeContextModel(ue)
+	ueContextCreateData.UeContext = &ueContext
+	ueContextCreateData.TargetId = &targetRanId
+	ueContextCreateData.SourceToTargetData = &sourceToTargetData
+	ueContextCreateData.PduSessionList = pduSessionList
+	ueContextCreateData.N2NotifyUri = n2NotifyUri
+
+	if ue.UeRadioCapability != "" {
+		ueContextCreateData.UeRadioCapability = &models.N2InfoContent{
+			NgapData: &models.RefToBinaryData{
+				ContentId: ue.UeRadioCapability,
+			},
+		}
 	}
+	ueContextCreateData.NgapCause = ngapCause
+	return
+}
+
+func CopyUeContextToUe(ue *amf_context.AmfUe, ueContext models.UeContext) {
+	if ueContext.Supi != "" {
+		ue.Supi = ueContext.Supi
+		ue.UnauthenticatedSupi = ueContext.SupiUnauthInd
+	}
+
+	if ueContext.Pei != "" {
+		ue.Pei = ueContext.Pei
+	}
+
+	if ueContext.UdmGroupId != "" {
+		ue.UdmGroupId = ueContext.UdmGroupId
+	}
+
+	if ueContext.AusfGroupId != "" {
+		ue.AusfGroupId = ueContext.AusfGroupId
+	}
+
+	if ueContext.RoutingIndicator != "" {
+		ue.RoutingIndicator = ueContext.RoutingIndicator
+	}
+
+	if ueContext.SubUeAmbr != nil {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
+			ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
+		}
+
+		subAmbr := ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr
+		subAmbr.Uplink = ueContext.SubUeAmbr.Uplink
+		subAmbr.Downlink = ueContext.SubUeAmbr.Downlink
+	}
+
+	if ueContext.SubRfsp != 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.RfspIndex = ueContext.SubRfsp
+	}
+
+	if len(ueContext.RestrictedRatList) > 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.RatRestrictions = ueContext.RestrictedRatList
+	}
+
+	if len(ueContext.ForbiddenAreaList) > 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.ForbiddenAreas = ueContext.ForbiddenAreaList
+	}
+
+	if ueContext.ServiceAreaRestriction != nil {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.ServiceAreaRestriction = ueContext.ServiceAreaRestriction
+	}
+
+	if ueContext.SeafData != nil {
+		seafData := ueContext.SeafData
+
+		ue.NgKsi = *seafData.NgKsi
+		if seafData.KeyAmf != nil {
+			if seafData.KeyAmf.KeyType == models.KeyAmfType_KAMF {
+				ue.Kamf = seafData.KeyAmf.KeyVal
+			}
+		}
+		ue.NH, _ = hex.DecodeString(seafData.Nh)
+		ue.NCC = uint8(seafData.Ncc)
+	}
+
+	if ueContext.PcfId != "" {
+		ue.PcfId = ueContext.PcfId
+	}
+
+	if ueContext.PcfAmPolicyUri != "" {
+		ue.AmPolicyUri = ueContext.PcfAmPolicyUri
+	}
+
+	if len(ueContext.AmPolicyReqTriggerList) > 0 {
+		if ue.AmPolicyAssociation == nil {
+			ue.AmPolicyAssociation = new(models.PolicyAssociation)
+		}
+		for _, trigger := range ueContext.AmPolicyReqTriggerList {
+			switch trigger {
+			case models.AmPolicyReqTrigger_LOCATION_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_LOC_CH)
+			case models.AmPolicyReqTrigger_PRA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_PRA_CH)
+			case models.AmPolicyReqTrigger_SARI_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_SERV_AREA_CH)
+			case models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_RFSP_CH)
+			}
+		}
+	}
+
+	if len(ueContext.SessionContextList) > 0 {
+		for _, pduSessionContext := range ueContext.SessionContextList {
+			smContext := amf_context.SmContext{
+				PduSessionContext: &pduSessionContext,
+			}
+			ue.SmContextList[pduSessionContext.PduSessionId] = &smContext
+		}
+	}
+
+	if ueContext.TraceData != nil {
+		ue.TraceData = ueContext.TraceData
+	}
+}
+
+func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
+
+	ueContext.Supi = ue.Supi
+	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 
 	if ue.Gpsi != "" {
 		ueContext.GpsiList = append(ueContext.GpsiList, ue.Gpsi)
@@ -75,21 +209,6 @@ func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTar
 	if ue.TraceData != nil {
 		ueContext.TraceData = ue.TraceData
 	}
-
-	ueContextCreateData.UeContext = &ueContext
-	ueContextCreateData.TargetId = &targetRanId
-	ueContextCreateData.SourceToTargetData = &sourceToTargetData
-	ueContextCreateData.PduSessionList = pduSessionList
-	ueContextCreateData.N2NotifyUri = n2NotifyUri
-
-	if ue.UeRadioCapability != "" {
-		ueContextCreateData.UeRadioCapability = &models.N2InfoContent{
-			NgapData: &models.RefToBinaryData{
-				ContentId: ue.UeRadioCapability,
-			},
-		}
-	}
-	ueContextCreateData.NgapCause = ngapCause
 	return
 }
 

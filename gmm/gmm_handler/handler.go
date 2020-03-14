@@ -494,6 +494,7 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 	amf_util.ClearT3513(ue)
 	amf_util.ClearT3565(ue)
 
+	var guamiFromUeGuti models.Guami
 	amfSelf := amf_context.AMF_Self()
 
 	if ue == nil {
@@ -536,12 +537,12 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 		logger.GmmLog.Debugf("SUCI: %s", ue.Suci)
 		ue.IsCleartext = true
 	case nasMessage.MobileIdentity5GSType5gGuti:
-		guami, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
+		guamiFromUeGuti, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
 		ue.Guti = guti
 		logger.GmmLog.Debugf("GUTI: %s", guti)
 
 		servedGuami := amfSelf.ServedGuamiList[0]
-		if reflect.DeepEqual(guami, servedGuami) {
+		if reflect.DeepEqual(guamiFromUeGuti, servedGuami) {
 			logger.GmmLog.Debugf("Serving AMF has changed")
 			ue.ServingAmfChanged = true
 		} else {
@@ -659,6 +660,38 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 	// new AMF may invoke Namf_Communication_UEContextTransfer to old AMF, including the complete registration request nas
 	// msg, to request UE's SUPI & UE Context
 	if ue.ServingAmfChanged {
+		var transferReason models.TransferReason
+		switch ue.RegistrationType5GS {
+		case nasMessage.RegistrationType5GSInitialRegistration:
+			transferReason = models.TransferReason_INIT_REG
+		case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
+			fallthrough
+		case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
+			transferReason = models.TransferReason_MOBI_REG
+		}
+
+		searchOpt := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
+			Guami: optional.NewInterface(guamiFromUeGuti),
+		}
+		err := amf_consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NfType_AMF, models.NfType_AMF, &searchOpt)
+		if err != nil {
+			logger.GmmLog.Errorf("[GMM] %+v", err)
+			return err
+		}
+
+		ueContextTransferRspData, problemDetails, err := amf_consumer.UEContextTransferRequest(ue, anType, transferReason)
+		if problemDetails != nil {
+			if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
+				logger.GmmLog.Warnf("Can not retrive UE Context from old AMF[Cause: %s]", problemDetails.Cause)
+			} else {
+				logger.GmmLog.Warnf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
+			}
+			ue.SecurityContextAvailable = false // need to start authentication procedure later
+		} else if err != nil {
+			logger.GmmLog.Errorf("UE Context Transfer Request Error[%+v]", err)
+		} else {
+			amf_consumer.CopyUeContextToUe(ue, *ueContextTransferRspData.UeContext)
+		}
 	}
 	return nil
 }
@@ -718,6 +751,20 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 	// TODO (step 10 optional): send Namf_Communication_RegistrationCompleteNotify to old AMF if need
 	if ue.ServingAmfChanged {
 		// If the AMF has changed the new AMF notifies the old AMF that the registration of the UE in the new AMF is completed
+		req := models.UeRegStatusUpdateReqData{
+			TransferStatus: models.UeContextTransferStatus_TRANSFERRED,
+		}
+		// TODO: based on locol policy, decide if need to change serving PCF for UE
+		regStatusTransferComplete, problemDetails, err := amf_consumer.RegistrationStatusUpdate(ue, req)
+		if problemDetails != nil {
+			logger.GmmLog.Errorf("Registration Status Update Failed Problem[%+v]", problemDetails)
+		} else if err != nil {
+			logger.GmmLog.Errorf("Registration Status Update Error[%+v]", err)
+		} else {
+			if regStatusTransferComplete {
+				logger.GmmLog.Infof("[AMF] Registration Status Transfer complete")
+			}
+		}
 	}
 
 	if len(ue.Pei) == 0 {
