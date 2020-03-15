@@ -42,7 +42,8 @@ type AmfUe struct {
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
 	/* Used for AMF relocation */
-	TargetAmfUri string
+	TargetAmfProfile *models.NfProfile
+	TargetAmfUri     string
 	/* Ue Identity*/
 	PlmnId              models.PlmnId
 	Suci                string

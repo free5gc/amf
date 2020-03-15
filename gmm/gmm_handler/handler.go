@@ -1,6 +1,7 @@
 package gmm_handler
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"gofree5gc/lib/nas"
 	"gofree5gc/lib/nas/nasConvert"
 	"gofree5gc/lib/nas/nasMessage"
+	"gofree5gc/lib/ngap/ngapConvert"
 	"gofree5gc/lib/ngap/ngapType"
 	"gofree5gc/lib/openapi/models"
 	"gofree5gc/src/amf/amf_consumer"
@@ -23,6 +25,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/antihax/optional"
@@ -1310,6 +1313,7 @@ func getSubscribedNssai(ue *amf_context.AmfUe) {
 	}
 }
 
+// TS 23.502 4.2.2.2.3 Registration with AMF Re-allocation
 func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error {
 
 	amfSelf := amf_context.AMF_Self()
@@ -1348,6 +1352,7 @@ func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error
 				}
 			}
 
+			// Step 4
 			problemDetails, err := amf_consumer.NSSelectionGetForRegistration(ue, requestedNssai)
 			if problemDetails != nil {
 				logger.GmmLog.Errorf("NSSelection Get Failed Problem[%+v]", problemDetails)
@@ -1358,11 +1363,81 @@ func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error
 				gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
 				return fmt.Errorf("Handle Requested Nssai of UE failed")
 			}
+
+			// Step 5: Initial AMF send Namf_Communication_RegistrationCompleteNotify to old AMF
+			req := models.UeRegStatusUpdateReqData{
+				TransferStatus: models.UeContextTransferStatus_NOT_TRANSFERRED,
+			}
+			_, problemDetails, err = amf_consumer.RegistrationStatusUpdate(ue, req)
+			if problemDetails != nil {
+				logger.GmmLog.Errorf("Registration Status Update Failed Problem[%+v]", problemDetails)
+			} else if err != nil {
+				logger.GmmLog.Errorf("Registration Status Update Error[%+v]", err)
+			}
+
+			// Step 6
+			searchTargetAmfQueryParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{}
+			if ue.NetworkSliceInfo != nil {
+				netwotkSliceInfo := ue.NetworkSliceInfo
+				if netwotkSliceInfo.TargetAmfSet != "" {
+					// TS 29.531
+					// TargetAmfSet format: ^[0-9]{3}-[0-9]{2-3}-[A-Fa-f0-9]{2}-[0-3][A-Fa-f0-9]{2}$
+					// mcc-mnc-amfRegionId(8 bit)-AmfSetId(10 bit)
+					targetAmfSetToken := strings.Split(netwotkSliceInfo.TargetAmfSet, "-")
+					guami := amfSelf.ServedGuamiList[0]
+					targetAmfPlmnId := models.PlmnId{
+						Mcc: targetAmfSetToken[0],
+						Mnc: targetAmfSetToken[1],
+					}
+
+					if !reflect.DeepEqual(guami.PlmnId, targetAmfPlmnId) {
+						searchTargetAmfQueryParam.TargetPlmnList = optional.NewInterface(amf_util.MarshToJsonString([]models.PlmnId{targetAmfPlmnId}))
+						searchTargetAmfQueryParam.RequesterPlmnList = optional.NewInterface(amf_util.MarshToJsonString([]models.PlmnId{*guami.PlmnId}))
+					}
+
+					searchTargetAmfQueryParam.AmfRegionId = optional.NewString(targetAmfSetToken[2])
+					searchTargetAmfQueryParam.AmfSetId = optional.NewString(targetAmfSetToken[3])
+				} else if len(netwotkSliceInfo.CandidateAmfList) > 0 {
+					// TODO: select candidate Amf based on local poilcy
+					searchTargetAmfQueryParam.TargetNfInstanceId = optional.NewInterface(netwotkSliceInfo.CandidateAmfList[0])
+				}
+			}
+
+			err = amf_consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NfType_AMF, models.NfType_AMF, &searchTargetAmfQueryParam)
+			if err == nil {
+				// Condition (A) Step 7: initial AMF find Target AMF via NRF -> Send Namf_Communication_N1MessageNotify to Target AMF
+				ueContext := amf_consumer.BuildUeContextModel(ue)
+				registerContext := models.RegistrationContextContainer{
+					UeContext:        &ueContext,
+					AnType:           anType,
+					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
+					RanNodeId:        ue.RanUe[anType].Ran.RanId,
+					UserLocation:     &ue.Location,
+					RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
+					UeContextRequest: ue.RanUe[anType].UeContextRequest,
+					AnN2IPv4Addr:     ue.RanUe[anType].Ran.Conn.RemoteAddr().String(),
+					AllowedNssai: &models.AllowedNssai{
+						AllowedSnssaiList: ue.AllowedNssai[anType],
+						AccessType:        anType,
+					},
+				}
+				if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) > 0 {
+					registerContext.RejectedNssaiInPlmn = ue.NetworkSliceInfo.RejectedNssaiInPlmn
+				}
+				if len(ue.NetworkSliceInfo.RejectedNssaiInTa) > 0 {
+					registerContext.RejectedNssaiInTa = ue.NetworkSliceInfo.RejectedNssaiInTa
+				}
+
+				var n1Message bytes.Buffer
+				ue.RegistrationRequest.EncodeRegistrationRequest(&n1Message)
+				amf_producer_callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
+			} else {
+				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
+				allowedNssaiNgap := ngapConvert.AllowedNssaiToNgap(ue.AllowedNssai[anType])
+				ngap_message.SendRerouteNasRequest(ue, anType, nil, ue.RanUe[anType].InitialUEMessage, &allowedNssaiNgap)
+			}
+			return nil
 		}
-		// TODO: if current AMF can not serve UE, do the following things:
-		//   (optional): Namf_Communication_RegistrationCompleteNotify(failure cause) to old AMF if amf decides to reroute nas msg to another AMF
-		//   (optional): Nnrf_NfDiscovery_Request(NF Type, Amf Set): if initial AMF does not have target AMF address
-		//   (if decide to reroute): Namf_Communication_N1MessageNotify to target AMF or Send Reroute Nas Request to RAN
 	}
 
 	// if registration request has no requested nssai, or non of snssai in requested nssai is permitted by nssf

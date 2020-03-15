@@ -86,6 +86,7 @@ func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, target
 	// select the first NSSF, TODO: select base on other info
 	var amfUri string
 	for _, nfProfile := range resp.NfInstances {
+		ue.TargetAmfProfile = &nfProfile
 		amfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NAMF_COMM, models.NfServiceStatus_REGISTERED)
 		if amfUri != "" {
 			break

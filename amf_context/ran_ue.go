@@ -53,6 +53,10 @@ type RanUe struct {
 	Trsr string
 	/* Ue Context Release Action */
 	ReleaseAction RelAction
+	/* context used for AMF Re-allocation procedure */
+	InitialUEMessage      []byte
+	RRCEstablishmentCause string
+	UeContextRequest      bool
 }
 
 func (ranUe *RanUe) Remove() error {

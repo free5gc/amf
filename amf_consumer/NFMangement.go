@@ -58,6 +58,13 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 	if len(service) > 0 {
 		profile.NfServices = &service
 	}
+
+	defaultNotificationSubscription := models.DefaultNotificationSubscription{
+		CallbackUri:      fmt.Sprintf("%s/namf-callback/v1/n1-message-notify", context.GetIPv4Uri()),
+		NotificationType: models.NotificationType_N1_MESSAGES,
+		N1MessageClass:   models.N1MessageClass__5_GMM,
+	}
+	profile.DefaultNotificationSubscriptions = append(profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
 	return
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"gofree5gc/lib/aper"
 	"gofree5gc/lib/nas/nasMessage"
+	"gofree5gc/lib/ngap"
 	"gofree5gc/lib/ngap/ngapConvert"
 	"gofree5gc/lib/ngap/ngapType"
 	"gofree5gc/lib/openapi/models"
@@ -15,6 +16,7 @@ import (
 	"gofree5gc/src/amf/gmm/gmm_message"
 	"gofree5gc/src/amf/gmm/gmm_state"
 	"gofree5gc/src/amf/logger"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -1005,10 +1007,12 @@ func HandleInitialUEMessage(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) 
 
 	if rRCEstablishmentCause != nil {
 		Ngaplog.Tracef("[Initial UE Message] RRC Establishment Cause[%d]", rRCEstablishmentCause.Value)
+		ranUe.RRCEstablishmentCause = strconv.Itoa(int(rRCEstablishmentCause.Value))
 	}
 
 	if uEContextRequest != nil {
 		Ngaplog.Debug("Trigger initial Context Setup procedure")
+		ranUe.UeContextRequest = true
 		// TODO: Trigger Initial Context Setup procedure
 	}
 
@@ -1024,6 +1028,8 @@ func HandleInitialUEMessage(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) 
 		// TODO: AMF should use it as defined in TS 23.502
 	}
 
+	pdu, _ := ngap.Encoder(*message)
+	ranUe.InitialUEMessage = pdu
 	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, nASPDU.Value)
 }
 
