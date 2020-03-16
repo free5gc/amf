@@ -38,8 +38,11 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	if localErr == nil {
 		locationHeader := httpResp.Header.Get("Location")
 		logger.ConsumerLog.Debugf("location header: %+v", locationHeader)
+		ue.AmPolicyUri = locationHeader
+
 		re := regexp.MustCompile("/policies/.*")
 		match := re.FindStringSubmatch(locationHeader)
+
 		ue.PolicyAssociationId = match[0][10:]
 		ue.AmPolicyAssociation = &res
 
@@ -114,7 +117,7 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 
 	httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdDelete(context.Background(), ue.PolicyAssociationId)
 	if localErr == nil {
-		return
+		ue.RemoveAmPolicyAssociation()
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
 			err = localErr
