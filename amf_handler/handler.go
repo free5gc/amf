@@ -236,6 +236,8 @@ func Handle() {
 				case amf_message.EventOAMRegisteredUEContext:
 					supi := msg.HTTPRequest.Params["supi"]
 					amf_producer.HandleOAMRegisteredUEContext(msg.ResponseChan, supi)
+				case amf_message.EventN1MessageNotify:
+					amf_producer.HandleN1MessageNotify(msg.ResponseChan, msg.HTTPRequest.Body.(models.N1MessageNotify))
 				default:
 					HandlerLog.Warnf("Event[%d] has not implemented", msg.Event)
 				}

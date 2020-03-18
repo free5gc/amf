@@ -2,7 +2,6 @@ package amf_producer_callback
 
 import (
 	"context"
-	"encoding/hex"
 	"github.com/sirupsen/logrus"
 	"gofree5gc/lib/Namf_Communication"
 	"gofree5gc/lib/openapi/models"
@@ -88,10 +87,12 @@ func SendN1MessageNotifyAtAMFReAllocation(ue *amf_context.AmfUe, n1Msg []byte, r
 			N1MessageContainer: &models.N1MessageContainer{
 				N1MessageClass: models.N1MessageClass__5_GMM,
 				N1MessageContent: &models.RefToBinaryData{
-					ContentId: hex.EncodeToString(n1Msg),
+					ContentId: "n1Msg",
 				},
 			},
+			RegistrationCtxtContainer: registerContext,
 		},
+		BinaryDataN1Message: n1Msg,
 	}
 
 	var callbackUri string
