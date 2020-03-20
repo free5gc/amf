@@ -731,7 +731,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 		return fmt.Errorf("AmfUe is nil")
 	}
 
-	if len(ue.Suci) == 0 {
+	if ue.Supi == "" && len(ue.Suci) == 0 {
 		gmm_message.SendIdentityRequest(ue.RanUe[anType], nasMessage.MobileIdentity5GSTypeSuci)
 		return nil
 	}
@@ -946,7 +946,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 		return fmt.Errorf("AmfUe is nil")
 	}
 
-	if len(ue.Suci) == 0 {
+	if ue.Supi == "" && len(ue.Suci) == 0 {
 		gmm_message.SendIdentityRequest(ue.RanUe[anType], nasMessage.MobileIdentity5GSTypeSuci)
 		return nil
 	}
@@ -1412,6 +1412,7 @@ func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error
 					AnType:           anType,
 					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
 					RanNodeId:        ue.RanUe[anType].Ran.RanId,
+					InitialAmfName:   amfSelf.Name,
 					UserLocation:     &ue.Location,
 					RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
 					UeContextRequest: ue.RanUe[anType].UeContextRequest,
@@ -1879,9 +1880,9 @@ func sendServiceAccept(initCxt bool, ue *amf_context.AmfUe, anType models.Access
 			return err
 		}
 		if len(ctxList.List) != 0 {
-			ngap_message.SendInitialContextSetupRequest(ue, anType, nasPdu, nil, &ctxList, nil, nil, nil)
+			ngap_message.SendInitialContextSetupRequest(ue, anType, nasPdu, &ctxList, nil, nil, nil)
 		} else {
-			ngap_message.SendInitialContextSetupRequest(ue, anType, nasPdu, nil, nil, nil, nil, nil)
+			ngap_message.SendInitialContextSetupRequest(ue, anType, nasPdu, nil, nil, nil, nil)
 		}
 	} else if len(suList.List) != 0 {
 		nasPdu, err := gmm_message.BuildServiceAccept(ue, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)

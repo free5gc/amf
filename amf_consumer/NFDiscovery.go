@@ -83,7 +83,7 @@ func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, target
 		return
 	}
 
-	// select the first NSSF, TODO: select base on other info
+	// select the first AMF, TODO: select base on other info
 	var amfUri string
 	for _, nfProfile := range resp.NfInstances {
 		ue.TargetAmfProfile = &nfProfile

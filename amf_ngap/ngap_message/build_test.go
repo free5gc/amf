@@ -400,8 +400,9 @@ func TestBuildInitialContextSetupRequest(t *testing.T) {
 			"000102",
 		},
 	})
+	ue.RanUe[models.AccessType__3_GPP_ACCESS].OldAmfName = "OldAMF"
 
-	pkg, err := ngap_message.BuildInitialContextSetupRequest(ue, models.AccessType__3_GPP_ACCESS, []byte{0x01, 0x02}, nil, nil, nil, nil, nil)
+	pkg, err := ngap_message.BuildInitialContextSetupRequest(ue, models.AccessType__3_GPP_ACCESS, []byte{0x01, 0x02}, nil, nil, nil, nil)
 
 	if err != nil {
 		t.Errorf("Encode is FAILED: %+v", err)

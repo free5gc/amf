@@ -268,8 +268,8 @@ func TestSendInitialContextSetupRequest(t *testing.T) {
 			"000102",
 		},
 	})
-
-	ngap_message.SendInitialContextSetupRequest(ue, ue.GetAnType(), nil, nil, nil, nil, nil, nil)
+	ue.RanUe[models.AccessType__3_GPP_ACCESS].OldAmfName = "OldAMF"
+	ngap_message.SendInitialContextSetupRequest(ue, ue.GetAnType(), nil, nil, nil, nil, nil)
 }
 
 func TestSendUEContextModificationRequest(t *testing.T) {
