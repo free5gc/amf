@@ -693,7 +693,7 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 		} else if err != nil {
 			logger.GmmLog.Errorf("UE Context Transfer Request Error[%+v]", err)
 		} else {
-			amf_consumer.CopyUeContextToUe(ue, *ueContextTransferRspData.UeContext)
+			ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
 		}
 	}
 	return nil
