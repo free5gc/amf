@@ -234,7 +234,8 @@ func Handle() {
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
 					amf_producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))
 				case amf_message.EventOAMRegisteredUEContext:
-					amf_producer.HandleOAMRegisteredUEContext(msg.ResponseChan)
+					supi := msg.HTTPRequest.Params["supi"]
+					amf_producer.HandleOAMRegisteredUEContext(msg.ResponseChan, supi)
 				default:
 					HandlerLog.Warnf("Event[%d] has not implemented", msg.Event)
 				}

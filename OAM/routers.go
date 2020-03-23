@@ -52,10 +52,18 @@ var routes = Routes{
 		"/",
 		Index,
 	},
+
 	{
 		"Registered UE Context",
 		"GET",
 		"/registered-ue-context",
+		RegisteredUEContext,
+	},
+
+	{
+		"Individual Registered UE Context",
+		"GET",
+		"/registered-ue-context/:supi",
 		RegisteredUEContext,
 	},
 }

@@ -29,23 +29,28 @@ func init() {
 }
 
 type PduSession struct {
-	PduSessionId int32
-	Snssai       models.Snssai
+	PduSessionId string
+	SmContextRef string
+	Sst          string
+	Sd           string
 	Dnn          string
 }
 
 type UEContext struct {
-	AccessType  models.AccessType
-	Supi        string
-	Guti        string
-	Tai         models.Tai
+	AccessType models.AccessType
+	Supi       string
+	Guti       string
+	/* Tai */
+	Mcc string
+	Mnc string
+	Tac string
+	/* PDU sessions */
 	PduSessions []PduSession
-	CmState     models.CmState
+	/*Connection state */
+	CmState models.CmState
 }
 
-type UEContexts struct {
-	UEContexts []UEContext
-}
+type UEContexts []UEContext
 
 func TestRegisteredUEContext(t *testing.T) {
 	flags := flag.FlagSet{}
@@ -61,6 +66,7 @@ func TestRegisteredUEContext(t *testing.T) {
 		PduSessionContext: &models.PduSessionContext{
 			AccessType:   models.AccessType__3_GPP_ACCESS,
 			PduSessionId: 1,
+			SmContextRef: "uuid:123456",
 			SNssai: &models.Snssai{
 				Sst: 1,
 				Sd:  "010203",
