@@ -52,7 +52,11 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 				response = append(response, *ueContext)
 			}
 		} else {
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, response)
+			problem := models.ProblemDetails{
+				Status: http.StatusNotFound,
+				Cause:  "CONTEXT_NOT_FOUND",
+			}
+			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
 			return
 		}
 	} else {
