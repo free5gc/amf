@@ -3,6 +3,7 @@ package amf_service
 import (
 	"bufio"
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -107,6 +108,14 @@ func (amf *AMF) Start() {
 	initLog.Infoln("Server started")
 
 	router := gin.Default()
+	router.Use(cors.New(cors.Config{
+		AllowMethods:     []string{"GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "User-Agent", "Referrer", "Host", "Token", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowAllOrigins:  true,
+		MaxAge:           86400,
+	}))
 
 	Namf_Callback.AddService(router)
 	Namf_OAM.AddService(router)
