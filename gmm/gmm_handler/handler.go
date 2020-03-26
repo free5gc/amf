@@ -821,7 +821,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 		time.Sleep(500 * time.Millisecond) // sleep a while when search NF Instance fail
 	}
 
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue)
+	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, anType)
 	if problemDetails != nil {
 		logger.GmmLog.Errorf("AM Policy Control Create Failed Problem[%+v]", problemDetails)
 	} else if err != nil {
