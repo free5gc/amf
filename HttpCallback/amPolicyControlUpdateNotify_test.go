@@ -81,7 +81,7 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue)
+	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -135,7 +135,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue)
+	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

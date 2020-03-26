@@ -10,7 +10,7 @@ import (
 	"regexp"
 )
 
-func AMPolicyControlCreate(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
+func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (problemDetails *models.ProblemDetails, err error) {
 
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
@@ -23,6 +23,7 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe) (problemDetails *models.Proble
 		Supi:            ue.Supi,
 		Pei:             ue.Pei,
 		Gpsi:            ue.Gpsi,
+		AccessType:      anType,
 		ServingPlmn: &models.NetworkId{
 			Mcc: ue.PlmnId.Mcc,
 			Mnc: ue.PlmnId.Mnc,
