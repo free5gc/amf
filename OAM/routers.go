@@ -1,6 +1,7 @@
 package Namf_OAM
 
 import (
+	"github.com/gin-contrib/cors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,16 @@ type Routes []Route
 func NewRouter() *gin.Engine {
 	router := gin.Default()
 	AddService(router)
+
+	router.Use(cors.New(cors.Config{
+		AllowMethods:     []string{"GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "User-Agent", "Referrer", "Host", "Token", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		AllowAllOrigins:  true,
+		MaxAge:           86400,
+	}))
+
 	return router
 }
 
@@ -52,10 +63,18 @@ var routes = Routes{
 		"/",
 		Index,
 	},
+
 	{
 		"Registered UE Context",
 		"GET",
 		"/registered-ue-context",
+		RegisteredUEContext,
+	},
+
+	{
+		"Individual Registered UE Context",
+		"GET",
+		"/registered-ue-context/:supi",
 		RegisteredUEContext,
 	},
 }

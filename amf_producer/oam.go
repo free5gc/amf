@@ -7,43 +7,68 @@ import (
 	"gofree5gc/src/amf/gmm/gmm_state"
 	"gofree5gc/src/amf/logger"
 	"net/http"
+	"strconv"
 )
 
 type PduSession struct {
-	PduSessionId int32
-	Snssai       models.Snssai
+	PduSessionId string
+	SmContextRef string
+	Sst          string
+	Sd           string
 	Dnn          string
 }
 
 type UEContext struct {
-	AccessType  models.AccessType
-	Supi        string
-	Guti        string
-	Tai         models.Tai
+	AccessType models.AccessType
+	Supi       string
+	Guti       string
+	/* Tai */
+	Mcc string
+	Mnc string
+	Tac string
+	/* PDU sessions */
 	PduSessions []PduSession
-	CmState     models.CmState
+	/*Connection state */
+	CmState models.CmState
 }
 
-type UEContexts struct {
-	UEContexts []UEContext
-}
+type UEContexts []UEContext
 
-func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMessage) {
+func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMessage, supi string) {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
 	var response UEContexts
-	response.UEContexts = make([]UEContext, 0) // initialize slice with length 0
 
 	amfSelf := amf_context.AMF_Self()
 
-	for _, ue := range amfSelf.UePool {
-		ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
-		if ueContext != nil {
-			response.UEContexts = append(response.UEContexts, *ueContext)
+	if supi != "" {
+		if ue, exists := amfSelf.UePool[supi]; exists {
+			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
+			if ueContext != nil {
+				response = append(response, *ueContext)
+			}
+			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
+			if ueContext != nil {
+				response = append(response, *ueContext)
+			}
+		} else {
+			problem := models.ProblemDetails{
+				Status: http.StatusNotFound,
+				Cause:  "CONTEXT_NOT_FOUND",
+			}
+			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+			return
 		}
-		ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
-		if ueContext != nil {
-			response.UEContexts = append(response.UEContexts, *ueContext)
+	} else {
+		for _, ue := range amfSelf.UePool {
+			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
+			if ueContext != nil {
+				response = append(response, *ueContext)
+			}
+			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
+			if ueContext != nil {
+				response = append(response, *ueContext)
+			}
 		}
 	}
 
@@ -56,7 +81,9 @@ func buildUEContext(ue *amf_context.AmfUe, accessType models.AccessType) (ueCont
 			AccessType: models.AccessType__3_GPP_ACCESS,
 			Supi:       ue.Supi,
 			Guti:       ue.Guti,
-			Tai:        ue.Tai,
+			Mcc:        ue.Tai.PlmnId.Mcc,
+			Mnc:        ue.Tai.PlmnId.Mnc,
+			Tac:        ue.Tai.Tac,
 		}
 
 		for _, smContext := range ue.SmContextList {
@@ -64,8 +91,10 @@ func buildUEContext(ue *amf_context.AmfUe, accessType models.AccessType) (ueCont
 			if pduSessionContext != nil {
 				if pduSessionContext.AccessType == accessType {
 					pduSession := PduSession{
-						PduSessionId: pduSessionContext.PduSessionId,
-						Snssai:       *pduSessionContext.SNssai,
+						PduSessionId: strconv.Itoa(int(pduSessionContext.PduSessionId)),
+						SmContextRef: pduSessionContext.SmContextRef,
+						Sst:          strconv.Itoa(int(pduSessionContext.SNssai.Sst)),
+						Sd:           pduSessionContext.SNssai.Sd,
 						Dnn:          pduSessionContext.Dnn,
 					}
 					ueContext.PduSessions = append(ueContext.PduSessions, pduSession)
