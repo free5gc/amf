@@ -1050,60 +1050,8 @@ func BuildInitialContextSetupRequest(
 		ie.Value.Present = ngapType.InitialContextSetupRequestIEsPresentMobilityRestrictionList
 		ie.Value.MobilityRestrictionList = new(ngapType.MobilityRestrictionList)
 
-		mobilityRestrictionList := ie.Value.MobilityRestrictionList
-		mobilityRestrictionList.ServingPLMN = ngapConvert.PlmnIdToNgap(amfUe.PlmnId)
-
-		if len(amfUe.AccessAndMobilitySubscriptionData.RatRestrictions) > 0 {
-			mobilityRestrictionList.RATRestrictions = new(ngapType.RATRestrictions)
-			ratRestrictions := mobilityRestrictionList.RATRestrictions
-			for _, ratType := range amfUe.AccessAndMobilitySubscriptionData.RatRestrictions {
-				item := ngapType.RATRestrictionsItem{}
-				item.PLMNIdentity = ngapConvert.PlmnIdToNgap(amfUe.PlmnId)
-				item.RATRestrictionInformation = ngapConvert.RATRestrictionInformationToNgap(ratType)
-				ratRestrictions.List = append(ratRestrictions.List, item)
-			}
-		}
-
-		if len(amfUe.AccessAndMobilitySubscriptionData.ForbiddenAreas) > 0 {
-			mobilityRestrictionList.ForbiddenAreaInformation = new(ngapType.ForbiddenAreaInformation)
-			forbiddenAreaInformation := mobilityRestrictionList.ForbiddenAreaInformation
-			for _, info := range amfUe.AccessAndMobilitySubscriptionData.ForbiddenAreas {
-				item := ngapType.ForbiddenAreaInformationItem{}
-				item.PLMNIdentity = ngapConvert.PlmnIdToNgap(amfUe.PlmnId)
-				for _, tac := range info.Tacs {
-					tacBytes, _ := hex.DecodeString(tac)
-					tacNgap := ngapType.TAC{}
-					tacNgap.Value = tacBytes
-					item.ForbiddenTACs.List = append(item.ForbiddenTACs.List, tacNgap)
-				}
-				forbiddenAreaInformation.List = append(forbiddenAreaInformation.List, item)
-			}
-		}
-
-		if amfUe.AmPolicyAssociation.ServAreaRes != nil {
-			mobilityRestrictionList.ServiceAreaInformation = new(ngapType.ServiceAreaInformation)
-			serviceAreaInformation := mobilityRestrictionList.ServiceAreaInformation
-
-			item := ngapType.ServiceAreaInformationItem{}
-			item.PLMNIdentity = ngapConvert.PlmnIdToNgap(amfUe.PlmnId)
-			var tacList []ngapType.TAC
-			for _, area := range amfUe.AmPolicyAssociation.ServAreaRes.Areas {
-				for _, tac := range area.Tacs {
-					tacBytes, _ := hex.DecodeString(tac)
-					tacNgap := ngapType.TAC{}
-					tacNgap.Value = tacBytes
-					tacList = append(tacList, tacNgap)
-				}
-			}
-			if amfUe.AmPolicyAssociation.ServAreaRes.RestrictionType == models.RestrictionType_ALLOWED_AREAS {
-				item.AllowedTACs = new(ngapType.AllowedTACs)
-				item.AllowedTACs.List = append(item.AllowedTACs.List, tacList...)
-			} else {
-				item.NotAllowedTACs = new(ngapType.NotAllowedTACs)
-				item.NotAllowedTACs.List = append(item.NotAllowedTACs.List, tacList...)
-			}
-			serviceAreaInformation.List = append(serviceAreaInformation.List, item)
-		}
+		mobilityRestrictionList := BuildIEMobilityRestrictionList(amfUe)
+		ie.Value.MobilityRestrictionList = &mobilityRestrictionList
 
 		initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
 	}

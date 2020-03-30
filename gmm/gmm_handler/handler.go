@@ -863,7 +863,22 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 	} else {
 		ue.Non3gppDeregistrationTimerValue = amfSelf.Non3gppDeregistrationTimerValue
 	}
-	gmm_message.SendRegistrationAccept(ue, anType, nil, nil, nil, nil, nil)
+
+	if anType == models.AccessType__3_GPP_ACCESS {
+		gmm_message.SendRegistrationAccept(ue, anType, nil, nil, nil, nil, nil)
+	} else {
+		// TS 23.502 4.12.2.2 10a ~ 13: if non-3gpp, AMF should send initial context setup request to N3IWF first,
+		// and send registration accept after receiving initial context setup response
+		ngap_message.SendInitialContextSetupRequest(ue, anType, nil, nil, nil, nil, nil, nil)
+
+		registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, nil, nil, nil, nil)
+		if err != nil {
+			logger.GmmLog.Error("Build Registration Accept: %+v", err)
+			return nil
+		}
+		ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
+	}
+
 	return ue.Sm[anType].Transfer(gmm_state.INITIAL_CONTEXT_SETUP, nil)
 }
 
@@ -1194,7 +1209,17 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 	// TODO: T3512/Non3GPP de-registration timer reassignment if need (based on operator policy)
 
 	if procedureCode == ngapType.ProcedureCodeInitialUEMessage {
-		gmm_message.SendRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause, &ctxList)
+		if anType == models.AccessType__3_GPP_ACCESS {
+			gmm_message.SendRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause, &ctxList)
+		} else {
+			ngap_message.SendInitialContextSetupRequest(ue, anType, nil, nil, &ctxList, nil, nil, nil)
+			registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause)
+			if err != nil {
+				logger.GmmLog.Error("Build Registration Accept: %+v", err)
+				return nil
+			}
+			ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
+		}
 		return ue.Sm[anType].Transfer(gmm_state.INITIAL_CONTEXT_SETUP, nil)
 	} else if procedureCode == ngapType.ProcedureCodeUplinkNASTransport {
 		nasPdu, err := gmm_message.BuildRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause)
