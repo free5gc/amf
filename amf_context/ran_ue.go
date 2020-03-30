@@ -118,6 +118,8 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 	if userLocationInformation == nil {
 		return
 	}
+
+	amfSelf := AMF_Self()
 	curTime := time.Now().UTC()
 	switch userLocationInformation.Present {
 	case ngapType.UserLocationInformationPresentUserLocationInformationEUTRA:
@@ -208,9 +210,16 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 		ranUe.Location.N3gaLocation.UeIpv4Addr = ipv4Addr
 		ranUe.Location.N3gaLocation.UeIpv6Addr = ipv6Addr
 		ranUe.Location.N3gaLocation.PortNumber = ngapConvert.PortNumberToInt(port)
+		// N3GPP TAI is operator-specific
+		// TODO: define N3GPP TAI
+		ranUe.Location.N3gaLocation.N3gppTai = &models.Tai{
+			PlmnId: amfSelf.SupportTaiLists[0].PlmnId,
+			Tac:    amfSelf.SupportTaiLists[0].Tac,
+		}
+
 		if ranUe.AmfUe != nil {
 			ranUe.AmfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
-			ranUe.AmfUe.Tai = models.Tai{}
+			ranUe.AmfUe.Tai = *ranUe.Location.N3gaLocation.N3gppTai
 		}
 	case ngapType.UserLocationInformationPresentNothing:
 	}
