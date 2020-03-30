@@ -161,6 +161,8 @@ func (amf *AMF) Start() {
 	server, err := http2_util.NewServer(addr, amf_util.AmfLogPath, router)
 	if err == nil && server != nil {
 		initLog.Infoln(server.ListenAndServeTLS(amf_util.AmfPemPath, amf_util.AmfKeyPath))
+	} else {
+		initLog.Errorf("Initialize http2 server failed: %+v", err)
 	}
 }
 
