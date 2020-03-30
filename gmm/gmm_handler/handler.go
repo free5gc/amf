@@ -2005,16 +2005,16 @@ func HandleSecurityModeComplete(ue *amf_context.AmfUe, anType models.AccessType,
 			args[gmm_event.AMF_UE] = ue
 			args[gmm_event.PROCEDURE_CODE] = procedureCode
 			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
-			_ = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
-			return ue.Sm[models.AccessType__3_GPP_ACCESS].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
+			_ = ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
 		case nas.MsgTypeServiceRequest:
 			logger.GmmLog.Traceln("[AMF] Handle MsgTypeServiceRequest")
 			args := make(fsm.Args)
 			args[gmm_event.AMF_UE] = ue
 			args[gmm_event.PROCEDURE_CODE] = procedureCode
 			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
-			_ = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
-			return ue.Sm[models.AccessType__3_GPP_ACCESS].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
+			_ = ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
 		default:
 			logger.GmmLog.Errorln("nas message container Iei type error")
 		}
