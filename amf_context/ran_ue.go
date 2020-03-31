@@ -216,6 +216,7 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 			PlmnId: amfSelf.SupportTaiLists[0].PlmnId,
 			Tac:    amfSelf.SupportTaiLists[0].Tac,
 		}
+		ranUe.Tai = deepcopy.Copy(*ranUe.Location.N3gaLocation.N3gppTai).(models.Tai)
 
 		if ranUe.AmfUe != nil {
 			ranUe.AmfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
