@@ -35,11 +35,12 @@ type AmfUe struct {
 	/* Gmm State */
 	Sm map[models.AccessType]*fsm.FSM
 	/* Registration procedure related context */
-	RegistrationType5GS             uint8
-	IdentityTypeUsedForRegistration uint8
-	RegistrationRequest             *nasMessage.RegistrationRequest
-	ServingAmfChanged               bool
-	DeregistrationTargetAccessType  uint8 // only used when deregistration procedure is initialized by the network
+	RegistrationType5GS                uint8
+	IdentityTypeUsedForRegistration    uint8
+	RegistrationRequest                *nasMessage.RegistrationRequest
+	ServingAmfChanged                  bool
+	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
+	RegistrationAcceptForNon3GPPAccess []byte
 	/* Used for AMF relocation */
 	TargetAmfUri string
 	/* Ue Identity*/
@@ -513,6 +514,7 @@ func (ue *AmfUe) ClearRegistrationRequestData() {
 	ue.RegistrationType5GS = 0
 	ue.IdentityTypeUsedForRegistration = 0
 	ue.ServingAmfChanged = false
+	ue.RegistrationAcceptForNon3GPPAccess = nil
 }
 
 func (ue *AmfUe) RemoveAmPolicyAssociation() {
