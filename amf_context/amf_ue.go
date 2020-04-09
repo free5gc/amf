@@ -380,7 +380,7 @@ func (ue *AmfUe) SecurityContextIsValid() bool {
 // Kamf Derivation function defined in TS 33.501 Annex A.7
 func (ue *AmfUe) DerivateKamf() {
 
-	P0, _ := hex.DecodeString(ue.Supi)
+	P0 := []byte(ue.Supi)
 	L0 := UeauCommon.KDFLen(P0)
 	P1 := ue.ABBA
 	L1 := UeauCommon.KDFLen(P1)
