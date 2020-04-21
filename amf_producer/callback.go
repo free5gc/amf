@@ -21,6 +21,8 @@ func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMes
 	var problem models.ProblemDetails
 	amfSelf := amf_context.AMF_Self()
 	ue := amfSelf.AmfUeFindByGuti(guti)
+
+	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 	if ue == nil {
 		problem.Status = 404
 		problem.Cause = "CONTEXT_NOT_FOUND"

@@ -197,10 +197,9 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 					switch responseData.N2SmInfoType {
 					case models.N2SmInfoType_PDU_RES_REL_CMD:
 						logger.GmmLog.Infoln("AMF Transfer NGAP PDU Session Resource Rel Co from SMF")
-						var nasPdu []byte
 						list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
 						ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, pduSessionID, n2Info)
-						ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nasPdu, list)
+						ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nil, list)
 					}
 				}
 			}

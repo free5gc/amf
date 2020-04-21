@@ -163,10 +163,10 @@ func SendPDUSessionResourceReleaseCommand(ue *amf_context.RanUe, nasPdu []byte, 
 		return
 	}
 
-	if len(nasPdu) == 0 {
-		ngaplog.Errorf("[Send PDUSessionResourceReleaseCommand] Error: nasPdu is nil")
-		return
-	}
+	// if len(nasPdu) == 0 {
+	// 	ngaplog.Errorf("[Send PDUSessionResourceReleaseCommand] Error: nasPdu is nil")
+	// 	return
+	// }
 
 	pkt, err := BuildPDUSessionResourceReleaseCommand(ue, nasPdu, pduSessionResourceReleasedList)
 	if err != nil {
