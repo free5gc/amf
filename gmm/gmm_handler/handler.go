@@ -546,10 +546,10 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 
 		servedGuami := amfSelf.ServedGuamiList[0]
 		if reflect.DeepEqual(guamiFromUeGuti, servedGuami) {
+			ue.ServingAmfChanged = false
+		} else {
 			logger.GmmLog.Debugf("Serving AMF has changed")
 			ue.ServingAmfChanged = true
-		} else {
-			ue.ServingAmfChanged = false
 		}
 		ue.IsCleartext = true
 	case nasMessage.MobileIdentity5GSTypeImei:
@@ -919,7 +919,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 	} else {
 		// TS 23.502 4.12.2.2 10a ~ 13: if non-3gpp, AMF should send initial context setup request to N3IWF first,
 		// and send registration accept after receiving initial context setup response
-		ngap_message.SendInitialContextSetupRequest(ue, anType, nil, nil, nil, nil, nil, nil)
+		ngap_message.SendInitialContextSetupRequest(ue, anType, nil, nil, nil, nil, nil)
 
 		registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, nil, nil, nil, nil)
 		if err != nil {
@@ -1262,7 +1262,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 		if anType == models.AccessType__3_GPP_ACCESS {
 			gmm_message.SendRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause, &ctxList)
 		} else {
-			ngap_message.SendInitialContextSetupRequest(ue, anType, nil, nil, &ctxList, nil, nil, nil)
+			ngap_message.SendInitialContextSetupRequest(ue, anType, nil, &ctxList, nil, nil, nil)
 			registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
 				logger.GmmLog.Error("Build Registration Accept: %+v", err)
