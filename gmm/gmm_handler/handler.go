@@ -77,13 +77,14 @@ func HandleULNASTransport(ue *amf_context.AmfUe, anType models.AccessType, ulNas
 		if err != nil {
 			return err
 		}
-		switch m.GsmMessage.GetMessageType() {
+		messageType := m.GsmMessage.GetMessageType()
+		switch messageType {
 		case nas.MsgTypePDUSessionEstablishmentRequest:
 			return HandlePDUSessionEstablishmentRequest(ue, anType, ulNasTransport.PayloadContainer.Buffer, pduSessionId, requestType, sNssai, dnn)
 		case nas.MsgTypePDUSessionModificationRequest, nas.MsgTypePDUSessionModificationComplete, nas.MsgTypePDUSessionModificationCommandReject:
 			return HandlePDUSessionModificationForward(ue, anType, ulNasTransport.PayloadContainer.Buffer, pduSessionId)
 		case nas.MsgTypePDUSessionReleaseRequest, nas.MsgTypePDUSessionReleaseComplete, nas.MsgTypePDUSessionReleaseReject:
-			return HandlePDUSessionReleaseForward(ue, anType, ulNasTransport.PayloadContainer.Buffer, pduSessionId)
+			return HandlePDUSessionReleaseForward(ue, anType, ulNasTransport.PayloadContainer.Buffer, pduSessionId, messageType)
 		case nas.MsgTypePDUSessionAuthenticationComplete:
 			return HandlePDUSessionAuthenticationForward(ue, anType, ulNasTransport.PayloadContainer.GetPayloadContainerContents(), pduSessionId)
 		case nas.MsgTypeStatus5GSM:
@@ -397,11 +398,20 @@ func HandlePDUSessionModificationForward(ue *amf_context.AmfUe, anType models.Ac
 	return nil
 }
 
-func HandlePDUSessionReleaseForward(ue *amf_context.AmfUe, anType models.AccessType, payload []byte, pduSessionID int32) (err error) {
+func HandlePDUSessionReleaseForward(ue *amf_context.AmfUe, anType models.AccessType, payload []byte, pduSessionID int32, gsmMessageType uint8) (err error) {
+
+	switch gsmMessageType {
+	case nas.MsgTypePDUSessionReleaseRequest:
+		logger.GmmLog.Infof("Handle PDU Session Release Request")
+	case nas.MsgTypePDUSessionReleaseComplete:
+		logger.GmmLog.Infof("Handle PDU Session Release Complete")
+	case nas.MsgTypePDUSessionReleaseReject:
+		logger.GmmLog.Infof("Handle PDU Session Release Reject")
+	}
 
 	smContext, ok := ue.SmContextList[pduSessionID]
 	if !ok {
-		err := fmt.Errorf("PDU Session ID[%d] in PDU Session Release Request is not exist\n", pduSessionID)
+		err := fmt.Errorf("PDU Session ID[%d] does not exist\n", pduSessionID)
 		logger.GmmLog.Errorf(err.Error())
 		gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo, payload, &pduSessionID, nasMessage.Cause5GMMPayloadWasNotForwarded, nil, 0)
 		return err
@@ -421,7 +431,7 @@ func HandlePDUSessionReleaseForward(ue *amf_context.AmfUe, anType models.AccessT
 		if n2Info != nil {
 			switch responseData.N2SmInfoType {
 			case models.N2SmInfoType_PDU_RES_REL_CMD:
-				logger.GmmLog.Infoln("AMF Transfer NGAP PDU Session Resource Rel Co from SMF")
+				logger.GmmLog.Debugln("AMF Transfer NGAP PDU Session Resource Release Command from SMF")
 				var nasPdu []byte
 				if n1Msg != nil {
 					pduSessionId := uint8(pduSessionID)
@@ -435,7 +445,7 @@ func HandlePDUSessionReleaseForward(ue *amf_context.AmfUe, anType models.AccessT
 				ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nasPdu, list)
 			}
 		} else if n1Msg != nil {
-			logger.GmmLog.Infoln("AMF tansfer Only N1 PDU Session Release Msg to UE")
+			logger.GmmLog.Debugln("AMF tansfer Only N1 PDU Session Release Msg to UE")
 			gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo, n1Msg, &pduSessionID, 0, nil, 0)
 		}
 	} else if errResponse != nil {
@@ -455,6 +465,7 @@ func HandlePDUSessionReleaseForward(ue *amf_context.AmfUe, anType models.AccessT
 	}
 	return nil
 }
+
 func HandlePDUSessionAuthenticationForward(ue *amf_context.AmfUe, anType models.AccessType, payload []byte, pduSessionID int32) error {
 
 	smContext, ok := ue.SmContextList[pduSessionID]
@@ -923,7 +934,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 
 		registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, nil, nil, nil, nil)
 		if err != nil {
-			logger.GmmLog.Error("Build Registration Accept: %+v", err)
+			logger.GmmLog.Errorf("Build Registration Accept: %+v", err)
 			return nil
 		}
 		ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
@@ -1265,7 +1276,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 			ngap_message.SendInitialContextSetupRequest(ue, anType, nil, &ctxList, nil, nil, nil)
 			registrationAccept, err := gmm_message.BuildRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
-				logger.GmmLog.Error("Build Registration Accept: %+v", err)
+				logger.GmmLog.Errorf("Build Registration Accept: %+v", err)
 				return nil
 			}
 			ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
