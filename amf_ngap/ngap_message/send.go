@@ -337,7 +337,6 @@ func SendInitialContextSetupRequest(
 	amfUe *amf_context.AmfUe,
 	anType models.AccessType,
 	nasPdu []byte,
-	oldAmf *string,
 	pduSessionResourceSetupRequestList *ngapType.PDUSessionResourceSetupListCxtReq,
 	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	coreNetworkAssistanceInfo *ngapType.CoreNetworkAssistanceInformation,
@@ -357,7 +356,7 @@ func SendInitialContextSetupRequest(
 		}
 	}
 
-	pkt, err := BuildInitialContextSetupRequest(amfUe, anType, nasPdu, oldAmf, pduSessionResourceSetupRequestList,
+	pkt, err := BuildInitialContextSetupRequest(amfUe, anType, nasPdu, pduSessionResourceSetupRequestList,
 		rrcInactiveTransitionReportRequest, coreNetworkAssistanceInfo, emergencyFallbackIndicator)
 	if err != nil {
 		ngaplog.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())

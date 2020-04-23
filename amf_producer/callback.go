@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"github.com/mohae/deepcopy"
 	"gofree5gc/lib/nas/nasMessage"
+	"gofree5gc/lib/ngap/ngapType"
 	"gofree5gc/lib/openapi/models"
 	"gofree5gc/src/amf/amf_consumer"
 	"gofree5gc/src/amf/amf_context"
 	"gofree5gc/src/amf/amf_handler/amf_message"
+	"gofree5gc/src/amf/amf_nas"
 	"gofree5gc/src/amf/amf_ngap/ngap_message"
 	"gofree5gc/src/amf/gmm/gmm_message"
 	"gofree5gc/src/amf/logger"
@@ -152,4 +154,66 @@ func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.Han
 	} else if err != nil {
 		logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
 	}
+}
+
+// TS 23.502 4.2.2.2.3 Registration with AMF re-allocation
+func HandleN1MessageNotify(httpChannel chan amf_message.HandlerResponseMessage, body models.N1MessageNotify) {
+	logger.ProducerLog.Infoln("[AMF] Handle N1 Message Notify")
+
+	logger.ProducerLog.Debugf("request body: %+v", body)
+
+	amfSelf := amf_context.AMF_Self()
+
+	registrationCtxtContainer := body.JsonData.RegistrationCtxtContainer
+	if registrationCtxtContainer.UeContext == nil {
+		problem := models.ProblemDetails{
+			Status: 400,
+			Cause:  "MANDATORY_IE_MISSING", // Defined in TS 29.500 5.2.7.2
+			Detail: "Missing IE [UeContext] in RegistrationCtxtContainer",
+		}
+		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusBadRequest, problem)
+		return
+	}
+
+	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
+
+	var amfUe *amf_context.AmfUe
+	ueContext := registrationCtxtContainer.UeContext
+	if ueContext.Supi != "" {
+		amfUe = amfSelf.NewAmfUe(ueContext.Supi)
+	} else {
+		amfUe = amfSelf.NewAmfUe("")
+	}
+	amfUe.CopyDataFromUeContextModel(*ueContext)
+
+	ran := amfSelf.RanIdPool[*registrationCtxtContainer.RanNodeId]
+	if ran == nil {
+		problem := models.ProblemDetails{
+			Status: 400,
+			Cause:  "MANDATORY_IE_INCORRECT",
+			Detail: fmt.Sprintf("Can not find RAN[RanId: %+v]", *registrationCtxtContainer.RanNodeId),
+		}
+		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusBadRequest, problem)
+		return
+	}
+
+	ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+
+	ranUe.Location = *registrationCtxtContainer.UserLocation
+	amfUe.Location = *registrationCtxtContainer.UserLocation
+	ranUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
+	ranUe.OldAmfName = registrationCtxtContainer.InitialAmfName
+
+	if registrationCtxtContainer.AllowedNssai != nil {
+		allowedNssai := registrationCtxtContainer.AllowedNssai
+		amfUe.AllowedNssai[allowedNssai.AccessType] = allowedNssai.AllowedSnssaiList
+	}
+
+	if len(registrationCtxtContainer.ConfiguredNssai) > 0 {
+		amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
+	}
+
+	amfUe.AttachRanUe(ranUe)
+
+	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, body.BinaryDataN1Message)
 }

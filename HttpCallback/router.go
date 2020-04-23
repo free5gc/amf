@@ -90,4 +90,11 @@ var routes = Routes{
 		"/am-policy/:polAssoId/terminate",
 		AmPolicyControlUpdateNotifyTerminate,
 	},
+
+	{
+		"N1MessageNotify",
+		strings.ToUpper("Post"),
+		"/n1-message-notify",
+		N1MessageNotify,
+	},
 }

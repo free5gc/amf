@@ -62,7 +62,7 @@ func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetN
 	// select the first NSSF, TODO: select base on other info
 	var nssfUri string
 	for _, nfProfile := range resp.NfInstances {
-		ue.NssfUri = nfProfile.NfInstanceId
+		ue.NssfId = nfProfile.NfInstanceId
 		nssfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NNSSF_NSSELECTION, models.NfServiceStatus_REGISTERED)
 		if nssfUri != "" {
 			break
@@ -71,6 +71,30 @@ func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetN
 	ue.NssfUri = nssfUri
 	if ue.NssfUri == "" {
 		err = fmt.Errorf("AMF can not select an NSSF by NRF")
+	}
+	return
+}
+
+func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
+
+	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
+	if localErr != nil {
+		err = localErr
+		return
+	}
+
+	// select the first AMF, TODO: select base on other info
+	var amfUri string
+	for _, nfProfile := range resp.NfInstances {
+		ue.TargetAmfProfile = &nfProfile
+		amfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NAMF_COMM, models.NfServiceStatus_REGISTERED)
+		if amfUri != "" {
+			break
+		}
+	}
+	ue.TargetAmfUri = amfUri
+	if ue.TargetAmfUri == "" {
+		err = fmt.Errorf("AMF can not select an target AMF by NRF")
 	}
 	return
 }

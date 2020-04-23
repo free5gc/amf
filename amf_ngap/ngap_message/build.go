@@ -358,6 +358,19 @@ func BuildDownlinkNasTransport(ue *amf_context.RanUe, nasPdu []byte, mobilityRes
 	downlinkNasTransportIEs.List = append(downlinkNasTransportIEs.List, ie)
 
 	// Old AMF (optional)
+	if ue.OldAmfName != "" {
+		ie = ngapType.DownlinkNASTransportIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDOldAMF
+		ie.Criticality.Value = ngapType.CriticalityPresentReject
+		ie.Value.Present = ngapType.DownlinkNASTransportIEsPresentOldAMF
+		ie.Value.OldAMF = new(ngapType.AMFName)
+
+		ie.Value.OldAMF.Value = ue.OldAmfName
+
+		downlinkNasTransportIEs.List = append(downlinkNasTransportIEs.List, ie)
+		ue.OldAmfName = "" // clear data
+	}
+
 	// RAN Paging Priority (optional)
 	// Mobility Restriction List (optional)
 	if ue.Ran.AnType == models.AccessType__3_GPP_ACCESS && mobilityRestrictionList != nil {
@@ -838,7 +851,6 @@ func BuildInitialContextSetupRequest(
 	amfUe *amf_context.AmfUe,
 	anType models.AccessType,
 	nasPdu []byte,
-	oldAmf *string,
 	pduSessionResourceSetupRequestList *ngapType.PDUSessionResourceSetupListCxtReq,
 	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	coreNetworkAssistanceInfo *ngapType.CoreNetworkAssistanceInformation,
@@ -912,14 +924,15 @@ func BuildInitialContextSetupRequest(
 	initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
 
 	// Old AMF (optional)
-	if oldAmf != nil {
+	if ranUe.OldAmfName != "" {
 		ie = ngapType.InitialContextSetupRequestIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDOldAMF
 		ie.Criticality.Value = ngapType.CriticalityPresentReject
 		ie.Value.Present = ngapType.InitialContextSetupRequestIEsPresentOldAMF
 		ie.Value.OldAMF = new(ngapType.AMFName)
-		ie.Value.OldAMF.Value = *oldAmf
+		ie.Value.OldAMF.Value = ranUe.OldAmfName
 		initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
+		ranUe.OldAmfName = "" // clear data
 	}
 
 	// UE Aggregate Maximum Bit Rate (conditional: if pdu session resource setup)

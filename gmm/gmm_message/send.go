@@ -215,7 +215,7 @@ func SendRegistrationAccept(
 		logger.GmmLog.Error(err.Error())
 		return
 	}
-	ngap_message.SendInitialContextSetupRequest(ue, anType, nasMsg, nil, pduSessionResourceSetupList, nil, nil, nil)
+	ngap_message.SendInitialContextSetupRequest(ue, anType, nasMsg, pduSessionResourceSetupList, nil, nil, nil)
 	amf_util.StartT3550(ue, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause, pduSessionResourceSetupList)
 }
 

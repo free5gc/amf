@@ -30,4 +30,5 @@ const (
 	EventAmPolicyControlUpdateNotifyUpdate
 	EventAmPolicyControlUpdateNotifyTerminate
 	EventOAMRegisteredUEContext
+	EventN1MessageNotify
 )

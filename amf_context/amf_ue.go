@@ -1,6 +1,7 @@
 package amf_context
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"gofree5gc/lib/UeauCommon"
@@ -42,7 +43,8 @@ type AmfUe struct {
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
 	/* Used for AMF relocation */
-	TargetAmfUri string
+	TargetAmfProfile *models.NfProfile
+	TargetAmfUri     string
 	/* Ue Identity*/
 	PlmnId              models.PlmnId
 	Suci                string
@@ -520,4 +522,175 @@ func (ue *AmfUe) ClearRegistrationRequestData() {
 func (ue *AmfUe) RemoveAmPolicyAssociation() {
 	ue.AmPolicyAssociation = nil
 	ue.PolicyAssociationId = ""
+}
+
+func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
+	if ueContext.Supi != "" {
+		ue.Supi = ueContext.Supi
+		ue.UnauthenticatedSupi = ueContext.SupiUnauthInd
+	}
+
+	if ueContext.Pei != "" {
+		ue.Pei = ueContext.Pei
+	}
+
+	if ueContext.UdmGroupId != "" {
+		ue.UdmGroupId = ueContext.UdmGroupId
+	}
+
+	if ueContext.AusfGroupId != "" {
+		ue.AusfGroupId = ueContext.AusfGroupId
+	}
+
+	if ueContext.RoutingIndicator != "" {
+		ue.RoutingIndicator = ueContext.RoutingIndicator
+	}
+
+	if ueContext.SubUeAmbr != nil {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
+			ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
+		}
+
+		subAmbr := ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr
+		subAmbr.Uplink = ueContext.SubUeAmbr.Uplink
+		subAmbr.Downlink = ueContext.SubUeAmbr.Downlink
+	}
+
+	if ueContext.SubRfsp != 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.RfspIndex = ueContext.SubRfsp
+	}
+
+	if len(ueContext.RestrictedRatList) > 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.RatRestrictions = ueContext.RestrictedRatList
+	}
+
+	if len(ueContext.ForbiddenAreaList) > 0 {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.ForbiddenAreas = ueContext.ForbiddenAreaList
+	}
+
+	if ueContext.ServiceAreaRestriction != nil {
+		if ue.AccessAndMobilitySubscriptionData == nil {
+			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
+		}
+		ue.AccessAndMobilitySubscriptionData.ServiceAreaRestriction = ueContext.ServiceAreaRestriction
+	}
+
+	if ueContext.SeafData != nil {
+		seafData := ueContext.SeafData
+
+		ue.NgKsi = *seafData.NgKsi
+		if seafData.KeyAmf != nil {
+			if seafData.KeyAmf.KeyType == models.KeyAmfType_KAMF {
+				ue.Kamf = seafData.KeyAmf.KeyVal
+			}
+		}
+		ue.NH, _ = hex.DecodeString(seafData.Nh)
+		ue.NCC = uint8(seafData.Ncc)
+	}
+
+	if ueContext.PcfId != "" {
+		ue.PcfId = ueContext.PcfId
+	}
+
+	if ueContext.PcfAmPolicyUri != "" {
+		ue.AmPolicyUri = ueContext.PcfAmPolicyUri
+	}
+
+	if len(ueContext.AmPolicyReqTriggerList) > 0 {
+		if ue.AmPolicyAssociation == nil {
+			ue.AmPolicyAssociation = new(models.PolicyAssociation)
+		}
+		for _, trigger := range ueContext.AmPolicyReqTriggerList {
+			switch trigger {
+			case models.AmPolicyReqTrigger_LOCATION_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_LOC_CH)
+			case models.AmPolicyReqTrigger_PRA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_PRA_CH)
+			case models.AmPolicyReqTrigger_SARI_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_SERV_AREA_CH)
+			case models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_RFSP_CH)
+			}
+		}
+	}
+
+	if len(ueContext.SessionContextList) > 0 {
+		for _, pduSessionContext := range ueContext.SessionContextList {
+			smContext := SmContext{
+				PduSessionContext: &pduSessionContext,
+			}
+			ue.SmContextList[pduSessionContext.PduSessionId] = &smContext
+		}
+	}
+
+	if len(ueContext.MmContextList) > 0 {
+		for _, mmContext := range ueContext.MmContextList {
+			if mmContext.AccessType == models.AccessType__3_GPP_ACCESS {
+				if nasSecurityMode := mmContext.NasSecurityMode; nasSecurityMode != nil {
+					switch nasSecurityMode.IntegrityAlgorithm {
+					case models.IntegrityAlgorithm_NIA0:
+						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA0
+					case models.IntegrityAlgorithm_NIA1:
+						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA1
+					case models.IntegrityAlgorithm_NIA2:
+						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA2
+					case models.IntegrityAlgorithm_NIA3:
+						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA3
+					}
+
+					switch nasSecurityMode.CipheringAlgorithm {
+					case models.CipheringAlgorithm_NEA0:
+						ue.CipheringAlg = ALG_CIPHERING_128_NEA0
+					case models.CipheringAlgorithm_NEA1:
+						ue.CipheringAlg = ALG_CIPHERING_128_NEA1
+					case models.CipheringAlgorithm_NEA2:
+						ue.CipheringAlg = ALG_CIPHERING_128_NEA2
+					case models.CipheringAlgorithm_NEA3:
+						ue.CipheringAlg = ALG_CIPHERING_128_NEA3
+					}
+
+					if mmContext.NasDownlinkCount != 0 {
+						ue.DLCount = uint32(mmContext.NasDownlinkCount)
+					}
+
+					if mmContext.NasUplinkCount != 0 {
+						ue.ULCountOverflow = uint16((mmContext.NasUplinkCount & 0x0ff0) >> 8)
+						ue.ULCountSQN = uint8((mmContext.NasUplinkCount & 0x000f))
+					}
+
+					// TS 29.518 Table 6.1.6.3.2.1
+					if mmContext.UeSecurityCapability != "" {
+						// ue.SecurityCapabilities
+						buf, _ := base64.StdEncoding.DecodeString(mmContext.UeSecurityCapability)
+						ue.NasUESecurityCapability.Buffer = buf
+						ue.NasUESecurityCapability.SetLen(uint8(len(buf)))
+					}
+				}
+			}
+
+			if mmContext.AllowedNssai != nil {
+				for _, snssai := range mmContext.AllowedNssai {
+					allowedSnssai := models.AllowedSnssai{
+						AllowedSnssai: &snssai,
+					}
+					ue.AllowedNssai[mmContext.AccessType] = append(ue.AllowedNssai[mmContext.AccessType], allowedSnssai)
+				}
+			}
+		}
+	}
+	if ueContext.TraceData != nil {
+		ue.TraceData = ueContext.TraceData
+	}
 }

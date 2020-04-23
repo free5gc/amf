@@ -3,7 +3,6 @@ package amf_consumer
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"gofree5gc/lib/Namf_Communication"
 	"gofree5gc/lib/nas/nasMessage"
@@ -15,10 +14,28 @@ import (
 
 func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId, sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation, n2NotifyUri string, ngapCause *models.NgApCause) (ueContextCreateData models.UeContextCreateData) {
 
-	ueContext := models.UeContext{
-		Supi:          ue.Supi,
-		SupiUnauthInd: ue.UnauthenticatedSupi,
+	ueContext := BuildUeContextModel(ue)
+	ueContextCreateData.UeContext = &ueContext
+	ueContextCreateData.TargetId = &targetRanId
+	ueContextCreateData.SourceToTargetData = &sourceToTargetData
+	ueContextCreateData.PduSessionList = pduSessionList
+	ueContextCreateData.N2NotifyUri = n2NotifyUri
+
+	if ue.UeRadioCapability != "" {
+		ueContextCreateData.UeRadioCapability = &models.N2InfoContent{
+			NgapData: &models.RefToBinaryData{
+				ContentId: ue.UeRadioCapability,
+			},
+		}
 	}
+	ueContextCreateData.NgapCause = ngapCause
+	return
+}
+
+func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
+
+	ueContext.Supi = ue.Supi
+	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 
 	if ue.Gpsi != "" {
 		ueContext.GpsiList = append(ueContext.GpsiList, ue.Gpsi)
@@ -75,21 +92,6 @@ func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTar
 	if ue.TraceData != nil {
 		ueContext.TraceData = ue.TraceData
 	}
-
-	ueContextCreateData.UeContext = &ueContext
-	ueContextCreateData.TargetId = &targetRanId
-	ueContextCreateData.SourceToTargetData = &sourceToTargetData
-	ueContextCreateData.PduSessionList = pduSessionList
-	ueContextCreateData.N2NotifyUri = n2NotifyUri
-
-	if ue.UeRadioCapability != "" {
-		ueContextCreateData.UeRadioCapability = &models.N2InfoContent{
-			NgapData: &models.RefToBinaryData{
-				ContentId: ue.UeRadioCapability,
-			},
-		}
-	}
-	ueContextCreateData.NgapCause = ngapCause
 	return
 }
 
@@ -180,20 +182,21 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessTyp
 		AccessType: accessType,
 	}
 
+	req := models.UeContextTransferRequest{
+		JsonData: &ueContextTransferReqData,
+	}
 	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
 		var buf bytes.Buffer
 		ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
 		ueContextTransferReqData.RegRequest = &models.N1MessageContainer{
 			N1MessageClass: models.N1MessageClass__5_GMM,
 			N1MessageContent: &models.RefToBinaryData{
-				ContentId: hex.EncodeToString(buf.Bytes()),
+				ContentId: "n1Msg",
 			},
 		}
+		req.BinaryDataN1Message = buf.Bytes()
 	}
 
-	req := models.UeContextTransferRequest{
-		JsonData: &ueContextTransferReqData,
-	}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti) // guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 
 	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
