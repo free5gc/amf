@@ -2,9 +2,9 @@ package amf_producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/logger"
 	"net/http"
@@ -398,8 +398,8 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 				causeAll := &amf_context.CauseAll{
 					Cause: &cause,
 				}
-				smContextReleaseRequest := amf_consumer.BuildReleaseSmContextRequest(ue, causeAll, "", nil)
-				problemDetails, err := amf_consumer.SendReleaseSmContextRequest(ue, pduSessionId, smContextReleaseRequest)
+				smContextReleaseRequest := consumer.BuildReleaseSmContextRequest(ue, causeAll, "", nil)
+				problemDetails, err := consumer.SendReleaseSmContextRequest(ue, pduSessionId, smContextReleaseRequest)
 				if problemDetails != nil {
 					logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problemDetails)
 				} else if err != nil {
@@ -408,7 +408,7 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 			}
 
 			if body.PcfReselectedInd {
-				problemDetails, err := amf_consumer.AMPolicyControlDelete(ue)
+				problemDetails, err := consumer.AMPolicyControlDelete(ue)
 				if problemDetails != nil {
 					logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
 				} else if err != nil {

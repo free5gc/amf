@@ -1,17 +1,17 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"context"
 	"flag"
-	"github.com/urfave/cli"
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/UDR/TestRegistrationProcedure"
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/udm/udm_service"
 	"free5gc/src/udr/udr_service"
+	"github.com/urfave/cli"
+	"go.mongodb.org/mongo-driver/bson"
 	"strings"
 	"testing"
 	"time"
@@ -63,7 +63,7 @@ func TestPutUpuAck(t *testing.T) {
 	// udmUri := "https://localhost:29503"
 
 	upuMacIue := strings.Repeat("1", 32)
-	err := amf_consumer.PutUpuAck(ue, upuMacIue)
+	err := consumer.PutUpuAck(ue, upuMacIue)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	}
@@ -94,7 +94,7 @@ func TestSDMGetAmData(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	ue.NudmSDMUri = "https://localhost:29503"
-	problemDetails, err := amf_consumer.SDMGetAmData(ue)
+	problemDetails, err := consumer.SDMGetAmData(ue)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -118,7 +118,7 @@ func TestSDMGetSmfSelectData(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	// udmUri := "https://localhost:29503"
-	problemDetails, err := amf_consumer.SDMGetSmfSelectData(ue)
+	problemDetails, err := consumer.SDMGetSmfSelectData(ue)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -138,7 +138,7 @@ func TestSDMGetUeContextInSmfData(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	// udmUri := "https://localhost:29503"
-	problemDetails, err := amf_consumer.SDMGetUeContextInSmfData(ue)
+	problemDetails, err := consumer.SDMGetUeContextInSmfData(ue)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -158,7 +158,7 @@ func TestSDMSubscribe(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	// udmUri := "https://localhost:29503"
-	problemDetails, err := amf_consumer.SDMSubscribe(ue)
+	problemDetails, err := consumer.SDMSubscribe(ue)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -181,7 +181,7 @@ func TestSDMGetSliceSelectionSubscriptionData(t *testing.T) {
 	insertAccessAndMobilitySubscriptionDataToMongoDB("imsi-2089300007487", testAmData, servingPlmnId)
 
 	ue.NudmSDMUri = "https://localhost:29503"
-	problemDetails, err := amf_consumer.SDMGetSliceSelectionSubscriptionData(ue)
+	problemDetails, err := consumer.SDMGetSliceSelectionSubscriptionData(ue)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {

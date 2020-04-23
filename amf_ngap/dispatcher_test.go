@@ -3,11 +3,6 @@ package amf_ngap_test
 import (
 	"encoding/hex"
 	"flag"
-	"git.cs.nctu.edu.tw/calee/sctp"
-	"github.com/gin-gonic/gin"
-	"github.com/mohae/deepcopy"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/SMF/TestPDUSession"
 	"free5gc/lib/CommonConsumerTestData/UDM/TestGenAuthData"
@@ -19,11 +14,11 @@ import (
 	"free5gc/lib/ngap"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap"
 	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/logger"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
@@ -33,6 +28,11 @@ import (
 	"free5gc/src/test/ngapTestpacket"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
+	"git.cs.nctu.edu.tw/calee/sctp"
+	"github.com/gin-gonic/gin"
+	"github.com/mohae/deepcopy"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 	"net/http"
 	"testing"
 	"time"
@@ -852,7 +852,7 @@ func TestDispatchCellTrafficTrace(t *testing.T) {
 	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
-// Copy from TestSMContextCreate() in amf_consumer/sm_context_test.go
+// Copy from TestSMContextCreate() in consumer/sm_context_test.go
 func smContextCreate() {
 
 	TestAmf.AmfInit()
@@ -875,7 +875,7 @@ func smContextCreate() {
 	} else {
 		pduSession.AccessType = anType
 	}
-	smContextCreateData := amf_consumer.BuildCreateSmContextRequest(ue, pduSession, requestType)
+	smContextCreateData := consumer.BuildCreateSmContextRequest(ue, pduSession, requestType)
 	// TODO: http://localhost:29502/ -> smfD smfUri which required from NRF
 	smfUri := "https://localhost:29502"
 
@@ -895,7 +895,7 @@ func smContextCreate() {
 	} else {
 		pduSession2.AccessType = anType
 	}
-	smContextCreateData = amf_consumer.BuildCreateSmContextRequest(ue, pduSession2, requestType)
+	smContextCreateData = consumer.BuildCreateSmContextRequest(ue, pduSession2, requestType)
 
 	createPduSession(ue, &pduSession2, smfUri, payload, smContextCreateData)
 
@@ -903,7 +903,7 @@ func smContextCreate() {
 
 func createPduSession(ue *amf_context.AmfUe, pduSession *models.PduSessionContext, smfUri string, payload []byte, smContextCreateData models.SmContextCreateData) {
 
-	response, smContextRef, _, _, err := amf_consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
+	response, smContextRef, _, _, err := consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
 	if response != nil {
 		var smContext amf_context.SmContext
 		pduSession.SmContextRef = smContextRef

@@ -1,4 +1,4 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"encoding/hex"
@@ -7,8 +7,8 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/SMF/TestPDUSession"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/smf/smf_service"
 	"testing"
 	"time"
@@ -49,11 +49,11 @@ func TestSMContextCreate(t *testing.T) {
 	} else {
 		pduSession.AccessType = anType
 	}
-	smContextCreateData := amf_consumer.BuildCreateSmContextRequest(ue, pduSession, requestType)
+	smContextCreateData := consumer.BuildCreateSmContextRequest(ue, pduSession, requestType)
 	// TODO: http://localhost:29502/ -> smfD smfUri which required from NRF
 	smfUri := "https://localhost:29502"
 
-	response, smContextRef, _, _, err := amf_consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
+	response, smContextRef, _, _, err := consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
 	if response != nil {
 		var smContext amf_context.SmContext
 		pduSession.SmContextRef = smContextRef
@@ -86,7 +86,7 @@ func TestSMContextUpdate(t *testing.T) {
 	if anType == "" {
 		anType = models.AccessType__3_GPP_ACCESS
 	}
-	response, _, _, err := amf_consumer.SendUpdateSmContextActivateUpCnxState(ue, 10, anType)
+	response, _, _, err := consumer.SendUpdateSmContextActivateUpCnxState(ue, 10, anType)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -104,7 +104,7 @@ func TestSMContextUpdate(t *testing.T) {
 	causes := amf_context.CauseAll{
 		Cause: &cause,
 	}
-	response, _, _, err = amf_consumer.SendUpdateSmContextDeactivateUpCnxState(ue, 10, causes)
+	response, _, _, err = consumer.SendUpdateSmContextDeactivateUpCnxState(ue, 10, causes)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -115,7 +115,7 @@ func TestSMContextUpdate(t *testing.T) {
 	}
 
 	/***ChangeAccessType***/
-	response, _, _, err = amf_consumer.SendUpdateSmContextChangeAccessType(ue, 10, false)
+	response, _, _, err = consumer.SendUpdateSmContextChangeAccessType(ue, 10, false)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -130,7 +130,7 @@ func TestSMContextUpdate(t *testing.T) {
 	/***N2Info***/
 	hexString := "00150035000004001B000800535455104546470052400903006672656535474300660010000053545500535455000012985354550015400140"
 	n2SmInfo, err := hex.DecodeString(hexString)
-	response, _, _, err = amf_consumer.SendUpdateSmContextN2Info(ue, 10, models.N2SmInfoType_PDU_RES_SETUP_RSP, n2SmInfo)
+	response, _, _, err = consumer.SendUpdateSmContextN2Info(ue, 10, models.N2SmInfoType_PDU_RES_SETUP_RSP, n2SmInfo)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -144,7 +144,7 @@ func TestSMContextUpdate(t *testing.T) {
 	}
 
 	/***XnHandover***/
-	response, _, _, err = amf_consumer.SendUpdateSmContextXnHandover(ue, 10, models.N2SmInfoType_PATH_SWITCH_REQ, n2SmInfo)
+	response, _, _, err = consumer.SendUpdateSmContextXnHandover(ue, 10, models.N2SmInfoType_PATH_SWITCH_REQ, n2SmInfo)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -155,7 +155,7 @@ func TestSMContextUpdate(t *testing.T) {
 	}
 
 	/***XnHandoverFailed***/
-	response, _, _, err = amf_consumer.SendUpdateSmContextXnHandoverFailed(ue, 10, models.N2SmInfoType_PATH_SWITCH_REQ_FAIL, n2SmInfo)
+	response, _, _, err = consumer.SendUpdateSmContextXnHandoverFailed(ue, 10, models.N2SmInfoType_PATH_SWITCH_REQ_FAIL, n2SmInfo)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -186,7 +186,7 @@ func TestSMContextUpdate(t *testing.T) {
 			Tac:    "000001",
 		},
 	}
-	response, _, _, err = amf_consumer.SendUpdateSmContextN2HandoverPreparing(ue, 10, models.N2SmInfoType_HANDOVER_REQUIRED, n2SmInfo, handoverAmfId, targetId)
+	response, _, _, err = consumer.SendUpdateSmContextN2HandoverPreparing(ue, 10, models.N2SmInfoType_HANDOVER_REQUIRED, n2SmInfo, handoverAmfId, targetId)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -199,7 +199,7 @@ func TestSMContextUpdate(t *testing.T) {
 	}
 
 	/***N2HandoverPrepared***/
-	response, _, _, err = amf_consumer.SendUpdateSmContextN2HandoverPrepared(ue, 10, models.N2SmInfoType_HANDOVER_REQ_ACK, n2SmInfo)
+	response, _, _, err = consumer.SendUpdateSmContextN2HandoverPrepared(ue, 10, models.N2SmInfoType_HANDOVER_REQ_ACK, n2SmInfo)
 	// failure type: models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
@@ -217,7 +217,7 @@ func TestSMContextUpdate(t *testing.T) {
 		PlmnId: TestAmf.TestAmf.ServedGuamiList[0].PlmnId,
 		AmfId:  "CAFE01",
 	}
-	response, _, _, err = amf_consumer.SendUpdateSmContextN2HandoverComplete(ue, 10, handoverAmfId, handoverAmfGuami)
+	response, _, _, err = consumer.SendUpdateSmContextN2HandoverComplete(ue, 10, handoverAmfId, handoverAmfGuami)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -232,7 +232,7 @@ func TestSMContextUpdate(t *testing.T) {
 	causes = amf_context.CauseAll{
 		Cause: &cause,
 	}
-	response, _, _, err = amf_consumer.SendUpdateSmContextN2HandoverCanceled(ue, 10, causes)
+	response, _, _, err = consumer.SendUpdateSmContextN2HandoverCanceled(ue, 10, causes)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -244,7 +244,7 @@ func TestSMContextUpdate(t *testing.T) {
 
 	/***HandoverBetweenAccessType***/
 	accessType := models.AccessType_NON_3_GPP_ACCESS
-	response, _, _, err = amf_consumer.SendUpdateSmContextHandoverBetweenAccessType(ue, 10, accessType, nil)
+	response, _, _, err = consumer.SendUpdateSmContextHandoverBetweenAccessType(ue, 10, accessType, nil)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -266,7 +266,7 @@ func TestSMContextUpdate(t *testing.T) {
 		AmfId: "010203",
 	}
 	activation := false
-	response, _, _, err = amf_consumer.SendUpdateSmContextHandoverBetweenAMF(ue, 10, handoverBetweenAmfId, handoverBetweenAmfGuami, activation)
+	response, _, _, err = consumer.SendUpdateSmContextHandoverBetweenAMF(ue, 10, handoverBetweenAmfId, handoverBetweenAmfGuami, activation)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {
@@ -286,8 +286,8 @@ func TestSMContextRelease(t *testing.T) {
 	}
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	releaseDate := amf_consumer.BuildReleaseSmContextRequest(ue, nil, "", nil)
-	_, err := amf_consumer.SendReleaseSmContextRequest(ue, 10, releaseDate)
+	releaseDate := consumer.BuildReleaseSmContextRequest(ue, nil, "", nil)
+	_, err := consumer.SendReleaseSmContextRequest(ue, 10, releaseDate)
 	if err != nil {
 		t.Errorf("[ERROR] " + err.Error())
 	} else {

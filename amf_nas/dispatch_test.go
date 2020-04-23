@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/urfave/cli"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	"free5gc/lib/CommonConsumerTestData/AUSF/TestUEAuth"
@@ -23,9 +22,9 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/Communication"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_nas"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
@@ -37,6 +36,7 @@ import (
 	"free5gc/src/smf/smf_service"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
+	"github.com/urfave/cli"
 	"log"
 	"net/http"
 	"testing"
@@ -204,7 +204,7 @@ func TestULNASTransportPDUSessionEstablishemnt(t *testing.T) {
 
 	// smf register to nrf
 	uuid, profile := TestAmf.BuildSmfNfProfile()
-	uri, err := amf_consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
+	uri, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
 	if err != nil {
 		t.Error(err.Error())
 	} else {
@@ -828,7 +828,7 @@ func TestStatus5GSM(t *testing.T) {
 
 	// smf register to nrf
 	uuid, profile := TestAmf.BuildSmfNfProfile()
-	uri, err := amf_consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
+	uri, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
 	if err != nil {
 		t.Error(err.Error())
 	} else {

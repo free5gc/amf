@@ -1,16 +1,16 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"flag"
-	"github.com/antihax/optional"
-	"github.com/urfave/cli"
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/nrf/nrf_service"
+	"github.com/antihax/optional"
+	"github.com/urfave/cli"
+	"go.mongodb.org/mongo-driver/bson"
 	"reflect"
 	"testing"
 	"time"
@@ -37,12 +37,12 @@ func TestSendSearchNFInstances(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	nfprofile, err := amf_consumer.BuildNFInstance(TestAmf.TestAmf)
+	nfprofile, err := consumer.BuildNFInstance(TestAmf.TestAmf)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	uri, _, err1 := amf_consumer.SendRegisterNFInstance(TestAmf.TestAmf.NrfUri, TestAmf.TestAmf.NfId, nfprofile)
+	uri, _, err1 := consumer.SendRegisterNFInstance(TestAmf.TestAmf.NrfUri, TestAmf.TestAmf.NfId, nfprofile)
 	if err1 != nil {
 		t.Error(err1.Error())
 	} else {
@@ -52,7 +52,7 @@ func TestSendSearchNFInstances(t *testing.T) {
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NAMF_COMM}),
 	}
-	result, err2 := amf_consumer.SendSearchNFInstances(TestAmf.TestAmf.NrfUri, models.NfType_AMF, models.NfType_AMF, &param)
+	result, err2 := consumer.SendSearchNFInstances(TestAmf.TestAmf.NrfUri, models.NfType_AMF, models.NfType_AMF, &param)
 	if err2 != nil {
 		t.Error(err1.Error())
 	} else if !reflect.DeepEqual(nfprofile, result.NfInstances[0]) {

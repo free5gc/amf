@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/http2_util"
@@ -17,14 +14,17 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/HttpCallback"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_nas"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/nrf/Discovery"
 	"free5gc/src/nrf/Management"
 	"free5gc/src/nrf/nrf_handler"
 	"free5gc/src/smf/PDUSession"
 	"free5gc/src/smf/smf_handler"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"net/http"
@@ -77,7 +77,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	uuid, profile := TestAmf.BuildSmfNfProfile()
-	uri, _, err := amf_consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
+	uri, _, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
 	if err != nil {
 		t.Error(err.Error())
 	} else {

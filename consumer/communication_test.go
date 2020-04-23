@@ -1,7 +1,6 @@
-package amf_consumer_test
+package consumer_test
 
 import (
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	"free5gc/lib/http2_util"
@@ -11,10 +10,11 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/Communication"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
@@ -40,7 +40,7 @@ func TestCreateUEContextRequest(t *testing.T) {
 
 	ueContextCreateData := TestComm.ConsumerAMFCreateUEContextRequsetTable[TestComm.CreateUEContext201]
 	ue.TargetAmfUri = "https://localhost:29518"
-	ueContextCreatedData, problemDetails, err := amf_consumer.CreateUEContextRequest(ue, *ueContextCreateData.JsonData)
+	ueContextCreatedData, problemDetails, err := consumer.CreateUEContextRequest(ue, *ueContextCreateData.JsonData)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -70,7 +70,7 @@ func TestReleaseUEContextRequest(t *testing.T) {
 		Value: int32(ngapType.CauseProtocolPresentUnspecified),
 	}
 	ue.TargetAmfUri = "https://localhost:29518"
-	problemDetails, err := amf_consumer.ReleaseUEContextRequest(ue, ngapCause)
+	problemDetails, err := consumer.ReleaseUEContextRequest(ue, ngapCause)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -98,7 +98,7 @@ func TestUEContextTransferRequest(t *testing.T) {
 	ue.RegistrationRequest = nasMessage.NewRegistrationRequest(0)
 	ue.RegistrationRequest.DecodeRegistrationRequest(&registrationRequest)
 	ue.TargetAmfUri = "https://localhost:29518"
-	ueContextTransferRspData, problemDetails, err := amf_consumer.UEContextTransferRequest(ue, models.AccessType__3_GPP_ACCESS, models.TransferReason_INIT_REG)
+	ueContextTransferRspData, problemDetails, err := consumer.UEContextTransferRequest(ue, models.AccessType__3_GPP_ACCESS, models.TransferReason_INIT_REG)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -116,7 +116,7 @@ func TestRegistrationStatusUpdate(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	ueRegStatusUpdateReqData := TestComm.ConsumerRegistrationStatusUpdateTable[TestComm.RegistrationStatusUpdate200]
 	ue.TargetAmfUri = "https://localhost:29518"
-	regStatusTransferComplete, problemDetails, err := amf_consumer.RegistrationStatusUpdate(ue, ueRegStatusUpdateReqData)
+	regStatusTransferComplete, problemDetails, err := consumer.RegistrationStatusUpdate(ue, ueRegStatusUpdateReqData)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

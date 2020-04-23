@@ -1,10 +1,10 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/nssf/service"
 	"github.com/urfave/cli"
 	"testing"
@@ -65,7 +65,7 @@ func TestNSSelectionGetForRegistration(t *testing.T) {
 			DefaultIndication: false,
 		},
 	}
-	problemDetails, err := amf_consumer.NSSelectionGetForRegistration(ue, requestNssai)
+	problemDetails, err := consumer.NSSelectionGetForRegistration(ue, requestNssai)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -122,7 +122,7 @@ func TestNSSelectionGetForPduSession(t *testing.T) {
 			DefaultIndication: false,
 		},
 	}
-	problemDetails, err := amf_consumer.NSSelectionGetForRegistration(ue, requestNssai)
+	problemDetails, err := consumer.NSSelectionGetForRegistration(ue, requestNssai)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
@@ -137,7 +137,7 @@ func TestNSSelectionGetForPduSession(t *testing.T) {
 		Sst: ue.AllowedNssai[models.AccessType__3_GPP_ACCESS][0].AllowedSnssai.Sst,
 		Sd:  ue.AllowedNssai[models.AccessType__3_GPP_ACCESS][0].AllowedSnssai.Sd,
 	}
-	res, problemDetails, err := amf_consumer.NSSelectionGetForPduSession(ue, snssai)
+	res, problemDetails, err := consumer.NSSelectionGetForPduSession(ue, snssai)
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {

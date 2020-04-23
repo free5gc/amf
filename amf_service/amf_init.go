@@ -3,10 +3,6 @@ package amf_service
 import (
 	"bufio"
 	"fmt"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
@@ -16,16 +12,20 @@ import (
 	"free5gc/src/amf/Location"
 	"free5gc/src/amf/MT"
 	"free5gc/src/amf/OAM"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/amf_ngap/ngap_sctp"
 	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
 	"free5gc/src/app"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -144,12 +144,12 @@ func (amf *AMF) Start() {
 	go amf_handler.Handle()
 
 	// Register to NRF
-	profile, err := amf_consumer.BuildNFInstance(self)
+	profile, err := consumer.BuildNFInstance(self)
 	if err != nil {
 		initLog.Error("Build AMF Profile Error")
 	}
 
-	_, self.NfId, _ = amf_consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
+	_, self.NfId, _ = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
@@ -222,7 +222,7 @@ func (amf *AMF) Terminate() {
 	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
 
 	// deregister with NRF
-	problemDetails, err := amf_consumer.SendDeregisterNFInstance()
+	problemDetails, err := consumer.SendDeregisterNFInstance()
 	if problemDetails != nil {
 		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
 	} else if err != nil {

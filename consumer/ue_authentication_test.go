@@ -1,4 +1,4 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"encoding/hex"
@@ -10,7 +10,7 @@ import (
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/producer"
 	"free5gc/src/ausf/service"
@@ -88,7 +88,7 @@ func TestUeAuthenticationAuthenticateRequest(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	// ausfUri := "https://localhost:29509"
 
-	response, _, err := amf_consumer.SendUEAuthenticationAuthenticateRequest(ue, nil)
+	response, _, err := consumer.SendUEAuthenticationAuthenticateRequest(ue, nil)
 	if response != nil {
 		fmt.Printf("response: %+v\n", response)
 	} else if err != nil {
@@ -140,7 +140,7 @@ func TestEapConfirm(t *testing.T) {
 		Buffer: encodedPktAfterMAC,
 	}
 
-	response, problemDetails, err := amf_consumer.SendEapAuthConfirmRequest(ue, eapMsg)
+	response, problemDetails, err := consumer.SendEapAuthConfirmRequest(ue, eapMsg)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -163,7 +163,7 @@ func Test5gAkaConfirm(t *testing.T) {
 	// ausfUri := "https://localhost:29509"
 
 	resStar := TestUEAuth.TestUe5gAuthTable[TestUEAuth.SUCCESS_CASE].ResStar
-	response, problemDetails, err := amf_consumer.SendAuth5gAkaConfirmRequest(ue, resStar)
+	response, problemDetails, err := consumer.SendAuth5gAkaConfirmRequest(ue, resStar)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

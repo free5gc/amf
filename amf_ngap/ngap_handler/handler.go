@@ -8,10 +8,10 @@ import (
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
@@ -560,7 +560,7 @@ func HandleUEContextReleaseComplete(ran *amf_context.AmfRan, message *ngapType.N
 		if pDUSessionResourceList != nil {
 			for _, pduSessionReourceItem := range pDUSessionResourceList.List {
 				pduSessionID := int32(pduSessionReourceItem.PDUSessionID.Value)
-				response, _, _, err := amf_consumer.SendUpdateSmContextDeactivateUpCnxState(amfUe, pduSessionID, cause)
+				response, _, _, err := consumer.SendUpdateSmContextDeactivateUpCnxState(amfUe, pduSessionID, cause)
 				if err != nil {
 					logger.NgapLog.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 				} else if response == nil {
@@ -691,7 +691,7 @@ func HandlePDUSessionResourceReleaseResponse(ran *amf_context.AmfRan, message *n
 			pduSessionID := int32(item.PDUSessionID.Value)
 			transfer := item.PDUSessionResourceReleaseResponseTransfer
 
-			_, responseErr, problemDetail, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_REL_RSP, transfer)
+			_, responseErr, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_REL_RSP, transfer)
 			// TODO: error handling
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceReleaseResponse] Error:\n%s", err.Error())
@@ -1116,7 +1116,7 @@ func HandlePDUSessionResourceSetupResponse(ran *amf_context.AmfRan, message *nga
 				pduSessionID := int32(item.PDUSessionID.Value)
 				transfer := item.PDUSessionResourceSetupResponseTransfer
 
-				response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+				response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
 				if err != nil {
 					Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error:\n%s", err.Error())
 				}
@@ -1136,7 +1136,7 @@ func HandlePDUSessionResourceSetupResponse(ran *amf_context.AmfRan, message *nga
 				pduSessionID := int32(item.PDUSessionID.Value)
 				transfer := item.PDUSessionResourceSetupUnsuccessfulTransfer
 
-				response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
+				response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 				if err != nil {
 					Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error:\n%s", err.Error())
 				}
@@ -1242,7 +1242,7 @@ func HandlePDUSessionResourceModifyResponse(ran *amf_context.AmfRan, message *ng
 				pduSessionID := int32(item.PDUSessionID.Value)
 				transfer := item.PDUSessionResourceModifyResponseTransfer
 
-				response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_MOD_RSP, *transfer)
+				response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_MOD_RSP, *transfer)
 				if err != nil {
 					Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceModifyResponseTransfer] Error:\n%s", err.Error())
 				}
@@ -1261,7 +1261,7 @@ func HandlePDUSessionResourceModifyResponse(ran *amf_context.AmfRan, message *ng
 				pduSessionID := int32(item.PDUSessionID.Value)
 				transfer := item.PDUSessionResourceModifyUnsuccessfulTransfer
 
-				response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_MOD_FAIL, transfer)
+				response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_MOD_FAIL, transfer)
 				if err != nil {
 					Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceModifyUnsuccessfulTransfer] Error:\n%s", err.Error())
 				}
@@ -1371,7 +1371,7 @@ func HandlePDUSessionResourceNotify(ran *amf_context.AmfRan, message *ngapType.N
 		pduSessionID := int32(item.PDUSessionID.Value)
 		transfer := item.PDUSessionResourceNotifyTransfer
 
-		response, errResponse, problemDetail, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_NTY, transfer)
+		response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_NTY, transfer)
 		if err != nil {
 			Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyTransfer] Error:\n%s", err.Error())
 		}
@@ -1417,7 +1417,7 @@ func HandlePDUSessionResourceNotify(ran *amf_context.AmfRan, message *ngapType.N
 			pduSessionID := int32(item.PDUSessionID.Value)
 			transfer := item.PDUSessionResourceNotifyReleasedTransfer
 
-			response, errResponse, problemDetail, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_NTY_REL, transfer)
+			response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_NTY_REL, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyReleasedTransfer] Error:\n%s", err.Error())
 			}
@@ -1574,7 +1574,7 @@ func HandlePDUSessionResourceModifyIndication(ran *amf_context.AmfRan, message *
 		pduSessionID := item.PDUSessionID.Value
 		transfer := item.PDUSessionResourceModifyIndicationTransfer
 
-		response, errResponse, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, int32(pduSessionID), models.N2SmInfoType_PDU_RES_MOD_IND, transfer)
+		response, errResponse, _, err := consumer.SendUpdateSmContextN2Info(amfUe, int32(pduSessionID), models.N2SmInfoType_PDU_RES_MOD_IND, transfer)
 
 		if err != nil {
 			Ngaplog.Errorf("SendUpdateSmContextN2Info Error:\n%s", err.Error())
@@ -1677,7 +1677,7 @@ func HandleInitialContextSetupResponse(ran *amf_context.AmfRan, message *ngapTyp
 			pduSessionID := int32(item.PDUSessionID.Value)
 			transfer := item.PDUSessionResourceSetupResponseTransfer
 
-			response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+			response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error:\n%s", err.Error())
 			}
@@ -1697,7 +1697,7 @@ func HandleInitialContextSetupResponse(ran *amf_context.AmfRan, message *ngapTyp
 			pduSessionID := int32(item.PDUSessionID.Value)
 			transfer := item.PDUSessionResourceSetupUnsuccessfulTransfer
 
-			response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
+			response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error:\n%s", err.Error())
 			}
@@ -1837,7 +1837,7 @@ func HandleInitialContextSetupFailure(ran *amf_context.AmfRan, message *ngapType
 			pduSessionID := int32(item.PDUSessionID.Value)
 			transfer := item.PDUSessionResourceSetupUnsuccessfulTransfer
 
-			response, _, _, err := amf_consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
+			response, _, _, err := consumer.SendUpdateSmContextN2Info(amfUe, pduSessionID, models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error:\n%s", err.Error())
 			}
@@ -1943,7 +1943,7 @@ func HandleUEContextReleaseRequest(ran *amf_context.AmfRan, message *ngapType.NG
 			if pDUSessionResourceList != nil {
 				for _, pduSessionReourceItem := range pDUSessionResourceList.List {
 					pduSessionID := int32(pduSessionReourceItem.PDUSessionID.Value)
-					response, _, _, err := amf_consumer.SendUpdateSmContextDeactivateUpCnxState(amfUe, pduSessionID, causeAll)
+					response, _, _, err := consumer.SendUpdateSmContextDeactivateUpCnxState(amfUe, pduSessionID, causeAll)
 					if err != nil {
 						logger.NgapLog.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 					} else if response == nil {
@@ -1954,8 +1954,8 @@ func HandleUEContextReleaseRequest(ran *amf_context.AmfRan, message *ngapType.NG
 		} else {
 			Ngaplog.Info("[NGAP] Ue Context in Non GMM-Registered")
 			for pduSessionId := range amfUe.SmContextList {
-				releaseData := amf_consumer.BuildReleaseSmContextRequest(amfUe, &causeAll, "", nil)
-				detail, err := amf_consumer.SendReleaseSmContextRequest(amfUe, pduSessionId, releaseData)
+				releaseData := consumer.BuildReleaseSmContextRequest(amfUe, &causeAll, "", nil)
+				detail, err := consumer.SendReleaseSmContextRequest(amfUe, pduSessionId, releaseData)
 				if err != nil {
 					logger.NgapLog.Errorf("Send ReleaseSmContextRequest Error[%s]", err.Error())
 				} else if detail != nil {
@@ -2326,7 +2326,7 @@ func HandleHandoverNotify(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
 	} else {
 		logger.NgapLog.Info("[AMF] Handover notification Finshed ")
 		for _, pduSessionid := range targetUe.SuccessPduSessionId {
-			_, _, _, err := amf_consumer.SendUpdateSmContextN2HandoverComplete(amfUe, pduSessionid, "", nil)
+			_, _, _, err := consumer.SendUpdateSmContextN2HandoverComplete(amfUe, pduSessionid, "", nil)
 			if err != nil {
 				Ngaplog.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
 			}
@@ -2461,7 +2461,7 @@ func HandlePathSwitchRequest(ran *amf_context.AmfRan, message *ngapType.NGAPPDU)
 			pduSessionID := item.PDUSessionID.Value
 			transfer := item.PathSwitchRequestTransfer
 
-			response, errResponse, _, err := amf_consumer.SendUpdateSmContextXnHandover(amfUe, int32(pduSessionID), models.N2SmInfoType_PATH_SWITCH_REQ, transfer)
+			response, errResponse, _, err := consumer.SendUpdateSmContextXnHandover(amfUe, int32(pduSessionID), models.N2SmInfoType_PATH_SWITCH_REQ, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextXnHandover[PathSwitchRequestTransfer] Error:\n%s", err.Error())
 			}
@@ -2485,7 +2485,7 @@ func HandlePathSwitchRequest(ran *amf_context.AmfRan, message *ngapType.NGAPPDU)
 			pduSessionID := item.PDUSessionID.Value
 			transfer := item.PathSwitchRequestSetupFailedTransfer
 
-			response, errResponse, _, err := amf_consumer.SendUpdateSmContextXnHandoverFailed(amfUe, int32(pduSessionID), models.N2SmInfoType_PATH_SWITCH_SETUP_FAIL, transfer)
+			response, errResponse, _, err := consumer.SendUpdateSmContextXnHandoverFailed(amfUe, int32(pduSessionID), models.N2SmInfoType_PATH_SWITCH_SETUP_FAIL, transfer)
 			if err != nil {
 				Ngaplog.Errorf("SendUpdateSmContextXnHandoverFailed[PathSwitchRequestSetupFailedTransfer] Error:\n%s", err.Error())
 			}
@@ -2625,7 +2625,7 @@ func HandleHandoverRequestAcknowledge(ran *amf_context.AmfRan, message *ngapType
 		transfer := item.HandoverRequestAcknowledgeTransfer
 		pduSessionId := int32(pduSessionID)
 		if _, exist := amfUe.SmContextList[pduSessionId]; exist {
-			response, errResponse, problemDetails, err := amf_consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
+			response, errResponse, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
 			if err != nil {
 				Ngaplog.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
 			}
@@ -2654,7 +2654,7 @@ func HandleHandoverRequestAcknowledge(ran *amf_context.AmfRan, message *ngapType
 		transfer := item.HandoverResourceAllocationUnsuccessfulTransfer
 		pduSessionId := int32(pduSessionID)
 		if _, exist := amfUe.SmContextList[pduSessionId]; exist {
-			_, _, problemDetails, err := amf_consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
+			_, _, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
 			if err != nil {
 				Ngaplog.Errorf("Send HandoverResourceAllocationUnsuccessfulTransfer error: %v", err)
 			}
@@ -2769,7 +2769,7 @@ func HandleHandoverFailure(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
 						Value: int32(causeValue),
 					},
 				}
-				_, _, _, err := amf_consumer.SendUpdateSmContextN2HandoverCanceled(amfUe, pduSessionId, causeAll)
+				_, _, _, err := consumer.SendUpdateSmContextN2HandoverCanceled(amfUe, pduSessionId, causeAll)
 				if err != nil {
 					logger.NgapLog.Errorf("Send UpdateSmContextN2HandoverCanceled Error for PduSessionId[%d]", pduSessionId)
 				}
@@ -2940,7 +2940,7 @@ func HandleHandoverRequired(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) 
 		for _, pDUSessionResourceHoItem := range pDUSessionResourceListHORqd.List {
 			pduSessionId := int32(pDUSessionResourceHoItem.PDUSessionID.Value)
 			if smContext, exist := amfUe.SmContextList[pduSessionId]; exist {
-				response, _, _, _ := amf_consumer.SendUpdateSmContextN2HandoverPreparing(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQUIRED, pDUSessionResourceHoItem.HandoverRequiredTransfer, "", &targetId)
+				response, _, _, _ := consumer.SendUpdateSmContextN2HandoverPreparing(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQUIRED, pDUSessionResourceHoItem.HandoverRequiredTransfer, "", &targetId)
 				if response == nil {
 					logger.NgapLog.Errorf("SendUpdateSmContextN2HandoverPreparing Error for PduSessionId[%d]", pduSessionId)
 					continue
@@ -3064,7 +3064,7 @@ func HandleHandoverCancel(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
 						Value: int32(causeValue),
 					},
 				}
-				_, _, _, err := amf_consumer.SendUpdateSmContextN2HandoverCanceled(amfUe, pduSessionId, causeAll)
+				_, _, _, err := consumer.SendUpdateSmContextN2HandoverCanceled(amfUe, pduSessionId, causeAll)
 				if err != nil {
 					logger.NgapLog.Errorf("Send UpdateSmContextN2HandoverCanceled Error for PduSessionId[%d]", pduSessionId)
 				}

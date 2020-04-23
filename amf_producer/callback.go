@@ -2,17 +2,17 @@ package amf_producer
 
 import (
 	"fmt"
-	"github.com/mohae/deepcopy"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/logger"
+	"github.com/mohae/deepcopy"
 	"net/http"
 	"strconv"
 )
@@ -45,9 +45,9 @@ func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMes
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
 	if storedSmContext, exist := ue.StoredSmContext[pduSessionId]; exist {
 
-		smContextCreateData := amf_consumer.BuildCreateSmContextRequest(ue, *storedSmContext.PduSessionContext, models.RequestType_INITIAL_REQUEST)
+		smContextCreateData := consumer.BuildCreateSmContextRequest(ue, *storedSmContext.PduSessionContext, models.RequestType_INITIAL_REQUEST)
 
-		response, smContextRef, errResponse, problemDetail, err := amf_consumer.SendCreateSmContextRequest(ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
+		response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
 		if response != nil {
 			var smContext amf_context.SmContext
 			smContext.PduSessionContext = storedSmContext.PduSessionContext
@@ -150,7 +150,7 @@ func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.Han
 
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
 
-	problemDetails, err := amf_consumer.AMPolicyControlDelete(ue)
+	problemDetails, err := consumer.AMPolicyControlDelete(ue)
 	if problemDetails != nil {
 		logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
 	} else if err != nil {

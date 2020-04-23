@@ -7,8 +7,8 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/Communication"
 	"free5gc/src/amf/HttpCallback"
-	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/nrf/nrf_service"
 	pcf_context "free5gc/src/pcf/context"
 	pcf_producer "free5gc/src/pcf/producer"
@@ -81,7 +81,7 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
+	problemDetails, err := consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -135,7 +135,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
+	problemDetails, err := consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

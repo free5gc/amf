@@ -1,11 +1,11 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/logger"
 	pcf_service "free5gc/src/pcf/service"
 	"github.com/sirupsen/logrus"
@@ -59,7 +59,7 @@ func TestAmPolicyControlCreate(t *testing.T) {
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
+	problemDetails, err := consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -89,7 +89,7 @@ func TestAmPolicyControlUpdate(t *testing.T) {
 	}
 
 	// Create an AM Policy Association
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
+	problemDetails, err := consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -107,7 +107,7 @@ func TestAmPolicyControlUpdate(t *testing.T) {
 	}
 
 	// Update Rfsp of AM Policy
-	problemDetails, err = amf_consumer.AMPolicyControlUpdate(ue, updateRequest)
+	problemDetails, err = consumer.AMPolicyControlUpdate(ue, updateRequest)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -136,7 +136,7 @@ func TestAmPolicyControlDelete(t *testing.T) {
 	}
 
 	// Create an AM Policy Association
-	problemDetails, err := amf_consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
+	problemDetails, err := consumer.AMPolicyControlCreate(ue, models.AccessType__3_GPP_ACCESS)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {
@@ -147,7 +147,7 @@ func TestAmPolicyControlDelete(t *testing.T) {
 	}
 
 	// Delete AM Policy Association
-	problemDetails, err = amf_consumer.AMPolicyControlDelete(ue)
+	problemDetails, err = consumer.AMPolicyControlDelete(ue)
 	if err != nil {
 		t.Error(err)
 	} else if problemDetails != nil {

@@ -1,15 +1,15 @@
-package amf_consumer_test
+package consumer_test
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/logger"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	// "free5gc/src/udm/udm_context"
 	"net/http"
 	"testing"
@@ -56,7 +56,7 @@ func TestUeCmRegistration(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	// udmUri := "https://localhost:29503"
-	problemDetails, err := amf_consumer.UeCmRegistration(ue, models.AccessType__3_GPP_ACCESS, true)
+	problemDetails, err := consumer.UeCmRegistration(ue, models.AccessType__3_GPP_ACCESS, true)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else if problemDetails != nil {

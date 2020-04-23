@@ -1,10 +1,10 @@
-package amf_consumer_test
+package consumer
 
 import (
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
-	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/consumer"
+	"go.mongodb.org/mongo-driver/bson"
 	"testing"
 	"time"
 )
@@ -21,12 +21,12 @@ func TestRegisterNFInstance(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	nfprofile, err := amf_consumer.BuildNFInstance(TestAmf.TestAmf)
+	nfprofile, err := consumer.BuildNFInstance(TestAmf.TestAmf)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	uri, nfId, err1 := amf_consumer.SendRegisterNFInstance(TestAmf.TestAmf.NrfUri, TestAmf.TestAmf.NfId, nfprofile)
+	uri, nfId, err1 := consumer.SendRegisterNFInstance(TestAmf.TestAmf.NrfUri, TestAmf.TestAmf.NfId, nfprofile)
 	if err1 != nil {
 		t.Error(err1.Error())
 	} else {
@@ -39,7 +39,7 @@ func TestDeregisterNFInstance(t *testing.T) {
 
 	TestRegisterNFInstance(t)
 
-	problemDetails, err := amf_consumer.SendDeregisterNFInstance()
+	problemDetails, err := consumer.SendDeregisterNFInstance()
 	if err != nil {
 		t.Error(err.Error())
 	} else if problemDetails != nil {
