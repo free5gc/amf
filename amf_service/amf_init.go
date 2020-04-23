@@ -162,7 +162,7 @@ func (amf *AMF) Start() {
 	if err == nil && server != nil {
 		initLog.Infoln(server.ListenAndServeTLS(amf_util.AmfPemPath, amf_util.AmfKeyPath))
 	} else {
-		initLog.Errorf("Initialize http2 server failed: %+v", err)
+		initLog.Fatalf("Initialize http2 server failed: %+v", err)
 	}
 }
 
