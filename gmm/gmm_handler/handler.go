@@ -181,6 +181,7 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 				Cause:              models.Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
 				SmContextStatusUri: fmt.Sprintf("%s/namf-callback/v1/smContextStatus/%s/%d", amfSelf.GetIPv4Uri(), ue.Guti, pduSessionID),
 			}
+			logger.GmmLog.Warningln("Duplicated PDU session ID")
 			response, _, _, err := amf_consumer.SendUpdateSmContextRequest(ue, smContext.SmfUri, smContext.PduSessionContext.SmContextRef, updateData, nil, nil)
 			if err != nil {
 				return err
@@ -188,6 +189,19 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 				err := fmt.Errorf("PDU Session ID[%d] can't be released in DUPLICATE_SESSION_ID case for request Type \"Initial Request\" in PDU Session Establishment Request\n", pduSessionID)
 				logger.GmmLog.Errorf(err.Error())
 				gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo, payload, &pduSessionID, nasMessage.Cause5GMMPayloadWasNotForwarded, nil, 0)
+			} else if response != nil {
+				smContext.UserLocation = ue.Location
+				responseData := response.JsonData
+				n2Info := response.BinaryDataN2SmInformation
+				if n2Info != nil {
+					switch responseData.N2SmInfoType {
+					case models.N2SmInfoType_PDU_RES_REL_CMD:
+						logger.GmmLog.Debugln("AMF Transfer NGAP PDU Session Resource Release Command from SMF")
+						list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
+						ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, pduSessionID, n2Info)
+						ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nil, list)
+					}
+				}
 			}
 			return nil
 		}
