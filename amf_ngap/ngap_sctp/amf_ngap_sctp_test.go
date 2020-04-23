@@ -3,7 +3,7 @@ package amf_ngap_sctp_test
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"gofree5gc/src/amf/amf_handler"
+	"free5gc/src/amf/amf_handler"
 	"net"
 	"runtime"
 	"testing"
@@ -11,8 +11,8 @@ import (
 
 	"git.cs.nctu.edu.tw/calee/sctp"
 
-	amf_ngap_sctp "gofree5gc/src/amf/amf_ngap/ngap_sctp"
-	"gofree5gc/src/amf/logger"
+	amf_ngap_sctp "free5gc/src/amf/amf_ngap/ngap_sctp"
+	"free5gc/src/amf/logger"
 )
 
 var testClientNum = 2

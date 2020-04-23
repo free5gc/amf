@@ -2,8 +2,8 @@ package Namf_OAM
 
 import (
 	"github.com/gin-gonic/gin"
-	"gofree5gc/lib/http_wrapper"
-	"gofree5gc/src/amf/amf_handler/amf_message"
+	"free5gc/lib/http_wrapper"
+	"free5gc/src/amf/amf_handler/amf_message"
 )
 
 func setCorsHeader(c *gin.Context) {

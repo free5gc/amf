@@ -3,14 +3,14 @@ package gmm
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"gofree5gc/lib/fsm"
-	"gofree5gc/lib/nas"
-	"gofree5gc/lib/nas/nasMessage"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/gmm/gmm_event"
-	"gofree5gc/src/amf/gmm/gmm_handler"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/fsm"
+	"free5gc/lib/nas"
+	"free5gc/lib/nas/nasMessage"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/gmm/gmm_event"
+	"free5gc/src/amf/gmm/gmm_handler"
+	"free5gc/src/amf/logger"
 )
 
 var GmmLog *logrus.Entry

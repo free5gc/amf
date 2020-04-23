@@ -1,12 +1,12 @@
 package amf_producer
 
 import (
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_handler/amf_message"
-	"gofree5gc/src/amf/gmm"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/gmm"
+	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
 )

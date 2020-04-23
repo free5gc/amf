@@ -2,13 +2,13 @@ package amf_ngap_sctp
 
 import (
 	"git.cs.nctu.edu.tw/calee/sctp"
-	"gofree5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/amf_handler/amf_message"
 	"net"
 	"sync"
 	"time"
 
-	"gofree5gc/lib/ngap/ngapSctp"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/ngap/ngapSctp"
+	"free5gc/src/amf/logger"
 )
 
 var readChan chan ngapSctp.ConnData

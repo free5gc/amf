@@ -1,7 +1,7 @@
 package amf_context
 
 import (
-	"gofree5gc/lib/openapi/models"
+	"free5gc/lib/openapi/models"
 )
 
 const (

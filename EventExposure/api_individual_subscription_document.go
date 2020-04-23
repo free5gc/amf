@@ -10,9 +10,9 @@
 package EventExposure
 
 import (
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_producer"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_producer"
 	"net/http"
 	"reflect"
 

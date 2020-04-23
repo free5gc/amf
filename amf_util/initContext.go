@@ -3,10 +3,10 @@ package amf_util
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/factory"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/factory"
+	"free5gc/src/amf/logger"
 )
 
 func InitAmfContext(context *amf_context.AMFContext) {

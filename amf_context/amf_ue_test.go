@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 	"strings"
 	"testing"
 )

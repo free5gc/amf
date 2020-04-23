@@ -2,11 +2,11 @@ package Communication_test
 
 import (
 	"context"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	Namf_Communication_Client "gofree5gc/lib/Namf_Communication"
-	"gofree5gc/lib/openapi/common"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/gmm"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	Namf_Communication_Client "free5gc/lib/Namf_Communication"
+	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/gmm"
 	"log"
 	"testing"
 )

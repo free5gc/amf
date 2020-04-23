@@ -1,13 +1,13 @@
 package amf_handler_test
 
 import (
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/ngap"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_handler"
-	"gofree5gc/src/amf/amf_handler/amf_message"
-	"gofree5gc/src/amf/amf_ngap"
-	"gofree5gc/src/test/ngapTestpacket"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/ngap"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/amf_ngap"
+	"free5gc/src/test/ngapTestpacket"
 	"testing"
 	"time"
 )

@@ -1,7 +1,7 @@
 package gmm_state
 
 import (
-	"gofree5gc/lib/fsm"
+	"free5gc/lib/fsm"
 )
 
 const (

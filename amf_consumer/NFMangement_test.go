@@ -2,9 +2,9 @@ package amf_consumer_test
 
 import (
 	"go.mongodb.org/mongo-driver/bson"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/MongoDBLibrary"
-	"gofree5gc/src/amf/amf_consumer"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/MongoDBLibrary"
+	"free5gc/src/amf/amf_consumer"
 	"testing"
 	"time"
 )

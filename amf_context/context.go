@@ -2,8 +2,8 @@ package amf_context
 
 import (
 	"fmt"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/logger"
 	"math"
 	"net"
 	"reflect"

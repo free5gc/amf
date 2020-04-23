@@ -2,10 +2,10 @@ package amf_consumer
 
 import (
 	"context"
-	"gofree5gc/lib/Nsmf_PDUSession"
-	"gofree5gc/lib/openapi/common"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/Nsmf_PDUSession"
+	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 	"strconv"
 )
 

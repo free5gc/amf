@@ -3,13 +3,13 @@ package ngap_message
 import (
 	"encoding/hex"
 	"fmt"
-	"gofree5gc/lib/aper"
-	"gofree5gc/lib/ngap"
-	"gofree5gc/lib/ngap/ngapConvert"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/aper"
+	"free5gc/lib/ngap"
+	"free5gc/lib/ngap/ngapConvert"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/logger"
 	"strings"
 )
 

@@ -11,10 +11,10 @@ package Communication
 
 import (
 	"github.com/gin-gonic/gin"
-	"gofree5gc/lib/http_wrapper"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_handler/amf_message"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/logger"
 	"net/http"
 )
 

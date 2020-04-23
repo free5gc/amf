@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/http2_util"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/lib/path_util"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/amf/logger"
-	// "gofree5gc/src/udm/udm_context"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/http2_util"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/path_util"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/logger"
+	// "free5gc/src/udm/udm_context"
 	"net/http"
 	"testing"
 	"time"
@@ -36,9 +36,9 @@ func TestUeCmRegistration(t *testing.T) {
 			c.JSON(http.StatusNoContent, gin.H{})
 		})
 
-		udrLogPath := path_util.Gofree5gcPath("gofree5gc/udrsslkey.log")
-		udrPemPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udr.pem")
-		udrKeyPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udr.key")
+		udrLogPath := path_util.Gofree5gcPath("free5gc/udrsslkey.log")
+		udrPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/udr.pem")
+		udrKeyPath := path_util.Gofree5gcPath("free5gc/support/TLS/udr.key")
 
 		server, err := http2_util.NewServer(":29504", udrLogPath, router)
 		if err == nil && server != nil {

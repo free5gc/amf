@@ -1,19 +1,19 @@
 package amf_util_test
 
 import (
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/lib/path_util"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_util"
-	"gofree5gc/src/amf/factory"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/path_util"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/factory"
 	"reflect"
 	"testing"
 )
 
 var (
 	ConfigFileFromArgs string
-	DefaultConfigFile  string = path_util.Gofree5gcPath("gofree5gc/src/amf/amf_util/test/testAmfcfg.conf")
+	DefaultConfigFile  string = path_util.Gofree5gcPath("free5gc/src/amf/amf_util/test/testAmfcfg.conf")
 )
 
 func compareContext(t *testing.T, context, testContext *amf_context.AMFContext) {
@@ -57,7 +57,7 @@ func compareContext(t *testing.T, context, testContext *amf_context.AMFContext) 
 
 func TestInitAmfContext1(t *testing.T) {
 
-	configFile := path_util.Gofree5gcPath("gofree5gc/src/amf/amf_util/test/testAmfcfg.conf")
+	configFile := path_util.Gofree5gcPath("free5gc/src/amf/amf_util/test/testAmfcfg.conf")
 	context := getExpAmf1()
 	testContext := amf_context.AMF_Self()
 	factory.InitConfigFactory(configFile)
@@ -67,7 +67,7 @@ func TestInitAmfContext1(t *testing.T) {
 
 func TestInitAmfContext2(t *testing.T) {
 	amf_context.AMF_Self().Reset()
-	configFile := path_util.Gofree5gcPath("gofree5gc/src/amf/amf_util/test/testAmfcfg2.conf")
+	configFile := path_util.Gofree5gcPath("free5gc/src/amf/amf_util/test/testAmfcfg2.conf")
 	context := getExpAmf2()
 	testContext := amf_context.AMF_Self()
 	factory.InitConfigFactory(configFile)

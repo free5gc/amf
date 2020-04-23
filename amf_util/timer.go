@@ -1,12 +1,12 @@
 package amf_util
 
 import (
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/lib/timer"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_handler/amf_message"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/timer"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/logger"
 )
 
 func StartT3513(ue *amf_context.AmfUe) {
