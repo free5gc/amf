@@ -1,9 +1,9 @@
 package oam
 
 import (
-	"github.com/gin-gonic/gin"
 	"free5gc/lib/http_wrapper"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"github.com/gin-gonic/gin"
 )
 
 func setCorsHeader(c *gin.Context) {

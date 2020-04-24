@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/antihax/optional"
 	"free5gc/lib/Nausf_UEAuthentication"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
+	"github.com/antihax/optional"
 	"net/url"
 	"strconv"
 )

@@ -1,11 +1,11 @@
 package producer
 
 import (
-	"github.com/sirupsen/logrus"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )

@@ -6,10 +6,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
-	"github.com/aead/cmac"
 	"free5gc/lib/nas"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/logger"
+	"github.com/aead/cmac"
 	"reflect"
 )
 

@@ -1,8 +1,8 @@
 package amf_ngap_sctp
 
 import (
-	"git.cs.nctu.edu.tw/calee/sctp"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"git.cs.nctu.edu.tw/calee/sctp"
 	"net"
 	"sync"
 	"time"

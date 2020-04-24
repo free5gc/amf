@@ -10,8 +10,8 @@
 package communication
 
 import (
-	"github.com/sirupsen/logrus"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"strings"
 

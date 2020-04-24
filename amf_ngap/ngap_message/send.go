@@ -1,7 +1,6 @@
 package ngap_message
 
 import (
-	"github.com/sirupsen/logrus"
 	"free5gc/lib/aper"
 	"free5gc/lib/ngap/ngapSctp"
 	"free5gc/lib/ngap/ngapType"
@@ -9,6 +8,7 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 )
 
 var ngaplog *logrus.Entry

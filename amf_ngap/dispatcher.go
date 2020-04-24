@@ -1,12 +1,12 @@
 package amf_ngap
 
 import (
-	"github.com/sirupsen/logrus"
 	"free5gc/lib/ngap"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_ngap/ngap_handler"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 )
 
 var Ngaplog *logrus.Entry

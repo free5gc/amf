@@ -2,7 +2,6 @@ package gmm
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"free5gc/lib/fsm"
 	"free5gc/lib/nas"
 	"free5gc/lib/nas/nasMessage"
@@ -11,6 +10,7 @@ import (
 	"free5gc/src/amf/gmm/gmm_event"
 	"free5gc/src/amf/gmm/gmm_handler"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 )
 
 var GmmLog *logrus.Entry

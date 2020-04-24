@@ -10,9 +10,9 @@
 package Namf_MT
 
 import (
-	"github.com/gin-gonic/gin"
 	"free5gc/lib/http_wrapper"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"github.com/gin-gonic/gin"
 )
 
 // ProvideDomainSelectionInfo - Namf_MT Provide Domain Selection Info service Operation

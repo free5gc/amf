@@ -2,7 +2,6 @@ package ngap_message_test
 
 import (
 	"encoding/hex"
-	"git.cs.nctu.edu.tw/calee/sctp"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	"free5gc/lib/aper"
@@ -23,6 +22,7 @@ import (
 	"free5gc/src/smf/PDUSession"
 	"free5gc/src/smf/smf_handler"
 	"free5gc/src/test/ngapTestpacket"
+	"git.cs.nctu.edu.tw/calee/sctp"
 	"testing"
 	"time"
 )

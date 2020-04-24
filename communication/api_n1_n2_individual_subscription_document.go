@@ -10,9 +10,9 @@
 package communication
 
 import (
-	"github.com/gin-gonic/gin"
 	"free5gc/lib/http_wrapper"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"github.com/gin-gonic/gin"
 )
 
 // N1N2MessageUnSubscribe - Namf_Communication N1N2 Message UnSubscribe (UE Specific) service Operation

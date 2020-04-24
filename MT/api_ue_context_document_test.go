@@ -2,8 +2,6 @@ package Namf_MT_test
 
 import (
 	"context"
-	"github.com/antihax/optional"
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	Namf_MT_Clinet "free5gc/lib/Namf_MT"
 	"free5gc/lib/http2_util"
@@ -11,6 +9,8 @@ import (
 	"free5gc/lib/openapi/models"
 	Namf_MT_Server "free5gc/src/amf/MT"
 	"free5gc/src/amf/amf_handler"
+	"github.com/antihax/optional"
+	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
 	"time"

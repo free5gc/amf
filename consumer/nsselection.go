@@ -3,11 +3,11 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"github.com/antihax/optional"
 	"free5gc/lib/Nnssf_NSSelection"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
+	"github.com/antihax/optional"
 )
 
 func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.Snssai) (problemDetails *models.ProblemDetails, err error) {
