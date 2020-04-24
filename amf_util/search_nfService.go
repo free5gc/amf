@@ -2,7 +2,7 @@ package amf_util
 
 import (
 	"fmt"
-	"gofree5gc/lib/openapi/models"
+	"free5gc/lib/openapi/models"
 )
 
 func SearchNFServiceUri(nfProfile models.NfProfile, serviceName models.ServiceName, nfServiceStatus models.NfServiceStatus) (nfUri string) {

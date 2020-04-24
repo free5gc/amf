@@ -2,10 +2,10 @@ package amf_producer_callback
 
 import (
 	"context"
-	"gofree5gc/lib/Namf_Communication"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/Namf_Communication"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/logger"
 	"reflect"
 )
 

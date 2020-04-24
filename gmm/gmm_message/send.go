@@ -1,14 +1,14 @@
 package gmm_message
 
 import (
-	"gofree5gc/lib/nas/nasType"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_handler/amf_message"
-	"gofree5gc/src/amf/amf_ngap/ngap_message"
-	"gofree5gc/src/amf/amf_util"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/nas/nasType"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/logger"
 )
 
 // backOffTimerUint = 7 means backoffTimer is null

@@ -3,7 +3,7 @@ package amf_util
 import (
 	"encoding/hex"
 	"fmt"
-	"gofree5gc/lib/openapi/models"
+	"free5gc/lib/openapi/models"
 	"strconv"
 )
 

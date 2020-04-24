@@ -6,9 +6,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"fmt"
-	"gofree5gc/lib/nas"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/nas"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/logger"
 	"reflect"
 
 	"github.com/aead/cmac"

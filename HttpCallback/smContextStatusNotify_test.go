@@ -7,24 +7,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/MongoDBLibrary"
-	"gofree5gc/lib/http2_util"
-	"gofree5gc/lib/nas"
-	"gofree5gc/lib/nas/nasMessage"
-	"gofree5gc/lib/nas/nasTestpacket"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/lib/path_util"
-	"gofree5gc/src/amf/HttpCallback"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/amf/amf_handler"
-	"gofree5gc/src/amf/amf_nas"
-	"gofree5gc/src/nrf/Discovery"
-	"gofree5gc/src/nrf/Management"
-	"gofree5gc/src/nrf/nrf_handler"
-	"gofree5gc/src/smf/PDUSession"
-	"gofree5gc/src/smf/smf_handler"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/MongoDBLibrary"
+	"free5gc/lib/http2_util"
+	"free5gc/lib/nas"
+	"free5gc/lib/nas/nasMessage"
+	"free5gc/lib/nas/nasTestpacket"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/path_util"
+	"free5gc/src/amf/HttpCallback"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/amf_nas"
+	"free5gc/src/nrf/Discovery"
+	"free5gc/src/nrf/Management"
+	"free5gc/src/nrf/nrf_handler"
+	"free5gc/src/smf/PDUSession"
+	"free5gc/src/smf/smf_handler"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"net/http"
@@ -55,9 +55,9 @@ func TestSmContextStatusNotify(t *testing.T) {
 		Management.AddService(router)
 		Discovery.AddService(router)
 
-		nrfLogPath := path_util.Gofree5gcPath("gofree5gc/nrfsslkey.log")
-		nrfPemPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/nrf.pem")
-		nrfKeyPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/nrf.key")
+		nrfLogPath := path_util.Gofree5gcPath("free5gc/nrfsslkey.log")
+		nrfPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/nrf.pem")
+		nrfKeyPath := path_util.Gofree5gcPath("free5gc/support/TLS/nrf.key")
 
 		server, err := http2_util.NewServer(":29510", nrfLogPath, router)
 		if err == nil && server != nil {

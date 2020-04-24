@@ -8,35 +8,35 @@ import (
 	"flag"
 	"fmt"
 	"github.com/urfave/cli"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestComm"
-	"gofree5gc/lib/CommonConsumerTestData/AUSF/TestUEAuth"
-	"gofree5gc/lib/CommonConsumerTestData/UDM/TestGenAuthData"
-	"gofree5gc/lib/MongoDBLibrary"
-	"gofree5gc/lib/Namf_Communication"
-	"gofree5gc/lib/http2_util"
-	"gofree5gc/lib/nas/nasMessage"
-	"gofree5gc/lib/nas/nasTestpacket"
-	"gofree5gc/lib/nas/nasType"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/common"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/lib/path_util"
-	"gofree5gc/src/amf/Communication"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/amf/amf_handler"
-	"gofree5gc/src/amf/amf_nas"
-	"gofree5gc/src/amf/gmm/gmm_state"
-	"gofree5gc/src/amf/logger"
-	Nausf_UEAU "gofree5gc/src/ausf/UEAuthentication"
-	"gofree5gc/src/ausf/ausf_context"
-	"gofree5gc/src/ausf/ausf_handler"
-	"gofree5gc/src/ausf/ausf_producer"
-	"gofree5gc/src/nrf/nrf_handler"
-	"gofree5gc/src/nrf/nrf_service"
-	"gofree5gc/src/smf/smf_service"
-	Nudm_UEAU "gofree5gc/src/udm/UEAuthentication"
-	"gofree5gc/src/udm/udm_handler"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
+	"free5gc/lib/CommonConsumerTestData/AUSF/TestUEAuth"
+	"free5gc/lib/CommonConsumerTestData/UDM/TestGenAuthData"
+	"free5gc/lib/MongoDBLibrary"
+	"free5gc/lib/Namf_Communication"
+	"free5gc/lib/http2_util"
+	"free5gc/lib/nas/nasMessage"
+	"free5gc/lib/nas/nasTestpacket"
+	"free5gc/lib/nas/nasType"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/path_util"
+	"free5gc/src/amf/Communication"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/amf_nas"
+	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/logger"
+	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
+	"free5gc/src/ausf/ausf_context"
+	"free5gc/src/ausf/ausf_handler"
+	"free5gc/src/ausf/ausf_producer"
+	"free5gc/src/nrf/nrf_handler"
+	"free5gc/src/nrf/nrf_service"
+	"free5gc/src/smf/smf_service"
+	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
+	"free5gc/src/udm/udm_handler"
 	"log"
 	"net/http"
 	"testing"
@@ -67,9 +67,9 @@ func ausfInit() {
 	go func() { // ausf server
 		router := Nausf_UEAU.NewRouter()
 
-		ausfLogPath := path_util.Gofree5gcPath("gofree5gc/ausfsslkey.log")
-		ausfPemPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/ausf.pem")
-		ausfKeyPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/ausf.key")
+		ausfLogPath := path_util.Gofree5gcPath("free5gc/ausfsslkey.log")
+		ausfPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/ausf.pem")
+		ausfKeyPath := path_util.Gofree5gcPath("free5gc/support/TLS/ausf.key")
 
 		server, err := http2_util.NewServer(":29509", ausfLogPath, router)
 		if err == nil && server != nil {
@@ -84,9 +84,9 @@ func udmInit() {
 	go func() { // fake udm server
 		router := Nudm_UEAU.NewRouter()
 
-		udmLogPath := path_util.Gofree5gcPath("gofree5gc/udmsslkey.log")
-		udmPemPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udm.pem")
-		udmKeyPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udm.key")
+		udmLogPath := path_util.Gofree5gcPath("free5gc/udmsslkey.log")
+		udmPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/udm.pem")
+		udmKeyPath := path_util.Gofree5gcPath("free5gc/support/TLS/udm.key")
 
 		server, err := http2_util.NewServer(":29503", udmLogPath, router)
 		if err == nil && server != nil {
@@ -132,9 +132,9 @@ func udrInit() {
 			c.JSON(http.StatusNoContent, gin.H{})
 		})
 
-		udrLogPath := path_util.Gofree5gcPath("gofree5gc/udrsslkey.log")
-		udrPemPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udr.pem")
-		udrKeyPath := path_util.Gofree5gcPath("gofree5gc/support/TLS/udr.key")
+		udrLogPath := path_util.Gofree5gcPath("free5gc/udrsslkey.log")
+		udrPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/udr.pem")
+		udrKeyPath := path_util.Gofree5gcPath("free5gc/support/TLS/udr.key")
 
 		server, err := http2_util.NewServer(":29504", udrLogPath, router)
 		if err == nil && server != nil {

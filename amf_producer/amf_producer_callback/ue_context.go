@@ -3,9 +3,9 @@ package amf_producer_callback
 import (
 	"context"
 	"fmt"
-	"gofree5gc/lib/Namf_Communication"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/Namf_Communication"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 )
 
 func SendN2InfoNotifyN2Handover(ue *amf_context.AmfUe, releaseList []int32) error {

@@ -5,23 +5,23 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"gofree5gc/lib/Nnrf_NFDiscovery"
-	"gofree5gc/lib/fsm"
-	"gofree5gc/lib/nas"
-	"gofree5gc/lib/nas/nasConvert"
-	"gofree5gc/lib/nas/nasMessage"
-	"gofree5gc/lib/ngap/ngapConvert"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_ngap/ngap_message"
-	"gofree5gc/src/amf/amf_producer/amf_producer_callback"
-	"gofree5gc/src/amf/amf_util"
-	"gofree5gc/src/amf/gmm/gmm_event"
-	"gofree5gc/src/amf/gmm/gmm_message"
-	"gofree5gc/src/amf/gmm/gmm_state"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/Nnrf_NFDiscovery"
+	"free5gc/lib/fsm"
+	"free5gc/lib/nas"
+	"free5gc/lib/nas/nasConvert"
+	"free5gc/lib/nas/nasMessage"
+	"free5gc/lib/ngap/ngapConvert"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/amf_producer/amf_producer_callback"
+	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/gmm/gmm_event"
+	"free5gc/src/amf/gmm/gmm_message"
+	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/logger"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -1608,7 +1608,7 @@ func HandleConfigurationUpdateComplete(ue *amf_context.AmfUe, configurationUpdat
 
 	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
-	//		import "gofree5gc/lib/Nudm_SubscriberDataManagement" client.Info
+	//		import "free5gc/lib/Nudm_SubscriberDataManagement" client.Info
 
 	return nil
 }

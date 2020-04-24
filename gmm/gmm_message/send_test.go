@@ -1,13 +1,13 @@
 package gmm_message_test
 
 import (
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/nas/nasMessage"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_handler"
-	"gofree5gc/src/amf/amf_util"
-	"gofree5gc/src/amf/gmm/gmm_message"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/nas/nasMessage"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/gmm/gmm_message"
 	"testing"
 	"time"
 )

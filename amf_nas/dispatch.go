@@ -2,12 +2,12 @@ package amf_nas
 
 import (
 	"fmt"
-	"gofree5gc/lib/fsm"
-	"gofree5gc/lib/nas"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/gmm/gmm_event"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/fsm"
+	"free5gc/lib/nas"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/gmm/gmm_event"
+	"free5gc/src/amf/logger"
 )
 
 func Dispatch(ue *amf_context.AmfUe, anType models.AccessType, procedureCode int64, msg *nas.Message) error {

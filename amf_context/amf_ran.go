@@ -1,10 +1,10 @@
 package amf_context
 
 import (
-	"gofree5gc/lib/ngap/ngapConvert"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/ngap/ngapConvert"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/logger"
 	"net"
 )
 

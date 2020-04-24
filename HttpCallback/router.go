@@ -2,7 +2,7 @@ package Namf_Callback
 
 import (
 	"github.com/sirupsen/logrus"
-	"gofree5gc/src/amf/logger"
+	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
 

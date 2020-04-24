@@ -3,8 +3,8 @@ package amf_context
 import (
 	"encoding/binary"
 	"github.com/mohae/deepcopy"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/logger"
 	"reflect"
 )
 

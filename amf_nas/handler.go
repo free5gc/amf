@@ -1,10 +1,10 @@
 package amf_nas
 
 import (
-	"gofree5gc/lib/nas"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_nas/nas_security"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/nas"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_nas/nas_security"
+	"free5gc/src/amf/logger"
 )
 
 func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte) {

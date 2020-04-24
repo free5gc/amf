@@ -2,13 +2,13 @@ package ngap_message
 
 import (
 	"github.com/sirupsen/logrus"
-	"gofree5gc/lib/aper"
-	"gofree5gc/lib/ngap/ngapSctp"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
-	"gofree5gc/src/amf/amf_util"
-	"gofree5gc/src/amf/logger"
+	"free5gc/lib/aper"
+	"free5gc/lib/ngap/ngapSctp"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/logger"
 )
 
 var ngaplog *logrus.Entry

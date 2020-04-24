@@ -1,10 +1,10 @@
 package amf_message
 
 import (
-	"gofree5gc/lib/http_wrapper"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/http_wrapper"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 	"net/http"
 )
 

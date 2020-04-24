@@ -3,10 +3,10 @@ package amf_consumer
 import (
 	"context"
 	"github.com/antihax/optional"
-	"gofree5gc/lib/Nudm_SubscriberDataManagement"
-	"gofree5gc/lib/openapi/common"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/Nudm_SubscriberDataManagement"
+	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 )
 
 func PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {

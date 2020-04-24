@@ -2,10 +2,10 @@ package ngap_message
 
 import (
 	"encoding/hex"
-	"gofree5gc/lib/ngap/ngapConvert"
-	"gofree5gc/lib/ngap/ngapType"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_context"
+	"free5gc/lib/ngap/ngapConvert"
+	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_context"
 )
 
 func AppendPDUSessionResourceSetupListSUReq(list *ngapType.PDUSessionResourceSetupListSUReq, pduSessionId int32, snssai models.Snssai, nasPDU []byte, transfer []byte) {

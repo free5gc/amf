@@ -1,7 +1,7 @@
 package gmm_event
 
 import (
-	"gofree5gc/lib/fsm"
+	"free5gc/lib/fsm"
 )
 
 const (

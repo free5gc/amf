@@ -2,13 +2,13 @@ package Namf_Location_test
 
 import (
 	"context"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	Namf_Loc_Clinet "gofree5gc/lib/Namf_Location"
-	"gofree5gc/lib/http2_util"
-	"gofree5gc/lib/openapi/common"
-	"gofree5gc/lib/openapi/models"
-	Namf_Loc_Server "gofree5gc/src/amf/Location"
-	"gofree5gc/src/amf/amf_handler"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	Namf_Loc_Clinet "free5gc/lib/Namf_Location"
+	"free5gc/lib/http2_util"
+	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi/models"
+	Namf_Loc_Server "free5gc/src/amf/Location"
+	"free5gc/src/amf/amf_handler"
 	"log"
 
 	"github.com/stretchr/testify/assert"

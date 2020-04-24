@@ -3,10 +3,10 @@ package amf_consumer_test
 import (
 	"flag"
 	"github.com/urfave/cli"
-	"gofree5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	"gofree5gc/lib/openapi/models"
-	"gofree5gc/src/amf/amf_consumer"
-	"gofree5gc/src/nssf/nssf_service"
+	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/amf_consumer"
+	"free5gc/src/nssf/nssf_service"
 	"testing"
 	"time"
 )
