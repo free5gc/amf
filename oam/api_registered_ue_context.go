@@ -1,4 +1,4 @@
-package Namf_OAM
+package oam
 
 import (
 	"github.com/gin-gonic/gin"

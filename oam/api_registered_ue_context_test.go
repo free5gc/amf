@@ -1,4 +1,4 @@
-package Namf_OAM_test
+package oam_test
 
 import (
 	"encoding/json"

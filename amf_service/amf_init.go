@@ -10,7 +10,6 @@ import (
 	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/Location"
 	"free5gc/src/amf/MT"
-	"free5gc/src/amf/OAM"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
@@ -21,6 +20,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/oam"
 	"free5gc/src/app"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -119,7 +119,7 @@ func (amf *AMF) Start() {
 	}))
 
 	Namf_Callback.AddService(router)
-	Namf_OAM.AddService(router)
+	oam.AddService(router)
 	for _, serviceName := range factory.AmfConfig.Configuration.ServiceNameList {
 		switch models.ServiceName(serviceName) {
 		case models.ServiceName_NAMF_COMM:
