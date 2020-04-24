@@ -3,7 +3,6 @@ package communication_test
 import (
 	"context"
 	"crypto/tls"
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	Namf_Communication_Client "free5gc/lib/Namf_Communication"
@@ -12,9 +11,10 @@ import (
 	"free5gc/lib/nas/nasTestpacket"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
-	Namf_Communication_Server "free5gc/src/amf/Communication"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
+	Namf_Communication_Server "free5gc/src/amf/communication"
+	"free5gc/src/amf/producer/callback"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"log"
 	"net/http"
@@ -92,7 +92,7 @@ func TestN1MessageNotify(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	n1msg := []byte{0x12}
-	amf_producer_callback.SendN1MessageNotify(ue, models.N1MessageClass__5_GMM, n1msg, nil)
+	callback.SendN1MessageNotify(ue, models.N1MessageClass__5_GMM, n1msg, nil)
 }
 
 func TestN2InfoNotifyUri(t *testing.T) {
@@ -120,5 +120,5 @@ func TestN2InfoNotifyUri(t *testing.T) {
 
 	tmp := []byte{0x12}
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", nil)
-	amf_producer_callback.SendN2InfoNotify(ue, models.N2InformationClass_NRP_PA, nasPdu, tmp)
+	callback.SendN2InfoNotify(ue, models.N2InformationClass_NRP_PA, nasPdu, tmp)
 }

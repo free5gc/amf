@@ -1,4 +1,4 @@
-package amf_producer
+package producer
 
 import (
 	"free5gc/lib/aper"
@@ -8,12 +8,12 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer/callback"
 	"net/http"
 	"strconv"
 	"strings"
@@ -78,7 +78,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 				return
 			}
 			amf_util.ClearT3513(ue)
-			amf_producer_callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
+			callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 		case amf_context.OnGoingProcedureN2Handover:
 			transferErr.Error = new(models.ProblemDetails)
 			transferErr.Error.Status = 409

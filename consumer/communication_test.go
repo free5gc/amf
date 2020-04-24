@@ -9,9 +9,9 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/Communication"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +22,7 @@ import (
 func TestCreateUEContextRequest(t *testing.T) {
 	if len(TestAmf.TestAmf.UePool) == 0 {
 		go func() {
-			router := Communication.NewRouter()
+			router := communication.NewRouter()
 			server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 			if err == nil && server != nil {
 				err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)

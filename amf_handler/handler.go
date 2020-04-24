@@ -7,12 +7,12 @@ import (
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/amf_ngap"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_producer"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
+	"free5gc/src/amf/producer/callback"
 	"net"
 	"time"
 
@@ -57,7 +57,7 @@ func Handle() {
 					if amfUe.PagingRetryTimes >= amf_context.MaxPagingRetryTime {
 						logger.GmmLog.Warnf("Paging to UE[%s] failed. Stop paging", amfUe.Supi)
 						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
-							amf_producer_callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
+							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
 						amf_util.ClearT3513(amfUe)
 					} else {
@@ -79,7 +79,7 @@ func Handle() {
 					if amfUe.NotificationRetryTimes >= amf_context.MaxNotificationRetryTime {
 						logger.GmmLog.Warnf("UE[%s] Notification failed. Stop Notification", amfUe.Supi)
 						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
-							amf_producer_callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
+							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
 						amf_util.ClearT3565(amfUe)
 					} else {
@@ -179,65 +179,65 @@ func Handle() {
 				case amf_message.EventN1N2MessageTransfer:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					reqUri := msg.HTTPRequest.Params["reqUri"]
-					amf_producer.HandleN1N2MessageTransferRequest(msg.ResponseChan, ueContextId, reqUri, msg.HTTPRequest.Body.(models.N1N2MessageTransferRequest))
+					producer.HandleN1N2MessageTransferRequest(msg.ResponseChan, ueContextId, reqUri, msg.HTTPRequest.Body.(models.N1N2MessageTransferRequest))
 				case amf_message.EventN1N2MessageTransferStatus:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					reqUri := msg.HTTPRequest.Params["reqUri"]
-					amf_producer.HandleN1N2MessageTransferStatusRequest(msg.ResponseChan, ueContextId, reqUri)
+					producer.HandleN1N2MessageTransferStatusRequest(msg.ResponseChan, ueContextId, reqUri)
 				case amf_message.EventProvideDomainSelectionInfo:
 					infoClass := msg.HTTPRequest.Query.Get("info-class")
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					HandlerLog.Traceln("handle Provide Domain Selection Start")
-					amf_producer.HandleProvideDomainSelectionInfoRequest(msg.ResponseChan, ueContextId, infoClass)
+					producer.HandleProvideDomainSelectionInfoRequest(msg.ResponseChan, ueContextId, infoClass)
 					HandlerLog.Traceln("handle Provide Domain Selection End")
 				case amf_message.EventProvideLocationInfo:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleProvideLocationInfoRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.RequestLocInfo))
+					producer.HandleProvideLocationInfoRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.RequestLocInfo))
 				case amf_message.EventN1N2MessageSubscribe:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleN1N2MessageSubscirbeRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeN1N2InfoSubscriptionCreateData))
+					producer.HandleN1N2MessageSubscirbeRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeN1N2InfoSubscriptionCreateData))
 				case amf_message.EventN1N2MessageUnSubscribe:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					amf_producer.HandleN1N2MessageUnSubscribeRequest(msg.ResponseChan, ueContextId, subscriptionId)
+					producer.HandleN1N2MessageUnSubscribeRequest(msg.ResponseChan, ueContextId, subscriptionId)
 				case amf_message.EventCreateUEContext:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleCreateUeContextRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.CreateUeContextRequest))
+					producer.HandleCreateUeContextRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.CreateUeContextRequest))
 				case amf_message.EventSmContextStatusNotify:
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
-					amf_producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
+					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
 				case amf_message.EventUEContextRelease:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleUEContextReleaseRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextRelease))
+					producer.HandleUEContextReleaseRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextRelease))
 				case amf_message.EventUEContextTransfer:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleUEContextTransferRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextTransferRequest))
+					producer.HandleUEContextTransferRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextTransferRequest))
 				case amf_message.EventEBIAssignment:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))
+					producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))
 				case amf_message.EventAMFStatusChangeSubscribe:
-					amf_producer.HandleAMFStatusChangeSubscribeRequest(msg.ResponseChan, msg.HTTPRequest.Body.(models.SubscriptionData))
+					producer.HandleAMFStatusChangeSubscribeRequest(msg.ResponseChan, msg.HTTPRequest.Body.(models.SubscriptionData))
 				case amf_message.EventAMFStatusChangeUnSubscribe:
 					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					amf_producer.HandleAMFStatusChangeUnSubscribeRequest(msg.ResponseChan, subscriptionId)
+					producer.HandleAMFStatusChangeUnSubscribeRequest(msg.ResponseChan, subscriptionId)
 				case amf_message.EventAMFStatusChangeSubscribeModfy:
 					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					amf_producer.HandleAMFStatusChangeSubscribeModfy(msg.ResponseChan, subscriptionId, msg.HTTPRequest.Body.(models.SubscriptionData))
+					producer.HandleAMFStatusChangeSubscribeModfy(msg.ResponseChan, subscriptionId, msg.HTTPRequest.Body.(models.SubscriptionData))
 				case amf_message.EventRegistrationStatusUpdate:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					amf_producer.HandleRegistrationStatusUpdateRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeRegStatusUpdateReqData))
+					producer.HandleRegistrationStatusUpdateRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeRegStatusUpdateReqData))
 				case amf_message.EventAmPolicyControlUpdateNotifyUpdate:
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
-					amf_producer.HandleAmPolicyControlUpdateNotifyUpdate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.PolicyUpdate))
+					producer.HandleAmPolicyControlUpdateNotifyUpdate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.PolicyUpdate))
 				case amf_message.EventAmPolicyControlUpdateNotifyTerminate:
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
-					amf_producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))
+					producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))
 				case amf_message.EventOAMRegisteredUEContext:
 					supi := msg.HTTPRequest.Params["supi"]
-					amf_producer.HandleOAMRegisteredUEContext(msg.ResponseChan, supi)
+					producer.HandleOAMRegisteredUEContext(msg.ResponseChan, supi)
 				case amf_message.EventN1MessageNotify:
-					amf_producer.HandleN1MessageNotify(msg.ResponseChan, msg.HTTPRequest.Body.(models.N1MessageNotify))
+					producer.HandleN1MessageNotify(msg.ResponseChan, msg.HTTPRequest.Body.(models.N1MessageNotify))
 				default:
 					HandlerLog.Warnf("Event[%d] has not implemented", msg.Event)
 				}

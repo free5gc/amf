@@ -3,15 +3,15 @@ package communication_test
 import (
 	"context"
 	"crypto/tls"
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	Namf_Communication_Client "free5gc/lib/Namf_Communication"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
-	Namf_Communication_Server "free5gc/src/amf/Communication"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
+	Namf_Communication_Server "free5gc/src/amf/communication"
+	"free5gc/src/amf/producer/callback"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"log"
 	"net/http"
@@ -93,6 +93,6 @@ func TestAMFStatusChangeNotify(t *testing.T) {
 		},
 	}
 
-	amf_producer_callback.SendAmfStatusChangeNotify((string)(models.StatusChange_AVAILABLE), guamiList)
+	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_AVAILABLE), guamiList)
 
 }

@@ -1,4 +1,4 @@
-package amf_producer_callback
+package callback
 
 import (
 	"context"

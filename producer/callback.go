@@ -1,4 +1,4 @@
-package amf_producer
+package producer
 
 import (
 	"fmt"

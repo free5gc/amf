@@ -12,7 +12,6 @@ package communication
 import (
 	"context"
 	"crypto/tls"
-	"github.com/stretchr/testify/assert"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	"free5gc/lib/Namf_Communication"
@@ -23,9 +22,10 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/producer/callback"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"io/ioutil"
 	"log"
@@ -218,6 +218,6 @@ func TestN1N2MessageTransferFailure(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	TestAmf.Config.Dump(ue.N1N2Message)
-	amf_producer_callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
+	callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 	TestAmf.Config.Dump(ue.N1N2Message)
 }

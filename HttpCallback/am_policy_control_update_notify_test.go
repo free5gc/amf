@@ -5,9 +5,9 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/Communication"
 	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/nrf/nrf_service"
 	pcf_context "free5gc/src/pcf/context"
@@ -57,7 +57,7 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 	go func() {
 		router := gin.Default()
 		Namf_Callback.AddService(router)
-		Communication.AddService(router)
+		communication.AddService(router)
 
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
@@ -111,7 +111,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 	go func() {
 		router := gin.Default()
 		Namf_Callback.AddService(router)
-		Communication.AddService(router)
+		communication.AddService(router)
 
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {

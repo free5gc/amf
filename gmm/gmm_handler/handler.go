@@ -15,13 +15,13 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_event"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer/callback"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -98,7 +98,7 @@ func HandleULNASTransport(ue *amf_context.AmfUe, anType models.AccessType, ulNas
 		return fmt.Errorf("PayloadContainerTypeSOR has not been implemented yet in UL NAS TRANSPORT")
 	case nasMessage.PayloadContainerTypeUEPolicy:
 		logger.GmmLog.Infoln("AMF Transfer UEPolicy To PCF")
-		amf_producer_callback.SendN1MessageNotify(ue, models.N1MessageClass_UPDP, ulNasTransport.PayloadContainer.GetPayloadContainerContents(), nil)
+		callback.SendN1MessageNotify(ue, models.N1MessageClass_UPDP, ulNasTransport.PayloadContainer.GetPayloadContainerContents(), nil)
 	case nasMessage.PayloadContainerTypeUEParameterUpdate:
 		logger.GmmLog.Infoln("AMF Transfer UEParameterUpdate To UDM")
 		upuMac, err := nasConvert.UpuAckToModels(ulNasTransport.PayloadContainer.GetPayloadContainerContents())
@@ -1241,7 +1241,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 					}
 				} else {
 					logger.GmmLog.Warnf("UE was reachable but did not accept to re-activate the PDU Session[%d]", requestData.PduSessionId)
-					amf_producer_callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
+					callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
 				}
 			} else if smInfo.N2InfoContent.NgapIeType == models.NgapIeType_PDU_RES_SETUP_REQ {
 				var nasPdu []byte
@@ -1456,7 +1456,7 @@ func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error
 
 				var n1Message bytes.Buffer
 				ue.RegistrationRequest.EncodeRegistrationRequest(&n1Message)
-				amf_producer_callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
+				callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
 			} else {
 				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
 				allowedNssaiNgap := ngapConvert.AllowedNssaiToNgap(ue.AllowedNssai[anType])
@@ -1826,7 +1826,7 @@ func HandleServiceRequest(ue *amf_context.AmfUe, anType models.AccessType, proce
 						}
 					} else {
 						logger.GmmLog.Warnf("UE was reachable but did not accept to re-activate the PDU Session[%d]", requestData.PduSessionId)
-						amf_producer_callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
+						callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
 					}
 				}
 			} else if smInfo.N2InfoContent.NgapIeType == models.NgapIeType_PDU_RES_SETUP_REQ {

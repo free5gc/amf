@@ -1,12 +1,12 @@
-package amf_producer_callback
+package callback
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"free5gc/lib/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/logger"
+	"github.com/sirupsen/logrus"
 )
 
 var HttpLog *logrus.Entry

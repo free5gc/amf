@@ -14,13 +14,13 @@ import (
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/amf_ngap/ngap_sctp"
-	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/oam"
+	"free5gc/src/amf/producer/callback"
 	"free5gc/src/app"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -242,6 +242,6 @@ func (amf *AMF) Terminate() {
 	sctpListener.Close()
 	logger.InitLog.Infof("SCTP server closed")
 
-	amf_producer_callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")
 }

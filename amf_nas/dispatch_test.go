@@ -21,9 +21,9 @@ import (
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/Communication"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_nas"
+	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
@@ -420,7 +420,7 @@ func TestUeConfiguratioinUpdateComplete(t *testing.T) {
 
 func TestServiceRequest(t *testing.T) {
 	go func() {
-		router := Communication.NewRouter()
+		router := communication.NewRouter()
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
 			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
@@ -818,7 +818,7 @@ func TestStatus5GSM(t *testing.T) {
 	MongoDBLibrary.RestfulAPIDeleteMany("NfProfile", bson.M{})
 
 	go func() {
-		router := Communication.NewRouter()
+		router := communication.NewRouter()
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
 			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)

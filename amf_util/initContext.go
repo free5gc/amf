@@ -2,11 +2,11 @@ package amf_util
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
+	"github.com/google/uuid"
 )
 
 func InitAmfContext(context *amf_context.AMFContext) {
