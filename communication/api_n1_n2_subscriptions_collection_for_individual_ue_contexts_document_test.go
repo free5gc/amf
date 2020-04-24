@@ -1,4 +1,4 @@
-package Communication_test
+package communication_test
 
 import (
 	"context"

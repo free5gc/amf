@@ -6,7 +6,6 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/Communication"
 	"free5gc/src/amf/EventExposure"
 	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/Location"
@@ -18,6 +17,7 @@ import (
 	"free5gc/src/amf/amf_ngap/ngap_sctp"
 	"free5gc/src/amf/amf_producer/amf_producer_callback"
 	"free5gc/src/amf/amf_util"
+	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
@@ -123,7 +123,7 @@ func (amf *AMF) Start() {
 	for _, serviceName := range factory.AmfConfig.Configuration.ServiceNameList {
 		switch models.ServiceName(serviceName) {
 		case models.ServiceName_NAMF_COMM:
-			Communication.AddService(router)
+			communication.AddService(router)
 		case models.ServiceName_NAMF_EVTS:
 			EventExposure.AddService(router)
 		case models.ServiceName_NAMF_MT:
