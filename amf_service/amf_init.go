@@ -73,9 +73,10 @@ func (*AMF) Initialize(c *cli.Context) {
 	}
 
 	if config.amfcfg != "" {
-		factory.InitConfigFactory(path_util.Gofree5gcPath(config.amfcfg))
+		factory.InitConfigFactory(config.amfcfg)
 	} else {
-		factory.InitConfigFactory(amf_util.DefaultAmfConfigPath)
+		DefaultAmfConfigPath := path_util.Gofree5gcPath("free5gc/config/amfcfg.conf")
+		factory.InitConfigFactory(DefaultAmfConfigPath)
 	}
 
 	initLog.Traceln("AMF debug level(string):", app.ContextSelf().Logger.AMF.DebugLevel)
