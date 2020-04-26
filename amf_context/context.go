@@ -46,7 +46,7 @@ type AMFContext struct {
 	RanIdPool                        map[models.GlobalRanNodeId]*AmfRan
 	RanUePool                        map[int64]*RanUe   // AmfUeNgapId as key
 	AmfRanPool                       map[string]*AmfRan // use remote Addr String as key
-	LadnPool                         map[string]*LADN   // ladn as key
+	LadnPool                         map[string]*LADN   // dnn as key
 	SupportTaiLists                  []models.Tai
 	ServedGuamiList                  []models.Guami
 	PlmnSupportList                  []PlmnSupportItem
