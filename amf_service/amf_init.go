@@ -7,7 +7,6 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/HttpCallback"
-	"free5gc/src/amf/MT"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
@@ -19,6 +18,7 @@ import (
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/location"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/mt"
 	"free5gc/src/amf/oam"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/app"
@@ -127,7 +127,7 @@ func (amf *AMF) Start() {
 		case models.ServiceName_NAMF_EVTS:
 			eventexposure.AddService(router)
 		case models.ServiceName_NAMF_MT:
-			Namf_MT.AddService(router)
+			mt.AddService(router)
 		case models.ServiceName_NAMF_LOC:
 			location.AddService(router)
 		}

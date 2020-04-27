@@ -1,4 +1,4 @@
-package Namf_MT_test
+package mt_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
-	Namf_MT_Server "free5gc/src/amf/MT"
 	"free5gc/src/amf/amf_handler"
+	Namf_MT_Server "free5gc/src/amf/mt"
 	"github.com/antihax/optional"
 	"github.com/stretchr/testify/assert"
 	"log"
