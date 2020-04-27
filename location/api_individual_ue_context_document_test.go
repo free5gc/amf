@@ -1,4 +1,4 @@
-package Namf_Location_test
+package location_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
-	Namf_Loc_Server "free5gc/src/amf/Location"
 	"free5gc/src/amf/amf_handler"
+	Namf_Loc_Server "free5gc/src/amf/location"
 	"log"
 
 	"github.com/stretchr/testify/assert"
