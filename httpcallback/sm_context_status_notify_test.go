@@ -1,4 +1,4 @@
-package Namf_Callback_test
+package httpcallback_test
 
 import (
 	"bytes"
@@ -13,10 +13,10 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/httpcallback"
 	"free5gc/src/nrf/Discovery"
 	"free5gc/src/nrf/Management"
 	"free5gc/src/nrf/nrf_handler"

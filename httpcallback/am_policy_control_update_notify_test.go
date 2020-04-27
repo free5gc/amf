@@ -1,14 +1,14 @@
-package Namf_Callback_test
+package httpcallback_test
 
 import (
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/httpcallback"
 	"free5gc/src/nrf/nrf_service"
 	pcf_context "free5gc/src/pcf/context"
 	pcf_producer "free5gc/src/pcf/producer"

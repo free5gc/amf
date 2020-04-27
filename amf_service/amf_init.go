@@ -6,7 +6,6 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/HttpCallback"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
@@ -15,6 +14,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/eventexposure"
 	"free5gc/src/amf/factory"
+	"free5gc/src/amf/httpcallback"
 	"free5gc/src/amf/location"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/mt"
@@ -118,7 +118,7 @@ func (amf *AMF) Start() {
 		MaxAge:           86400,
 	}))
 
-	Namf_Callback.AddService(router)
+	httpcallback.AddService(router)
 	oam.AddService(router)
 	for _, serviceName := range factory.AmfConfig.Configuration.ServiceNameList {
 		switch models.ServiceName(serviceName) {

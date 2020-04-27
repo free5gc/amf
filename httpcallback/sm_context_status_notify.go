@@ -1,4 +1,4 @@
-package Namf_Callback
+package httpcallback
 
 import (
 	"free5gc/lib/http_wrapper"
@@ -10,8 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func N1MessageNotify(c *gin.Context) {
-	var request models.N1MessageNotification
+func SmContextStatusNotify(c *gin.Context) {
+
+	var request models.SmContextStatusNotification
 
 	err := c.ShouldBindJSON(&request)
 	if err != nil {
@@ -27,8 +28,10 @@ func N1MessageNotify(c *gin.Context) {
 	}
 
 	req := http_wrapper.NewRequest(c.Request, request)
+	req.Params["guti"] = c.Params.ByName("guti")
+	req.Params["pduSessionId"] = c.Params.ByName("pduSessionId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventN1MessageNotify, req)
+	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventSmContextStatusNotify, req)
 	amf_message.SendMessage(handlerMsg)
 
 	rsp := <-handlerMsg.ResponseChan
@@ -36,4 +39,5 @@ func N1MessageNotify(c *gin.Context) {
 	HTTPResponse := rsp.HTTPResponse
 
 	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+
 }
