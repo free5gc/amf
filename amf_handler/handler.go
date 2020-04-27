@@ -5,11 +5,11 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
-	"free5gc/src/amf/amf_ngap"
-	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/ngap"
+	"free5gc/src/amf/ngap/ngap_message"
 	"free5gc/src/amf/producer"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
@@ -33,7 +33,7 @@ func Handle() {
 			if ok {
 				switch msg.Event {
 				case amf_message.EventNGAPMessage:
-					amf_ngap.Dispatch(msg.NgapAddr, msg.Value.([]byte))
+					ngap.Dispatch(msg.NgapAddr, msg.Value.([]byte))
 
 				case amf_message.EventNGAPAcceptConn:
 					amfSelf := amf_context.AMF_Self()

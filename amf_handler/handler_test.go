@@ -6,7 +6,6 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_handler/amf_message"
-	"free5gc/src/amf/amf_ngap"
 	"free5gc/src/test/ngapTestpacket"
 	"testing"
 	"time"
@@ -20,7 +19,7 @@ func TestHandler(t *testing.T) {
 	message := ngapTestpacket.BuildNGSetupRequest()
 	ngapMsg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		t.Error(err)
 	}
 	msg := amf_message.HandlerMessage{}
 	msg.Event = amf_message.EventNGAPMessage

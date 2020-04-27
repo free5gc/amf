@@ -15,12 +15,12 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/ngap/ngap_message"
 	"free5gc/src/amf/util"
-	"free5gc/src/smf/PDUSession"
-	"free5gc/src/smf/smf_handler"
+	smf_handler "free5gc/src/smf/handler"
+	"free5gc/src/smf/pdusession"
 	"free5gc/src/test/ngapTestpacket"
 	"git.cs.nctu.edu.tw/calee/sctp"
 	"testing"
@@ -33,7 +33,7 @@ func init() {
 	go amf_handler.Handle()
 	go smf_handler.Handle()
 	go func() {
-		router := PDUSession.NewRouter()
+		router := pdusession.NewRouter()
 		server, err := http2_util.NewServer(":29502", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
 			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)

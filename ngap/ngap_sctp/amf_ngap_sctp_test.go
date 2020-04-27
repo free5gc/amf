@@ -11,8 +11,8 @@ import (
 
 	"git.cs.nctu.edu.tw/calee/sctp"
 
-	amf_ngap_sctp "free5gc/src/amf/amf_ngap/ngap_sctp"
 	"free5gc/src/amf/logger"
+	amf_ngap_sctp "free5gc/src/amf/ngap/ngap_sctp"
 )
 
 var testClientNum = 2

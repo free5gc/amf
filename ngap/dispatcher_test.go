@@ -1,4 +1,4 @@
-package amf_ngap_test
+package ngap_test
 
 import (
 	"encoding/hex"
@@ -11,20 +11,20 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasTestpacket"
 	"free5gc/lib/nas/nasType"
-	"free5gc/lib/ngap"
+	libngap "free5gc/lib/ngap"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_ngap"
-	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/ngap"
+	"free5gc/src/amf/ngap/ngap_message"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/handler"
 	"free5gc/src/nrf/nrf_service"
-	"free5gc/src/smf/smf_service"
+	smf_service "free5gc/src/smf/service"
 	"free5gc/src/test/ngapTestpacket"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
@@ -144,7 +144,7 @@ func init() {
 // 	ipStr := "127.0.0.1"
 // 	ips := []net.IPAddr{}
 // 	if ip, err := net.ResolveIPAddr("ip", ipStr); err != nil {
-// 		amf_ngap.Ngaplog.Errorf("Error resolving address '%s': %v", ipStr, err)
+// 		ngap.Ngaplog.Errorf("Error resolving address '%s': %v", ipStr, err)
 // 	} else {
 // 		ips = append(ips, *ip)
 // 	}
@@ -152,15 +152,15 @@ func init() {
 // 		IPAddrs: ips,
 // 		Port:    38412,
 // 	}
-// 	amf_ngap.Ngaplog.Printf("raw TestAmf.Laddr: %+v\n", addr1.ToRawSockAddrBuf())
+// 	ngap.Ngaplog.Printf("raw TestAmf.Laddr: %+v\n", addr1.ToRawSockAddrBuf())
 
 // 	var laddr *sctp.SCTPAddr
 // 	conn, err := sctp.DialSCTP("sctp", laddr, addr1)
 
 // 	if err != nil {
-// 		amf_ngap.Ngaplog.Errorf("failed to dial: %v\n", err)
+// 		ngap.Ngaplog.Errorf("failed to dial: %v\n", err)
 // 	}
-// 	amf_ngap.Ngaplog.Printf("Dail LocalAddr: %s; RemoteAddr: %s", conn.LocalAddr(), conn.RemoteAddr())
+// 	ngap.Ngaplog.Printf("Dail LocalAddr: %s; RemoteAddr: %s", conn.LocalAddr(), conn.RemoteAddr())
 // 	time.Sleep(time.Millisecond)
 
 // 	ran.Conn = conn
@@ -175,10 +175,10 @@ func TestDispatchNGSetupRequest(t *testing.T) {
 	message := ngapTestpacket.BuildNGSetupRequest()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Ngaplog.Warnln(TestAmf.Laddr.String())
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Ngaplog.Warnln(TestAmf.Laddr.String())
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
@@ -197,13 +197,13 @@ func TestDispatchUplinkNasTransport(t *testing.T) {
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].RanUeNgapId = 2
 
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(1, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &ue.AllowedNssai[models.AccessType__3_GPP_ACCESS][0])
-	// amf_ngap.Ngaplog.Tracef("nas: %0x", nasPdu.Bytes())
+	// ngap.Ngaplog.Tracef("nas: %0x", nasPdu.Bytes())
 	message := ngapTestpacket.BuildUplinkNasTransport(1, 2, nasPdu)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	TestAmf.Conn.Close()
 }
 
@@ -216,9 +216,9 @@ func TestDispatchNGReset(t *testing.T) {
 	message := ngapTestpacket.BuildNGReset(nil)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -231,9 +231,9 @@ func TestDispatchNGResetAcknowledge(t *testing.T) {
 	message := ngapTestpacket.BuildNGResetAcknowledge()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchUEContextReleaseComplete(t *testing.T) {
@@ -244,9 +244,9 @@ func TestDispatchUEContextReleaseComplete(t *testing.T) {
 	message := ngapTestpacket.BuildUEContextReleaseComplete(1, 2, nil)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchPDUSessionResourceReleaseResponse(t *testing.T) {
@@ -257,9 +257,9 @@ func TestDispatchPDUSessionResourceReleaseResponse(t *testing.T) {
 	message := ngapTestpacket.BuildPDUSessionResourceReleaseResponse()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchUERadioCapabilityCheckResponse(t *testing.T) {
@@ -270,9 +270,9 @@ func TestDispatchUERadioCapabilityCheckResponse(t *testing.T) {
 	message := ngapTestpacket.BuildUERadioCapabilityCheckResponse()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchHandoverCancel(t *testing.T) {
@@ -288,9 +288,9 @@ func TestDispatchHandoverCancel(t *testing.T) {
 	message := ngapTestpacket.BuildHandoverCancel()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -303,9 +303,9 @@ func TestDispatchLocationReportingFailureIndication(t *testing.T) {
 	message := ngapTestpacket.BuildLocationReportingFailureIndication()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchInitialUEMessage(t *testing.T) {
@@ -329,7 +329,7 @@ func TestDispatchInitialUEMessage(t *testing.T) {
 	message := ngapTestpacket.BuildInitialUEMessage(1, nasPdu, "")
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
 
 	/* Wireshark test */
@@ -337,7 +337,7 @@ func TestDispatchInitialUEMessage(t *testing.T) {
 	ngap_message.SendToRan(ran, msg)
 	/* Wireshark test */
 
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	TestAmf.Conn.Close()
 }
 
@@ -361,10 +361,10 @@ func TestDispatchInitialUEMessageWithGuti(t *testing.T) {
 	message := ngapTestpacket.BuildInitialUEMessage(1, nasPdu, "fe0000000001")
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
 
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	TestAmf.Conn.Close()
 }
 
@@ -379,9 +379,9 @@ func TestDispatchPDUSessionResourceSetupResponse(t *testing.T) {
 	message := ngapTestpacket.BuildPDUSessionResourceSetupResponse(1, 123, "10.200.200.1")
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -397,10 +397,10 @@ func TestDispatchPDUSessionResourceModifyResponse(t *testing.T) {
 	message := ngapTestpacket.BuildPDUSessionResourceModifyResponse(1, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 		t.Error("Encode testpacket failed")
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -413,9 +413,9 @@ func TestDispatchPDUSessionResourceNotify(t *testing.T) {
 	message := ngapTestpacket.BuildPDUSessionResourceNotify()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -430,9 +430,9 @@ func TestDispatchPDUSessionResourceModifyIndication(t *testing.T) {
 	message := ngapTestpacket.BuildPDUSessionResourceModifyIndication(1, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -448,9 +448,9 @@ func TestDispatchInitialContextSetupResponse(t *testing.T) {
 	message := ngapTestpacket.BuildInitialContextSetupResponse(1, 2, "10.200.200.1", nil)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchInitialContextSetupFailure(t *testing.T) {
@@ -464,9 +464,9 @@ func TestDispatchInitialContextSetupFailure(t *testing.T) {
 	message := ngapTestpacket.BuildInitialContextSetupFailure(1, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchUEContextReleaseRequest(t *testing.T) {
@@ -480,9 +480,9 @@ func TestDispatchUEContextReleaseRequest(t *testing.T) {
 	message := ngapTestpacket.BuildUEContextReleaseRequest(1, 123, nil)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -499,9 +499,9 @@ func TestDispatchUEContextModificationResponse(t *testing.T) {
 	message := ngapTestpacket.BuildUEContextModificationResponse(1, 123)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchUEContextModificationFailure(t *testing.T) {
@@ -516,9 +516,9 @@ func TestDispatchUEContextModificationFailure(t *testing.T) {
 	message := ngapTestpacket.BuildUEContextModificationFailure(1, 123)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchRRCInactiveTransitionReport(t *testing.T) {
@@ -530,9 +530,9 @@ func TestDispatchRRCInactiveTransitionReport(t *testing.T) {
 	message := ngapTestpacket.BuildRRCInactiveTransitionReport()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -545,9 +545,9 @@ func TestDispatchHandoverNotify(t *testing.T) {
 	message := ngapTestpacket.BuildHandoverNotify(0, 0)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchPathSwitchRequest(t *testing.T) {
@@ -560,9 +560,9 @@ func TestDispatchPathSwitchRequest(t *testing.T) {
 	message := ngapTestpacket.BuildPathSwitchRequest(1, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -583,9 +583,9 @@ func TestDispatchHandoverRequestAcknowledge(t *testing.T) {
 	message := ngapTestpacket.BuildHandoverRequestAcknowledge(2, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -607,9 +607,9 @@ func TestDispatchHandoverFailure(t *testing.T) {
 	message := ngapTestpacket.BuildHandoverFailure(1)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -624,9 +624,9 @@ func TestDispatchUplinkRanStatusTransfer(t *testing.T) {
 	message := ngapTestpacket.BuildUplinkRanStatusTransfer(122, 123)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 }
 
@@ -640,9 +640,9 @@ func TestDispatchNasNonDeliveryIndication(t *testing.T) {
 	message := ngapTestpacket.BuildNasNonDeliveryIndication(1, 123, aper.OctetString("\x01\x02\x03"))
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchRanConfigurationUpdate(t *testing.T) {
@@ -657,9 +657,9 @@ func TestDispatchRanConfigurationUpdate(t *testing.T) {
 	message := ngapTestpacket.BuildRanConfigurationUpdate()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
 }
@@ -680,9 +680,9 @@ func TestDispatchUplinkRanConfigurationTransfer(t *testing.T) {
 	message := ngapTestpacket.BuildUplinkRanConfigurationTransfer()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn.Close()
 
@@ -698,9 +698,9 @@ func TestDispatchUplinkUEAssociatedNRPPATransport(t *testing.T) {
 	message := ngapTestpacket.BuildUplinkUEAssociatedNRPPATransport()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -714,9 +714,9 @@ func TestDispatchUplinkNonUEAssociatedNRPPATransport(t *testing.T) {
 	message := ngapTestpacket.BuildUplinkNonUEAssociatedNRPPATransport()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 }
 
@@ -729,9 +729,9 @@ func TestDispatchLocationReport(t *testing.T) {
 	message := ngapTestpacket.BuildLocationReport()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -745,9 +745,9 @@ func TestDispatchUERadioCapabilityInfoIndication(t *testing.T) {
 	message := ngapTestpacket.BuildUERadioCapabilityInfoIndication()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	//TestAmf.Config.Dump(ran)
 }
@@ -761,9 +761,9 @@ func TestDispatchAMFConfigurationUpdateFailure(t *testing.T) {
 	message := ngapTestpacket.BuildAMFConfigurationUpdateFailure()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -777,9 +777,9 @@ func TestDispatchAMFConfigurationUpdateAcknowledge(t *testing.T) {
 	message := ngapTestpacket.BuildAMFConfigurationUpdateAcknowledge()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 
 	// TestAmf.Config.Dump(ran)
 }
@@ -792,10 +792,10 @@ func TestDispatcherErrorIndication(t *testing.T) {
 	message := ngapTestpacket.BuildErrorIndication()
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
 
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 func TestDispatchHandoverRequired(t *testing.T) {
@@ -825,9 +825,9 @@ func TestDispatchHandoverRequired(t *testing.T) {
 	message := ngapTestpacket.BuildHandoverRequired(1, 2, []byte{0x45, 0x46, 0x47}, []byte{0x01, 0x20})
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 	time.Sleep(20 * time.Millisecond)
 	conn.Close()
 	TestAmf.Conn.Close()
@@ -847,9 +847,9 @@ func TestDispatchCellTrafficTrace(t *testing.T) {
 	message := ngapTestpacket.BuildCellTrafficTrace(1, 2)
 	msg, err := ngap.Encoder(message)
 	if err != nil {
-		amf_ngap.Ngaplog.Errorln(err)
+		ngap.Ngaplog.Errorln(err)
 	}
-	amf_ngap.Dispatch(TestAmf.Laddr.String(), msg)
+	ngap.Dispatch(TestAmf.Laddr.String(), msg)
 }
 
 // Copy from TestSMContextCreate() in consumer/sm_context_test.go
@@ -915,7 +915,7 @@ func createPduSession(ue *amf_context.AmfUe, pduSession *models.PduSessionContex
 		ue.SmContextList[pduSession.PduSessionId] = &smContext
 		// TODO: handle response(response N2SmInfo to RAN if exists)
 	} else if err != nil {
-		amf_ngap.Ngaplog.Errorf("[ERROR] " + err.Error())
+		ngap.Ngaplog.Errorf("[ERROR] " + err.Error())
 	} else {
 		// TODO: error handling
 	}

@@ -12,7 +12,7 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_nas/nas_security"
-	"free5gc/src/amf/amf_ngap/ngap_message"
+	"free5gc/src/amf/ngap/ngap_message"
 	"reflect"
 	"strings"
 	"testing"

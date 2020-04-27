@@ -1,31 +1,25 @@
-package ngap_handler
+package ngap
 
 import (
 	"encoding/hex"
 	"free5gc/lib/aper"
 	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/ngap"
+	libngap "free5gc/lib/ngap"
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_nas"
-	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/ngap/ngap_message"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
-
-var Ngaplog *logrus.Entry
-
-func init() {
-	Ngaplog = logger.NgapLog
-}
 
 func HandleNGSetupRequest(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
 	var globalRANNodeID *ngapType.GlobalRANNodeID
@@ -1028,7 +1022,7 @@ func HandleInitialUEMessage(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) 
 		// TODO: AMF should use it as defined in TS 23.502
 	}
 
-	pdu, _ := ngap.Encoder(*message)
+	pdu, _ := libngap.Encoder(*message)
 	ranUe.InitialUEMessage = pdu
 	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, nASPDU.Value)
 }
