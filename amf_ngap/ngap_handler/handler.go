@@ -13,7 +13,7 @@ import (
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
-	"free5gc/src/amf/gmm/gmm_message"
+	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"strconv"
