@@ -1,4 +1,4 @@
-package gmm_event
+package gmm
 
 import (
 	"free5gc/lib/fsm"

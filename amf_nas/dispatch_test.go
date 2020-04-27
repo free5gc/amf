@@ -33,7 +33,7 @@ import (
 	"free5gc/src/ausf/producer"
 	"free5gc/src/nrf/nrf_handler"
 	"free5gc/src/nrf/nrf_service"
-	"free5gc/src/smf/smf_service"
+	smf_service "free5gc/src/smf/service"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
 	"github.com/urfave/cli"
@@ -204,7 +204,7 @@ func TestULNASTransportPDUSessionEstablishemnt(t *testing.T) {
 
 	// smf register to nrf
 	uuid, profile := TestAmf.BuildSmfNfProfile()
-	uri, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
+	uri, _, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
 	if err != nil {
 		t.Error(err.Error())
 	} else {
@@ -247,7 +247,7 @@ func TestULNASTransportPDUSessionEstablishemnt(t *testing.T) {
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// handover with allow snssai is not empty (success)
-	ue.AllowedNssai[models.AccessType_NON_3_GPP_ACCESS] = deepcopy.Copy(ue.AllowedNssai[models.AccessType__3_GPP_ACCESS]).([]models.Snssai)
+	ue.AllowedNssai[models.AccessType_NON_3_GPP_ACCESS] = deepcopy.Copy(ue.AllowedNssai[models.AccessType__3_GPP_ACCESS]).([]models.AllowedSnssai)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(11, nasMessage.ULNASTransportRequestTypeExistingPduSession, "", nil)
 
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
@@ -740,7 +740,7 @@ func TestSecurityModeComplete(t *testing.T) {
 
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
-	nasPdu := nasTestpacket.GetSecurityModeComplete()
+	nasPdu := nasTestpacket.GetSecurityModeComplete(nil)
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
@@ -828,7 +828,7 @@ func TestStatus5GSM(t *testing.T) {
 
 	// smf register to nrf
 	uuid, profile := TestAmf.BuildSmfNfProfile()
-	uri, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
+	uri, _, err := consumer.SendRegisterNFInstance("https://localhost:29510", uuid, profile)
 	if err != nil {
 		t.Error(err.Error())
 	} else {

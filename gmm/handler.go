@@ -16,7 +16,6 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/gmm/gmm_event"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
@@ -2150,19 +2149,19 @@ func HandleSecurityModeComplete(ue *amf_context.AmfUe, anType models.AccessType,
 		case nas.MsgTypeRegistrationRequest:
 			logger.GmmLog.Traceln("[AMF] Handle MsgTypeRegistrationRequest")
 			args := make(fsm.Args)
-			args[gmm_event.AMF_UE] = ue
-			args[gmm_event.PROCEDURE_CODE] = procedureCode
-			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
+			args[AMF_UE] = ue
+			args[PROCEDURE_CODE] = procedureCode
+			args[GMM_MESSAGE] = m.GmmMessage
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
-			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
+			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		case nas.MsgTypeServiceRequest:
 			logger.GmmLog.Traceln("[AMF] Handle MsgTypeServiceRequest")
 			args := make(fsm.Args)
-			args[gmm_event.AMF_UE] = ue
-			args[gmm_event.PROCEDURE_CODE] = procedureCode
-			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
+			args[AMF_UE] = ue
+			args[PROCEDURE_CODE] = procedureCode
+			args[GMM_MESSAGE] = m.GmmMessage
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
-			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
+			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		default:
 			logger.GmmLog.Errorln("nas message container Iei type error")
 		}
