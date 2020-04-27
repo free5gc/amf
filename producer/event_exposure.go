@@ -3,7 +3,7 @@ package producer
 import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"github.com/sirupsen/logrus"
 	"strconv"
@@ -256,7 +256,7 @@ func NewAmfEventReport(ue *amf_context.AmfUe, Type models.AmfEventType, subscrip
 		report.Timezone = ue.TimeZone
 	case models.AmfEventType_ACCESS_TYPE_REPORT:
 		for accessType, sm := range ue.Sm {
-			if sm.Check(gmm_state.REGISTERED) {
+			if sm.Check(state.REGISTERED) {
 				report.AccessTypeList = append(report.AccessTypeList, accessType)
 			}
 		}
@@ -267,7 +267,7 @@ func NewAmfEventReport(ue *amf_context.AmfUe, Type models.AmfEventType, subscrip
 				RmState:    models.RmState_DEREGISTERED,
 				AccessType: accessType,
 			}
-			if sm.Check(gmm_state.REGISTERED) {
+			if sm.Check(state.REGISTERED) {
 				rmInfo.RmState = models.RmState_REGISTERED
 			}
 			rmInfos = append(rmInfos, rmInfo)

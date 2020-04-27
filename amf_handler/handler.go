@@ -8,7 +8,7 @@ import (
 	"free5gc/src/amf/amf_ngap"
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/gmm/gmm_message"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
 	"free5gc/src/amf/producer/callback"
@@ -131,7 +131,7 @@ func Handle() {
 					if amfUe.T3550RetryTimes >= amf_context.MaxT3550RetryTimes {
 						logger.GmmLog.Warnf("T3550 Expires 5 times, abort retransmission")
 						if amfUe.RegistrationType5GS == nasMessage.RegistrationType5GSInitialRegistration {
-							if err := amfUe.Sm[value.AccessType].Transfer(gmm_state.REGISTERED, nil); err != nil {
+							if err := amfUe.Sm[value.AccessType].Transfer(state.REGISTERED, nil); err != nil {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
 						}
@@ -156,18 +156,18 @@ func Handle() {
 					if amfUe.T3522RetryTimes >= amf_context.MaxT3522RetryTimes {
 						logger.GmmLog.Warnf("T3522 Expires 5 times, abort deregistration procedure")
 						if value.AccessType == nasMessage.AccessType3GPP {
-							if err := amfUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+							if err := amfUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
 						} else if value.AccessType == nasMessage.AccessTypeNon3GPP {
-							if err := amfUe.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+							if err := amfUe.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
 						} else {
-							if err := amfUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+							if err := amfUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
-							if err := amfUe.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+							if err := amfUe.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
 						}

@@ -14,7 +14,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/gmm_message"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"strconv"
 
@@ -555,7 +555,7 @@ func HandleUEContextReleaseComplete(ran *amf_context.AmfRan, message *ngapType.N
 	if tmp, exist := amfUe.ReleaseCause[ran.AnType]; exist {
 		cause = *tmp
 	}
-	if amfUe.Sm[ran.AnType].Check(gmm_state.REGISTERED) {
+	if amfUe.Sm[ran.AnType].Check(state.REGISTERED) {
 		Ngaplog.Info("[NGAP] Rel Ue Context in GMM-Registered")
 		if pDUSessionResourceList != nil {
 			for _, pduSessionReourceItem := range pDUSessionResourceList.List {
@@ -1938,7 +1938,7 @@ func HandleUEContextReleaseRequest(ran *amf_context.AmfRan, message *ngapType.NG
 				Value: int32(causeValue),
 			},
 		}
-		if amfUe.Sm[ran.AnType].Check(gmm_state.REGISTERED) {
+		if amfUe.Sm[ran.AnType].Check(state.REGISTERED) {
 			Ngaplog.Info("[NGAP] Ue Context in GMM-Registered")
 			if pDUSessionResourceList != nil {
 				for _, pduSessionReourceItem := range pDUSessionResourceList.List {

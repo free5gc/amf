@@ -1,4 +1,4 @@
-package gmm_state
+package state
 
 import (
 	"free5gc/lib/fsm"

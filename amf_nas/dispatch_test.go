@@ -25,7 +25,7 @@ import (
 	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
@@ -438,11 +438,11 @@ func TestServiceRequest(t *testing.T) {
 	}
 	addNon3gppRan()
 
-	err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	time.Sleep(10 * time.Millisecond)
 
-	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	ue.NCC = 5
 	ue.NH, _ = hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
@@ -521,7 +521,7 @@ func TestAuthenticationResponse5gAka(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 	assert.True(t, err == nil)
 
 	rand := "0123456789abcdef0123456789abcdef"
@@ -565,7 +565,7 @@ func TestAuthenticationResponse5gAka(t *testing.T) {
 		ausfUe.AuthStatus = models.AuthResult_ONGOING
 		ausf_context.AddAusfUeContextToPool(ausfUe)
 
-		err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+		err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		resStar, _ := hex.DecodeString(TestUEAuth.TestUe5gAuthTable[TestUEAuth.FAILURE_CASE].ResStar)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(resStar, "")
@@ -616,7 +616,7 @@ func TestAuthenticationResponseEapAkaPrime(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 	assert.True(t, err == nil)
 
 	ue.AuthenticationCtx = &models.UeAuthenticationCtx{
@@ -651,7 +651,7 @@ func TestAuthenticationResponseEapAkaPrime(t *testing.T) {
 		ausfUe.AuthStatus = models.AuthResult_ONGOING
 		ausf_context.AddAusfUeContextToPool(ausfUe)
 
-		err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+		err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		eapMsg := buildEapPkt(TestUEAuth.FAILURE_CASE)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(nil, eapMsg)
@@ -679,21 +679,21 @@ func TestAuthenticationFailure(t *testing.T) {
 	}
 
 	t.Run("Cause5GMMMACFailure", func(t *testing.T) {
-		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMMACFailure, nil)
 		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Cause5GMMngKSIAlreadyInUse", func(t *testing.T) {
-		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMngKSIAlreadyInUse, nil)
 		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Cause5GMMSynchFailure", func(t *testing.T) {
-		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.AUTHENTICATION, nil)
+		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		failureParam := []uint8{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14}
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMSynchFailure, failureParam)
@@ -710,7 +710,7 @@ func TestRegistrationComplete(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.INITIAL_CONTEXT_SETUP, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.INITIAL_CONTEXT_SETUP, nil)
 	assert.True(t, err == nil)
 
 	ue.RegistrationRequest = nasMessage.NewRegistrationRequest(0)
@@ -738,7 +738,7 @@ func TestSecurityModeComplete(t *testing.T) {
 		Tac: "000001",
 	}
 
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.SECURITY_MODE, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetSecurityModeComplete()
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
@@ -754,7 +754,7 @@ func TestSecurityModeReject(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.SECURITY_MODE, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetSecurityModeReject(nasMessage.Cause5GMMSecurityModeRejectedUnspecified)
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
@@ -770,7 +770,7 @@ func TestDeregistrationRequestUEOriginating(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 
 	// TODO: modify test data if needed
@@ -792,7 +792,7 @@ func TestDeregistrationAccpetUETerminated(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetDeregistrationAccept()
 	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)

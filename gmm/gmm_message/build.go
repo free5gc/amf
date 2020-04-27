@@ -10,7 +10,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_nas/nas_security"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 
 	"github.com/mitchellh/mapstructure"
@@ -446,12 +446,12 @@ func BuildRegistrationAccept(
 	registrationResult := uint8(0)
 	if anType == models.AccessType__3_GPP_ACCESS {
 		registrationResult |= nasMessage.AccessType3GPP
-		if ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(gmm_state.REGISTERED) {
+		if ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(state.REGISTERED) {
 			registrationResult |= nasMessage.AccessTypeNon3GPP
 		}
 	} else {
 		registrationResult |= nasMessage.AccessTypeNon3GPP
-		if ue.Sm[models.AccessType__3_GPP_ACCESS].Check(gmm_state.REGISTERED) {
+		if ue.Sm[models.AccessType__3_GPP_ACCESS].Check(state.REGISTERED) {
 			registrationResult |= nasMessage.AccessType3GPP
 		}
 	}

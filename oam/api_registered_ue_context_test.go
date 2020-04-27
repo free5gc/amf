@@ -6,7 +6,7 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/service"
 	"free5gc/src/nrf/nrf_service"
 	"github.com/urfave/cli"
@@ -61,7 +61,7 @@ func TestRegisteredUEContext(t *testing.T) {
 
 	TestAmf.AmfInit()
 	testUe := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	testUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	testUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	smContext := amf_context.SmContext{
 		PduSessionContext: &models.PduSessionContext{
 			AccessType:   models.AccessType__3_GPP_ACCESS,

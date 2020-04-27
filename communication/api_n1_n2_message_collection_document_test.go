@@ -22,7 +22,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
 	"github.com/stretchr/testify/assert"
@@ -103,7 +103,7 @@ func TestN1N2MessageTransfer(t *testing.T) {
 
 	/* init ue info*/
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	ue.SmContextList[10] = &amf_context.SmContext{
 		PduSessionContext: &models.PduSessionContext{
@@ -147,12 +147,12 @@ func TestN1N2MessageTransfer(t *testing.T) {
 	util.ClearT3513(ue)
 
 	// 504 UE_NOT_REACHABLE
-	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil)
+	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil)
 	assert.True(t, err == nil)
 	sendRequestAndPrintResult(client, ue.Supi, n1N2MessageTransferRequest)
 
 	// 200 N1_N2_TRANSFER_INITIATED
-	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.REGISTERED, nil)
+	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	n1N2MessageTransferRequest.JsonData = TestComm.ConsumerAMFN1N2MessageTransferRequsetTable[TestComm.SKIP_N1]
 	sendRequestAndPrintResult(client, ue.Supi, n1N2MessageTransferRequest)

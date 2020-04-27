@@ -10,7 +10,7 @@ import (
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/gmm_message"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
@@ -87,7 +87,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 			return
 		}
 	}
-	if !ue.Sm[anType].Check(gmm_state.REGISTERED) {
+	if !ue.Sm[anType].Check(state.REGISTERED) {
 		transferErr.Error = new(models.ProblemDetails)
 		transferErr.Error.Status = 409
 		transferErr.Error.Cause = "TEMPORARY_REJECT_REGISTRATION_ONGOING"
@@ -174,7 +174,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 		return
 	}
 	// 504: the UE in MICO mode or the UE is only registered over Non-3GPP access and its state is CM-IDLE
-	if !ue.Sm[models.AccessType__3_GPP_ACCESS].Check(gmm_state.REGISTERED) {
+	if !ue.Sm[models.AccessType__3_GPP_ACCESS].Check(state.REGISTERED) {
 		transferErr.Error = new(models.ProblemDetails)
 		transferErr.Error.Status = 504
 		transferErr.Error.Cause = "UE_NOT_REACHABLE"

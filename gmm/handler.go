@@ -1,4 +1,4 @@
-package gmm_handler
+package gmm
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_event"
 	"free5gc/src/amf/gmm/gmm_message"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
@@ -802,7 +802,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 
 	// TODO (step 12 optional): the new AMF initiates ME identity check by invoking the N5g-eir_EquipmentIdentityCheck_Get service operation
 
-	if ue.ServingAmfChanged || ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(gmm_state.REGISTERED) || !ue.ContextValid {
+	if ue.ServingAmfChanged || ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(state.REGISTERED) || !ue.ContextValid {
 		// UDM selection described in TS 23.501 6.3.8
 		// TODO: consider udm group id, Routing ID part of SUCI, GPSI or External Group ID (e.g., by the NEF)
 		param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
@@ -954,7 +954,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 		ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
 	}
 
-	return ue.Sm[anType].Transfer(gmm_state.INITIAL_CONTEXT_SETUP, nil)
+	return ue.Sm[anType].Transfer(state.INITIAL_CONTEXT_SETUP, nil)
 }
 
 func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType models.AccessType, procedureCode int64) error {
@@ -1008,7 +1008,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 
 	// TODO (step 12 optional): the new AMF initiates ME identity check by invoking the N5g-eir_EquipmentIdentityCheck_Get service operation
 
-	if ue.ServingAmfChanged || ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(gmm_state.REGISTERED) || !ue.ContextValid {
+	if ue.ServingAmfChanged || ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(state.REGISTERED) || !ue.ContextValid {
 		// UDM selection described in TS 23.501 6.3.8
 		// TODO: consider udm group id, Routing ID part of SUCI, GPSI or External Group ID (e.g., by the NEF)
 		param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
@@ -1295,7 +1295,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 			}
 			ue.RegistrationAcceptForNon3GPPAccess = registrationAccept
 		}
-		return ue.Sm[anType].Transfer(gmm_state.INITIAL_CONTEXT_SETUP, nil)
+		return ue.Sm[anType].Transfer(state.INITIAL_CONTEXT_SETUP, nil)
 	} else if procedureCode == ngapType.ProcedureCodeUplinkNASTransport {
 		nasPdu, err := gmm_message.BuildRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult, errPduSessionId, errCause)
 		if err != nil {
@@ -1307,7 +1307,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 			ngap_message.SendDownlinkNasTransport(ue.RanUe[anType], nasPdu, nil)
 		}
 		ue.ClearRegistrationRequestData()
-		return ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+		return ue.Sm[anType].Transfer(state.REGISTERED, nil)
 	}
 
 	return nil
@@ -1654,7 +1654,7 @@ func startAuthenticationProcedure(ue *amf_context.AmfUe, anType models.AccessTyp
 
 	ue.T3560RetryTimes = 0
 	gmm_message.SendAuthenticationRequest(ue.RanUe[anType])
-	return ue.Sm[anType].Transfer(gmm_state.AUTHENTICATION, nil)
+	return ue.Sm[anType].Transfer(state.AUTHENTICATION, nil)
 }
 
 // TS 24501 5.6.1
@@ -1951,11 +1951,11 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 
 			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
 				gmm_message.SendIdentityRequest(ue.RanUe[anType], nasMessage.MobileIdentity5GSTypeSuci)
-				return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+				return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 			} else {
 				ue.ClearRegistrationRequestData()
 				gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
-				return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+				return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 			}
 		}
 
@@ -1973,15 +1973,15 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 			ue.Supi = response.Supi
 			ue.DerivateKamf()
 			gmm_message.SendSecurityModeCommand(ue.RanUe[anType], false, "")
-			return ue.Sm[anType].Transfer(gmm_state.SECURITY_MODE, nil)
+			return ue.Sm[anType].Transfer(state.SECURITY_MODE, nil)
 		case models.AuthResult_FAILURE:
 			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
 				gmm_message.SendIdentityRequest(ue.RanUe[anType], nasMessage.MobileIdentity5GSTypeSuci)
-				return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+				return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 			} else {
 				ue.ClearRegistrationRequestData()
 				gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
-				return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+				return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 			}
 		}
 	case models.AuthType_EAP_AKA_PRIME:
@@ -2002,16 +2002,16 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 			// TODO: select enc/int algorithm based on ue security capability & amf's policy,
 			// then generate KnasEnc, KnasInt
 			gmm_message.SendSecurityModeCommand(ue.RanUe[anType], true, response.EapPayload)
-			return ue.Sm[anType].Transfer(gmm_state.SECURITY_MODE, nil)
+			return ue.Sm[anType].Transfer(state.SECURITY_MODE, nil)
 		case models.AuthResult_FAILURE:
 			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
 				gmm_message.SendAuthenticationResult(ue.RanUe[anType], false, response.EapPayload)
 				gmm_message.SendIdentityRequest(ue.RanUe[anType], nasMessage.MobileIdentity5GSTypeSuci)
-				return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+				return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 			} else {
 				gmm_message.SendAuthenticationReject(ue.RanUe[anType], response.EapPayload)
 			}
-			return ue.Sm[anType].Transfer(gmm_state.DE_REGISTERED, nil)
+			return ue.Sm[anType].Transfer(state.DE_REGISTERED, nil)
 		case models.AuthResult_ONGOING:
 			ue.AuthenticationCtx.Var5gAuthData = response.EapPayload
 			if _, exists := response.Links["link"]; exists {
@@ -2038,12 +2038,12 @@ func HandleAuthenticationFailure(ue *amf_context.AmfUe, anType models.AccessType
 			logger.GmmLog.Warn("5GMM Cause[Mac Failure]")
 			ue.AuthFailureCauseSynchFailureTimes = 0
 			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
-			return ue.Sm[anType].Transfer(gmm_state.EXCEPTION, nil)
+			return ue.Sm[anType].Transfer(state.EXCEPTION, nil)
 		case nasMessage.Cause5GMMNon5GAuthenticationUnacceptable:
 			logger.GmmLog.Warn("5GMM Cause[Non-5G Authentication Unacceptable]")
 			ue.AuthFailureCauseSynchFailureTimes = 0
 			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
-			return ue.Sm[anType].Transfer(gmm_state.EXCEPTION, nil)
+			return ue.Sm[anType].Transfer(state.EXCEPTION, nil)
 		case nasMessage.Cause5GMMngKSIAlreadyInUse:
 			logger.GmmLog.Warn("5GMM Cause[NgKSI Already In Use]")
 			ue.AuthFailureCauseSynchFailureTimes = 0
@@ -2063,7 +2063,7 @@ func HandleAuthenticationFailure(ue *amf_context.AmfUe, anType models.AccessType
 				logger.GmmLog.Warnf("2 consecutive Synch Failure, terminate authentication procedure")
 				ue.AuthFailureCauseSynchFailureTimes = 0
 				gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
-				return ue.Sm[anType].Transfer(gmm_state.EXCEPTION, nil)
+				return ue.Sm[anType].Transfer(state.EXCEPTION, nil)
 			}
 			auts := authenticationFailure.AuthenticationFailureParameter.GetAuthenticationFailureParameter()
 			resynchronizationInfo := &models.ResynchronizationInfo{
@@ -2121,7 +2121,7 @@ func HandleRegistrationComplete(ue *amf_context.AmfUe, anType models.AccessType,
 	}
 
 	ue.ClearRegistrationRequestData()
-	return ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+	return ue.Sm[anType].Transfer(state.REGISTERED, nil)
 }
 
 // TODO: finish it; TS 33.501 6.7.2
@@ -2153,7 +2153,7 @@ func HandleSecurityModeComplete(ue *amf_context.AmfUe, anType models.AccessType,
 			args[gmm_event.AMF_UE] = ue
 			args[gmm_event.PROCEDURE_CODE] = procedureCode
 			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
-			_ = ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
 		case nas.MsgTypeServiceRequest:
 			logger.GmmLog.Traceln("[AMF] Handle MsgTypeServiceRequest")
@@ -2161,7 +2161,7 @@ func HandleSecurityModeComplete(ue *amf_context.AmfUe, anType models.AccessType,
 			args[gmm_event.AMF_UE] = ue
 			args[gmm_event.PROCEDURE_CODE] = procedureCode
 			args[gmm_event.GMM_MESSAGE] = m.GmmMessage
-			_ = ue.Sm[anType].Transfer(gmm_state.REGISTERED, nil)
+			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(gmm_event.EVENT_GMM_MESSAGE, args)
 		default:
 			logger.GmmLog.Errorln("nas message container Iei type error")
@@ -2182,7 +2182,7 @@ func HandleSecurityModeReject(ue *amf_context.AmfUe, anType models.AccessType, s
 
 	logger.GmmLog.Warnf("Reject Cause: %d", securityModeReject.Cause5GMM.GetCauseValue())
 
-	return ue.Sm[anType].Transfer(gmm_state.EXCEPTION, nil)
+	return ue.Sm[anType].Transfer(state.EXCEPTION, nil)
 }
 
 // TODO: finish it TS 23.502 4.2.2.3
@@ -2209,9 +2209,9 @@ func HandleDeregistrationRequest(ue *amf_context.AmfUe, anType models.AccessType
 		terminateAmPolicyAssocaition := true
 		switch anType {
 		case models.AccessType__3_GPP_ACCESS:
-			terminateAmPolicyAssocaition = ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(gmm_state.DE_REGISTERED)
+			terminateAmPolicyAssocaition = ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Check(state.DE_REGISTERED)
 		case models.AccessType_NON_3_GPP_ACCESS:
-			terminateAmPolicyAssocaition = ue.Sm[models.AccessType__3_GPP_ACCESS].Check(gmm_state.DE_REGISTERED)
+			terminateAmPolicyAssocaition = ue.Sm[models.AccessType__3_GPP_ACCESS].Check(state.DE_REGISTERED)
 		}
 
 		if terminateAmPolicyAssocaition {
@@ -2235,12 +2235,12 @@ func HandleDeregistrationRequest(ue *amf_context.AmfUe, anType models.AccessType
 		if ue.RanUe[models.AccessType__3_GPP_ACCESS] != nil {
 			ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType__3_GPP_ACCESS], amf_context.UeContextReleaseUeContext, ngapType.CausePresentNas, ngapType.CauseNasPresentDeregister)
 		}
-		return ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil)
+		return ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil)
 	case nasMessage.AccessTypeNon3GPP:
 		if ue.RanUe[models.AccessType_NON_3_GPP_ACCESS] != nil {
 			ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], amf_context.UeContextReleaseUeContext, ngapType.CausePresentNas, ngapType.CauseNasPresentDeregister)
 		}
-		return ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil)
+		return ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil)
 	case nasMessage.AccessTypeBoth:
 		if ue.RanUe[models.AccessType__3_GPP_ACCESS] != nil {
 			ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType__3_GPP_ACCESS], amf_context.UeContextReleaseUeContext, ngapType.CausePresentNas, ngapType.CauseNasPresentDeregister)
@@ -2249,10 +2249,10 @@ func HandleDeregistrationRequest(ue *amf_context.AmfUe, anType models.AccessType
 			ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], amf_context.UeContextReleaseUeContext, ngapType.CausePresentNas, ngapType.CauseNasPresentDeregister)
 		}
 
-		if err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+		if err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 			return err
 		}
-		if err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil); err != nil {
+		if err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {
 			return err
 		}
 	}

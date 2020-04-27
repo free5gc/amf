@@ -4,7 +4,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
-	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strconv"
@@ -76,7 +76,7 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 }
 
 func buildUEContext(ue *amf_context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
-	if ue.Sm[accessType].Check(gmm_state.REGISTERED) {
+	if ue.Sm[accessType].Check(state.REGISTERED) {
 		ueContext = &UEContext{
 			AccessType: models.AccessType__3_GPP_ACCESS,
 			Supi:       ue.Supi,
