@@ -11,7 +11,6 @@ import (
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/amf_ngap/ngap_sctp"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/eventexposure"
@@ -21,6 +20,7 @@ import (
 	"free5gc/src/amf/mt"
 	"free5gc/src/amf/oam"
 	"free5gc/src/amf/producer/callback"
+	"free5gc/src/amf/util"
 	"free5gc/src/app"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -134,7 +134,7 @@ func (amf *AMF) Start() {
 	}
 
 	self := amf_context.AMF_Self()
-	amf_util.InitAmfContext(self)
+	util.InitAmfContext(self)
 
 	addr := fmt.Sprintf("%s:%d", self.HttpIPv4Address, self.HttpIpv4Port)
 
@@ -159,9 +159,9 @@ func (amf *AMF) Start() {
 		os.Exit(0)
 	}()
 
-	server, err := http2_util.NewServer(addr, amf_util.AmfLogPath, router)
+	server, err := http2_util.NewServer(addr, util.AmfLogPath, router)
 	if err == nil && server != nil {
-		initLog.Infoln(server.ListenAndServeTLS(amf_util.AmfPemPath, amf_util.AmfKeyPath))
+		initLog.Infoln(server.ListenAndServeTLS(util.AmfPemPath, util.AmfKeyPath))
 	} else {
 		initLog.Fatalf("Initialize http2 server failed: %+v", err)
 	}

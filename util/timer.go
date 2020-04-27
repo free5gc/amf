@@ -1,4 +1,4 @@
-package amf_util
+package util
 
 import (
 	"free5gc/lib/ngap/ngapType"

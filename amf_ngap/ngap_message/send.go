@@ -6,8 +6,8 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -604,7 +604,7 @@ func SendPaging(ue *amf_context.AmfUe, ngapBuf []byte) {
 	}
 	ue.LastPagingPkg = ngapBuf
 	/* Start T3513 */
-	amf_util.StartT3513(ue)
+	util.StartT3513(ue)
 	// if ppi != nil {
 	// pagingPriority = new(ngapType.PagingPriority)
 	// pagingPriority.Value = aper.Enumerated(*ppi)

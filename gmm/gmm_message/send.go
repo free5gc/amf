@@ -7,8 +7,8 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/util"
 )
 
 // backOffTimerUint = 7 means backoffTimer is null
@@ -37,7 +37,7 @@ func SendNotification(ue *amf_context.RanUe, nasMsg []byte) {
 		logger.GmmLog.Error("AmfUe is nil")
 		return
 	}
-	amf_util.StartT3565(ue)
+	util.StartT3565(ue)
 	amfUe.LastNotificationPkg = nasMsg
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
@@ -76,7 +76,7 @@ func SendAuthenticationRequest(ue *amf_context.RanUe) {
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	amf_util.StartT3560(ue, amf_message.EventGMMT3560ForAuthenticationRequest, nil, nil)
+	util.StartT3560(ue, amf_message.EventGMMT3560ForAuthenticationRequest, nil, nil)
 }
 
 func SendServiceAccept(ue *amf_context.RanUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool, errPduSessionId, errCause []uint8) {
@@ -171,7 +171,7 @@ func SendSecurityModeCommand(ue *amf_context.RanUe, eapSuccess bool, eapMessage 
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	amf_util.StartT3560(ue, amf_message.EventGMMT3560ForSecurityModeCommand, &eapSuccess, &eapMessage)
+	util.StartT3560(ue, amf_message.EventGMMT3560ForSecurityModeCommand, &eapSuccess, &eapMessage)
 }
 
 func SendDeregistrationRequest(ue *amf_context.RanUe, accessType uint8, reRegistrationRequired bool, cause5GMM uint8) {
@@ -185,7 +185,7 @@ func SendDeregistrationRequest(ue *amf_context.RanUe, accessType uint8, reRegist
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	amf_util.StartT3522(ue, &accessType, &reRegistrationRequired, &cause5GMM)
+	util.StartT3522(ue, &accessType, &reRegistrationRequired, &cause5GMM)
 }
 
 func SendDeregistrationAccept(ue *amf_context.RanUe) {
@@ -216,7 +216,7 @@ func SendRegistrationAccept(
 		return
 	}
 	ngap_message.SendInitialContextSetupRequest(ue, anType, nasMsg, pduSessionResourceSetupList, nil, nil, nil)
-	amf_util.StartT3550(ue, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause, pduSessionResourceSetupList)
+	util.StartT3550(ue, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause, pduSessionResourceSetupList)
 }
 
 func SendStatus5GMM(ue *amf_context.RanUe, cause uint8) {

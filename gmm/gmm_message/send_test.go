@@ -6,8 +6,8 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_message"
+	"free5gc/src/amf/util"
 	"testing"
 	"time"
 )
@@ -67,7 +67,7 @@ func TestSendNotification(t *testing.T) {
 	}
 	gmm_message.SendNotification(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasMsg)
 	// time.Sleep(1 * time.Second)
-	amf_util.ClearT3565(ue)
+	util.ClearT3565(ue)
 	TestAmf.Conn.Close()
 
 }

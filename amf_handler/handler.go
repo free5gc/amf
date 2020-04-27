@@ -7,12 +7,12 @@ import (
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/amf_ngap"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
 	"free5gc/src/amf/producer/callback"
+	"free5gc/src/amf/util"
 	"net"
 	"time"
 
@@ -59,7 +59,7 @@ func Handle() {
 						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
 							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
-						amf_util.ClearT3513(amfUe)
+						util.ClearT3513(amfUe)
 					} else {
 						ngap_message.SendPaging(amfUe, amfUe.LastPagingPkg)
 					}
@@ -81,7 +81,7 @@ func Handle() {
 						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
 							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
-						amf_util.ClearT3565(amfUe)
+						util.ClearT3565(amfUe)
 					} else {
 						gmm_message.SendNotification(ranUe, amfUe.LastNotificationPkg)
 					}
@@ -98,7 +98,7 @@ func Handle() {
 					}
 					if amfUe.T3560RetryTimes >= amf_context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort authentication procedure & ongoing 5GMM procedure")
-						amf_util.ClearT3560(amfUe)
+						util.ClearT3560(amfUe)
 						amfUe.Remove() // release n1 nas signalling connection
 					} else {
 						amfUe.T3560RetryTimes++
@@ -117,7 +117,7 @@ func Handle() {
 					}
 					if amfUe.T3560RetryTimes >= amf_context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort security mode procedure")
-						amf_util.ClearT3560(amfUe)
+						util.ClearT3560(amfUe)
 					} else {
 						amfUe.T3560RetryTimes++
 						gmm_message.SendSecurityModeCommand(value.RanUe, value.EapSuccess, value.EapMessage)
@@ -136,7 +136,7 @@ func Handle() {
 							}
 						}
 						amfUe.ClearRegistrationRequestData()
-						amf_util.ClearT3550(amfUe)
+						util.ClearT3550(amfUe)
 					} else {
 						amfUe.T3550RetryTimes++
 						gmm_message.SendRegistrationAccept(amfUe, value.AccessType, value.PDUSessionStatus,
@@ -171,7 +171,7 @@ func Handle() {
 								HandlerLog.Errorf("Fsm Error[%+v]", err)
 							}
 						}
-						amf_util.ClearT3522(amfUe)
+						util.ClearT3522(amfUe)
 					} else {
 						amfUe.T3522RetryTimes++
 						gmm_message.SendDeregistrationRequest(value.RanUe, value.AccessType, value.ReRegistrationRequired, value.Cause5GMM)

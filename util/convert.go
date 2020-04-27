@@ -1,4 +1,4 @@
-package amf_util
+package util
 
 import (
 	"encoding/hex"

@@ -22,9 +22,9 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/producer/callback"
+	"free5gc/src/amf/util"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"io/ioutil"
@@ -144,7 +144,7 @@ func TestN1N2MessageTransfer(t *testing.T) {
 	// 409 HIGHER_PRIORITY_REQUEST_ONGOING
 	sendRequestAndPrintResult(client, ue.Supi, n1N2MessageTransferRequest)
 
-	amf_util.ClearT3513(ue)
+	util.ClearT3513(ue)
 
 	// 504 UE_NOT_REACHABLE
 	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(gmm_state.DE_REGISTERED, nil)

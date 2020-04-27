@@ -15,13 +15,13 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/gmm_event"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer/callback"
+	"free5gc/src/amf/util"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -127,7 +127,7 @@ func HandlePDUSessionEstablishmentRequest(ue *amf_context.AmfUe, anType models.A
 			if ue.SmfSelectionData != nil {
 				for snssai, sNssaiInfo := range ue.SmfSelectionData.SubscribedSnssaiInfos {
 					var err error
-					sNssai, err = amf_util.SnssaiHexToModels(snssai)
+					sNssai, err = util.SnssaiHexToModels(snssai)
 					if err != nil {
 						return err
 					}
@@ -321,10 +321,10 @@ func selectSmf(ue *amf_context.AmfUe, anType models.AccessType, pduSession *mode
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NSMF_PDUSESSION}),
 		Dnn:          optional.NewString(pduSession.Dnn),
-		Snssais:      optional.NewInterface(amf_util.MarshToJsonString([]models.Snssai{*pduSession.SNssai})),
+		Snssais:      optional.NewInterface(util.MarshToJsonString([]models.Snssai{*pduSession.SNssai})),
 	}
 	if ue.PlmnId.Mcc != "" {
-		param.TargetPlmnList = optional.NewInterface(amf_util.MarshToJsonString(ue.PlmnId))
+		param.TargetPlmnList = optional.NewInterface(util.MarshToJsonString(ue.PlmnId))
 	}
 
 	logger.GmmLog.Debugf("Search SMF from NRF[%s]", nrfUri)
@@ -339,7 +339,7 @@ func selectSmf(ue *amf_context.AmfUe, anType models.AccessType, pduSession *mode
 
 	// select the first SMF, TODO: select base on other info
 	for _, nfProfile := range result.NfInstances {
-		smfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NSMF_PDUSESSION, models.NfServiceStatus_REGISTERED)
+		smfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NSMF_PDUSESSION, models.NfServiceStatus_REGISTERED)
 		if smfUri != "" {
 			break
 		}
@@ -519,8 +519,8 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 
 	logger.GmmLog.Info("[AMF] Handle Registration Request")
 
-	amf_util.ClearT3513(ue)
-	amf_util.ClearT3565(ue)
+	util.ClearT3513(ue)
+	util.ClearT3565(ue)
 
 	var guamiFromUeGuti models.Guami
 	amfSelf := amf_context.AMF_Self()
@@ -561,7 +561,7 @@ func HandleRegistrationRequest(ue *amf_context.AmfUe, anType models.AccessType, 
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		var plmnId string
 		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentity5GSContents)
-		ue.PlmnId = amf_util.PlmnIdStringToModels(plmnId)
+		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
 		logger.GmmLog.Debugf("SUCI: %s", ue.Suci)
 		ue.IsCleartext = true
 	case nasMessage.MobileIdentity5GSType5gGuti:
@@ -818,8 +818,8 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 		var uecmUri, sdmUri string
 		for _, nfProfile := range resp.NfInstances {
 			ue.UdmId = nfProfile.NfInstanceId
-			uecmUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_UECM, models.NfServiceStatus_REGISTERED)
-			sdmUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
+			uecmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_UECM, models.NfServiceStatus_REGISTERED)
+			sdmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
 			if uecmUri != "" && sdmUri != "" {
 				break
 			}
@@ -881,7 +881,7 @@ func HandleInitialRegistration(ue *amf_context.AmfUe, anType models.AccessType) 
 			// select the first PCF, TODO: select base on other info
 			var pcfUri string
 			for _, nfProfile := range resp.NfInstances {
-				pcfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfServiceStatus_REGISTERED)
+				pcfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfServiceStatus_REGISTERED)
 				if pcfUri != "" {
 					ue.PcfId = nfProfile.NfInstanceId
 					break
@@ -1023,8 +1023,8 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *amf_context.AmfUe, anType
 		var uecmUri, sdmUri string
 		for _, nfProfile := range resp.NfInstances {
 			ue.UdmId = nfProfile.NfInstanceId
-			uecmUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_UECM, models.NfServiceStatus_REGISTERED)
-			sdmUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
+			uecmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_UECM, models.NfServiceStatus_REGISTERED)
+			sdmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
 			if uecmUri != "" && sdmUri != "" {
 				break
 			}
@@ -1416,8 +1416,8 @@ func handleRequestedNssai(ue *amf_context.AmfUe, anType models.AccessType) error
 					}
 
 					if !reflect.DeepEqual(guami.PlmnId, targetAmfPlmnId) {
-						searchTargetAmfQueryParam.TargetPlmnList = optional.NewInterface(amf_util.MarshToJsonString([]models.PlmnId{targetAmfPlmnId}))
-						searchTargetAmfQueryParam.RequesterPlmnList = optional.NewInterface(amf_util.MarshToJsonString([]models.PlmnId{*guami.PlmnId}))
+						searchTargetAmfQueryParam.TargetPlmnList = optional.NewInterface(util.MarshToJsonString([]models.PlmnId{targetAmfPlmnId}))
+						searchTargetAmfQueryParam.RequesterPlmnList = optional.NewInterface(util.MarshToJsonString([]models.PlmnId{*guami.PlmnId}))
 					}
 
 					searchTargetAmfQueryParam.AmfRegionId = optional.NewString(targetAmfSetToken[2])
@@ -1544,7 +1544,7 @@ func HandleIdentityResponse(ue *amf_context.AmfUe, identityResponse *nasMessage.
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		var plmnId string
 		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentityContents)
-		ue.PlmnId = amf_util.PlmnIdStringToModels(plmnId)
+		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
 		logger.GmmLog.Debugf("get SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		_, guti := nasConvert.GutiToString(mobileIdentityContents)
@@ -1571,7 +1571,7 @@ func HandleIdentityResponse(ue *amf_context.AmfUe, identityResponse *nasMessage.
 func HandleNotificationResponse(ue *amf_context.AmfUe, notificationResponse *nasMessage.NotificationResponse) error {
 
 	logger.GmmLog.Info("[AMF] Handle Notification Response")
-	amf_util.ClearT3565(ue)
+	util.ClearT3565(ue)
 	if notificationResponse != nil && notificationResponse.PDUSessionStatus != nil {
 		psiArray := nasConvert.PSIToBooleanArray(notificationResponse.PDUSessionStatus.Buffer)
 		for psi := 1; psi <= 15; psi++ {
@@ -1630,7 +1630,7 @@ func startAuthenticationProcedure(ue *amf_context.AmfUe, anType models.AccessTyp
 	var ausfUri string
 	for _, nfProfile := range resp.NfInstances {
 		ue.AusfId = nfProfile.NfInstanceId
-		ausfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NAUSF_AUTH, models.NfServiceStatus_REGISTERED)
+		ausfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NAUSF_AUTH, models.NfServiceStatus_REGISTERED)
 		if ausfUri != "" {
 			break
 		}
@@ -1666,8 +1666,8 @@ func HandleServiceRequest(ue *amf_context.AmfUe, anType models.AccessType, proce
 	}
 
 	// Clear Timer
-	amf_util.ClearT3513(ue)
-	amf_util.ClearT3565(ue)
+	util.ClearT3513(ue)
+	util.ClearT3565(ue)
 
 	// Send Authtication / Security Procedure not support
 	if !ue.SecurityContextIsValid() {
@@ -1925,7 +1925,7 @@ func HandleAuthenticationResponse(ue *amf_context.AmfUe, anType models.AccessTyp
 
 	logger.GmmLog.Info("[AMF] Handle Authentication Response")
 
-	amf_util.ClearT3560(ue)
+	util.ClearT3560(ue)
 
 	if ue.AuthenticationCtx == nil {
 		return fmt.Errorf("Ue Authentication Context is nil")
@@ -2028,7 +2028,7 @@ func HandleAuthenticationFailure(ue *amf_context.AmfUe, anType models.AccessType
 
 	logger.GmmLog.Info("[AMF] Handle Authentication Failure")
 
-	amf_util.ClearT3560(ue)
+	util.ClearT3560(ue)
 
 	cause5GMM := authenticationFailure.Cause5GMM.GetCauseValue()
 
@@ -2104,7 +2104,7 @@ func HandleRegistrationComplete(ue *amf_context.AmfUe, anType models.AccessType,
 
 	logger.GmmLog.Info("[AMF] Handle Registration Complete")
 
-	amf_util.ClearT3550(ue)
+	util.ClearT3550(ue)
 
 	if registrationComplete.SORTransparentContainer != nil {
 		// TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,
@@ -2130,7 +2130,7 @@ func HandleSecurityModeComplete(ue *amf_context.AmfUe, anType models.AccessType,
 	logger.GmmLog.Info("[AMF] Handle Security Mode Complete")
 
 	// stop T3560
-	amf_util.ClearT3560(ue)
+	util.ClearT3560(ue)
 	if ue.SecurityContextIsValid() {
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
@@ -2178,7 +2178,7 @@ func HandleSecurityModeReject(ue *amf_context.AmfUe, anType models.AccessType, s
 	logger.GmmLog.Info("[AMF] Handle Security Mode Reject")
 
 	// stop T3560
-	amf_util.ClearT3560(ue)
+	util.ClearT3560(ue)
 
 	logger.GmmLog.Warnf("Reject Cause: %d", securityModeReject.Cause5GMM.GetCauseValue())
 
@@ -2265,7 +2265,7 @@ func HandleDeregistrationAccept(ue *amf_context.AmfUe, anType models.AccessType,
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Accept(UE Terminated)")
 
-	amf_util.ClearT3522(ue)
+	util.ClearT3522(ue)
 
 	switch ue.DeregistrationTargetAccessType {
 	case nasMessage.AccessType3GPP:

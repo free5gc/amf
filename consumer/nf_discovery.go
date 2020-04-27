@@ -6,8 +6,8 @@ import (
 	"free5gc/lib/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/util"
 	"net/http"
 )
 
@@ -38,7 +38,7 @@ func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, re
 	var sdmUri string
 	for _, nfProfile := range resp.NfInstances {
 		ue.UdmId = nfProfile.NfInstanceId
-		sdmUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
+		sdmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
 		if sdmUri != "" {
 			break
 		}
@@ -63,7 +63,7 @@ func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetN
 	var nssfUri string
 	for _, nfProfile := range resp.NfInstances {
 		ue.NssfId = nfProfile.NfInstanceId
-		nssfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NNSSF_NSSELECTION, models.NfServiceStatus_REGISTERED)
+		nssfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NNSSF_NSSELECTION, models.NfServiceStatus_REGISTERED)
 		if nssfUri != "" {
 			break
 		}
@@ -87,7 +87,7 @@ func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, target
 	var amfUri string
 	for _, nfProfile := range resp.NfInstances {
 		ue.TargetAmfProfile = &nfProfile
-		amfUri = amf_util.SearchNFServiceUri(nfProfile, models.ServiceName_NAMF_COMM, models.NfServiceStatus_REGISTERED)
+		amfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NAMF_COMM, models.NfServiceStatus_REGISTERED)
 		if amfUri != "" {
 			break
 		}

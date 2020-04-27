@@ -1,6 +1,6 @@
 //+build !debug
 
-package amf_util
+package util
 
 import (
 	"free5gc/lib/path_util"

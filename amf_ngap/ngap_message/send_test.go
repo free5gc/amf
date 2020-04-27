@@ -16,9 +16,9 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/amf_ngap/ngap_message"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/gmm/gmm_message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/util"
 	"free5gc/src/smf/PDUSession"
 	"free5gc/src/smf/smf_handler"
 	"free5gc/src/test/ngapTestpacket"
@@ -536,7 +536,7 @@ func TestSendPaging(t *testing.T) {
 	}
 	ngap_message.SendPaging(ue, pkg)
 	time.Sleep(1 * time.Second)
-	amf_util.ClearT3513(ue)
+	util.ClearT3513(ue)
 }
 
 func TestSendRerouteNasRequest(t *testing.T) {

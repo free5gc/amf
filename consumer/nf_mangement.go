@@ -7,8 +7,8 @@ import (
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_util"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/util"
 	"net/http"
 	"strings"
 	"time"
@@ -32,7 +32,7 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 		err = fmt.Errorf("Gumai List is Empty in AMF")
 		return
 	}
-	regionId, setId, _, err1 := amf_util.SeperateAmfId(context.ServedGuamiList[0].AmfId)
+	regionId, setId, _, err1 := util.SeperateAmfId(context.ServedGuamiList[0].AmfId)
 	if err1 != nil {
 		err = err1
 		return
