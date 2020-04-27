@@ -19,7 +19,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap"
-	"free5gc/src/amf/ngap/ngap_message"
+	"free5gc/src/amf/ngap/message"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/handler"

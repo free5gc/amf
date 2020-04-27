@@ -11,7 +11,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
-	"free5gc/src/amf/ngap/ngap_message"
+	"free5gc/src/amf/ngap/message"
 	"github.com/mohae/deepcopy"
 	"net/http"
 	"strconv"

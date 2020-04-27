@@ -13,7 +13,7 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/ngap/ngap_message"
+	"free5gc/src/amf/ngap/message"
 	"free5gc/src/test/ngapTestpacket"
 	"reflect"
 	"testing"

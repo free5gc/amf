@@ -7,7 +7,7 @@ import (
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/logger"
-	"free5gc/src/amf/ngap/ngap_message"
+	"free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/util"
 )
 
