@@ -32,7 +32,7 @@ const (
 )
 
 type LADN struct {
-	Ladn     string
+	Dnn      string
 	TaiLists []models.Tai
 }
 

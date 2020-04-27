@@ -535,7 +535,7 @@ func BuildRegistrationAccept(
 		registrationAccept.LADNInformation = nasType.NewLADNInformation(nasMessage.RegistrationAcceptLADNInformationType)
 		var buf []uint8
 		for _, ladn := range ue.LadnInfo {
-			ladnNas := nasConvert.LadnToNas(ladn)
+			ladnNas := nasConvert.LadnToNas(ladn.Dnn, ladn.TaiLists)
 			buf = append(buf, ladnNas...)
 		}
 		registrationAccept.LADNInformation.SetLen(uint16(len(buf)))
@@ -725,7 +725,7 @@ func BuildConfigurationUpdateCommand(ue *amf_context.AmfUe, anType models.Access
 		configurationUpdateCommand.LADNInformation = nasType.NewLADNInformation(nasMessage.ConfigurationUpdateCommandLADNInformationType)
 		var buf []uint8
 		for _, ladn := range ue.LadnInfo {
-			ladnNas := nasConvert.LadnToNas(ladn)
+			ladnNas := nasConvert.LadnToNas(ladn.Dnn, ladn.TaiLists)
 			buf = append(buf, ladnNas...)
 		}
 		configurationUpdateCommand.LADNInformation.SetLen(uint16(len(buf)))
