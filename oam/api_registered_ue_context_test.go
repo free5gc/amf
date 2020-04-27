@@ -6,8 +6,8 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_service"
 	"free5gc/src/amf/gmm/gmm_state"
+	"free5gc/src/amf/service"
 	"free5gc/src/nrf/nrf_service"
 	"github.com/urfave/cli"
 	"net/http"
@@ -55,7 +55,7 @@ type UEContexts []UEContext
 func TestRegisteredUEContext(t *testing.T) {
 	flags := flag.FlagSet{}
 	c := cli.NewContext(nil, &flags, nil)
-	amf := &amf_service.AMF{}
+	amf := &service.AMF{}
 	amf.Initialize(c)
 	go amf.Start()
 

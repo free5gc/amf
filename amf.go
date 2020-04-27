@@ -1,8 +1,8 @@
 package main
 
 import (
-	"free5gc/src/amf/amf_service"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/service"
 	"free5gc/src/amf/version"
 	"free5gc/src/app"
 	"os"
@@ -11,7 +11,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-var AMF = &amf_service.AMF{}
+var AMF = &service.AMF{}
 
 var appLog *logrus.Entry
 

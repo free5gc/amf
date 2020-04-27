@@ -1,4 +1,4 @@
-package amf_service
+package service
 
 import (
 	"bufio"
