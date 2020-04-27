@@ -1,4 +1,4 @@
-package amf_ngap_sctp
+package sctp
 
 import (
 	"free5gc/src/amf/amf_handler/amf_message"

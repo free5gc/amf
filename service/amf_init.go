@@ -17,7 +17,7 @@ import (
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/mt"
 	"free5gc/src/amf/ngap/ngap_message"
-	"free5gc/src/amf/ngap/ngap_sctp"
+	"free5gc/src/amf/ngap/sctp"
 	"free5gc/src/amf/oam"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
@@ -56,7 +56,7 @@ var amfCLi = []cli.Flag{
 }
 
 var initLog *logrus.Entry
-var sctpListener *amf_ngap_sctp.SCTPListener
+var sctpListener *sctp.SCTPListener
 
 func init() {
 	initLog = logger.InitLog
@@ -139,7 +139,7 @@ func (amf *AMF) Start() {
 	addr := fmt.Sprintf("%s:%d", self.HttpIPv4Address, self.HttpIpv4Port)
 
 	for _, ngapAddr := range self.NgapIpList {
-		sctpListener = amf_ngap_sctp.Server(ngapAddr)
+		sctpListener = sctp.Server(ngapAddr)
 	}
 	go amf_handler.Handle()
 
