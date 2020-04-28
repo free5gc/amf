@@ -1,4 +1,4 @@
-package amf_nas_test
+package nas_test
 
 import (
 	"context"
@@ -22,11 +22,11 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/nas"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/handler"
@@ -224,33 +224,33 @@ func TestULNASTransportPDUSessionEstablishemnt(t *testing.T) {
 	// InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// InitialRequest with exist pdusession id (Duplicatd pdu session id)(success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// InitialRequest with unknown dnn and Snssai (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(11, nasMessage.ULNASTransportRequestTypeInitialRequest, "", nil)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// InitialRequest with unknown dnn (failed)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(12, nasMessage.ULNASTransportRequestTypeInitialRequest, "nctu.edu.tw", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// handover with allow snssai is empty (failed)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(11, nasMessage.ULNASTransportRequestTypeExistingPduSession, "", nil)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// handover with allow snssai is not empty (success)
 	ue.AllowedNssai[models.AccessType_NON_3_GPP_ACCESS] = deepcopy.Copy(ue.AllowedNssai[models.AccessType__3_GPP_ACCESS]).([]models.AllowedSnssai)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(11, nasMessage.ULNASTransportRequestTypeExistingPduSession, "", nil)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	TestAmf.Conn.Close()
 	time.Sleep(10 * time.Millisecond)
@@ -270,22 +270,22 @@ func TestULNASTransportPDUSessionModification(t *testing.T) {
 	// Pdu session Establishment InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Modification Request(success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesModiReq)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Modification Complete (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesModiCmp)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Modification Command Reject (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesModiCmdRej)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 	time.Sleep(10 * time.Millisecond)
@@ -305,22 +305,22 @@ func TestULNASTransportPDUSessionRelease(t *testing.T) {
 	// Pdu session Establishment InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Release Request(success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesRelReq)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Release Complete (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesRelCmp)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Release Command Reject (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesRelRej)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 	time.Sleep(10 * time.Millisecond)
@@ -340,12 +340,12 @@ func TestULNASTransportPDUSessionAuthentication(t *testing.T) {
 	// Pdu session Establishment InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Release Complete (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionCommonData(10, nasTestpacket.PDUSesAuthCmp)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	TestAmf.Conn.Close()
 
@@ -367,7 +367,7 @@ func TestIdentityResponse(t *testing.T) {
 	}
 	nasPdu := nasTestpacket.GetIdentityResponse(mobilityIdentity)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// imeisv
 	mobilityIdentity = nasType.MobileIdentity{
@@ -376,7 +376,7 @@ func TestIdentityResponse(t *testing.T) {
 	}
 	nasPdu = nasTestpacket.GetIdentityResponse(mobilityIdentity)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 }
 
@@ -394,12 +394,12 @@ func TestNotificationResponse(t *testing.T) {
 	// InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Notification Request
 	nasPdu = nasTestpacket.GetNotificationResponse([]uint8{0x00, 0x40})
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	time.Sleep(10 * time.Millisecond)
 	TestAmf.Conn2.Close()
@@ -414,7 +414,7 @@ func TestUeConfiguratioinUpdateComplete(t *testing.T) {
 
 	nasPdu := nasTestpacket.GetConfigurationUpdateComplete()
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 }
 
@@ -454,22 +454,22 @@ func TestServiceRequest(t *testing.T) {
 	// Pdu session Establishment InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Pdu session Establishment InitialRequest with known dnn and Snssai (success)
 	nasPdu = nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(11, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType_NON_3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Trigger By Ue, Data (Service Accept)
 	nasPdu = nasTestpacket.GetServiceRequest(nasMessage.ServiceTypeData)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	// Trigger By Ue, Data (Service Accept (initial context setup))
 	nasPdu = nasTestpacket.GetServiceRequest(nasMessage.ServiceTypeData)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeInitialUEMessage, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeInitialUEMessage, nasPdu)
 
 	// n1n2Transfer
 
@@ -500,14 +500,14 @@ func TestServiceRequest(t *testing.T) {
 	// Trigger By Network (Service Accept)
 	nasPdu = nasTestpacket.GetServiceRequest(nasMessage.ServiceTypeMobileTerminatedServices)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	time.Sleep(100 * time.Millisecond)
 
 	// Trigger By Ue (Service Reject)
 	ue.MacFailed = true
 	nasPdu = nasTestpacket.GetServiceRequest(nasMessage.ServiceTypeData)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	time.Sleep(100 * time.Millisecond)
 	TestAmf.Conn.Close()
@@ -554,7 +554,7 @@ func TestAuthenticationResponse5gAka(t *testing.T) {
 
 		resStar, _ := hex.DecodeString(TestUEAuth.TestUe5gAuthTable[TestUEAuth.SUCCESS_CASE].ResStar)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(resStar, "")
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Failure_Case", func(t *testing.T) {
@@ -569,7 +569,7 @@ func TestAuthenticationResponse5gAka(t *testing.T) {
 		assert.True(t, err == nil)
 		resStar, _ := hex.DecodeString(TestUEAuth.TestUe5gAuthTable[TestUEAuth.FAILURE_CASE].ResStar)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(resStar, "")
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 	TestAmf.Conn.Close()
 
@@ -639,7 +639,7 @@ func TestAuthenticationResponseEapAkaPrime(t *testing.T) {
 
 		eapMsg := buildEapPkt(TestUEAuth.SUCCESS_CASE)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(nil, eapMsg)
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Failure_Case", func(t *testing.T) {
@@ -655,7 +655,7 @@ func TestAuthenticationResponseEapAkaPrime(t *testing.T) {
 		assert.True(t, err == nil)
 		eapMsg := buildEapPkt(TestUEAuth.FAILURE_CASE)
 		nasPdu := nasTestpacket.GetAuthenticationResponse(nil, eapMsg)
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 	TestAmf.Conn.Close()
 }
@@ -682,14 +682,14 @@ func TestAuthenticationFailure(t *testing.T) {
 		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMMACFailure, nil)
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Cause5GMMngKSIAlreadyInUse", func(t *testing.T) {
 		err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 		assert.True(t, err == nil)
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMngKSIAlreadyInUse, nil)
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 
 	t.Run("Cause5GMMSynchFailure", func(t *testing.T) {
@@ -697,7 +697,7 @@ func TestAuthenticationFailure(t *testing.T) {
 		assert.True(t, err == nil)
 		failureParam := []uint8{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x10, 0x11, 0x12, 0x13, 0x14}
 		nasPdu := nasTestpacket.GetAuthenticationFailure(nasMessage.Cause5GMMSynchFailure, failureParam)
-		amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+		nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	})
 	TestAmf.Conn.Close()
 
@@ -715,7 +715,7 @@ func TestRegistrationComplete(t *testing.T) {
 
 	ue.RegistrationRequest = nasMessage.NewRegistrationRequest(0)
 	nasPdu := nasTestpacket.GetRegistrationComplete(nil)
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 }
@@ -741,7 +741,7 @@ func TestSecurityModeComplete(t *testing.T) {
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetSecurityModeComplete(nil)
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 }
@@ -757,7 +757,7 @@ func TestSecurityModeReject(t *testing.T) {
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetSecurityModeReject(nasMessage.Cause5GMMSecurityModeRejectedUnspecified)
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 }
@@ -779,7 +779,7 @@ func TestDeregistrationRequestUEOriginating(t *testing.T) {
 		Buffer: []uint8{0x02, 0x02, 0xf8, 0x39, 0xca, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x01},
 	}
 	nasPdu := nasTestpacket.GetDeregistrationRequest(nasMessage.AccessType3GPP, 1, 0x04, mobileIdentity5GS)
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 
 }
@@ -795,7 +795,7 @@ func TestDeregistrationAccpetUETerminated(t *testing.T) {
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
 	nasPdu := nasTestpacket.GetDeregistrationAccept()
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 }
 
@@ -809,7 +809,7 @@ func TestStatus5GMM(t *testing.T) {
 
 	nasPdu := nasTestpacket.GetStatus5GMM(nasMessage.Cause5GMMIllegalUE)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 }
 
@@ -847,10 +847,10 @@ func TestStatus5GSM(t *testing.T) {
 	ue.PlmnId.Mnc = "93"
 	// InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 
 	nasPdu = nasTestpacket.GetUlNasTransport_Status5GSM(10, nasMessage.Cause5GSMInvalidPDUSessionIdentity)
 
-	amf_nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
+	nas.HandleNAS(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.ProcedureCodeUplinkNASTransport, nasPdu)
 	TestAmf.Conn.Close()
 }

@@ -9,12 +9,12 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/nas"
 	"free5gc/src/amf/ngap/message"
 	"strconv"
 
@@ -237,7 +237,7 @@ func HandleUplinkNasTransport(ran *amf_context.AmfRan, message *ngapType.NGAPPDU
 		ranUe.UpdateLocation(userLocationInformation)
 	}
 
-	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeUplinkNASTransport, nASPDU.Value)
+	nas.HandleNAS(ranUe, ngapType.ProcedureCodeUplinkNASTransport, nASPDU.Value)
 }
 
 func HandleNGReset(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
@@ -1024,7 +1024,7 @@ func HandleInitialUEMessage(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) 
 
 	pdu, _ := libngap.Encoder(*message)
 	ranUe.InitialUEMessage = pdu
-	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, nASPDU.Value)
+	nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, nASPDU.Value)
 }
 
 func HandlePDUSessionResourceSetupResponse(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {
@@ -3208,7 +3208,7 @@ func HandleNasNonDeliveryIndication(ran *amf_context.AmfRan, message *ngapType.N
 
 	printAndGetCause(cause)
 
-	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeNASNonDeliveryIndication, nASPDU.Value)
+	nas.HandleNAS(ranUe, ngapType.ProcedureCodeNASNonDeliveryIndication, nASPDU.Value)
 }
 
 func HandleRanConfigurationUpdate(ran *amf_context.AmfRan, message *ngapType.NGAPPDU) {

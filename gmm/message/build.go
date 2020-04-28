@@ -9,9 +9,9 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
-	"free5gc/src/amf/amf_nas/nas_security"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/nas/nas_security"
 
 	"github.com/mitchellh/mapstructure"
 )

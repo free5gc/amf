@@ -1,4 +1,4 @@
-package amf_nas
+package nas
 
 import (
 	"fmt"

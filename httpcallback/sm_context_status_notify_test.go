@@ -14,9 +14,9 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/httpcallback"
+	"free5gc/src/amf/nas"
 	"free5gc/src/nrf/Discovery"
 	"free5gc/src/nrf/Management"
 	"free5gc/src/nrf/nrf_handler"
@@ -99,7 +99,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 
 	m := nas.NewMessage()
 	err = m.GmmMessageDecode(&nasPdu)
-	err = amf_nas.Dispatch(ue, models.AccessType__3_GPP_ACCESS, ngapType.ProcedureCodeUplinkNASTransport, m)
+	err = nas.Dispatch(ue, models.AccessType__3_GPP_ACCESS, ngapType.ProcedureCodeUplinkNASTransport, m)
 	assert.True(t, err == nil)
 	assert.True(t, err == nil)
 

@@ -7,10 +7,10 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
-	"free5gc/src/amf/amf_nas"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/nas"
 	"free5gc/src/amf/ngap/message"
 	"github.com/mohae/deepcopy"
 	"net/http"
@@ -217,5 +217,5 @@ func HandleN1MessageNotify(httpChannel chan amf_message.HandlerResponseMessage, 
 
 	amfUe.AttachRanUe(ranUe)
 
-	amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, body.BinaryDataN1Message)
+	nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, body.BinaryDataN1Message)
 }
