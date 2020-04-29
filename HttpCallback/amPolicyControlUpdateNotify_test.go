@@ -2,9 +2,6 @@ package Namf_Callback_test
 
 import (
 	"flag"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
@@ -13,10 +10,13 @@ import (
 	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/nrf/nrf_service"
-	"free5gc/src/pcf/pcf_context"
-	"free5gc/src/pcf/pcf_producer"
-	"free5gc/src/pcf/pcf_service"
+	pcf_context "free5gc/src/pcf/context"
+	pcf_producer "free5gc/src/pcf/producer"
+	pcf_service "free5gc/src/pcf/service"
 	"free5gc/src/udr/udr_service"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 
 	"testing"
 	"time"
