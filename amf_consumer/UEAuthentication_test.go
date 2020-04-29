@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/bronze1man/radius"
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AUSF/TestUEAuth"
 	"free5gc/lib/CommonConsumerTestData/UDM/TestGenAuthData"
@@ -13,11 +11,14 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_consumer"
-	"free5gc/src/ausf/ausf_context"
-	"free5gc/src/ausf/ausf_producer"
-	"free5gc/src/ausf/ausf_service"
+	ausf_context "free5gc/src/ausf/context"
+	"free5gc/src/ausf/producer"
+	"free5gc/src/ausf/service"
 	"testing"
 	"time"
+
+	"github.com/bronze1man/radius"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 var collName = "subscriptionData.authenticationData.authenticationSubscription"
@@ -56,7 +57,7 @@ func insertAuthSubscriptionToMongoDB(ueId string, authSubs models.Authentication
 }
 
 func ausfInit() {
-	ausf := &ausf_service.AUSF{}
+	ausf := &service.AUSF{}
 	ausf.Initialize(testC)
 	go ausf.Start()
 	time.Sleep(100 * time.Millisecond)
@@ -115,14 +116,14 @@ func TestEapConfirm(t *testing.T) {
 	eapPkt.Code = radius.EapCode(radius.EapCodeResponse)
 	eapPkt.Type = radius.EapType(50) // accroding to RFC5448 6.1
 	eapPkt.Identifier = 0x01
-	atRes, _ := ausf_producer.EapEncodeAttribute("AT_RES", TestUEAuth.TestUeEapAuthTable[TestUEAuth.SUCCESS_CASE].Res)
-	atMAC, _ := ausf_producer.EapEncodeAttribute("AT_MAC", "")
+	atRes, _ := producer.EapEncodeAttribute("AT_RES", TestUEAuth.TestUeEapAuthTable[TestUEAuth.SUCCESS_CASE].Res)
+	atMAC, _ := producer.EapEncodeAttribute("AT_MAC", "")
 
 	dataArrayBeforeMAC := atRes + atMAC
 	eapPkt.Data = []byte(dataArrayBeforeMAC)
 	encodedPktBeforeMAC := eapPkt.Encode()
 
-	MACvalue := ausf_producer.CalculateAtMAC([]byte(TestUEAuth.TestUeEapAuthTable[TestUEAuth.SUCCESS_CASE].K_aut), encodedPktBeforeMAC)
+	MACvalue := producer.CalculateAtMAC([]byte(TestUEAuth.TestUeEapAuthTable[TestUEAuth.SUCCESS_CASE].K_aut), encodedPktBeforeMAC)
 
 	atMacNum := fmt.Sprintf("%02x", ausf_context.AT_MAC_ATTRIBUTE)
 	atMACfirstRow, _ := hex.DecodeString(atMacNum + "05" + "0000")

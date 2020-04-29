@@ -29,9 +29,9 @@ import (
 	"free5gc/src/amf/gmm/gmm_state"
 	"free5gc/src/amf/logger"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
-	"free5gc/src/ausf/ausf_context"
-	"free5gc/src/ausf/ausf_handler"
-	"free5gc/src/ausf/ausf_producer"
+	ausf_context "free5gc/src/ausf/context"
+	"free5gc/src/ausf/handler"
+	"free5gc/src/ausf/producer"
 	"free5gc/src/nrf/nrf_handler"
 	"free5gc/src/nrf/nrf_service"
 	"free5gc/src/smf/smf_service"
@@ -77,7 +77,7 @@ func ausfInit() {
 		}
 	}()
 
-	go ausf_handler.Handle()
+	go handler.Handle()
 }
 
 func udmInit() {
@@ -581,14 +581,14 @@ func buildEapPkt(testCase string) (eapMsgStr string) {
 	eapPkt.Code = radius.EapCode(radius.EapCodeResponse)
 	eapPkt.Type = radius.EapType(50) // accroding to RFC5448 6.1
 	eapPkt.Identifier = 0x01
-	atRes, _ := ausf_producer.EapEncodeAttribute("AT_RES", TestUEAuth.TestUeEapAuthTable[testCase].Res)
-	atMAC, _ := ausf_producer.EapEncodeAttribute("AT_MAC", "")
+	atRes, _ := producer.EapEncodeAttribute("AT_RES", TestUEAuth.TestUeEapAuthTable[testCase].Res)
+	atMAC, _ := producer.EapEncodeAttribute("AT_MAC", "")
 
 	dataArrayBeforeMAC := atRes + atMAC
 	eapPkt.Data = []byte(dataArrayBeforeMAC)
 	encodedPktBeforeMAC := eapPkt.Encode()
 
-	MACvalue := ausf_producer.CalculateAtMAC([]byte(TestUEAuth.TestUeEapAuthTable[testCase].K_aut), encodedPktBeforeMAC)
+	MACvalue := producer.CalculateAtMAC([]byte(TestUEAuth.TestUeEapAuthTable[testCase].K_aut), encodedPktBeforeMAC)
 
 	atMacNum := fmt.Sprintf("%02x", ausf_context.AT_MAC_ATTRIBUTE)
 	atMACfirstRow, _ := hex.DecodeString(atMacNum + "05" + "0000")
