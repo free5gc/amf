@@ -2,15 +2,15 @@ package amf_consumer_test
 
 import (
 	"flag"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
-	"go.mongodb.org/mongo-driver/bson"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_consumer"
 	"free5gc/src/amf/logger"
-	"free5gc/src/pcf/pcf_service"
+	pcf_service "free5gc/src/pcf/service"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
+	"go.mongodb.org/mongo-driver/bson"
 	"testing"
 	"time"
 )
