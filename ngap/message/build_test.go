@@ -12,7 +12,7 @@ import (
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/ngap/message"
 	"free5gc/src/test/ngapTestpacket"
 	"reflect"
@@ -741,9 +741,9 @@ func TestBuildPaging(t *testing.T) {
 		Value: ngapType.PagingPriorityPresentPriolevel1,
 	}
 
-	recommendedCell := amf_context.RecommendedCell{
-		NgRanCGI: amf_context.NGRANCGI{
-			Present: amf_context.NgRanCgiPresentNRCGI,
+	recommendedCell := context.RecommendedCell{
+		NgRanCGI: context.NGRANCGI{
+			Present: context.NgRanCgiPresentNRCGI,
 			NRCGI: &models.Ncgi{
 				PlmnId: &models.PlmnId{
 					Mcc: "208",
@@ -753,7 +753,7 @@ func TestBuildPaging(t *testing.T) {
 			},
 		},
 	}
-	ue.InfoOnRecommendedCellsAndRanNodesForPaging = new(amf_context.InfoOnRecommendedCellsAndRanNodesForPaging)
+	ue.InfoOnRecommendedCellsAndRanNodesForPaging = new(context.InfoOnRecommendedCellsAndRanNodesForPaging)
 	ue.InfoOnRecommendedCellsAndRanNodesForPaging.RecommendedCells = append(ue.InfoOnRecommendedCellsAndRanNodesForPaging.RecommendedCells, recommendedCell)
 
 	pkg, err := ngap_message.BuildPaging(ue, &pagingPriority, false)
@@ -1227,7 +1227,7 @@ func TestBuildAMFConfigurationUpdate(t *testing.T) {
 
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	amfSelf.HttpIPv4Address = "127.0.0.1"
 	amfSelf.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
 	amfSelf.TNLWeightFactor = 123

@@ -4,12 +4,12 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/timer"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 )
 
-func StartT3513(ue *amf_context.AmfUe) {
+func StartT3513(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return
@@ -18,11 +18,11 @@ func StartT3513(ue *amf_context.AmfUe) {
 		Event: amf_message.EventGMMT3513,
 		Value: ue,
 	}
-	ue.T3513 = timer.StartTimer(amf_context.TimeT3513, func(msg interface{}) {
+	ue.T3513 = timer.StartTimer(context.TimeT3513, func(msg interface{}) {
 		amf_message.SendMessage(msg.(amf_message.HandlerMessage))
 	}, msg)
 }
-func ClearT3513(ue *amf_context.AmfUe) {
+func ClearT3513(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return
@@ -34,10 +34,10 @@ func ClearT3513(ue *amf_context.AmfUe) {
 	ue.PagingRetryTimes = 0
 	ue.LastPagingPkg = nil
 	ue.OnGoing[models.AccessType__3_GPP_ACCESS].Ppi = 0
-	ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = amf_context.OnGoingProcedureNothing
+	ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedureNothing
 }
 
-func StartT3565(ue *amf_context.RanUe) {
+func StartT3565(ue *context.RanUe) {
 	if ue == nil {
 		logger.UtilLog.Error("RanUe is nil")
 		return
@@ -50,12 +50,12 @@ func StartT3565(ue *amf_context.RanUe) {
 		Event: amf_message.EventGMMT3565,
 		Value: ue,
 	}
-	ue.AmfUe.T3565 = timer.StartTimer(amf_context.TimeT3565, func(msg interface{}) {
+	ue.AmfUe.T3565 = timer.StartTimer(context.TimeT3565, func(msg interface{}) {
 		amf_message.SendMessage(msg.(amf_message.HandlerMessage))
 	}, msg)
 }
 
-func ClearT3565(ue *amf_context.AmfUe) {
+func ClearT3565(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return
@@ -68,7 +68,7 @@ func ClearT3565(ue *amf_context.AmfUe) {
 	ue.LastNotificationPkg = nil
 }
 
-func StartT3560(ue *amf_context.RanUe, event amf_message.Event, eapSuccess *bool, eapMessage *string) {
+func StartT3560(ue *context.RanUe, event amf_message.Event, eapSuccess *bool, eapMessage *string) {
 	if ue == nil {
 		logger.UtilLog.Error("RanUe is nil")
 		return
@@ -95,12 +95,12 @@ func StartT3560(ue *amf_context.RanUe, event amf_message.Event, eapSuccess *bool
 			},
 		}
 	}
-	ue.AmfUe.T3560 = timer.StartTimer(amf_context.TimeT3560, func(msg interface{}) {
+	ue.AmfUe.T3560 = timer.StartTimer(context.TimeT3560, func(msg interface{}) {
 		amf_message.SendMessage(msg.(amf_message.HandlerMessage))
 	}, msg)
 }
 
-func ClearT3560(ue *amf_context.AmfUe) {
+func ClearT3560(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return
@@ -114,7 +114,7 @@ func ClearT3560(ue *amf_context.AmfUe) {
 }
 
 func StartT3550(
-	ue *amf_context.AmfUe,
+	ue *context.AmfUe,
 	accessType models.AccessType,
 	pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool,
@@ -137,12 +137,12 @@ func StartT3550(
 			PduSessionResourceSetupList: pduSessionResourceSetupList,
 		},
 	}
-	ue.T3550 = timer.StartTimer(amf_context.TimeT3550, func(msg interface{}) {
+	ue.T3550 = timer.StartTimer(context.TimeT3550, func(msg interface{}) {
 		amf_message.SendMessage(msg.(amf_message.HandlerMessage))
 	}, msg)
 }
 
-func ClearT3550(ue *amf_context.AmfUe) {
+func ClearT3550(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return
@@ -155,7 +155,7 @@ func ClearT3550(ue *amf_context.AmfUe) {
 	ue.T3550RetryTimes = 0
 }
 
-func StartT3522(ue *amf_context.RanUe, accessType *uint8, reRegistrationRequired *bool, cause5GMM *uint8) {
+func StartT3522(ue *context.RanUe, accessType *uint8, reRegistrationRequired *bool, cause5GMM *uint8) {
 	if ue == nil {
 		logger.UtilLog.Error("RanUe is nil")
 		return
@@ -173,11 +173,11 @@ func StartT3522(ue *amf_context.RanUe, accessType *uint8, reRegistrationRequired
 			Cause5GMM:              *cause5GMM,
 		},
 	}
-	ue.AmfUe.T3522 = timer.StartTimer(amf_context.TimeT3522, func(msg interface{}) {
+	ue.AmfUe.T3522 = timer.StartTimer(context.TimeT3522, func(msg interface{}) {
 		amf_message.SendMessage(msg.(amf_message.HandlerMessage))
 	}, msg)
 }
-func ClearT3522(ue *amf_context.AmfUe) {
+func ClearT3522(ue *context.AmfUe) {
 	if ue == nil {
 		logger.UtilLog.Error("AmfUe is nil")
 		return

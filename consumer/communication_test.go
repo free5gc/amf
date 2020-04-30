@@ -9,10 +9,10 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -56,7 +56,7 @@ func TestReleaseUEContextRequest(t *testing.T) {
 	}
 
 	/* init ue info*/
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	supi := "imsi-0010202"
 	ue := self.NewAmfUe(supi)
 	if err := gmm.InitAmfUeSm(ue); err != nil {
@@ -84,7 +84,7 @@ func TestUEContextTransferRequest(t *testing.T) {
 	}
 
 	/* init ue info*/
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	supi := "imsi-0010202"
 	ue := self.NewAmfUe(supi)
 	if err := gmm.InitAmfUeSm(ue); err != nil {

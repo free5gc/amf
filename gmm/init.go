@@ -3,7 +3,7 @@ package gmm
 import (
 	"free5gc/lib/fsm"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 )
 
@@ -28,7 +28,7 @@ func NewGmmFuncTable(anType models.AccessType) fsm.FuncTable {
 	return table
 }
 
-func InitAmfUeSm(ue *amf_context.AmfUe) (err error) {
+func InitAmfUeSm(ue *context.AmfUe) (err error) {
 	table := NewGmmFuncTable(models.AccessType__3_GPP_ACCESS)
 	ue.Sm[models.AccessType__3_GPP_ACCESS], err = fsm.NewFSM(state.DE_REGISTERED, table)
 	if err != nil {

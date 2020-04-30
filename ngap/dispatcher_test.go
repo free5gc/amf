@@ -14,9 +14,9 @@ import (
 	libngap "free5gc/lib/ngap"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap"
 	"free5gc/src/amf/ngap/message"
@@ -140,7 +140,7 @@ func init() {
 
 }
 
-// func sctpConnectToServer(ran *amf_context.AmfRan) {
+// func sctpConnectToServer(ran *context.AmfRan) {
 // 	ipStr := "127.0.0.1"
 // 	ips := []net.IPAddr{}
 // 	if ip, err := net.ResolveIPAddr("ip", ipStr); err != nil {
@@ -817,7 +817,7 @@ func TestDispatchHandoverRequired(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 
 	ran := TestAmf.TestAmf.AmfRanPool[TestAmf.Laddr2.String()]
-	ran.RanPresent = amf_context.RanPresentGNbId
+	ran.RanPresent = context.RanPresentGNbId
 	ran.RanId = new(models.GlobalRanNodeId)
 	ran.RanId.GNbId = new(models.GNbId)
 	ran.RanId.GNbId.GNBValue = "454647"
@@ -901,11 +901,11 @@ func smContextCreate() {
 
 }
 
-func createPduSession(ue *amf_context.AmfUe, pduSession *models.PduSessionContext, smfUri string, payload []byte, smContextCreateData models.SmContextCreateData) {
+func createPduSession(ue *context.AmfUe, pduSession *models.PduSessionContext, smfUri string, payload []byte, smContextCreateData models.SmContextCreateData) {
 
 	response, smContextRef, _, _, err := consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
 	if response != nil {
-		var smContext amf_context.SmContext
+		var smContext context.SmContext
 		pduSession.SmContextRef = smContextRef
 		smContext.PduSessionContext = pduSession
 		smContext.UserLocation = deepcopy.Copy(ue.Location).(models.UserLocation)

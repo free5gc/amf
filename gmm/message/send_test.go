@@ -4,8 +4,8 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/util"
 	"testing"
@@ -155,17 +155,17 @@ func TestSendRegistrationAccept(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	ue.Guti = "20893cafe0000000001"
-	ue.T3502Value = amf_context.DefaultT3502
+	ue.T3502Value = context.DefaultT3502
 	ue.T3512Value = 3600
 	TestAmf.TestAmf.AllocateRegistrationArea(ue, models.AccessType__3_GPP_ACCESS)
-	TestAmf.TestAmf.PlmnSupportList = append(TestAmf.TestAmf.PlmnSupportList, amf_context.PlmnSupportItem{
+	TestAmf.TestAmf.PlmnSupportList = append(TestAmf.TestAmf.PlmnSupportList, context.PlmnSupportItem{
 		PlmnId: models.PlmnId{
 			Mcc: "466",
 			Mnc: "683",
 		},
 	})
 
-	ue.LadnInfo = append(ue.LadnInfo, amf_context.LADN{
+	ue.LadnInfo = append(ue.LadnInfo, context.LADN{
 		Ladn: "free5gc",
 	})
 	ue.LadnInfo[0].TaiLists = append(ue.LadnInfo[0].TaiLists, models.Tai{
@@ -196,7 +196,7 @@ func TestSendConfigurationUpdateCommand(t *testing.T) {
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	ue.Guti = "20893cafe0000000001"
 	TestAmf.TestAmf.AllocateRegistrationArea(ue, models.AccessType__3_GPP_ACCESS)
-	ue.LadnInfo = append(ue.LadnInfo, amf_context.LADN{
+	ue.LadnInfo = append(ue.LadnInfo, context.LADN{
 		Ladn: "free5gc",
 	})
 	ue.LadnInfo[0].TaiLists = append(ue.LadnInfo[0].TaiLists, models.Tai{

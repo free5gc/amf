@@ -4,7 +4,7 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/util"
 	"reflect"
@@ -16,7 +16,7 @@ var (
 	DefaultConfigFile  string = path_util.Gofree5gcPath("free5gc/src/amf/util/test/testAmfcfg.conf")
 )
 
-func compareContext(t *testing.T, context, testContext *amf_context.AMFContext) {
+func compareContext(t *testing.T, context, testContext *context.AMFContext) {
 	if testContext.Name != context.Name {
 		t.Errorf("Expect : %s\nOuput: %s", context.Name, testContext.Name)
 	}
@@ -59,17 +59,17 @@ func TestInitAmfContext1(t *testing.T) {
 
 	configFile := path_util.Gofree5gcPath("free5gc/src/amf/util/test/testAmfcfg.conf")
 	context := getExpAmf1()
-	testContext := amf_context.AMF_Self()
+	testContext := context.AMF_Self()
 	factory.InitConfigFactory(configFile)
 	util.InitAmfContext(testContext)
 	compareContext(t, context, testContext)
 }
 
 func TestInitAmfContext2(t *testing.T) {
-	amf_context.AMF_Self().Reset()
+	context.AMF_Self().Reset()
 	configFile := path_util.Gofree5gcPath("free5gc/src/amf/util/test/testAmfcfg2.conf")
 	context := getExpAmf2()
-	testContext := amf_context.AMF_Self()
+	testContext := context.AMF_Self()
 	factory.InitConfigFactory(configFile)
 	util.InitAmfContext(testContext)
 	compareContext(t, context, testContext)
@@ -136,16 +136,16 @@ var sNssaiList = []models.Snssai{
 	},
 }
 
-func initTestAmfContext() (context *amf_context.AMFContext) {
-	context = new(amf_context.AMFContext)
+func initTestAmfContext() (context *context.AMFContext) {
+	context = new(context.AMFContext)
 	context.UriScheme = models.UriScheme_HTTPS
-	context.ServedGuamiList = make([]models.Guami, 0, amf_context.MaxNumOfServedGuamiList)
-	context.PlmnSupportList = make([]amf_context.PlmnSupportItem, 0, amf_context.MaxNumOfPLMNs)
+	context.ServedGuamiList = make([]models.Guami, 0, context.MaxNumOfServedGuamiList)
+	context.PlmnSupportList = make([]context.PlmnSupportItem, 0, context.MaxNumOfPLMNs)
 	context.NfService = make(map[models.ServiceName]models.NfService)
 	return
 }
 
-func getExpAmf1() (context *amf_context.AMFContext) {
+func getExpAmf1() (context *context.AMFContext) {
 	context = initTestAmfContext()
 	context.Name = "AMF"
 	context.NgapIpList = []string{"127.0.0.1"}
@@ -162,14 +162,14 @@ func getExpAmf1() (context *amf_context.AMFContext) {
 	context.SupportDnnLists = append(context.SupportDnnLists, dnn[0])
 	context.SupportTaiLists = append(context.SupportTaiLists, tai[0])
 	context.ServedGuamiList = append(context.ServedGuamiList, guami[0])
-	plmnSupportItem := amf_context.NewPlmnSupportItem()
+	plmnSupportItem := context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[0]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[:1]...)
 	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)
 	return
 }
 
-func getExpAmf2() (context *amf_context.AMFContext) {
+func getExpAmf2() (context *context.AMFContext) {
 	context = initTestAmfContext()
 	context.Name = "Wirelab"
 	context.NgapIpList = []string{"127.0.0.1", "192.188.2.2"}
@@ -184,11 +184,11 @@ func getExpAmf2() (context *amf_context.AMFContext) {
 	context.SupportDnnLists = append(context.SupportDnnLists, dnn...)
 	context.SupportTaiLists = append(context.SupportTaiLists, tai...)
 	context.ServedGuamiList = append(context.ServedGuamiList, guami...)
-	plmnSupportItem := amf_context.NewPlmnSupportItem()
+	plmnSupportItem := context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[0]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[:2]...)
 	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)
-	plmnSupportItem = amf_context.NewPlmnSupportItem()
+	plmnSupportItem = context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[1]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[2])
 	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)

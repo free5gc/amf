@@ -3,8 +3,8 @@ package amf_handler
 import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
@@ -36,11 +36,11 @@ func Handle() {
 					ngap.Dispatch(msg.NgapAddr, msg.Value.([]byte))
 
 				case amf_message.EventNGAPAcceptConn:
-					amfSelf := amf_context.AMF_Self()
+					amfSelf := context.AMF_Self()
 					amfSelf.NewAmfRan(msg.Value.(net.Conn))
 
 				case amf_message.EventNGAPCloseConn:
-					amfSelf := amf_context.AMF_Self()
+					amfSelf := context.AMF_Self()
 					ran, ok := amfSelf.AmfRanPool[msg.NgapAddr]
 					if !ok {
 						HandlerLog.Warn("Cannot find the coressponding RAN Context\n")
@@ -48,15 +48,15 @@ func Handle() {
 						ran.Remove(msg.NgapAddr)
 					}
 				case amf_message.EventGMMT3513:
-					amfUe, ok := msg.Value.(*amf_context.AmfUe)
+					amfUe, ok := msg.Value.(*context.AmfUe)
 					if !ok || amfUe == nil {
 						HandlerLog.Warn("Timer T3513 Parameter Error\n")
 					}
 					amfUe.PagingRetryTimes++
 					logger.GmmLog.Infof("Paging UE[%s] expired for the %dth times", amfUe.Supi, amfUe.PagingRetryTimes)
-					if amfUe.PagingRetryTimes >= amf_context.MaxPagingRetryTime {
+					if amfUe.PagingRetryTimes >= context.MaxPagingRetryTime {
 						logger.GmmLog.Warnf("Paging to UE[%s] failed. Stop paging", amfUe.Supi)
-						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
+						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != context.OnGoingProcedureN2Handover {
 							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
 						util.ClearT3513(amfUe)
@@ -64,7 +64,7 @@ func Handle() {
 						ngap_message.SendPaging(amfUe, amfUe.LastPagingPkg)
 					}
 				case amf_message.EventGMMT3565:
-					ranUe, ok := msg.Value.(*amf_context.RanUe)
+					ranUe, ok := msg.Value.(*context.RanUe)
 					if !ok || ranUe == nil {
 						HandlerLog.Warn("Timer T3565 Parameter Error")
 						return
@@ -76,9 +76,9 @@ func Handle() {
 					}
 					amfUe.NotificationRetryTimes++
 					logger.GmmLog.Infof("UE[%s] Notification expired for the %dth times", amfUe.Supi, amfUe.NotificationRetryTimes)
-					if amfUe.NotificationRetryTimes >= amf_context.MaxNotificationRetryTime {
+					if amfUe.NotificationRetryTimes >= context.MaxNotificationRetryTime {
 						logger.GmmLog.Warnf("UE[%s] Notification failed. Stop Notification", amfUe.Supi)
-						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != amf_context.OnGoingProcedureN2Handover {
+						if amfUe.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != context.OnGoingProcedureN2Handover {
 							callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 						}
 						util.ClearT3565(amfUe)
@@ -86,7 +86,7 @@ func Handle() {
 						gmm_message.SendNotification(ranUe, amfUe.LastNotificationPkg)
 					}
 				case amf_message.EventGMMT3560ForAuthenticationRequest:
-					ranUe, ok := msg.Value.(*amf_context.RanUe)
+					ranUe, ok := msg.Value.(*context.RanUe)
 					if !ok || ranUe == nil {
 						HandlerLog.Warn("Timer T3560 Parameter Error")
 						return
@@ -96,7 +96,7 @@ func Handle() {
 						HandlerLog.Warn("AmfUe is nil")
 						return
 					}
-					if amfUe.T3560RetryTimes >= amf_context.MaxT3560RetryTimes {
+					if amfUe.T3560RetryTimes >= context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort authentication procedure & ongoing 5GMM procedure")
 						util.ClearT3560(amfUe)
 						amfUe.Remove() // release n1 nas signalling connection
@@ -115,7 +115,7 @@ func Handle() {
 						HandlerLog.Warn("AmfUe is nil")
 						return
 					}
-					if amfUe.T3560RetryTimes >= amf_context.MaxT3560RetryTimes {
+					if amfUe.T3560RetryTimes >= context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort security mode procedure")
 						util.ClearT3560(amfUe)
 					} else {
@@ -128,7 +128,7 @@ func Handle() {
 						HandlerLog.Warn("Timer T3550 Parameter Error\n")
 					}
 					amfUe := value.AmfUe
-					if amfUe.T3550RetryTimes >= amf_context.MaxT3550RetryTimes {
+					if amfUe.T3550RetryTimes >= context.MaxT3550RetryTimes {
 						logger.GmmLog.Warnf("T3550 Expires 5 times, abort retransmission")
 						if amfUe.RegistrationType5GS == nasMessage.RegistrationType5GSInitialRegistration {
 							if err := amfUe.Sm[value.AccessType].Transfer(state.REGISTERED, nil); err != nil {
@@ -153,7 +153,7 @@ func Handle() {
 						HandlerLog.Warn("AmfUe is nil")
 						return
 					}
-					if amfUe.T3522RetryTimes >= amf_context.MaxT3522RetryTimes {
+					if amfUe.T3522RetryTimes >= context.MaxT3522RetryTimes {
 						logger.GmmLog.Warnf("T3522 Expires 5 times, abort deregistration procedure")
 						if value.AccessType == nasMessage.AccessType3GPP {
 							if err := amfUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.DE_REGISTERED, nil); err != nil {

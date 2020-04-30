@@ -11,7 +11,7 @@ package eventexposure
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/producer"
 	"net/http"
 	"reflect"
@@ -22,7 +22,7 @@ import (
 // DeleteSubscription - Namf_EventExposure Unsubscribe service Operation
 func DeleteSubscription(c *gin.Context) {
 	subscriptionId := c.Param("subscriptionId")
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	problem := producer.DeleteAMFEventSubscription(self, subscriptionId)
 	if problem.Cause != "" {
 		c.JSON(int(problem.Status), problem)
@@ -47,7 +47,7 @@ func ModifySubscription(c *gin.Context) {
 		value.Set(reflect.Zero(fieldType))
 	}
 	subscriptionId := c.Param("subscriptionId")
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	problem := producer.ModifyAMFEventSubscription(self, subscriptionId, modifySubscriptionRequest)
 	if problem.Cause != "" {
 		c.JSON(int(problem.Status), problem)

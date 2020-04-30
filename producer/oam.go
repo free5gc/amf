@@ -2,8 +2,8 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"net/http"
@@ -39,7 +39,7 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 
 	var response UEContexts
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if supi != "" {
 		if ue, exists := amfSelf.UePool[supi]; exists {
@@ -75,7 +75,7 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
 }
 
-func buildUEContext(ue *amf_context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
+func buildUEContext(ue *context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
 	if ue.Sm[accessType].Check(state.REGISTERED) {
 		ueContext = &UEContext{
 			AccessType: models.AccessType__3_GPP_ACCESS,

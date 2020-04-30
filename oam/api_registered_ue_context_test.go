@@ -5,7 +5,7 @@ import (
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/service"
 	"free5gc/src/nrf/nrf_service"
@@ -62,7 +62,7 @@ func TestRegisteredUEContext(t *testing.T) {
 	TestAmf.AmfInit()
 	testUe := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	testUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
-	smContext := amf_context.SmContext{
+	smContext := context.SmContext{
 		PduSessionContext: &models.PduSessionContext{
 			AccessType:   models.AccessType__3_GPP_ACCESS,
 			PduSessionId: 1,
@@ -75,7 +75,7 @@ func TestRegisteredUEContext(t *testing.T) {
 		},
 	}
 	testUe.SmContextList[1] = &smContext
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	amfSelf.AddAmfUeToUePool(testUe, "imsi-2089300007487")
 	time.Sleep(100 * time.Millisecond)
 

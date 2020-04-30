@@ -11,7 +11,7 @@ package eventexposure
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -27,7 +27,7 @@ func CreateSubscription(c *gin.Context) {
 	if err := c.ShouldBindJSON(&createEventSubscription); err != nil {
 		log.Panic(err.Error())
 	}
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	res, problem := producer.CreateAMFEventSubscription(self, createEventSubscription, time.Now().UTC())
 	if problem.Cause != "" {
 		c.JSON(int(problem.Status), problem)

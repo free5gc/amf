@@ -1,4 +1,4 @@
-package amf_context
+package context
 
 // TS 33501 Annex A.8 Algorithm distinguisher For Knas_int Knas_enc
 const (

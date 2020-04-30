@@ -3,7 +3,7 @@ package ngap
 import (
 	"free5gc/lib/ngap"
 	"free5gc/lib/ngap/ngapType"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +15,7 @@ func init() {
 }
 
 func Dispatch(addr string, msg []byte) {
-	ran, ok := amf_context.AMF_Self().AmfRanPool[addr]
+	ran, ok := context.AMF_Self().AmfRanPool[addr]
 	if !ok {
 		Ngaplog.Errorf("Cannot find the coressponding RAN Context\n")
 		return

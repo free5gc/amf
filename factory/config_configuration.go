@@ -6,7 +6,7 @@ package factory
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 )
 
 type Configuration struct {
@@ -22,7 +22,7 @@ type Configuration struct {
 
 	SupportTAIList []models.Tai `yaml:"supportTaiList,omitempty"`
 
-	PlmnSupportList []amf_context.PlmnSupportItem `yaml:"plmnSupportList,omitempty"`
+	PlmnSupportList []context.PlmnSupportItem `yaml:"plmnSupportList,omitempty"`
 
 	SupportDnnList []string `yaml:"supportDnnList,omitempty"`
 
@@ -30,7 +30,7 @@ type Configuration struct {
 
 	Security *Security `yaml:"security,omitempty"`
 
-	NetworkName amf_context.NetworkName `yaml:"networkName,omitempty"`
+	NetworkName context.NetworkName `yaml:"networkName,omitempty"`
 
 	T3502 int `yaml:"t3502,omitempty"`
 

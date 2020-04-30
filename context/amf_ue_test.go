@@ -1,11 +1,11 @@
-package amf_context_test
+package context_test
 
 import (
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"

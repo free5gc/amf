@@ -5,12 +5,12 @@ import (
 	"free5gc/lib/fsm"
 	"free5gc/lib/nas"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/logger"
 )
 
-func Dispatch(ue *amf_context.AmfUe, anType models.AccessType, procedureCode int64, msg *nas.Message) error {
+func Dispatch(ue *context.AmfUe, anType models.AccessType, procedureCode int64, msg *nas.Message) error {
 	if msg.GmmMessage != nil {
 		args := make(fsm.Args)
 		args[gmm.AMF_UE] = ue

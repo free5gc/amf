@@ -2,7 +2,7 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"github.com/sirupsen/logrus"
@@ -18,19 +18,19 @@ func init() {
 }
 
 // TODO: handle event filter
-func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.AmfCreateEventSubscription, recieveTime time.Time) (response *models.AmfCreatedEventSubscription, err models.ProblemDetails) {
+func CreateAMFEventSubscription(amfContext *context.AMFContext, request models.AmfCreateEventSubscription, recieveTime time.Time) (response *models.AmfCreatedEventSubscription, err models.ProblemDetails) {
 	response = &models.AmfCreatedEventSubscription{}
 	subscription := request.Subscription
-	contextEventSubscription := &amf_context.AMFContextEventSubscription{}
+	contextEventSubscription := &context.AMFContextEventSubscription{}
 	contextEventSubscription.EventSubscription = *subscription
-	newSubscriptionID := strconv.Itoa(context.EventSubscriptionIDGenerator)
+	newSubscriptionID := strconv.Itoa(amfContext.EventSubscriptionIDGenerator)
 
 	var isImmediate bool
 	var immediateFlags []bool
 	var reportlist []models.AmfEventReport
 
-	// store subscription in amf_context
-	ueEventSubscription := amf_context.AmfUeEventSubscription{}
+	// store subscription in context
+	ueEventSubscription := context.AmfUeEventSubscription{}
 	ueEventSubscription.EventSubscription = &contextEventSubscription.EventSubscription
 	ueEventSubscription.Timestamp = recieveTime
 
@@ -48,28 +48,28 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 	if subscription.AnyUE {
 		contextEventSubscription.IsAnyUe = true
 		ueEventSubscription.AnyUe = true
-		for _, ue := range context.UePool {
-			ue.EventSubscriptionsInfo[newSubscriptionID] = new(amf_context.AmfUeEventSubscription)
+		for _, ue := range amfContext.UePool {
+			ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 			*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
 			contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 		}
 	} else if subscription.GroupId != "" {
 		contextEventSubscription.IsGroupUe = true
 		ueEventSubscription.AnyUe = true
-		for _, ue := range context.UePool {
+		for _, ue := range amfContext.UePool {
 			if ue.GroupID == subscription.GroupId {
-				ue.EventSubscriptionsInfo[newSubscriptionID] = new(amf_context.AmfUeEventSubscription)
+				ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 				*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
 				contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 			}
 		}
 	} else {
-		if ue, ok := context.UePool[subscription.Supi]; !ok {
+		if ue, ok := amfContext.UePool[subscription.Supi]; !ok {
 			err.Status = 403
 			err.Cause = "UE_NOT_SERVED_BY_AMF"
 			return nil, err
 		} else {
-			ue.EventSubscriptionsInfo[newSubscriptionID] = new(amf_context.AmfUeEventSubscription)
+			ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 			*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
 			contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 
@@ -80,8 +80,8 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 	if subscription.Options != nil {
 		contextEventSubscription.Expiry = subscription.Options.Expiry
 	}
-	context.EventSubscriptionIDGenerator++
-	context.EventSubscriptions[newSubscriptionID] = contextEventSubscription
+	amfContext.EventSubscriptionIDGenerator++
+	amfContext.EventSubscriptions[newSubscriptionID] = contextEventSubscription
 
 	// build response
 
@@ -90,7 +90,7 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 
 	// for immediate use
 	if subscription.AnyUE {
-		for _, ue := range context.UePool {
+		for _, ue := range amfContext.UePool {
 			if isImmediate {
 				subReports(ue, newSubscriptionID)
 			}
@@ -108,7 +108,7 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 			}
 		}
 	} else if subscription.GroupId != "" {
-		for _, ue := range context.UePool {
+		for _, ue := range amfContext.UePool {
 			if isImmediate {
 				subReports(ue, newSubscriptionID)
 			}
@@ -128,7 +128,7 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 			}
 		}
 	} else {
-		ue := context.UePool[subscription.Supi]
+		ue := amfContext.UePool[subscription.Supi]
 		if isImmediate {
 			subReports(ue, newSubscriptionID)
 		}
@@ -149,32 +149,32 @@ func CreateAMFEventSubscription(context *amf_context.AMFContext, request models.
 		response.ReportList = reportlist
 		// delete subscription
 		if !reportlist[0].State.Active {
-			delete(context.EventSubscriptions, newSubscriptionID)
+			delete(amfContext.EventSubscriptions, newSubscriptionID)
 		}
 	}
 
 	return
 }
 
-func DeleteAMFEventSubscription(context *amf_context.AMFContext, subscriptionId string) (err models.ProblemDetails) {
-	contextSubscription, ok := context.EventSubscriptions[subscriptionId]
+func DeleteAMFEventSubscription(amfContext *context.AMFContext, subscriptionId string) (err models.ProblemDetails) {
+	contextSubscription, ok := amfContext.EventSubscriptions[subscriptionId]
 	if !ok {
 		err.Status = 404
 		err.Cause = "SUBSCRIPTION_NOT_FOUND"
 		return
 	}
 	for _, supi := range contextSubscription.UeSupiList {
-		ue, ok := context.UePool[supi]
+		ue, ok := amfContext.UePool[supi]
 		if ok {
 			delete(ue.EventSubscriptionsInfo, subscriptionId)
 		}
 	}
-	delete(context.EventSubscriptions, subscriptionId)
+	delete(amfContext.EventSubscriptions, subscriptionId)
 	return
 }
 
-func ModifyAMFEventSubscription(context *amf_context.AMFContext, subscriptionId string, request models.ModifySubscriptionRequest) (err models.ProblemDetails) {
-	contextSubscription, ok := context.EventSubscriptions[subscriptionId]
+func ModifyAMFEventSubscription(amfContext *context.AMFContext, subscriptionId string, request models.ModifySubscriptionRequest) (err models.ProblemDetails) {
+	contextSubscription, ok := amfContext.EventSubscriptions[subscriptionId]
 	if !ok {
 		err.Status = 404
 		err.Cause = "SUBSCRIPTION_NOT_FOUND"
@@ -185,7 +185,7 @@ func ModifyAMFEventSubscription(context *amf_context.AMFContext, subscriptionId 
 	} else if request.SubscriptionItemInner != nil {
 		subscription := &contextSubscription.EventSubscription
 		if !contextSubscription.IsAnyUe && !contextSubscription.IsGroupUe {
-			if _, ok := context.UePool[subscription.Supi]; !ok {
+			if _, ok := amfContext.UePool[subscription.Supi]; !ok {
 				err.Status = 403
 				err.Cause = "UE_NOT_SERVED_BY_AMF"
 				return err
@@ -213,7 +213,7 @@ func ModifyAMFEventSubscription(context *amf_context.AMFContext, subscriptionId 
 	return
 }
 
-func subReports(ue *amf_context.AmfUe, subscriptionId string) {
+func subReports(ue *context.AmfUe, subscriptionId string) {
 	remainReport := ue.EventSubscriptionsInfo[subscriptionId].RemainReports
 	if remainReport == nil {
 		return
@@ -222,7 +222,7 @@ func subReports(ue *amf_context.AmfUe, subscriptionId string) {
 }
 
 // DO NOT handle AmfEventType_PRESENCE_IN_AOI_REPORT and AmfEventType_UES_IN_AREA_REPORT(about area)
-func NewAmfEventReport(ue *amf_context.AmfUe, Type models.AmfEventType, subscriptionId string) (report models.AmfEventReport, ok bool) {
+func NewAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscriptionId string) (report models.AmfEventReport, ok bool) {
 	ueSubscription, ok := ue.EventSubscriptionsInfo[subscriptionId]
 	if !ok {
 		return

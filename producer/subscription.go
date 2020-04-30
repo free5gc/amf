@@ -2,8 +2,8 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -13,7 +13,7 @@ func HandleAMFStatusChangeSubscribeRequest(httpChannel chan amf_message.HandlerR
 	var response models.SubscriptionData
 	var problem models.ProblemDetails
 	var guami models.Guami
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	for _, guami = range body.GuamiList {
 		for _, servedGumi := range amfSelf.ServedGuamiList {
@@ -44,7 +44,7 @@ func HandleAMFStatusChangeSubscribeRequest(httpChannel chan amf_message.HandlerR
 
 func HandleAMFStatusChangeUnSubscribeRequest(httpChannel chan amf_message.HandlerResponseMessage, subscriptionId string) {
 	var problem models.ProblemDetails
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	_, ok := amfSelf.AMFStatusSubscriptions[subscriptionId]
 
 	if !ok {
@@ -60,7 +60,7 @@ func HandleAMFStatusChangeUnSubscribeRequest(httpChannel chan amf_message.Handle
 func HandleAMFStatusChangeSubscribeModfy(httpChannel chan amf_message.HandlerResponseMessage, subscriptionId string, body models.SubscriptionData) {
 	var problem models.ProblemDetails
 	var response models.SubscriptionData
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	_, ok := amfSelf.AMFStatusSubscriptions[subscriptionId]
 	if !ok {
 		problem.Status = 403

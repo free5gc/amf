@@ -2,12 +2,12 @@ package nas
 
 import (
 	"free5gc/lib/nas"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas/nas_security"
 )
 
-func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte) {
+func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte) {
 
 	if ue == nil {
 		logger.NasLog.Error("RanUe is nil")

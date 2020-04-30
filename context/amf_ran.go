@@ -1,4 +1,4 @@
-package amf_context
+package context
 
 import (
 	"free5gc/lib/ngap/ngapConvert"

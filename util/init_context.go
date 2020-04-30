@@ -3,13 +3,13 @@ package util
 import (
 	"fmt"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/logger"
 	"github.com/google/uuid"
 )
 
-func InitAmfContext(context *amf_context.AMFContext) {
+func InitAmfContext(context *context.AMFContext) {
 	config := factory.AmfConfig
 	logger.UtilLog.Infof("amfconfig Info: Version[%s] Description[%s]", config.Info.Version, config.Info.Description)
 	configuration := config.Configuration

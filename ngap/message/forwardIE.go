@@ -5,7 +5,7 @@ import (
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 )
 
 func AppendPDUSessionResourceSetupListSUReq(list *ngapType.PDUSessionResourceSetupListSUReq, pduSessionId int32, snssai models.Snssai, nasPDU []byte, transfer []byte) {
@@ -71,7 +71,7 @@ func AppendPDUSessionResourceToReleaseListRelCmd(list *ngapType.PDUSessionResour
 	list.List = append(list.List, item)
 }
 
-func BuildIEMobilityRestrictionList(ue *amf_context.AmfUe) (mobilityRestrictionList ngapType.MobilityRestrictionList) {
+func BuildIEMobilityRestrictionList(ue *context.AmfUe) (mobilityRestrictionList ngapType.MobilityRestrictionList) {
 	mobilityRestrictionList.ServingPLMN = ngapConvert.PlmnIdToNgap(ue.PlmnId)
 
 	if len(ue.AccessAndMobilitySubscriptionData.RatRestrictions) > 0 {

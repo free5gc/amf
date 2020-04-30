@@ -6,10 +6,10 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/eventexposure"
 	"free5gc/src/amf/factory"
 	"free5gc/src/amf/httpcallback"
@@ -133,7 +133,7 @@ func (amf *AMF) Start() {
 		}
 	}
 
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	util.InitAmfContext(self)
 
 	addr := fmt.Sprintf("%s:%d", self.HttpIPv4Address, self.HttpIpv4Port)
@@ -217,7 +217,7 @@ func (amf *AMF) Exec(c *cli.Context) error {
 // Used in AMF planned removal procedure
 func (amf *AMF) Terminate() {
 	logger.InitLog.Infof("Terminating AMF...")
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
 

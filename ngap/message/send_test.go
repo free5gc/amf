@@ -13,8 +13,8 @@ import (
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap/message"
@@ -27,7 +27,7 @@ import (
 	"time"
 )
 
-var ran *amf_context.AmfRan
+var ran *context.AmfRan
 
 func init() {
 	go amf_handler.Handle()
@@ -140,7 +140,7 @@ func TestSendUEContextReleaseCommand(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
-	ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType__3_GPP_ACCESS], amf_context.UeContextN2NormalRelease, ngapType.CausePresentMisc, ngapType.CauseMiscPresentUnspecified)
+	ngap_message.SendUEContextReleaseCommand(ue.RanUe[models.AccessType__3_GPP_ACCESS], context.UeContextN2NormalRelease, ngapType.CausePresentMisc, ngapType.CauseMiscPresentUnspecified)
 }
 
 func TestSendErrorIndication(t *testing.T) {
@@ -513,9 +513,9 @@ func TestSendPaging(t *testing.T) {
 
 	var ppi int32 = 0
 
-	recommendedCell := amf_context.RecommendedCell{
-		NgRanCGI: amf_context.NGRANCGI{
-			Present: amf_context.NgRanCgiPresentNRCGI,
+	recommendedCell := context.RecommendedCell{
+		NgRanCGI: context.NGRANCGI{
+			Present: context.NgRanCgiPresentNRCGI,
 			NRCGI: &models.Ncgi{
 				PlmnId: &models.PlmnId{
 					Mcc: "208",
@@ -525,7 +525,7 @@ func TestSendPaging(t *testing.T) {
 			},
 		},
 	}
-	ue.InfoOnRecommendedCellsAndRanNodesForPaging = new(amf_context.InfoOnRecommendedCellsAndRanNodesForPaging)
+	ue.InfoOnRecommendedCellsAndRanNodesForPaging = new(context.InfoOnRecommendedCellsAndRanNodesForPaging)
 	ue.InfoOnRecommendedCellsAndRanNodesForPaging.RecommendedCells = append(ue.InfoOnRecommendedCellsAndRanNodesForPaging.RecommendedCells, recommendedCell)
 	pagingPriority := &ngapType.PagingPriority{
 		Value: aper.Enumerated(ppi),
@@ -776,7 +776,7 @@ func TestSendAMFConfigurationUpdate(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	amfSelf.HttpIPv4Address = "127.0.0.1"
 	amfSelf.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
 	amfSelf.TNLWeightFactor = 123

@@ -9,8 +9,8 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/nas/nas_security"
 	"free5gc/src/amf/ngap/message"
 	"reflect"
@@ -37,11 +37,11 @@ func TestMacCalculate(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	mac1, err := nas_security.NasMacCalculate(amf_context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg)
+	mac1, err := nas_security.NasMacCalculate(context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	mac2, err := nas_security.NasMacCalculate(amf_context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg)
+	mac2, err := nas_security.NasMacCalculate(context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg)
 	if err != nil {
 		t.Error(err.Error())
 	} else if !reflect.DeepEqual(mac1, mac2) {
@@ -96,7 +96,7 @@ func getRegistrationComplete(sorTransparentContainer []uint8) *nas.Message {
 	return m
 }
 
-func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
+func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
 
 	integrityProtected := false
 	newSecurityContext := false
@@ -138,10 +138,10 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		ue.ULCountOverflow = 0
 		ue.ULCountSQN = 0
 	}
-	if ue.CipheringAlg == amf_context.ALG_CIPHERING_128_NEA0 {
+	if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
 		ciphering = false
 	}
-	if ue.IntegrityAlg == amf_context.ALG_INTEGRITY_128_NIA0 {
+	if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
 		integrityProtected = false
 	}
 	if ciphering || integrityProtected {
@@ -154,8 +154,8 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		var dlcount = make([]byte, 4)
 		binary.BigEndian.PutUint16(dlcount, uint16((ue.DLCount-1)&0xffffff))
 		if integrityProtected {
-			mac32, err := nas_security.NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, amf_context.SECURITY_ONLY_ONE_BEARER,
-				amf_context.SECURITY_DIRECTION_DOWNLINK, payload)
+			mac32, err := nas_security.NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, context.SECURITY_ONLY_ONE_BEARER,
+				context.SECURITY_DIRECTION_DOWNLINK, payload)
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
@@ -173,8 +173,8 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		if ciphering {
 			// TODO: Support for ue has nas connection in both accessType
 
-			if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, amf_context.SECURITY_ONLY_ONE_BEARER,
-				amf_context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+			if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_ONLY_ONE_BEARER,
+				context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
 				return
 			}
 		}

@@ -2,9 +2,9 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/logger"
 	"net/http"
@@ -15,7 +15,7 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 	var response models.CreateUeContextResponse
 	var rspErr models.UeContextCreateError
 	var problem models.ProblemDetails
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	ueContextCreateData := body.JsonData
 
@@ -34,7 +34,7 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 		HttpLog.Errorf("InitAmfUeSm error: %v", err.Error())
 	}
 	//amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
-	// ue.N1N2Message[ueContextId] = &amf_context.N1N2Message{}
+	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
 	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
 	// 	N2InfoContainer: &models.N2InfoContainer{
 	// 		SmInfo: &models.N2SmInformation{
@@ -45,7 +45,7 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
 	amfSelf.AmfRanFindByRanId(*ueContextCreateData.TargetId.RanNodeId)
-	supportedTAI := amf_context.NewSupportedTAI()
+	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
 	ue.N1N2MessageSubscribeInfo[ueContextId] = &models.UeN1N2InfoSubscriptionCreateData{
@@ -111,9 +111,9 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 
 func HandleUEContextReleaseRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeContextRelease) {
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	ueContextRelease := body
 
 	// emergency handle
@@ -161,9 +161,9 @@ func HandleUEContextTransferRequest(httpChannel chan amf_message.HandlerResponse
 	var response models.UeContextTransferResponse
 
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if body.JsonData == nil {
 		problem.Status = 403
@@ -322,9 +322,9 @@ func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMess
 	var assignEbiError models.AssignEbiError
 	var assignEbiFailed models.AssignEbiFailed
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
@@ -371,9 +371,9 @@ func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMess
 func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeRegStatusUpdateReqData) {
 	var response models.UeRegStatusUpdateRspData
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "5g-guti") {
 		guti := ueContextId[strings.LastIndex(ueContextId, "-")+1:]
@@ -395,7 +395,7 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 			// remove the individual ueContext resource and release any PDU session(s)
 			for _, pduSessionId := range body.ToReleaseSessionList {
 				cause := models.Cause_REL_DUE_TO_SLICE_NOT_AVAILABLE
-				causeAll := &amf_context.CauseAll{
+				causeAll := &context.CauseAll{
 					Cause: &cause,
 				}
 				smContextReleaseRequest := consumer.BuildReleaseSmContextRequest(ue, causeAll, "", nil)

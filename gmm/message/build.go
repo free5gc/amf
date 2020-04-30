@@ -8,7 +8,7 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas/nas_security"
@@ -16,7 +16,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-func BuildDLNASTransport(ue *amf_context.AmfUe, payloadContainerType uint8, nasPdu []byte, pduSessionId *uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8) ([]byte, error) {
+func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu []byte, pduSessionId *uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -59,7 +59,7 @@ func BuildDLNASTransport(ue *amf_context.AmfUe, payloadContainerType uint8, nasP
 	return nas_security.Encode(ue, m)
 }
 
-func BuildNotification(ue *amf_context.AmfUe, accessType uint8) ([]byte, error) {
+func BuildNotification(ue *context.AmfUe, accessType uint8) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -99,7 +99,7 @@ func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
 	return m.PlainNasEncode()
 }
 
-func BuildAuthenticationRequest(ue *amf_context.AmfUe) ([]byte, error) {
+func BuildAuthenticationRequest(ue *context.AmfUe) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -147,7 +147,7 @@ func BuildAuthenticationRequest(ue *amf_context.AmfUe) ([]byte, error) {
 	return m.PlainNasEncode()
 }
 
-func BuildServiceAccept(ue *amf_context.AmfUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool, errPduSessionId, errCause []uint8) ([]byte, error) {
+func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool, errPduSessionId, errCause []uint8) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -186,7 +186,7 @@ func BuildServiceAccept(ue *amf_context.AmfUe, pDUSessionStatus *[16]bool, react
 	return nas_security.Encode(ue, m)
 }
 
-func BuildAuthenticationReject(ue *amf_context.AmfUe, eapMsg string) ([]byte, error) {
+func BuildAuthenticationReject(ue *context.AmfUe, eapMsg string) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -210,7 +210,7 @@ func BuildAuthenticationReject(ue *amf_context.AmfUe, eapMsg string) ([]byte, er
 	return m.PlainNasEncode()
 }
 
-func BuildAuthenticationResult(ue *amf_context.AmfUe, eapSuccess bool, eapMsg string) ([]byte, error) {
+func BuildAuthenticationResult(ue *context.AmfUe, eapSuccess bool, eapMsg string) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -262,7 +262,7 @@ func BuildServiceReject(pDUSessionStatus *[16]bool, cause uint8) ([]byte, error)
 }
 
 // T3346 timer are not supported
-func BuildRegistrationReject(ue *amf_context.AmfUe, cause5GMM uint8, eapMessage string) ([]byte, error) {
+func BuildRegistrationReject(ue *context.AmfUe, cause5GMM uint8, eapMessage string) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -295,10 +295,10 @@ func BuildRegistrationReject(ue *amf_context.AmfUe, cause5GMM uint8, eapMessage 
 }
 
 // TS 24.501 8.2.25
-func BuildSecurityModeCommand(ue *amf_context.AmfUe, eapSuccess bool, eapMessage string) ([]byte, error) {
+func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage string) ([]byte, error) {
 
 	// Select enc/int algorithm based on ue security capability & amf's policy,
-	self := amf_context.AMF_Self()
+	self := context.AMF_Self()
 	ue.SelectSecurityAlg(self.SecurityAlgorithm.IntegrityOrder, self.SecurityAlgorithm.CipheringOrder)
 	// Generate KnasEnc, KnasInt
 	ue.DerivateAlgKey()
@@ -366,7 +366,7 @@ func BuildSecurityModeCommand(ue *amf_context.AmfUe, eapSuccess bool, eapMessage
 }
 
 // T3346 timer are not supported
-func BuildDeregistrationRequest(ue *amf_context.RanUe, accessType uint8, reRegistrationRequired bool, cause5GMM uint8) ([]byte, error) {
+func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrationRequired bool, cause5GMM uint8) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -421,7 +421,7 @@ func BuildDeregistrationAccept() ([]byte, error) {
 }
 
 func BuildRegistrationAccept(
-	ue *amf_context.AmfUe,
+	ue *context.AmfUe,
 	anType models.AccessType,
 	pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool,
@@ -464,7 +464,7 @@ func BuildRegistrationAccept(
 		registrationAccept.GUTI5G.SetIei(nasMessage.RegistrationAcceptGUTI5GType)
 	}
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	if len(amfSelf.PlmnSupportList) > 1 {
 		registrationAccept.EquivalentPlmns = nasType.NewEquivalentPlmns(nasMessage.RegistrationAcceptEquivalentPlmnsType)
 		var buf []uint8
@@ -588,7 +588,7 @@ func BuildRegistrationAccept(
 	return nas_security.Encode(ue, m)
 }
 
-func includeConfiguredNssaiCheck(ue *amf_context.AmfUe) bool {
+func includeConfiguredNssaiCheck(ue *context.AmfUe) bool {
 	if len(ue.ConfiguredNssai) == 0 {
 		return false
 	}
@@ -623,7 +623,7 @@ func BuildStatus5GMM(cause uint8) ([]byte, error) {
 	return m.PlainNasEncode()
 }
 
-func BuildConfigurationUpdateCommand(ue *amf_context.AmfUe, anType models.AccessType, networkSlicingIndication *nasType.NetworkSlicingIndication) ([]byte, error) {
+func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType, networkSlicingIndication *nasType.NetworkSlicingIndication) ([]byte, error) {
 
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -694,7 +694,7 @@ func BuildConfigurationUpdateCommand(ue *amf_context.AmfUe, anType models.Access
 		configurationUpdateCommand.ServiceAreaList.SetPartialServiceAreaList(partialServiceAreaList)
 	}
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	if amfSelf.NetworkName.Full != "" {
 		fullNetworkName := nasConvert.FullNetworkNameToNas(amfSelf.NetworkName.Full)
 		configurationUpdateCommand.FullNameForNetwork = &fullNetworkName

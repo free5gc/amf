@@ -2,8 +2,8 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
@@ -12,9 +12,9 @@ import (
 func HandleProvideDomainSelectionInfoRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, infoClass string) {
 	var response models.UeContextInfo
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	if strings.HasPrefix(ueContextId, "imsi") {
 
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {

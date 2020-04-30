@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"free5gc/lib/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/util"
 	"net/http"

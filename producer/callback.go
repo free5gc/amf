@@ -5,9 +5,9 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
@@ -19,7 +19,7 @@ import (
 
 func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMessage, guti, pduSessionIdString string, body models.SmContextStatusNotification) {
 	var problem models.ProblemDetails
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	ue := amfSelf.AmfUeFindByGuti(guti)
 
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
@@ -49,7 +49,7 @@ func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMes
 
 		response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
 		if response != nil {
-			var smContext amf_context.SmContext
+			var smContext context.SmContext
 			smContext.PduSessionContext = storedSmContext.PduSessionContext
 			smContext.PduSessionContext.SmContextRef = smContextRef
 			smContext.UserLocation = deepcopy.Copy(ue.Location).(models.UserLocation)
@@ -75,7 +75,7 @@ func HandleAmPolicyControlUpdateNotifyUpdate(httpChannel chan amf_message.Handle
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	var problem models.ProblemDetails
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	ue := amfSelf.AmfUeFindByPolicyAssociationId(polAssoId)
 
 	if ue == nil {
@@ -120,7 +120,7 @@ func HandleAmPolicyControlUpdateNotifyUpdate(httpChannel chan amf_message.Handle
 		}
 
 		ue.ConfigurationUpdateMessage = message
-		ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = amf_context.OnGoingProcedurePaging
+		ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedurePaging
 
 		pkg, err := ngap_message.BuildPaging(ue, nil, false)
 		if err != nil {
@@ -135,7 +135,7 @@ func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.Han
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
 	var problem models.ProblemDetails
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	ue := amfSelf.AmfUeFindByPolicyAssociationId(polAssoId)
 
 	if ue == nil {
@@ -164,7 +164,7 @@ func HandleN1MessageNotify(httpChannel chan amf_message.HandlerResponseMessage, 
 
 	logger.ProducerLog.Debugf("request body: %+v", body)
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	registrationCtxtContainer := body.JsonData.RegistrationCtxtContainer
 	if registrationCtxtContainer.UeContext == nil {
@@ -179,7 +179,7 @@ func HandleN1MessageNotify(httpChannel chan amf_message.HandlerResponseMessage, 
 
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
 
-	var amfUe *amf_context.AmfUe
+	var amfUe *context.AmfUe
 	ueContext := registrationCtxtContainer.UeContext
 	if ueContext.Supi != "" {
 		amfUe = amfSelf.NewAmfUe(ueContext.Supi)

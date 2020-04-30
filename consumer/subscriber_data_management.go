@@ -5,7 +5,7 @@ import (
 	"free5gc/lib/Nudm_SubscriberDataManagement"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	amf_context "free5gc/src/amf/context"
 	"github.com/antihax/optional"
 )
 

@@ -4,15 +4,15 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/util"
 )
 
 // backOffTimerUint = 7 means backoffTimer is null
-func SendDLNASTransport(ue *amf_context.RanUe, payloadContainerType uint8, nasPdu []byte, pduSessionId *int32, cause uint8, backOffTimerUint *uint8, backOffTimer uint8) {
+func SendDLNASTransport(ue *context.RanUe, payloadContainerType uint8, nasPdu []byte, pduSessionId *int32, cause uint8, backOffTimerUint *uint8, backOffTimer uint8) {
 
 	logger.GmmLog.Info("[NAS] Send DL NAS Transport")
 	var causePtr *uint8
@@ -28,7 +28,7 @@ func SendDLNASTransport(ue *amf_context.RanUe, payloadContainerType uint8, nasPd
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
 
-func SendNotification(ue *amf_context.RanUe, nasMsg []byte) {
+func SendNotification(ue *context.RanUe, nasMsg []byte) {
 
 	logger.GmmLog.Info("[NAS] Send Notification")
 
@@ -42,7 +42,7 @@ func SendNotification(ue *amf_context.RanUe, nasMsg []byte) {
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
 
-func SendIdentityRequest(ue *amf_context.RanUe, typeOfIdentity uint8) {
+func SendIdentityRequest(ue *context.RanUe, typeOfIdentity uint8) {
 
 	logger.GmmLog.Info("[NAS] Send Identity Request")
 
@@ -54,7 +54,7 @@ func SendIdentityRequest(ue *amf_context.RanUe, typeOfIdentity uint8) {
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
 
-func SendAuthenticationRequest(ue *amf_context.RanUe) {
+func SendAuthenticationRequest(ue *context.RanUe) {
 
 	amfUe := ue.AmfUe
 	if amfUe == nil {
@@ -79,7 +79,7 @@ func SendAuthenticationRequest(ue *amf_context.RanUe) {
 	util.StartT3560(ue, amf_message.EventGMMT3560ForAuthenticationRequest, nil, nil)
 }
 
-func SendServiceAccept(ue *amf_context.RanUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool, errPduSessionId, errCause []uint8) {
+func SendServiceAccept(ue *context.RanUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool, errPduSessionId, errCause []uint8) {
 
 	logger.GmmLog.Info("[NAS] Send Service Accept")
 
@@ -91,7 +91,7 @@ func SendServiceAccept(ue *amf_context.RanUe, pDUSessionStatus *[16]bool, reacti
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
 
-func SendConfigurationUpdateCommand(amfUe *amf_context.AmfUe, accessType models.AccessType, networkSlicingIndication *nasType.NetworkSlicingIndication) {
+func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType, networkSlicingIndication *nasType.NetworkSlicingIndication) {
 
 	logger.GmmLog.Info("[NAS] Configuration Update Command")
 
@@ -104,7 +104,7 @@ func SendConfigurationUpdateCommand(amfUe *amf_context.AmfUe, accessType models.
 	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
 }
 
-func SendAuthenticationReject(ue *amf_context.RanUe, eapMsg string) {
+func SendAuthenticationReject(ue *context.RanUe, eapMsg string) {
 
 	logger.GmmLog.Info("[NAS] Send Authentication Reject")
 
@@ -116,7 +116,7 @@ func SendAuthenticationReject(ue *amf_context.RanUe, eapMsg string) {
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
 
-func SendAuthenticationResult(ue *amf_context.RanUe, eapSuccess bool, eapMsg string) {
+func SendAuthenticationResult(ue *context.RanUe, eapSuccess bool, eapMsg string) {
 
 	logger.GmmLog.Info("[NAS] Send Authentication Result")
 
@@ -132,7 +132,7 @@ func SendAuthenticationResult(ue *amf_context.RanUe, eapSuccess bool, eapMsg str
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 }
-func SendServiceReject(ue *amf_context.RanUe, pDUSessionStatus *[16]bool, cause uint8) {
+func SendServiceReject(ue *context.RanUe, pDUSessionStatus *[16]bool, cause uint8) {
 
 	logger.GmmLog.Info("[NAS] Send Service Reject")
 
@@ -146,7 +146,7 @@ func SendServiceReject(ue *amf_context.RanUe, pDUSessionStatus *[16]bool, cause 
 
 // T3502: This IE may be included to indicate a value for timer T3502 during the initial registration
 // eapMessage: if the REGISTRATION REJECT message is used to convey EAP-failure message
-func SendRegistrationReject(ue *amf_context.RanUe, cause5GMM uint8, eapMessage string) {
+func SendRegistrationReject(ue *context.RanUe, cause5GMM uint8, eapMessage string) {
 
 	logger.GmmLog.Info("[NAS] Send Registration Reject")
 
@@ -160,7 +160,7 @@ func SendRegistrationReject(ue *amf_context.RanUe, cause5GMM uint8, eapMessage s
 
 // eapSuccess: only used when authType is EAP-AKA', set the value to false if authType is not EAP-AKA'
 // eapMessage: only used when authType is EAP-AKA', set the value to "" if authType is not EAP-AKA'
-func SendSecurityModeCommand(ue *amf_context.RanUe, eapSuccess bool, eapMessage string) {
+func SendSecurityModeCommand(ue *context.RanUe, eapSuccess bool, eapMessage string) {
 
 	logger.GmmLog.Info("[NAS] Send Security Mode Command")
 
@@ -174,7 +174,7 @@ func SendSecurityModeCommand(ue *amf_context.RanUe, eapSuccess bool, eapMessage 
 	util.StartT3560(ue, amf_message.EventGMMT3560ForSecurityModeCommand, &eapSuccess, &eapMessage)
 }
 
-func SendDeregistrationRequest(ue *amf_context.RanUe, accessType uint8, reRegistrationRequired bool, cause5GMM uint8) {
+func SendDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrationRequired bool, cause5GMM uint8) {
 
 	logger.GmmLog.Info("[NAS] Send Deregistration Request")
 
@@ -188,7 +188,7 @@ func SendDeregistrationRequest(ue *amf_context.RanUe, accessType uint8, reRegist
 	util.StartT3522(ue, &accessType, &reRegistrationRequired, &cause5GMM)
 }
 
-func SendDeregistrationAccept(ue *amf_context.RanUe) {
+func SendDeregistrationAccept(ue *context.RanUe) {
 
 	logger.GmmLog.Info("[NAS] Send Deregistration Accept")
 
@@ -201,7 +201,7 @@ func SendDeregistrationAccept(ue *amf_context.RanUe) {
 }
 
 func SendRegistrationAccept(
-	ue *amf_context.AmfUe,
+	ue *context.AmfUe,
 	anType models.AccessType,
 	pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool,
@@ -219,7 +219,7 @@ func SendRegistrationAccept(
 	util.StartT3550(ue, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause, pduSessionResourceSetupList)
 }
 
-func SendStatus5GMM(ue *amf_context.RanUe, cause uint8) {
+func SendStatus5GMM(ue *context.RanUe, cause uint8) {
 
 	logger.GmmLog.Info("[NAS] Send Status 5GMM")
 

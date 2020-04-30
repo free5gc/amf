@@ -5,7 +5,7 @@ import (
 	"free5gc/lib/Nudm_UEContextManagement"
 	"free5gc/lib/openapi/common"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	amf_context "free5gc/src/amf/context"
 )
 
 func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (problemDetails *models.ProblemDetails, err error) {

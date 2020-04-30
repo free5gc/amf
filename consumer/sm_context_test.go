@@ -7,7 +7,7 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/SMF/TestPDUSession"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/smf/smf_service"
 	"testing"

@@ -1,4 +1,4 @@
-package amf_context
+package context
 
 import (
 	"fmt"

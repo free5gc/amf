@@ -5,8 +5,8 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
 	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
@@ -25,9 +25,9 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	var response models.N1N2MessageTransferRspData
 	var transferErr models.N1N2MessageTransferError
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
@@ -54,7 +54,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	n2Info := body.BinaryDataN2Information
 	n1Msg := body.BinaryDataN1Message
 	anType := models.AccessType__3_GPP_ACCESS
-	var smContext *amf_context.SmContext
+	var smContext *context.SmContext
 	if requestData.N1MessageContainer != nil && requestData.N1MessageContainer.N1MessageClass == models.N1MessageClass_SM {
 		smContext = ue.SmContextList[requestData.PduSessionId]
 	}
@@ -68,7 +68,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	// TODO: Error Status 307, 403 in TS29.518 Table 6.1.3.5.3.1-3
 	if onGoing != nil {
 		switch onGoing.Procedure {
-		case amf_context.OnGoingProcedurePaging:
+		case context.OnGoingProcedurePaging:
 
 			if requestData.Ppi == 0 || (onGoing.Ppi != 0 && onGoing.Ppi <= requestData.Ppi) {
 				transferErr.Error = new(models.ProblemDetails)
@@ -79,7 +79,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 			}
 			util.ClearT3513(ue)
 			callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
-		case amf_context.OnGoingProcedureN2Handover:
+		case context.OnGoingProcedureN2Handover:
 			transferErr.Error = new(models.ProblemDetails)
 			transferErr.Error.Status = 409
 			transferErr.Error.Cause = "TEMPORARY_REJECT_HANDOVER_ONGOING"
@@ -182,7 +182,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 		return
 	}
 	var pagingPriority *ngapType.PagingPriority
-	locationHeader := amf_context.AMF_Self().GetIPv4Uri() + reqUri + "/" + strconv.Itoa(ue.N1N2MessageIDGenerator)
+	locationHeader := context.AMF_Self().GetIPv4Uri() + reqUri + "/" + strconv.Itoa(ue.N1N2MessageIDGenerator)
 	// Case A (UE is CM-IDLE in 3GPP access and the associated access type is 3GPP access) in subclause 5.2.2.3.1.2 of TS29518
 	if anType == models.AccessType__3_GPP_ACCESS {
 		if requestData.SkipInd && n2Info == nil {
@@ -190,7 +190,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
 		} else {
 			response.Cause = models.N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE
-			message := amf_context.N1N2Message{
+			message := context.N1N2Message{
 				Request:     body,
 				Status:      response.Cause,
 				ResourceUri: locationHeader,
@@ -200,7 +200,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 			headers := http.Header{
 				"Location": {locationHeader},
 			}
-			onGoing.Procedure = amf_context.OnGoingProcedurePaging
+			onGoing.Procedure = context.OnGoingProcedurePaging
 			onGoing.Ppi = requestData.Ppi
 			amf_message.SendHttpResponseMessage(httpChannel, headers, http.StatusAccepted, response)
 			if onGoing.Ppi != 0 {
@@ -225,7 +225,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 			gmm_message.SendDLNASTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasMessage.PayloadContainerTypeN1SMInfo, n1Msg, &requestData.PduSessionId, 0, nil, 0)
 		} else {
 			response.Cause = models.N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE
-			message := amf_context.N1N2Message{
+			message := context.N1N2Message{
 				Request:     body,
 				Status:      response.Cause,
 				ResourceUri: locationHeader,
@@ -247,7 +247,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	}
 	// Case C ( UE is CM-IDLE in both Non-3GPP access and 3GPP access and the associated access ype is Non-3GPP access) in subclause 5.2.2.3.1.2 of TS29518
 	response.Cause = models.N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE
-	message := amf_context.N1N2Message{
+	message := context.N1N2Message{
 		Request:     body,
 		Status:      response.Cause,
 		ResourceUri: locationHeader,
@@ -258,7 +258,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	headers := http.Header{
 		"Location": {locationHeader},
 	}
-	onGoing.Procedure = amf_context.OnGoingProcedurePaging
+	onGoing.Procedure = context.OnGoingProcedurePaging
 	onGoing.Ppi = requestData.Ppi
 	amf_message.SendHttpResponseMessage(httpChannel, headers, http.StatusAccepted, response)
 	if onGoing.Ppi != 0 {
@@ -274,9 +274,9 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 
 func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId, reqUri string) {
 	var problem models.ProblemDetails
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 	if strings.HasPrefix(ueContextId, "imsi") {
 
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
@@ -299,7 +299,7 @@ func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.Handler
 			return
 		}
 	}
-	resourceUri := amf_context.AMF_Self().GetIPv4Uri() + reqUri
+	resourceUri := context.AMF_Self().GetIPv4Uri() + reqUri
 	n1n2Message := ue.N1N2Message
 	if n1n2Message == nil || n1n2Message.ResourceUri != resourceUri {
 		problem.Status = 404
@@ -313,9 +313,9 @@ func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.Handler
 func HandleN1N2MessageSubscirbeRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeN1N2InfoSubscriptionCreateData) {
 	var response models.UeN1N2InfoSubscriptionCreatedData
 
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
@@ -336,9 +336,9 @@ func HandleN1N2MessageSubscirbeRequest(httpChannel chan amf_message.HandlerRespo
 }
 
 func HandleN1N2MessageUnSubscribeRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, subscriptionId string) {
-	var ue *amf_context.AmfUe
+	var ue *context.AmfUe
 	var ok bool
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
 		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
