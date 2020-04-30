@@ -26,8 +26,8 @@ import (
 	"free5gc/src/amf/amf_ngap/ngap_message"
 	"free5gc/src/amf/logger"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
-	"free5gc/src/ausf/ausf_context"
-	"free5gc/src/ausf/ausf_handler"
+	ausf_context "free5gc/src/ausf/context"
+	"free5gc/src/ausf/handler"
 	"free5gc/src/nrf/nrf_service"
 	"free5gc/src/smf/smf_service"
 	"free5gc/src/test/ngapTestpacket"
@@ -89,7 +89,7 @@ func ausfInit() {
 		}
 	}()
 
-	go ausf_handler.Handle()
+	go handler.Handle()
 }
 
 func udmInit() {
