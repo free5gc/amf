@@ -16,7 +16,7 @@ import (
 	"free5gc/src/amf/location"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/mt"
-	"free5gc/src/amf/ngap/message"
+	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/ngap/sctp"
 	"free5gc/src/amf/oam"
 	"free5gc/src/amf/producer/callback"

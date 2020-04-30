@@ -15,7 +15,7 @@ import (
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
-	"free5gc/src/amf/ngap/message"
+	ngap_message "free5gc/src/amf/ngap/message"
 	"strconv"
 
 	"github.com/sirupsen/logrus"

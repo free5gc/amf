@@ -1,4 +1,4 @@
-package ngap_message_test
+package message_test
 
 import (
 	"encoding/hex"
