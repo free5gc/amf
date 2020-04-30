@@ -1,4 +1,4 @@
-package gmm_message
+package message
 
 import (
 	"free5gc/lib/nas/nasType"

@@ -11,7 +11,7 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
-	"free5gc/src/amf/gmm/message"
+	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"

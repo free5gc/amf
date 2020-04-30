@@ -1,4 +1,4 @@
-package gmm_message_test
+package message_test
 
 import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
@@ -6,7 +6,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm/message"
+	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/util"
 	"testing"
 	"time"

@@ -1,4 +1,4 @@
-package gmm_message
+package message
 
 import (
 	"encoding/base64"
