@@ -4,7 +4,7 @@ import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_context"
+	"free5gc/src/amf/context"
 	"net/http"
 )
 
@@ -70,13 +70,13 @@ type EventN1N2MessageSubscribeValue struct {
 }
 
 type EventGMMT3560ValueForSecurityCommand struct {
-	RanUe      *amf_context.RanUe
+	RanUe      *context.RanUe
 	EapSuccess bool
 	EapMessage string
 }
 
 type EventGMMT3550Value struct {
-	AmfUe                       *amf_context.AmfUe
+	AmfUe                       *context.AmfUe
 	AccessType                  models.AccessType
 	PDUSessionStatus            *[16]bool
 	ReactivationResult          *[16]bool
@@ -86,7 +86,7 @@ type EventGMMT3550Value struct {
 }
 
 type EventGMMT3522Value struct {
-	RanUe                  *amf_context.RanUe
+	RanUe                  *context.RanUe
 	AccessType             uint8
 	ReRegistrationRequired bool
 	Cause5GMM              uint8
