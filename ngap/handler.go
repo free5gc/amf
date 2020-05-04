@@ -2614,46 +2614,50 @@ func HandleHandoverRequestAcknowledge(ran *context.AmfRan, message *ngapType.NGA
 	// describe in 23.502 4.9.1.3.2 step11
 	Ngaplog.Debugf("[AMF] Update Sm Context Request")
 
-	for _, item := range pDUSessionResourceAdmittedList.List {
-		pduSessionID := item.PDUSessionID.Value
-		transfer := item.HandoverRequestAcknowledgeTransfer
-		pduSessionId := int32(pduSessionID)
-		if _, exist := amfUe.SmContextList[pduSessionId]; exist {
-			response, errResponse, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
-			if err != nil {
-				Ngaplog.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
+	if pDUSessionResourceAdmittedList != nil {
+		for _, item := range pDUSessionResourceAdmittedList.List {
+			pduSessionID := item.PDUSessionID.Value
+			transfer := item.HandoverRequestAcknowledgeTransfer
+			pduSessionId := int32(pduSessionID)
+			if _, exist := amfUe.SmContextList[pduSessionId]; exist {
+				response, errResponse, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
+				if err != nil {
+					Ngaplog.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
+				}
+				if problemDetails != nil {
+					Ngaplog.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
+				}
+				if response != nil && response.BinaryDataN2SmInformation != nil {
+					handoverItem := ngapType.PDUSessionResourceHandoverItem{}
+					handoverItem.PDUSessionID = item.PDUSessionID
+					handoverItem.HandoverCommandTransfer = response.BinaryDataN2SmInformation
+					pduSessionResourceHandoverList.List = append(pduSessionResourceHandoverList.List, handoverItem)
+					targetUe.SuccessPduSessionId = append(targetUe.SuccessPduSessionId, pduSessionId)
+				}
+				if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
+					releaseItem := ngapType.PDUSessionResourceToReleaseItemHOCmd{}
+					releaseItem.PDUSessionID = item.PDUSessionID
+					releaseItem.HandoverPreparationUnsuccessfulTransfer = errResponse.BinaryDataN2SmInformation
+					pduSessionResourceToReleaseList.List = append(pduSessionResourceToReleaseList.List, releaseItem)
+				}
 			}
-			if problemDetails != nil {
-				Ngaplog.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
-			}
-			if response != nil && response.BinaryDataN2SmInformation != nil {
-				handoverItem := ngapType.PDUSessionResourceHandoverItem{}
-				handoverItem.PDUSessionID = item.PDUSessionID
-				handoverItem.HandoverCommandTransfer = response.BinaryDataN2SmInformation
-				pduSessionResourceHandoverList.List = append(pduSessionResourceHandoverList.List, handoverItem)
-				targetUe.SuccessPduSessionId = append(targetUe.SuccessPduSessionId, pduSessionId)
-			}
-			if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
-				releaseItem := ngapType.PDUSessionResourceToReleaseItemHOCmd{}
-				releaseItem.PDUSessionID = item.PDUSessionID
-				releaseItem.HandoverPreparationUnsuccessfulTransfer = errResponse.BinaryDataN2SmInformation
-				pduSessionResourceToReleaseList.List = append(pduSessionResourceToReleaseList.List, releaseItem)
-			}
-		}
 
+		}
 	}
 
-	for _, item := range pDUSessionResourceFailedToSetupListHOAck.List {
-		pduSessionID := item.PDUSessionID.Value
-		transfer := item.HandoverResourceAllocationUnsuccessfulTransfer
-		pduSessionId := int32(pduSessionID)
-		if _, exist := amfUe.SmContextList[pduSessionId]; exist {
-			_, _, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
-			if err != nil {
-				Ngaplog.Errorf("Send HandoverResourceAllocationUnsuccessfulTransfer error: %v", err)
-			}
-			if problemDetails != nil {
-				Ngaplog.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
+	if pDUSessionResourceFailedToSetupListHOAck != nil {
+		for _, item := range pDUSessionResourceFailedToSetupListHOAck.List {
+			pduSessionID := item.PDUSessionID.Value
+			transfer := item.HandoverResourceAllocationUnsuccessfulTransfer
+			pduSessionId := int32(pduSessionID)
+			if _, exist := amfUe.SmContextList[pduSessionId]; exist {
+				_, _, problemDetails, err := consumer.SendUpdateSmContextN2HandoverPrepared(amfUe, pduSessionId, models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
+				if err != nil {
+					Ngaplog.Errorf("Send HandoverResourceAllocationUnsuccessfulTransfer error: %v", err)
+				}
+				if problemDetails != nil {
+					Ngaplog.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
+				}
 			}
 		}
 	}
