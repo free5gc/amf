@@ -7,13 +7,14 @@ import (
 	"free5gc/lib/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/nrf/nrf_service"
-	"github.com/antihax/optional"
-	"github.com/urfave/cli"
-	"go.mongodb.org/mongo-driver/bson"
+	nrf_service "free5gc/src/nrf/service"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/antihax/optional"
+	"github.com/urfave/cli"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func nrfInit() {

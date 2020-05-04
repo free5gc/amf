@@ -19,23 +19,23 @@ import (
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap"
-	"free5gc/src/amf/ngap/message"
 	Nausf_UEAU "free5gc/src/ausf/UEAuthentication"
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/handler"
-	"free5gc/src/nrf/nrf_service"
+	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
 	"free5gc/src/test/ngapTestpacket"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
+	"net/http"
+	"testing"
+	"time"
+
 	"git.cs.nctu.edu.tw/calee/sctp"
 	"github.com/gin-gonic/gin"
 	"github.com/mohae/deepcopy"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
-	"net/http"
-	"testing"
-	"time"
 )
 
 func udrInit() {

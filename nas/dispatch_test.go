@@ -32,15 +32,16 @@ import (
 	"free5gc/src/ausf/handler"
 	"free5gc/src/ausf/producer"
 	"free5gc/src/nrf/nrf_handler"
-	"free5gc/src/nrf/nrf_service"
+	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
 	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
-	"github.com/urfave/cli"
 	"log"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/urfave/cli"
 
 	"git.cs.nctu.edu.tw/calee/sctp"
 	"github.com/bronze1man/radius"
