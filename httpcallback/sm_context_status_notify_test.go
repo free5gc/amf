@@ -15,21 +15,21 @@ import (
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/httpcallback"
 	"free5gc/src/amf/nas"
 	"free5gc/src/nrf/Discovery"
 	"free5gc/src/nrf/Management"
 	"free5gc/src/nrf/nrf_handler"
 	"free5gc/src/smf/PDUSession"
 	"free5gc/src/smf/smf_handler"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/bson"
-	"golang.org/x/net/http2"
 	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"go.mongodb.org/mongo-driver/bson"
+	"golang.org/x/net/http2"
 )
 
 func TestSmContextStatusNotify(t *testing.T) {

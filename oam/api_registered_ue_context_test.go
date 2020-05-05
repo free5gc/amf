@@ -8,11 +8,12 @@ import (
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/service"
-	"free5gc/src/nrf/nrf_service"
-	"github.com/urfave/cli"
+	nrf_service "free5gc/src/nrf/service"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/urfave/cli"
 )
 
 func nrfInit() {
