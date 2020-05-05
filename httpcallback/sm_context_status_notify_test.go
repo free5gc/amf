@@ -16,8 +16,8 @@ import (
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/nas"
-	"free5gc/src/nrf/Discovery"
-	"free5gc/src/nrf/Management"
+	"free5gc/src/nrf/discovery"
+	"free5gc/src/nrf/management"
 	"free5gc/src/nrf/nrf_handler"
 	"free5gc/src/smf/PDUSession"
 	"free5gc/src/smf/smf_handler"
@@ -52,8 +52,8 @@ func TestSmContextStatusNotify(t *testing.T) {
 	go func() {
 		router := gin.Default()
 
-		Management.AddService(router)
-		Discovery.AddService(router)
+		management.AddService(router)
+		discovery.AddService(router)
 
 		nrfLogPath := path_util.Gofree5gcPath("free5gc/nrfsslkey.log")
 		nrfPemPath := path_util.Gofree5gcPath("free5gc/support/TLS/nrf.pem")
