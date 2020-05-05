@@ -15,26 +15,27 @@ import (
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/nas"
+	"free5gc/src/amf/httpcallback"
+	amf_nas "free5gc/src/amf/nas"
 	"free5gc/src/nrf/discovery"
 	"free5gc/src/nrf/management"
 	"free5gc/src/nrf/nrf_handler"
-	"free5gc/src/smf/PDUSession"
-	"free5gc/src/smf/smf_handler"
-	"io/ioutil"
-	"net/http"
-	"testing"
-	"time"
+	smf_handler "free5gc/src/smf/handler"
+	"free5gc/src/smf/pdusession"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/net/http2"
+	"io/ioutil"
+	"net/http"
+	"testing"
+	"time"
 )
 
 func TestSmContextStatusNotify(t *testing.T) {
 	go func() {
-		router := Namf_Callback.NewRouter()
+		router := httpcallback.NewRouter()
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
 			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
@@ -42,7 +43,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 		assert.True(t, err == nil, err.Error())
 	}()
 	go func() {
-		router := PDUSession.NewRouter()
+		router := pdusession.NewRouter()
 		server, err := http2_util.NewServer(":29502", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
 			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
@@ -99,7 +100,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 
 	m := nas.NewMessage()
 	err = m.GmmMessageDecode(&nasPdu)
-	err = nas.Dispatch(ue, models.AccessType__3_GPP_ACCESS, ngapType.ProcedureCodeUplinkNASTransport, m)
+	err = amf_nas.Dispatch(ue, models.AccessType__3_GPP_ACCESS, ngapType.ProcedureCodeUplinkNASTransport, m)
 	assert.True(t, err == nil)
 	assert.True(t, err == nil)
 

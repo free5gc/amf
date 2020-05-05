@@ -34,7 +34,6 @@ import (
 	"free5gc/src/nrf/nrf_handler"
 	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
-	Nudm_UEAU "free5gc/src/udm/UEAuthentication"
 	"free5gc/src/udm/udm_handler"
 	"log"
 	"net/http"

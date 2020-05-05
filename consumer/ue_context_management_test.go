@@ -10,7 +10,7 @@ import (
 	"free5gc/src/amf/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	// "free5gc/src/udm/udm_context"
+	// "free5gc/src/udm/context"
 	"net/http"
 	"testing"
 	"time"
@@ -48,7 +48,7 @@ func TestUeCmRegistration(t *testing.T) {
 	}()
 	udminit()
 
-	// udm_context.Init()
+	// context.Init()
 
 	time.Sleep(100 * time.Millisecond)
 	TestAmf.AmfInit()
