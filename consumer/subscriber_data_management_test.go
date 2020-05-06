@@ -8,7 +8,7 @@ import (
 	"free5gc/lib/MongoDBLibrary"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/udm/udm_service"
+	udm_service "free5gc/src/udm/service"
 	"free5gc/src/udr/udr_service"
 	"github.com/urfave/cli"
 	"go.mongodb.org/mongo-driver/bson"
