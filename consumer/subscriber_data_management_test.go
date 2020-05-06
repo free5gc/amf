@@ -9,12 +9,13 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	udm_service "free5gc/src/udm/service"
-	"free5gc/src/udr/udr_service"
-	"github.com/urfave/cli"
-	"go.mongodb.org/mongo-driver/bson"
+	udr_service "free5gc/src/udr/service"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/urfave/cli"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 var testflags flag.FlagSet
