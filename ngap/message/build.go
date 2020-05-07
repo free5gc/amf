@@ -1647,6 +1647,7 @@ func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause, pduSessionRes
 	sourceToTargetTransparentContaine := ie.Value.SourceToTargetTransparentContainer
 	sourceToTargetTransparentContaine.Value = sourceToTargetTransparentContainer.Value
 
+	handoverRequestIEs.List = append(handoverRequestIEs.List, ie)
 	//GUAMI
 	ie = ngapType.HandoverRequestIEs{}
 	ie.Id.Value = ngapType.ProtocolIEIDGUAMI
