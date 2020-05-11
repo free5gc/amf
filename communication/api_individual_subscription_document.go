@@ -12,17 +12,17 @@ package communication
 import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 // AMFStatusChangeSubscribeModfy - Namf_Communication AMF Status Change Subscribe Modify service Operation
 func AMFStatusChangeSubscribeModfy(c *gin.Context) {
-	var request models.SubscriptionData
+	var subscriptionData models.SubscriptionData
 
-	err := c.ShouldBindJSON(&request)
+	err := c.ShouldBindJSON(&subscriptionData)
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -35,17 +35,12 @@ func AMFStatusChangeSubscribeModfy(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, subscriptionData)
 	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventAMFStatusChangeSubscribeModfy, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleAMFStatusChangeSubscribeModify(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	c.JSON(rsp.Status, rsp.Body)
 }
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
@@ -54,13 +49,7 @@ func AMFStatusChangeUnSubscribe(c *gin.Context) {
 	req := http_wrapper.NewRequest(c.Request, nil)
 	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventAMFStatusChangeUnSubscribe, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleAMFStatusChangeUnSubscribeRequest(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	c.JSON(rsp.Status, rsp.Body)
 }

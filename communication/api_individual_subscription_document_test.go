@@ -6,18 +6,16 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
 	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
-
-	"log"
 	"testing"
 )
 
-func sendAMFStatusUnSubscriptionRequestAndPrintResult(client *Namf_Communication_Client.APIClient, subscriptionId string) {
+func sendAMFStatusUnSubscriptionRequestAndPrintResult(t *testing.T, client *Namf_Communication_Client.APIClient, subscriptionId string) {
 	httpResponse, err := client.IndividualSubscriptionDocumentApi.AMFStatusChangeUnSubscribe(context.Background(), subscriptionId)
 	if err != nil {
 		if httpResponse == nil {
-			log.Println(err)
+			t.Error(err)
 		} else if err.Error() != httpResponse.Status {
-			log.Println(err)
+			t.Error(err)
 		} else {
 
 		}
@@ -26,13 +24,13 @@ func sendAMFStatusUnSubscriptionRequestAndPrintResult(client *Namf_Communication
 	}
 }
 
-func sendAMFStatusSubscriptionModfyRequestAndPrintResult(client *Namf_Communication_Client.APIClient, subscriptionID string, request models.SubscriptionData) {
+func sendAMFStatusSubscriptionModfyRequestAndPrintResult(t *testing.T, client *Namf_Communication_Client.APIClient, subscriptionID string, request models.SubscriptionData) {
 	aMFStatusSubscription, httpResponse, err := client.IndividualSubscriptionDocumentApi.AMFStatusChangeSubscribeModfy(context.Background(), subscriptionID, request)
 	if err != nil {
 		if httpResponse == nil {
-			log.Println(err)
+			t.Error(err)
 		} else if err.Error() != httpResponse.Status {
-			log.Println(err)
+			t.Error(err)
 		} else {
 
 		}
@@ -41,7 +39,7 @@ func sendAMFStatusSubscriptionModfyRequestAndPrintResult(client *Namf_Communicat
 	}
 }
 
-func TestAMFStatusChangeSubscribeModfy(t *testing.T) {
+func TestAMFStatusChangeSubscribeModify(t *testing.T) {
 	if len(TestAmf.TestAmf.UePool) == 0 {
 		TestAMFStatusChangeSubscribe(t)
 	}
@@ -50,10 +48,10 @@ func TestAMFStatusChangeSubscribeModfy(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	subscriptionData := TestComm.ConsumerAMFStatusChangeSubscribeModfyTable[TestComm.AMFStatusSubscriptionModfy403]
-	sendAMFStatusSubscriptionModfyRequestAndPrintResult(client, "0", subscriptionData)
+	sendAMFStatusSubscriptionModfyRequestAndPrintResult(t, client, "0", subscriptionData)
 	//
 	subscriptionData = TestComm.ConsumerAMFStatusChangeSubscribeModfyTable[TestComm.AMFStatusSubscriptionModfy200]
-	sendAMFStatusSubscriptionModfyRequestAndPrintResult(client, "1", subscriptionData)
+	sendAMFStatusSubscriptionModfyRequestAndPrintResult(t, client, "1", subscriptionData)
 }
 
 func TestAMFStatusChangeUnSubscribe(t *testing.T) {
@@ -65,8 +63,8 @@ func TestAMFStatusChangeUnSubscribe(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	subscriptionID := TestComm.ConsumerAMFStatusUnSubscriptionTable[TestComm.AMFStatusUnSubscription403]
-	sendAMFStatusUnSubscriptionRequestAndPrintResult(client, subscriptionID)
+	sendAMFStatusUnSubscriptionRequestAndPrintResult(t, client, subscriptionID)
 	//
 	subscriptionID = TestComm.ConsumerAMFStatusUnSubscriptionTable[TestComm.AMFStatusUnSubscription204]
-	sendAMFStatusUnSubscriptionRequestAndPrintResult(client, subscriptionID)
+	sendAMFStatusUnSubscriptionRequestAndPrintResult(t, client, subscriptionID)
 }

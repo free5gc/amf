@@ -12,7 +12,8 @@ import (
 func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 	amfSelf := amf_context.AMF_Self()
 
-	for _, amfStatusSubscriptions := range amfSelf.AMFStatusSubscriptions {
+	amfSelf.AMFStatusSubscriptions.Range(func(key, value interface{}) bool {
+		subscriptionData := value.(models.SubscriptionData)
 
 		configuration := Namf_Communication.NewConfiguration()
 		client := Namf_Communication.NewAPIClient(configuration)
@@ -20,11 +21,10 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 		var amfStatusInfo = models.AmfStatusInfo{}
 
 		for _, guami := range guamiList {
-			for _, subGumi := range amfStatusSubscriptions.GuamiList {
+			for _, subGumi := range subscriptionData.GuamiList {
 				if reflect.DeepEqual(guami, subGumi) {
 					//AMF status is available
 					amfStatusInfo.GuamiList = append(amfStatusInfo.GuamiList, guami)
-
 				}
 			}
 		}
@@ -36,7 +36,7 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 		}
 
 		amfStatusNotification.AmfStatusInfoList = append(amfStatusNotification.AmfStatusInfoList, amfStatusInfo)
-		uri := amfStatusSubscriptions.AmfStatusUri
+		uri := subscriptionData.AmfStatusUri
 
 		logger.ProducerLog.Infof("[AMF] Send Amf Status Change Notify to %s", uri)
 		httpResponse, err := client.AmfStatusChangeCallbackDocumentApiServiceCallbackDocumentApi.AmfStatusChangeNotify(context.Background(), uri, amfStatusNotification)
@@ -47,5 +47,6 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 				HttpLog.Errorln(err.Error())
 			}
 		}
-	}
+		return true
+	})
 }

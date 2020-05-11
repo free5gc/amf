@@ -216,14 +216,6 @@ func Handle() {
 				case amf_message.EventEBIAssignment:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))
-				case amf_message.EventAMFStatusChangeSubscribe:
-					producer.HandleAMFStatusChangeSubscribeRequest(msg.ResponseChan, msg.HTTPRequest.Body.(models.SubscriptionData))
-				case amf_message.EventAMFStatusChangeUnSubscribe:
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleAMFStatusChangeUnSubscribeRequest(msg.ResponseChan, subscriptionId)
-				case amf_message.EventAMFStatusChangeSubscribeModfy:
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleAMFStatusChangeSubscribeModfy(msg.ResponseChan, subscriptionId, msg.HTTPRequest.Body.(models.SubscriptionData))
 				case amf_message.EventRegistrationStatusUpdate:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleRegistrationStatusUpdateRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeRegStatusUpdateReqData))

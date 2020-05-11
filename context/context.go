@@ -9,12 +9,35 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
+
+type idGenerator struct {
+	lock      sync.Mutex
+	minValue  int64
+	maxValue  int64
+	generator int64
+}
+
+func (idGenerator *idGenerator) Init(minValue int64, maxValue int64) {
+	idGenerator.minValue = minValue
+	idGenerator.maxValue = maxValue
+	idGenerator.generator = idGenerator.minValue
+}
+
+func (idGenerator *idGenerator) Allocate() (id int64) {
+	idGenerator.lock.Lock()
+	id = idGenerator.generator
+	idGenerator.generator = idGenerator.generator%idGenerator.maxValue + idGenerator.minValue
+	idGenerator.lock.Unlock()
+	return
+}
 
 var amfContext = AMFContext{}
 var TmsiGenerator int32 = 0
 var amfUeNgapIdGenerator int64 = 0
+var amfStatusSubscriptionIDGenerator idGenerator
 
 func init() {
 	AMF_Self().EventSubscriptions = make(map[string]*AMFContextEventSubscription)
@@ -31,44 +54,42 @@ func init() {
 	AMF_Self().RelativeCapacity = 0xff
 	AMF_Self().ServedGuamiList = make([]models.Guami, 0, MaxNumOfServedGuamiList)
 	AMF_Self().PlmnSupportList = make([]PlmnSupportItem, 0, MaxNumOfPLMNs)
-	AMF_Self().AMFStatusSubscriptionIDGenerator = 1
-	AMF_Self().AMFStatusSubscriptions = make(map[string]*models.SubscriptionData)
 	AMF_Self().NfService = make(map[models.ServiceName]models.NfService)
 	AMF_Self().NetworkName.Full = "free5GC"
+	amfStatusSubscriptionIDGenerator.Init(1, 2147483647)
 }
 
 type AMFContext struct {
-	EventSubscriptionIDGenerator     int
-	EventSubscriptions               map[string]*AMFContextEventSubscription
-	UePool                           map[string]*AmfUe // use imsi as key
-	GutiPool                         map[string]*AmfUe
-	TmsiPool                         map[int32]*AmfUe // tmsi as key
-	RanIdPool                        map[models.GlobalRanNodeId]*AmfRan
-	RanUePool                        map[int64]*RanUe   // AmfUeNgapId as key
-	AmfRanPool                       map[string]*AmfRan // use remote Addr String as key
-	LadnPool                         map[string]*LADN   // dnn as key
-	SupportTaiLists                  []models.Tai
-	ServedGuamiList                  []models.Guami
-	PlmnSupportList                  []PlmnSupportItem
-	RelativeCapacity                 int64
-	NfId                             string
-	Name                             string
-	NfService                        map[models.ServiceName]models.NfService // use ServiceName as key, nfservice that amf support
-	UriScheme                        models.UriScheme
-	HttpIpv4Port                     int
-	HttpIPv4Address                  string
-	HttpIPv6Address                  string
-	TNLWeightFactor                  int64
-	SupportDnnLists                  []string
-	AMFStatusSubscriptionIDGenerator int
-	AMFStatusSubscriptions           map[string]*models.SubscriptionData
-	NrfUri                           string
-	SecurityAlgorithm                SecurityAlgorithm
-	NetworkName                      NetworkName
-	NgapIpList                       []string // NGAP Server IP
-	T3502Value                       int      // unit is second
-	T3512Value                       int      // unit is second
-	Non3gppDeregistrationTimerValue  int      // unit is second
+	EventSubscriptionIDGenerator    int
+	EventSubscriptions              map[string]*AMFContextEventSubscription
+	UePool                          map[string]*AmfUe // use imsi as key
+	GutiPool                        map[string]*AmfUe
+	TmsiPool                        map[int32]*AmfUe // tmsi as key
+	RanIdPool                       map[models.GlobalRanNodeId]*AmfRan
+	RanUePool                       map[int64]*RanUe   // AmfUeNgapId as key
+	AmfRanPool                      map[string]*AmfRan // use remote Addr String as key
+	LadnPool                        map[string]*LADN   // dnn as key
+	SupportTaiLists                 []models.Tai
+	ServedGuamiList                 []models.Guami
+	PlmnSupportList                 []PlmnSupportItem
+	RelativeCapacity                int64
+	NfId                            string
+	Name                            string
+	NfService                       map[models.ServiceName]models.NfService // use ServiceName as key, nfservice that amf support
+	UriScheme                       models.UriScheme
+	HttpIpv4Port                    int
+	HttpIPv4Address                 string
+	HttpIPv6Address                 string
+	TNLWeightFactor                 int64
+	SupportDnnLists                 []string
+	AMFStatusSubscriptions          sync.Map // map[subscriptionID]models.SubscriptionData
+	NrfUri                          string
+	SecurityAlgorithm               SecurityAlgorithm
+	NetworkName                     NetworkName
+	NgapIpList                      []string // NGAP Server IP
+	T3502Value                      int      // unit is second
+	T3512Value                      int      // unit is second
+	Non3gppDeregistrationTimerValue int      // unit is second
 }
 
 type AMFContextEventSubscription struct {
@@ -159,6 +180,34 @@ func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.Acc
 			break
 		}
 	}
+}
+
+func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.SubscriptionData) (subscriptionID string) {
+	subscriptionID = strconv.Itoa(int(amfStatusSubscriptionIDGenerator.Allocate()))
+	for {
+		if _, found := context.AMFStatusSubscriptions.Load(subscriptionID); found {
+			subscriptionID = strconv.Itoa(int(amfStatusSubscriptionIDGenerator.Allocate()))
+		} else {
+			context.AMFStatusSubscriptions.Store(subscriptionID, subscriptionData)
+			break
+		}
+	}
+	return
+}
+
+func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (subscriptionData *models.SubscriptionData, ok bool) {
+	if value, loadOk := context.AMFStatusSubscriptions.Load(subscriptionID); loadOk {
+		tmp := value.(models.SubscriptionData)
+		subscriptionData = &tmp
+		ok = loadOk
+	} else {
+		subscriptionData = nil
+	}
+	return
+}
+
+func (context *AMFContext) DeleteAMFStatusSubscription(subscriptionID string) {
+	context.AMFStatusSubscriptions.Delete(subscriptionID)
 }
 
 func (context *AMFContext) AddAmfUeToUePool(ue *AmfUe, supi string) {

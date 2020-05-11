@@ -17,14 +17,11 @@ const (
 	EventUEContextRelease
 	EventUEContextTransfer
 	EventEBIAssignment
-	EventAMFStatusChangeSubscribe
 	EventGMMT3513
 	EventGMMT3565
 	EventGMMT3560ForAuthenticationRequest
 	EventGMMT3560ForSecurityModeCommand
 	EventGMMT3550
-	EventAMFStatusChangeUnSubscribe
-	EventAMFStatusChangeSubscribeModfy
 	EventRegistrationStatusUpdate
 	EventGMMT3522
 	EventAmPolicyControlUpdateNotifyUpdate

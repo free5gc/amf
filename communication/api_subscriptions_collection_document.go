@@ -12,16 +12,16 @@ package communication
 import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 // AMFStatusChangeSubscribe - Namf_Communication AMF Status Change Subscribe service Operation
 func AMFStatusChangeSubscribe(c *gin.Context) {
-	var request models.SubscriptionData
-	err := c.ShouldBindJSON(&request)
+	var subscriptionData models.SubscriptionData
+	err := c.ShouldBindJSON(&subscriptionData)
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -33,15 +33,13 @@ func AMFStatusChangeSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	req := http_wrapper.NewRequest(c.Request, request)
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventAMFStatusChangeSubscribe, req)
-	amf_message.SendMessage(handlerMsg)
 
-	rsp := <-handlerMsg.ResponseChan
+	req := http_wrapper.NewRequest(c.Request, subscriptionData)
+	rsp := producer.HandleAMFStatusChangeSubscribeRequest(req)
 
-	HTTPResponse := rsp.HTTPResponse
-	for key, val := range HTTPResponse.Header {
+	for key, val := range rsp.Header {
 		c.Header(key, val[0])
 	}
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+
+	c.JSON(rsp.Status, rsp.Body)
 }
