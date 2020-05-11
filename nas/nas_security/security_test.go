@@ -183,3 +183,15 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 
 	return
 }
+
+func TestAesCmac(t *testing.T) {
+	// key, _ := hex.DecodeString(strings.Repeat("2bd6459f82c5b300952c49104881ff48", 1))
+	key, _ := hex.DecodeString(strings.Repeat("2b7e151628aed2a6abf7158809cf4f3c", 1))
+
+	nas_security.GenerateSubkey(key)
+	// fb ee d6 18 35 71 33 66  7c 85 e0 8f 72 36 a8 de
+	// fb ee d6 18 35 71 33 66  7c 85 e0 8f 72 36 a8 de
+	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
+	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
+	return
+}
