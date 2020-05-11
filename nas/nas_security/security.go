@@ -5,6 +5,7 @@ package nas_security
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/hex"
 	"fmt"
 	"free5gc/lib/nas"
 	"free5gc/src/amf/context"
@@ -276,6 +277,56 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 		if err != nil {
 			return nil, err
 		}
+		// only get the most significant 32 bits to be mac value
+		return cmac[:4], nil
+
+	case context.ALG_INTEGRITY_128_NIA3:
+		logger.NgapLog.Errorf("NEA3 not implement yet.")
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("Unknown Algorithm Identity[%d]", AlgoID)
+	}
+
+}
+
+func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte) ([]byte, error) {
+	if len(KnasInt) != 16 {
+		return nil, fmt.Errorf("Size of KnasEnc[%d] != 16 bytes)", len(KnasInt))
+	}
+	if Bearer > 0x1f {
+		return nil, fmt.Errorf("Bearer is beyond 5 bits")
+	}
+	if Direction > 1 {
+		return nil, fmt.Errorf("Direction is beyond 1 bits")
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("Nas Payload is nil")
+	}
+
+	switch AlgoID {
+	case context.ALG_INTEGRITY_128_NIA1:
+		logger.NgapLog.Errorf("NEA1 not implement yet.")
+		return nil, nil
+	case context.ALG_INTEGRITY_128_NIA2:
+		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
+		m := make([]byte, len(msg)+8)
+		printSlice("m", m)
+		fmt.Printf("%s", hex.Dump(m))
+		//First 32 bits are count
+		copy(m, Count)
+		//Put Bearer and direction together
+		m[4] = (Bearer << 3) | (Direction << 2)
+		copy(m[8:], msg)
+		lenM := int32(len(m))
+		logger.NgapLog.Infoln("lenM", lenM)
+
+		printSlice("after m", m)
+		fmt.Printf("%s", hex.Dump(m))
+		// 38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
+		// 38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
+		cmac := make([]byte, 16)
+
+		AesCmacCalculate(cmac, KnasInt, m, 16)
 		// only get the most significant 32 bits to be mac value
 		return cmac[:4], nil
 
