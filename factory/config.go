@@ -9,6 +9,18 @@ import (
 	"free5gc/src/amf/context"
 )
 
+type Config struct {
+	Info *Info `yaml:"info"`
+
+	Configuration *Configuration `yaml:"configuration"`
+}
+
+type Info struct {
+	Version string `yaml:"version,omitempty"`
+
+	Description string `yaml:"description,omitempty"`
+}
+
 type Configuration struct {
 	AmfName string `yaml:"amfName,omitempty"`
 
@@ -37,4 +49,16 @@ type Configuration struct {
 	T3512 int `yaml:"t3512,omitempty"`
 
 	Non3gppDeregistrationTimer int `yaml:"mon3gppDeregistrationTimer,omitempty"`
+}
+
+type Sbi struct {
+	Scheme   string `yaml:"scheme"`
+	IPv4Addr string `yaml:"ipv4Addr,omitempty"`
+	// IPv6Addr string `yaml:"ipv6Addr,omitempty"`
+	Port int `yaml:"port,omitempty"`
+}
+
+type Security struct {
+	IntegrityOrder []string `yaml:"integrityOrder,omitempty"`
+	CipheringOrder []string `yaml:"cipheringOrder,omitempty"`
 }
