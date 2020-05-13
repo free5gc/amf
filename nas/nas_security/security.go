@@ -361,7 +361,7 @@ func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer
 
 		cmac := make([]byte, 16)
 
-		AesCmacCalculateBlock(cmac, KnasInt, m, lenM)
+		AesCmacCalculateBit(cmac, KnasInt, m, lenM)
 		// only get the most significant 32 bits to be mac value
 		return cmac[:4], nil
 

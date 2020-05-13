@@ -1,6 +1,7 @@
 package nas_security_test
 
 import (
+	"crypto/aes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"free5gc/src/amf/handler"
 	"free5gc/src/amf/nas/nas_security"
 	ngap_message "free5gc/src/amf/ngap/message"
+	"github.com/aead/cmac"
 	"reflect"
 	"strings"
 	"testing"
@@ -81,17 +83,29 @@ func TestMacCalculateNISTSP_800_38B(t *testing.T) {
 
 		plainText, _ := hex.DecodeString(testTable.PlainText)
 
-		length := testTable.Mlen
-		cmac := make([]byte, 16)
+		lengthBlock := testTable.Mlen
+		lengthBit := testTable.Mlen * 8
+		cmacBlockResult := make([]byte, 16)
+		cmacBitResult := make([]byte, 16)
 		expected, _ := hex.DecodeString(testTable.Expected)
-		nas_security.AesCmacCalculateBlock(cmac, KnasInt, plainText, length)
-		if err != nil {
-			t.Error(err.Error())
-		}
-		if !reflect.DeepEqual(cmac[:4], expected) {
-			t.Errorf("Example%s \t mac[0x%x] \t expected[0x%x]\n", i, cmac, expected)
+
+		nas_security.AesCmacCalculateBlock(cmacBlockResult, KnasInt, plainText, lengthBlock)
+		nas_security.AesCmacCalculateBit(cmacBitResult, KnasInt, plainText, lengthBit)
+		block, err := aes.NewCipher(KnasInt)
+
+		aead_cmac, _ := cmac.Sum(plainText, block, 16)
+
+		if !reflect.DeepEqual(aead_cmac[:4], expected) {
+			t.Errorf("Example%s \t aead_cmac[0x%x] \t expected[0x%x]\n", i, aead_cmac, expected)
 		}
 
+		if !reflect.DeepEqual(cmacBlockResult[:4], expected) {
+			t.Errorf("Example%s \t cmacBlockResult[0x%x] \t expected[0x%x]\n", i, cmacBlockResult, expected)
+		}
+
+		if !reflect.DeepEqual(cmacBitResult[:4], expected) {
+			t.Errorf("Example%s \t cmacBitResult[0x%x] \t expected[0x%x]\n", i, cmacBitResult, expected)
+		}
 	}
 
 }

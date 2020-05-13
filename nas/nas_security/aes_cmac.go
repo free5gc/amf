@@ -209,3 +209,134 @@ func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	// printSlice("cmac", cmac)
 	// fmt.Printf("%s", hex.Dump(cmac))
 }
+
+/*Steps:
+1. Apply the subkey generation process in Sec. 6.1 to K to produce K1 and K2.
+2. If Mlen = 0, let n = 1; else, let n =[Mlen/b].
+3. Let M1, M2, ... , Mn-1, Mn * denote the unique sequence of bit strings such that M =
+M1 || M2 || ... || Mn-1 || Mn*, where M1, M2,..., Mn-1 are complete blocks.2
+4. If Mn* is a complete block, let Mn = K1 ⊕ Mn*
+; else, let Mn = K2 ⊕ (Mn*||10j), where j = nb-Mlen-1.
+
+5. Let C0 = 0b
+6. For i = 1 to n, let Ci = CIPHK(Ci-1 ⊕ Mi).
+7. Let T = MSBTlen(Cn).
+8. Return T
+*/
+
+func AesCmacCalculateBit(cmac []byte, key []byte, msg []byte, length int32) {
+	plainText := make([]byte, 16)
+	var flag bool
+	K1 := make([]byte, 16)
+	K2 := make([]byte, 16)
+	// Step 1.  (K1,K2) := Generate_Subkey(K);
+	// Apply the subkey generation process in Sec. 6.1 to K to produce K1 and K2.
+	K1, K2 = GenerateSubkey(key)
+	// fmt.Printf("k1 %s", hex.Dump(K1))
+	// fmt.Printf("k2 %s", hex.Dump(K2))
+	// fmt.Printf("msg %s", hex.Dump(msg))
+	var n int32
+	n = (length + 127) / (AES_BLOCK_SIZE * 8)
+
+	//  Step 2. If Mlen = 0, let n = 1; else, let n =[Mlen/b].
+	fmt.Println("length", length)
+
+	if length == 0 {
+		n = 1
+		flag = false
+	} else {
+		if (length)%(AES_BLOCK_SIZE*8) == 0 {
+			flag = true
+		} else {
+			flag = false
+		}
+	}
+
+	/*3. Let M1, M2, ... , Mn-1, Mn * denote the unique sequence of bit strings such that M =
+	M1 || M2 || ... || Mn-1 || Mn*, where M1, M2,..., Mn-1 are complete blocks.*/
+	/*4. If Mn* is a complete block, let Mn = K1 ⊕ Mn*
+	  ; else, let Mn = K2 ⊕ (Mn*||10j), where j = nb-Mlen-1.*/
+
+	// fmt.Println("n", n)
+	blockSize := (n - 1) * AES_BLOCK_SIZE
+	// fmt.Println("blockSize", blockSize)
+	// printSlice("msg", msg)
+	// fmt.Printf("%s", hex.Dump(msg))
+	// fmt.Println("n", n)
+	var i int32
+	var j uint32
+	mLast := make([]byte, 16)
+
+	if flag {
+		// printSlice("K1", K1)
+		// fmt.Printf("%s", hex.Dump(K1))
+		// printSlice("mLast", mLast)
+		// fmt.Printf("%s", hex.Dump(mLast))
+		for i = 0; i < 16; i++ {
+			mLast[i] = msg[blockSize+i] ^ K1[i]
+		}
+		// printSlice("after length%(AES_BLOCK_SIZE*8)  mLast", mLast)
+		// fmt.Printf(" length(AES_BLOCK_SIZE*8) %s", hex.Dump(mLast))
+	} else {
+		j = (uint32)(n*128 - length - 1)
+		msgLen := len(msg)
+
+		if j < 8 {
+			msg[msgLen-1] = msg[msgLen-1] | 1<<j
+		} else {
+			// printSlice("before msg", msg)
+			// fmt.Printf("%s", hex.Dump(msg))
+			// fmt.Println("j", j)
+			shiftSize := int(j / 8)
+			// fmt.Println("shiftSize", shiftSize)
+			var concatSlice []byte
+			if shiftSize%8 == 0 {
+				concatSlice = make([]byte, shiftSize)
+			} else {
+				concatSlice = make([]byte, shiftSize+1)
+			}
+			msg = append(msg, concatSlice...)
+			// fmt.Println("after append len(msg)", len(msg))
+			// msg[len(msg)-shiftSize-1] = msg[len(msg)-shiftSize-1] | 1<<(j%8)
+			// printSlice("after msg", msg)
+			// fmt.Printf("%s", hex.Dump(msg))
+		}
+		// printSlice("K2", K2)
+		// fmt.Printf("%s", hex.Dump(K2))
+		for i = 0; i < 16; i++ {
+			mLast[i] = (msg[blockSize+i]) ^ K2[i]
+		}
+
+		// printSlice("after mLast", mLast)
+		// fmt.Printf("%s", hex.Dump(mLast))
+	}
+
+	cipherText := make([]byte, 16)
+	rk := make([]uint32, rtLength(128))
+	var k int32
+	var nrounds = aes.AesSetupEnc(rk, key, 128)
+	for i = 0; i < n-1; i++ {
+		blockSize = i * AES_BLOCK_SIZE
+		for k = 0; k < 16; k++ {
+			plainText[k] = cipherText[k] ^ msg[blockSize+k]
+		}
+		aes.AesEncrypt(rk, nrounds, plainText, cipherText)
+		// printSlice("after 1111plainText", plainText)
+		// fmt.Printf("%s", hex.Dump(plainText))
+		// printSlice("after 22222cipherText", cipherText)
+		// fmt.Printf("%s", hex.Dump(cipherText))
+
+	}
+
+	for k = 0; k < 16; k++ {
+		plainText[k] = cipherText[k] ^ mLast[k]
+	}
+	aes.AesEncrypt(rk, nrounds, plainText, cipherText)
+	// printSlice("after last plainText", plainText)
+	// fmt.Printf("%s", hex.Dump(plainText))
+	// printSlice("after last cipherText", cipherText)
+	// fmt.Printf("%s", hex.Dump(cipherText))
+
+	copy(cmac, cipherText[:4])
+	return
+}
