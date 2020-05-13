@@ -1,7 +1,7 @@
 package nas_security
 
 import (
-	"encoding/hex"
+	// "encoding/hex"
 	"fmt"
 	"free5gc/lib/aes"
 )
@@ -27,8 +27,8 @@ func GenerateSubkey(key []byte) (K1 []byte, K2 []byte) {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87}
 	K1 = make([]byte, 16)
 	K2 = make([]byte, 16)
-	printSlice("zeroArr", zero)
-	printSlice("rbArr", rb)
+	// printSlice("zeroArr", zero)
+	// printSlice("rbArr", rb)
 
 	L := make([]byte, 16)
 	rk := make([]uint32, rtLength(128))
@@ -36,17 +36,15 @@ func GenerateSubkey(key []byte) (K1 []byte, K2 []byte) {
 
 	/* Step 1.  L := AES-128(K, const_Zero) */
 	var nrounds = aes.AesSetupEnc(rk, key, keyBits)
-	fmt.Printf("nrounds: %d\n", nrounds)
-	//2b d6 45 9f 82 c5 b3 00  95 2c 49 10 48 81 ff 48
-	//2b d6 45 9f 82 c5 b3 00  95 2c 49 10 48 81 ff 48 //33401 test1
-	printSlice("key", key)
-	fmt.Printf("%s", hex.Dump(key))
+	// fmt.Printf("nrounds: %d\n", nrounds)
+	// printSlice("key", key)
+	// fmt.Printf("%s", hex.Dump(key))
+
 	aes.AesEncrypt(rk, nrounds, zero, L)
 	// printSlice("zeroArr", zero)
-	printSlice("L", L)
-	fmt.Printf("%s", hex.Dump(L))
-	// 6e 42 61 38 5a df c1 fc  b7 c8 5f 0c 46 9f b2 0c
-	// 6e 42 61 38 5a df c1 fc  b7 c8 5f 0c 46 9f b2 0c //33401 test1
+	// printSlice("L", L)
+	// fmt.Printf("%s", hex.Dump(L))
+
 	/* Step 2.  if MSB(L) is equal to 0 */
 	if (L[0] & 0x80) == 0 {
 		for i := 0; i < 15; i++ {
@@ -74,10 +72,9 @@ func GenerateSubkey(key []byte) (K1 []byte, K2 []byte) {
 		}
 		K1[15] = ((L[15] << 1) & 0xfe) ^ rb[15]
 	}
-	printSlice("K1", K1)
-	fmt.Printf("%s", hex.Dump(K1))
-	//dc 84 c2 70 b5 bf 83 f9  6f 90 be 18 8d 3f 64 18
-	//dc 84 c2 70 b5 bf 83 f9  6f 90 be 18 8d 3f 64 18 //33401 test1
+	// printSlice("K1", K1)
+	// fmt.Printf("%s", hex.Dump(K1))
+
 	/* Step 3.  if MSB(k1) is equal to 0 */
 	if K1[0]&0x80 == 0 {
 		for i := 0; i < 15; i++ {
@@ -107,14 +104,13 @@ func GenerateSubkey(key []byte) (K1 []byte, K2 []byte) {
 
 		K2[15] = ((K1[15] << 1) & 0xfe) ^ rb[15]
 	}
-	printSlice("K2", K2)
-	fmt.Printf("%s", hex.Dump(K2))
-	//b9 09 84 e1 6b 7f 07 f2  df 21 7c 31 1a 7e c8 b7
-	//b9 09 84 e1 6b 7f 07 f2  df 21 7c 31 1a 7e c8 b7 //33401 test1
+	// printSlice("K2", K2)
+	// fmt.Printf("%s", hex.Dump(K2))
+
 	return
 }
 
-func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
+func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	x := make([]byte, 16)
 	var flag bool
 	K1 := make([]byte, 16)
@@ -124,8 +120,6 @@ func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
 
 	//  Step 2.  n := ceil(len/const_Bsize);
 	n := (len + 15) / AES_BLOCK_SIZE
-	fmt.Println("len ", len)
-	fmt.Println("n ", n)
 
 	/* Step 3.  if n = 0
 	   then
@@ -152,21 +146,19 @@ func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
 	   else M_last := padding(M_n) XOR K2;
 	*/
 	bs := (n - 1) * AES_BLOCK_SIZE
-	fmt.Println("bs ", bs)
+	// fmt.Println("bs ", bs)
 	var i int32 = 0
 	m_last := make([]byte, 16)
-	printSlice("msg", msg)
-	fmt.Printf("%s", hex.Dump(msg))
-	printSlice("K1", K1)
-	fmt.Printf("%s", hex.Dump(K1))
+	// printSlice("msg", msg)
+	// fmt.Printf("%s", hex.Dump(msg))
+	// printSlice("K1", K1)
+	// fmt.Printf("%s", hex.Dump(K1))
 	//38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
 	//38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
 	if flag {
 		for i = 0; i < 16; i++ {
 			m_last[i] = msg[bs+i] ^ K1[i]
 		}
-		printSlice("m_last", m_last)
-		fmt.Printf("167 %s", hex.Dump(m_last))
 	} else {
 		for i = 0; i < len%AES_BLOCK_SIZE; i++ {
 			m_last[i] = msg[bs+i] ^ K2[i]
@@ -177,8 +169,6 @@ func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
 		for i = i + 1; i < AES_BLOCK_SIZE; i++ {
 			m_last[i] = 0x00 ^ K2[i]
 		}
-		printSlice("m_last", m_last)
-		fmt.Printf("179 %s", hex.Dump(m_last))
 	}
 
 	/* Step 5.  X := const_Zero;  */
@@ -190,17 +180,17 @@ func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
 	   Y := M_last XOR X;
 	   T := AES-128(K,Y);
 	*/
-	printSlice("x", x)
-	fmt.Printf(" %s", hex.Dump(x))
+	// printSlice("x", x)
+	// fmt.Printf(" %s", hex.Dump(x))
 
 	rk := make([]uint32, rtLength(128))
 	var nrounds = aes.AesSetupEnc(rk, key, 128)
-	fmt.Printf("nrounds: %d\n", nrounds)
+	// fmt.Printf("nrounds: %d\n", nrounds)
 	y := make([]byte, 16)
 	var j int32 = 0
-	fmt.Println("msg ", msg)
-	fmt.Printf(" %s", hex.Dump(msg))
-	fmt.Println("n", n)
+	// fmt.Println("msg ", msg)
+	// fmt.Printf(" %s", hex.Dump(msg))
+	// fmt.Println("n", n)
 	for i = 0; i < n-1; i++ {
 		bs = i * AES_BLOCK_SIZE
 
@@ -216,6 +206,6 @@ func AesCmacCalculate(cmac []byte, key []byte, msg []byte, len int32) {
 		y[j] = m_last[j] ^ x[j]
 	}
 	aes.AesEncrypt(rk, nrounds, y, cmac)
-	printSlice("cmac", cmac)
-	fmt.Printf("%s", hex.Dump(cmac))
+	// printSlice("cmac", cmac)
+	// fmt.Printf("%s", hex.Dump(cmac))
 }

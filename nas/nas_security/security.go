@@ -289,7 +289,37 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 
 }
 
-func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte) ([]byte, error) {
+func calZeroBitLen(char byte) (len int32) {
+	// fmt.Printf("char %x\n", char)
+	// if char&0x01 != 0 {
+	// 	return 0
+	// }\
+	for len = 0; char > 0; char >>= 1 {
+		if char%2 == 0 {
+			len++
+		} else {
+			break
+		}
+	}
+
+	// if char&0x01 == 0 {
+	// 	for i := 0; i < 8; i++ {
+	// 		if (char/2)&0x01 == 0 {
+	// 			len++
+	// 			char /= 2
+	// 		} else {
+	// 			len++
+	// 			return len
+	// 		}
+	// 	}
+	// 	return len
+	// } else {
+	// 	return 0
+	// }
+	return
+}
+
+func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte, length int32) ([]byte, error) {
 	if len(KnasInt) != 16 {
 		return nil, fmt.Errorf("Size of KnasEnc[%d] != 16 bytes)", len(KnasInt))
 	}
@@ -310,23 +340,28 @@ func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer
 	case context.ALG_INTEGRITY_128_NIA2:
 		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
 		m := make([]byte, len(msg)+8)
-		printSlice("m", m)
-		fmt.Printf("%s", hex.Dump(m))
+		// printSlice("m", m)
+		// fmt.Printf("%s", hex.Dump(m))
 		//First 32 bits are count
 		copy(m, Count)
 		//Put Bearer and direction together
 		m[4] = (Bearer << 3) | (Direction << 2)
 		copy(m[8:], msg)
-		lenM := int32(len(m))
-		logger.NgapLog.Infoln("lenM", lenM)
+		// var lastBitLen int32
 
-		printSlice("after m", m)
+		// lastBitLen = calZeroBitLen(m[len(m)-1])
+
+		// lenM := (int32(len(m))) * 8 /* -  lastBitLen*/
+		lenM := length
+		// fmt.Printf("lenM %d\n", lastBitLen)
+		// fmt.Printf("lenM %d\n", lenM)
+
+		// printSlice("after m", m)
 		fmt.Printf("%s", hex.Dump(m))
-		// 38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
-		// 38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
+
 		cmac := make([]byte, 16)
 
-		AesCmacCalculate(cmac, KnasInt, m, 16)
+		AesCmacCalculateBlock(cmac, KnasInt, m, lenM)
 		// only get the most significant 32 bits to be mac value
 		return cmac[:4], nil
 
