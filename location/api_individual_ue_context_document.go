@@ -45,5 +45,6 @@ func ProvideLocationInfo(c *gin.Context) {
 
 // ProvidePositioningInfo - Namf_Location ProvidePositioningInfo service Operation
 func ProvidePositioningInfo(c *gin.Context) {
+	logger.CommLog.Warnf("Handle Provide Positioning Info is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }
