@@ -42,7 +42,7 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 	amfSelf := context.AMF_Self()
 
 	if supi != "" {
-		if ue, exists := amfSelf.UePool[supi]; exists {
+		if ue, ok := amfSelf.AmfUeFindBySupi(supi); ok {
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				response = append(response, *ueContext)
@@ -60,7 +60,8 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 			return
 		}
 	} else {
-		for _, ue := range amfSelf.UePool {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue := value.(*context.AmfUe)
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				response = append(response, *ueContext)
@@ -69,7 +70,8 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 			if ueContext != nil {
 				response = append(response, *ueContext)
 			}
-		}
+			return true
+		})
 	}
 
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)

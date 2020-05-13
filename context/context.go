@@ -41,12 +41,10 @@ var amfStatusSubscriptionIDGenerator idGenerator
 
 func init() {
 	AMF_Self().EventSubscriptions = make(map[string]*AMFContextEventSubscription)
-	AMF_Self().UePool = make(map[string]*AmfUe)
 	AMF_Self().GutiPool = make(map[string]*AmfUe)
 	AMF_Self().LadnPool = make(map[string]*LADN)
 	AMF_Self().TmsiPool = make(map[int32]*AmfUe)
 	AMF_Self().RanUePool = make(map[int64]*RanUe)
-	AMF_Self().AmfRanPool = make(map[string]*AmfRan)
 	AMF_Self().RanIdPool = make(map[models.GlobalRanNodeId]*AmfRan)
 	AMF_Self().EventSubscriptionIDGenerator = 1
 	AMF_Self().Name = "amf"
@@ -62,13 +60,13 @@ func init() {
 type AMFContext struct {
 	EventSubscriptionIDGenerator    int
 	EventSubscriptions              map[string]*AMFContextEventSubscription
-	UePool                          map[string]*AmfUe // use imsi as key
+	UePool                          sync.Map // map[supi]*AmfUe
 	GutiPool                        map[string]*AmfUe
 	TmsiPool                        map[int32]*AmfUe // tmsi as key
 	RanIdPool                       map[models.GlobalRanNodeId]*AmfRan
-	RanUePool                       map[int64]*RanUe   // AmfUeNgapId as key
-	AmfRanPool                      map[string]*AmfRan // use remote Addr String as key
-	LadnPool                        map[string]*LADN   // dnn as key
+	RanUePool                       map[int64]*RanUe // AmfUeNgapId as key
+	AmfRanPool                      sync.Map         // map[remoteAddr.String()]*AmfRan
+	LadnPool                        map[string]*LADN // dnn as key
 	SupportTaiLists                 []models.Tai
 	ServedGuamiList                 []models.Guami
 	PlmnSupportList                 []PlmnSupportItem
@@ -215,7 +213,7 @@ func (context *AMFContext) AddAmfUeToUePool(ue *AmfUe, supi string) {
 		logger.ContextLog.Errorf("Supi is nil")
 	}
 	ue.Supi = supi
-	context.UePool[ue.Supi] = ue
+	context.UePool.Store(ue.Supi, ue)
 }
 
 func (context *AMFContext) NewAmfUe(supi string) *AmfUe {
@@ -231,11 +229,19 @@ func (context *AMFContext) NewAmfUe(supi string) *AmfUe {
 	return &ue
 }
 
+func (context *AMFContext) AmfUeFindBySupi(supi string) (ue *AmfUe, ok bool) {
+	if value, loadOk := context.UePool.Load(supi); loadOk {
+		ue = value.(*AmfUe)
+		ok = loadOk
+	}
+	return
+}
+
 func (context *AMFContext) NewAmfRan(conn net.Conn) *AmfRan {
 	ran := AmfRan{}
 	ran.SupportedTAList = make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
-	context.AmfRanPool[conn.RemoteAddr().String()] = &ran
 	ran.Conn = conn
+	context.AmfRanPool.Store(conn.RemoteAddr().String(), &ran)
 	return &ran
 }
 
@@ -255,35 +261,42 @@ func (context *AMFContext) AmfUeFindByGuti(targetGuti string) *AmfUe {
 	return nil
 }
 
-func (context *AMFContext) AmfUeFindByPolicyAssociationId(polAssoId string) *AmfUe {
-	for _, ue := range context.UePool {
-		if ue.PolicyAssociationId == polAssoId {
-			return ue
+func (context *AMFContext) AmfUeFindByPolicyAssociationId(polAssoId string) (ue *AmfUe) {
+	context.UePool.Range(func(key, value interface{}) bool {
+		amfUe := value.(*AmfUe)
+		if amfUe.PolicyAssociationId == polAssoId {
+			ue = amfUe
+			return false
 		}
-	}
-	return nil
+		return true
+	})
+	return
 }
 
-func (context *AMFContext) AmfRanFindByRanId(ranNodeId models.GlobalRanNodeId) *AmfRan {
-
-	for _, amfRan := range context.AmfRanPool { // amfRan = context.AmfRanPool[i]
+func (context *AMFContext) AmfRanFindByRanId(ranNodeId models.GlobalRanNodeId) (ran *AmfRan) {
+	context.AmfRanPool.Range(func(key, value interface{}) bool {
+		amfRan := value.(*AmfRan)
 		switch amfRan.RanPresent {
 		case RanPresentGNbId:
+			logger.ContextLog.Infof("aaa: %+v\n", amfRan.RanId.GNbId)
 			if amfRan.RanId.GNbId.GNBValue == ranNodeId.GNbId.GNBValue {
-				return amfRan
+				ran = amfRan
+				return false
 			}
 		case RanPresentNgeNbId:
 			if amfRan.RanId.NgeNbId == ranNodeId.NgeNbId {
-				return amfRan
+				ran = amfRan
+				return false
 			}
 		case RanPresentN3IwfId:
 			if amfRan.RanId.N3IwfId == ranNodeId.N3IwfId {
-				return amfRan
+				ran = amfRan
+				return false
 			}
 		}
-	}
-
-	return nil
+		return true
+	})
+	return
 }
 
 func (context *AMFContext) RanUeFindByAmfUeNgapID(amfUeNgapID int64) *RanUe {
@@ -327,9 +340,10 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 
 // Reset AMF Context
 func (context *AMFContext) Reset() {
-	for key := range context.AmfRanPool {
-		delete(context.AmfRanPool, key)
-	}
+	context.AmfRanPool.Range(func(key, value interface{}) bool {
+		context.UePool.Delete(key)
+		return true
+	})
 	for key := range context.GutiPool {
 		delete(context.GutiPool, key)
 	}
@@ -339,9 +353,10 @@ func (context *AMFContext) Reset() {
 	for key := range context.RanUePool {
 		delete(context.RanUePool, key)
 	}
-	for key := range context.UePool {
-		delete(context.UePool, key)
-	}
+	context.UePool.Range(func(key, value interface{}) bool {
+		context.UePool.Delete(key)
+		return true
+	})
 	for key := range context.TmsiPool {
 		delete(context.TmsiPool, key)
 	}

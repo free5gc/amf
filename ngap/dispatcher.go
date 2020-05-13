@@ -15,11 +15,15 @@ func init() {
 }
 
 func Dispatch(addr string, msg []byte) {
-	ran, ok := context.AMF_Self().AmfRanPool[addr]
+	var ran *context.AmfRan
+
+	value, ok := context.AMF_Self().AmfRanPool.Load(addr)
 	if !ok {
 		Ngaplog.Errorf("Cannot find the coressponding RAN Context\n")
 		return
 	}
+	ran = value.(*context.AmfRan)
+
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
 		Ngaplog.Errorf("NGAP decode error : %s\n", err)

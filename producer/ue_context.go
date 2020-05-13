@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
 	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/consumer"
@@ -11,25 +12,27 @@ import (
 	"strings"
 )
 
-func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.CreateUeContextRequest) {
-	var response models.CreateUeContextResponse
+// TS 29.518 5.2.2.2.3
+func HandleCreateUeContextRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	var createUeContextResponse models.CreateUeContextResponse
 	var rspErr models.UeContextCreateError
 	var problem models.ProblemDetails
 	amfSelf := context.AMF_Self()
 
-	ueContextCreateData := body.JsonData
+	createUeContextRequest := request.Body.(models.CreateUeContextRequest)
+	ueContextID := request.Params["ueContextId"]
+	ueContextCreateData := createUeContextRequest.JsonData
 
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil || ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil || ueContextCreateData.N2NotifyUri == "" {
 		{
 			rspErr.Error = &problem
 			problem.Status = 403
 			problem.Cause = "HANDOVER_FAILURE"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, rspErr)
-			return
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, rspErr)
 		}
 	}
 	// create the UE context in target amf
-	ue := amfSelf.NewAmfUe(ueContextId)
+	ue := amfSelf.NewAmfUe(ueContextID)
 	if err := gmm.InitAmfUeSm(ue); err != nil {
 		HttpLog.Errorf("InitAmfUeSm error: %v", err.Error())
 	}
@@ -48,7 +51,7 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
-	ue.N1N2MessageSubscribeInfo[ueContextId] = &models.UeN1N2InfoSubscriptionCreateData{
+	ue.N1N2MessageSubscribeInfo[ueContextID] = &models.UeN1N2InfoSubscriptionCreateData{
 		N2NotifyCallbackUri: ueContextCreateData.N2NotifyUri,
 	}
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
@@ -90,15 +93,15 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 	//ueContextCreateData.UeContext.MmContextList
 	//ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
 	//ue.TraceData = ueContextCreateData.UeContext.TraceData
-	response.JsonData = &models.UeContextCreatedData{
+	createUeContextResponse.JsonData = &models.UeContextCreatedData{
 		UeContext: &models.UeContext{
 			Supi: ueContextCreateData.UeContext.Supi,
 		},
 	}
 
 	// response.JsonData.TargetToSourceData = ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	response.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-	response.JsonData.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+	createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
+	createUeContextResponse.JsonData.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 
 	//response.UeContext = ueContextCreateData.UeContext
 	//response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
@@ -106,15 +109,17 @@ func HandleCreateUeContextRequest(httpChannel chan amf_message.HandlerResponseMe
 	//response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 	//
 
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusCreated, response)
+	return http_wrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
 }
 
-func HandleUEContextReleaseRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeContextRelease) {
+// TS 29.518 5.2.2.2.4
+func HandleReleaseUEContextRequest(request *http_wrapper.Request) *http_wrapper.Response {
 	var problem models.ProblemDetails
 	var ue *context.AmfUe
 	var ok bool
 	amfSelf := context.AMF_Self()
-	ueContextRelease := body
+	ueContextRelease := request.Body.(models.UeContextRelease)
+	ueContextID := request.Params["ueContextId"]
 
 	// emergency handle
 	if ueContextRelease.Supi != "" {
@@ -123,25 +128,25 @@ func HandleUEContextReleaseRequest(httpChannel chan amf_message.HandlerResponseM
 		}
 	}
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
-			problem.Status = 404
+	if strings.HasPrefix(ueContextID, "imsi") {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextID); !ok {
+			problem.Status = http.StatusNotFound
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusNotFound, nil, problem)
 		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
-			if ue1.Pei == ueContextId {
+	} else if strings.HasPrefix(ueContextID, "imei") {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue1 := value.(*context.AmfUe)
+			if ue1.Pei == ueContextID {
 				ue = ue1
-				break
+				return false
 			}
-		}
+			return true
+		})
 		if ue == nil {
-			problem.Status = 403
+			problem.Status = http.StatusForbidden
 			problem.Cause = "SUPI_OR_PEI_UNKNOWN"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
 	}
 	if ue != nil {
@@ -154,64 +159,64 @@ func HandleUEContextReleaseRequest(httpChannel chan amf_message.HandlerResponseM
 	//	}
 	//}
 	//ueContextRelease.NgapCause.Value
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
+	return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 }
 
-func HandleUEContextTransferRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeContextTransferRequest) {
-	var response models.UeContextTransferResponse
-
+// TS 29.518 5.2.2.2.1
+func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	var responseBody models.UeContextTransferResponse
 	var problem models.ProblemDetails
 	var ue *context.AmfUe
 	var ok bool
 	amfSelf := context.AMF_Self()
 
-	if body.JsonData == nil {
-		problem.Status = 403
+	ueContextTransferRequest := request.Body.(models.UeContextTransferRequest)
+	ueContextID := request.Params["ueContextId"]
+
+	if ueContextTransferRequest.JsonData == nil {
+		problem.Status = http.StatusForbidden
 		problem.Cause = "CONTEXT_NOT_FOUND"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-		return
+		return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 	}
-	UeContextTransferReqData := body.JsonData
+	UeContextTransferReqData := ueContextTransferRequest.JsonData
 
 	if UeContextTransferReqData.AccessType == "" || UeContextTransferReqData.Reason == "" {
-		problem.Status = 403
+		problem.Status = http.StatusForbidden
 		problem.Cause = "CONTEXT_NOT_FOUND"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-		return
+		return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 	}
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
-			problem.Status = 403
+	if strings.HasPrefix(ueContextID, "imsi") {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextID); !ok {
+			problem.Status = http.StatusForbidden
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
-			if ue1.Pei == ueContextId {
+	} else if strings.HasPrefix(ueContextID, "imei") {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue1 := value.(*context.AmfUe)
+			if ue1.Pei == ueContextID {
 				ue = ue1
-				break
+				return false
 			}
-		}
+			return true
+		})
 		if ue == nil {
-			problem.Status = 403
+			problem.Status = http.StatusForbidden
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
-	} else if strings.HasPrefix(ueContextId, "5g-guti") {
-		guti := ueContextId[strings.LastIndex(ueContextId, "-")+1:]
+	} else if strings.HasPrefix(ueContextID, "5g-guti") {
+		guti := ueContextID[strings.LastIndex(ueContextID, "-")+1:]
 		if ue, ok = amfSelf.GutiPool[guti]; !ok {
-			problem.Status = 403
+			problem.Status = http.StatusForbidden
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
 	}
 
-	response.JsonData = new(models.UeContextTransferRspData)
-	ueContextTransferRspData := response.JsonData
+	responseBody.JsonData = new(models.UeContextTransferRspData)
+	ueContextTransferRspData := responseBody.JsonData
 
 	if ue != nil {
 		if ue.GetAnType() != UeContextTransferReqData.AccessType {
@@ -306,15 +311,15 @@ func HandleUEContextTransferRequest(httpChannel chan amf_message.HandlerResponse
 				},
 			}
 			b := []byte(ue.UeRadioCapability)
-			copy(response.BinaryDataN2Information, b)
+			copy(responseBody.BinaryDataN2Information, b)
 		} else {
 			logger.ProducerLog.Errorln("error Reason")
-			problem.Status = 403
+			problem.Status = http.StatusForbidden
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
+			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
 	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
+	return http_wrapper.NewResponse(http.StatusOK, nil, responseBody)
 }
 
 func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.AssignEbiData) {
@@ -327,7 +332,7 @@ func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMess
 	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			assignEbiError.Error = &problem
@@ -338,12 +343,14 @@ func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMess
 			return
 		}
 	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue1 := value.(*context.AmfUe)
 			if ue1.Pei == ueContextId {
 				ue = ue1
-				break
+				return false
 			}
-		}
+			return true
+		})
 		if ue == nil {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"

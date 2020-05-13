@@ -283,7 +283,7 @@ func (ue *AmfUe) Remove() {
 		}
 	}
 	if len(ue.Supi) > 0 {
-		delete(AMF_Self().UePool, ue.Supi)
+		AMF_Self().UePool.Delete(ue.Supi)
 	}
 	delete(AMF_Self().TmsiPool, ue.Tmsi)
 	delete(AMF_Self().GutiPool, ue.Guti)

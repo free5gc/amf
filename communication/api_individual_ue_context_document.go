@@ -15,6 +15,7 @@ import (
 	"free5gc/lib/openapi/models"
 	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
@@ -47,19 +48,13 @@ func CreateUEContext(c *gin.Context) {
 
 	req := http_wrapper.NewRequest(c.Request, request)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleCreateUeContextRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventCreateUEContext, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-	if HTTPResponse.Status == http.StatusCreated {
-		c.Render(HTTPResponse.Status, openapi.MultipartRelatedRender{Data: HTTPResponse.Body})
+	if rsp.Status == http.StatusCreated {
+		c.Render(rsp.Status, openapi.MultipartRelatedRender{Data: rsp.Body})
 	} else {
-		c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+		c.JSON(rsp.Status, rsp.Body)
 	}
-
 }
 
 // EBIAssignment - Namf_Communication EBI Assignment service Operation
@@ -124,9 +119,9 @@ func RegistrationStatusUpdate(c *gin.Context) {
 
 // ReleaseUEContext - Namf_Communication ReleaseUEContext service Operation
 func ReleaseUEContext(c *gin.Context) {
-	var request models.UeContextRelease
+	var ueContextRelease models.UeContextRelease
 
-	err := c.ShouldBindJSON(&request)
+	err := c.ShouldBindJSON(&ueContextRelease)
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -139,18 +134,11 @@ func ReleaseUEContext(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, ueContextRelease)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleReleaseUEContextRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventUEContextRelease, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	c.JSON(rsp.Status, rsp.Body)
 }
 
 // UEContextTransfer - Namf_Communication UEContextTransfer service Operation
@@ -180,16 +168,11 @@ func UEContextTransfer(c *gin.Context) {
 
 	req := http_wrapper.NewRequest(c.Request, request)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleUEContextTransferRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventUEContextTransfer, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-	if HTTPResponse.Status == http.StatusOK {
-		c.Render(HTTPResponse.Status, openapi.MultipartRelatedRender{Data: HTTPResponse.Body})
+	if rsp.Status == http.StatusOK {
+		c.Render(rsp.Status, openapi.MultipartRelatedRender{Data: rsp.Body})
 	} else {
-		c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+		c.JSON(rsp.Status, rsp.Body)
 	}
 }

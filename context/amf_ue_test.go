@@ -14,11 +14,11 @@ import (
 func TestAmfKdf(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.ABBA = []uint8{0x00, 0x00}
 	ue.Kamf = strings.Repeat("1", 64)
-	ue.CipheringAlg = amf_context.ALG_CIPHERING_128_NEA2
-	ue.IntegrityAlg = amf_context.ALG_INTEGRITY_128_NIA2
+	ue.CipheringAlg = context.ALG_CIPHERING_128_NEA2
+	ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA2
 	ue.ULCountOverflow = 0x0011
 	ue.ULCountSQN = 0x02
 	count := ue.GetSecurityULCount()

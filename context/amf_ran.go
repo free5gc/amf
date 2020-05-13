@@ -40,10 +40,9 @@ func NewSupportedTAI() (tai SupportedTAI) {
 
 func (ran *AmfRan) Remove(key string) {
 	ran.RemoveAllUeInRan()
-	delete(AMF_Self().AmfRanPool, key)
+	AMF_Self().AmfRanPool.Delete(key)
 	if ran.RanId != nil {
 		delete(AMF_Self().RanIdPool, *ran.RanId)
-
 	}
 }
 

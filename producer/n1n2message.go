@@ -30,19 +30,21 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, transferErr)
 			return
 		}
 	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue1 := value.(*context.AmfUe)
 			if ue1.Pei == ueContextId {
 				ue = ue1
-				break
+				return false
 			}
-		}
+			return true
+		})
 		if ue == nil {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
@@ -279,19 +281,21 @@ func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.Handler
 	amfSelf := context.AMF_Self()
 	if strings.HasPrefix(ueContextId, "imsi") {
 
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
 			return
 		}
 	} else if strings.HasPrefix(ueContextId, "imei") {
-		for _, ue1 := range amfSelf.UePool {
+		amfSelf.UePool.Range(func(key, value interface{}) bool {
+			ue1 := value.(*context.AmfUe)
 			if ue1.Pei == ueContextId {
 				ue = ue1
-				break
+				return false
 			}
-		}
+			return true
+		})
 		if ue == nil {
 			problem.Status = 404
 			problem.Cause = "CONTEXT_NOT_FOUND"
@@ -318,7 +322,7 @@ func HandleN1N2MessageSubscirbeRequest(httpChannel chan amf_message.HandlerRespo
 	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
 			ue = amfSelf.NewAmfUe(ueContextId)
 			if err := gmm.InitAmfUeSm(ue); err != nil {
 				HttpLog.Errorf("InitAmfUeSm error: %v", err.Error())
@@ -341,7 +345,7 @@ func HandleN1N2MessageUnSubscribeRequest(httpChannel chan amf_message.HandlerRes
 	amfSelf := context.AMF_Self()
 
 	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.UePool[ueContextId]; !ok {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); ok {
 			_, ok := ue.N1N2MessageSubscribeInfo[subscriptionId]
 			if ok {
 				delete(ue.N1N2MessageSubscribeInfo, subscriptionId)

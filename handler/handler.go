@@ -41,10 +41,11 @@ func Handle() {
 
 				case amf_message.EventNGAPCloseConn:
 					amfSelf := context.AMF_Self()
-					ran, ok := amfSelf.AmfRanPool[msg.NgapAddr]
+					value, ok := amfSelf.AmfRanPool.Load(msg.NgapAddr)
 					if !ok {
 						HandlerLog.Warn("Cannot find the coressponding RAN Context\n")
 					} else {
+						ran := value.(*context.AmfRan)
 						ran.Remove(msg.NgapAddr)
 					}
 				case amf_message.EventGMMT3513:
@@ -200,19 +201,10 @@ func Handle() {
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
 					producer.HandleN1N2MessageUnSubscribeRequest(msg.ResponseChan, ueContextId, subscriptionId)
-				case amf_message.EventCreateUEContext:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleCreateUeContextRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.CreateUeContextRequest))
 				case amf_message.EventSmContextStatusNotify:
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
 					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
-				case amf_message.EventUEContextRelease:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleUEContextReleaseRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextRelease))
-				case amf_message.EventUEContextTransfer:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleUEContextTransferRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextTransferRequest))
 				case amf_message.EventEBIAssignment:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))

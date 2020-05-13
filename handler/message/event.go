@@ -12,10 +12,7 @@ const (
 	EventProvideLocationInfo
 	EventN1N2MessageSubscribe
 	EventN1N2MessageUnSubscribe
-	EventCreateUEContext
 	EventSmContextStatusNotify
-	EventUEContextRelease
-	EventUEContextTransfer
 	EventEBIAssignment
 	EventGMMT3513
 	EventGMMT3565
