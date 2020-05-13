@@ -49,7 +49,7 @@ func TestProvideLocationInfo(t *testing.T) {
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(100 * time.Millisecond)
 	configuration := Namf_Loc_Clinet.NewConfiguration()
-	configuration.SetBasePath("https://127.0.0.1:29518")
+	configuration.SetBasePath("http://127.0.0.1:29518")
 	client := Namf_Loc_Clinet.NewAPIClient(configuration)
 	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 	ue.Supi = "imsi-2089300007487"
