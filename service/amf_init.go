@@ -22,15 +22,16 @@ import (
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
 	"free5gc/src/app"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
 	"os"
 	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 type AMF struct{}
@@ -160,10 +161,25 @@ func (amf *AMF) Start() {
 	}()
 
 	server, err := http2_util.NewServer(addr, util.AmfLogPath, router)
-	if err == nil && server != nil {
-		initLog.Infoln(server.ListenAndServeTLS(util.AmfPemPath, util.AmfKeyPath))
-	} else {
-		initLog.Fatalf("Initialize http2 server failed: %+v", err)
+
+	if server == nil {
+		initLog.Errorln("Initialize HTTP server failed: %+v", err)
+		return
+	}
+
+	if err != nil {
+		initLog.Warnln("Initialize HTTP server: +%v", err)
+	}
+
+	serverScheme := factory.AmfConfig.Configuration.Sbi.Scheme
+	if serverScheme == "http" {
+		err = server.ListenAndServe()
+	} else if serverScheme == "https" {
+		err = server.ListenAndServeTLS(util.AmfPemPath, util.AmfKeyPath)
+	}
+
+	if err != nil {
+		initLog.Fatalln("HTTP server setup failed: %+v", err)
 	}
 }
 
