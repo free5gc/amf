@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	// "free5gc/lib/UeauCommon"
+	"free5gc/lib/milenage"
 	"free5gc/lib/nas"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
@@ -256,4 +258,49 @@ func TestAesCmac(t *testing.T) {
 	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
 	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
 	return
+}
+
+func TestGenKey(t *testing.T) {
+	TestAmf.AmfInit2()
+	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
+	ue := TestAmf.TestAmf.UePool["imsi-466110000012345"]
+
+	ue.DerivateAlgKey()
+	ue.DLCount = 0
+
+	var K_str, OP_str string
+	K, OP, OPC := make([]byte, 16), make([]byte, 16), make([]byte, 16)
+
+	K_str = "000102030405060708090a0b0c0d0e0f"
+	K, _ = hex.DecodeString(K_str)
+
+	OP_str = "00112233445566778899aabbccddeeff" // CHT
+	OP, _ = hex.DecodeString(OP_str)
+
+	milenage.GenerateOPC(K, OP, OPC)
+
+	RAND := make([]byte, 16)
+	// RAND, _ = hex.DecodeString("ce4c64492743479a5f0f41afd04f39a8") //CHT Test
+	RAND, _ = hex.DecodeString("dee4cbadadae5334a0e127c02cf2c033")
+	AMF, _ := hex.DecodeString("8000")
+	// fmt.Printf("RAND=%x\nAMF=%x\n", RAND, AMF)
+	AUTN := make([]byte, 16)
+	// AUTN, _ = hex.DecodeString("e44b99db59128000e3ca8751c57f5f5a")
+
+	SQN := make([]byte, 6)
+	SQN, _ = hex.DecodeString("16f3b3f70fc2")
+	MAC_A, MAC_S := make([]byte, 8), make([]byte, 8)
+	CK, IK := make([]byte, 16), make([]byte, 16)
+	RES := make([]byte, 8)
+	AK, AKstar := make([]byte, 6), make([]byte, 6)
+	milenage.F2345_Test(OPC, K, RAND, RES, CK, IK, AK, AKstar)
+	milenage.F1_Test(OPC, K, RAND, SQN, AMF, MAC_A, MAC_S)
+	SQNxorAK := make([]byte, 6)
+	for i := 0; i < len(SQN); i++ {
+		SQNxorAK[i] = SQN[i] ^ AK[i]
+	}
+	AUTN = append(append(SQNxorAK, AMF...), MAC_A...)
+	// fmt.Printf("AUTN = %x\n", AUTN)
+	fmt.Printf("AUTN %s", hex.Dump(AUTN))
+	fmt.Printf("MAC_A %s", hex.Dump(MAC_A))
 }
