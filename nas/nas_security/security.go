@@ -289,35 +289,7 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 
 }
 
-func calZeroBitLen(char byte) (len int32) {
-	// fmt.Printf("char %x\n", char)
-	// if char&0x01 != 0 {
-	// 	return 0
-	// }\
-	for len = 0; char > 0; char >>= 1 {
-		if char%2 == 0 {
-			len++
-		} else {
-			break
-		}
-	}
 
-	// if char&0x01 == 0 {
-	// 	for i := 0; i < 8; i++ {
-	// 		if (char/2)&0x01 == 0 {
-	// 			len++
-	// 			char /= 2
-	// 		} else {
-	// 			len++
-	// 			return len
-	// 		}
-	// 	}
-	// 	return len
-	// } else {
-	// 	return 0
-	// }
-	return
-}
 
 func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte, length int32) ([]byte, error) {
 	if len(KnasInt) != 16 {
