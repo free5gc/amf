@@ -5,6 +5,7 @@ package nas_security
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/hex"
 	"fmt"
 	"free5gc/lib/nas"
 	"free5gc/src/amf/context"
@@ -70,7 +71,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		}
 		if ciphering {
 			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_ONLY_ONE_BEARER,
+			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
 				return
 			}
@@ -79,7 +80,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		payload = append([]byte{sequenceNumber}, payload[:]...)
 		mac32 := make([]byte, 4)
 		if integrityProtected {
-			mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_ONLY_ONE_BEARER, context.SECURITY_DIRECTION_DOWNLINK, payload)
+			mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload)
 			if err != nil {
 				return
 			}
@@ -163,7 +164,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		ue.ULCountSQN = sequenceNumber
 		if integrityProtected {
 			// ToDo: use real mac calculate
-			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_ONLY_ONE_BEARER,
+			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_UPLINK, payload)
 			if err != nil {
 				ue.MacFailed = true
@@ -179,7 +180,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 
 		if ciphering {
 			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_ONLY_ONE_BEARER,
+			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_UPLINK, payload); err != nil {
 				return
 			}
@@ -276,6 +277,58 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 		if err != nil {
 			return nil, err
 		}
+		// only get the most significant 32 bits to be mac value
+		return cmac[:4], nil
+
+	case context.ALG_INTEGRITY_128_NIA3:
+		logger.NgapLog.Errorf("NEA3 not implement yet.")
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("Unknown Algorithm Identity[%d]", AlgoID)
+	}
+
+}
+
+func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte, length int32) ([]byte, error) {
+	if len(KnasInt) != 16 {
+		return nil, fmt.Errorf("Size of KnasEnc[%d] != 16 bytes)", len(KnasInt))
+	}
+	if Bearer > 0x1f {
+		return nil, fmt.Errorf("Bearer is beyond 5 bits")
+	}
+	if Direction > 1 {
+		return nil, fmt.Errorf("Direction is beyond 1 bits")
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("Nas Payload is nil")
+	}
+
+	switch AlgoID {
+	case context.ALG_INTEGRITY_128_NIA1:
+		logger.NgapLog.Errorf("NEA1 not implement yet.")
+		return nil, nil
+	case context.ALG_INTEGRITY_128_NIA2:
+		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
+		m := make([]byte, len(msg)+8)
+
+		//First 32 bits are count
+		copy(m, Count)
+		//Put Bearer and direction together
+		m[4] = (Bearer << 3) | (Direction << 2)
+		copy(m[8:], msg)
+		// var lastBitLen int32
+
+		// lenM := (int32(len(m))) * 8 /* -  lastBitLen*/
+		lenM := length
+		// fmt.Printf("lenM %d\n", lastBitLen)
+		// fmt.Printf("lenM %d\n", lenM)
+
+		logger.NasLog.Debugln("NasMacCalculateByAesCmac", hex.Dump(m))
+		logger.NasLog.Debugln("len(m) \n", len(m))
+
+		cmac := make([]byte, 16)
+
+		AesCmacCalculateBit(cmac, KnasInt, m, lenM)
 		// only get the most significant 32 bits to be mac value
 		return cmac[:4], nil
 

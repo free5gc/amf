@@ -11,6 +11,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
 	"reflect"
+	"regexp"
 	"time"
 )
 
@@ -382,7 +383,14 @@ func (ue *AmfUe) SecurityContextIsValid() bool {
 // Kamf Derivation function defined in TS 33.501 Annex A.7
 func (ue *AmfUe) DerivateKamf() {
 
-	P0 := []byte(ue.Supi)
+	supiRegexp, _ := regexp.Compile("(?:imsi|supi)-([0-9]{5,15})")
+	groups := supiRegexp.FindStringSubmatch(ue.Supi)
+	if groups == nil {
+		logger.NasLog.Errorln("supi is not correct")
+		return
+	}
+
+	P0 := []byte(groups[1])
 	L0 := UeauCommon.KDFLen(P0)
 	P1 := ue.ABBA
 	L1 := UeauCommon.KDFLen(P1)
