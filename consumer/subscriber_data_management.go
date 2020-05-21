@@ -2,10 +2,11 @@ package consumer
 
 import (
 	"context"
-	"free5gc/lib/Nudm_SubscriberDataManagement"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Nudm_SubscriberDataManagement"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
+
 	"github.com/antihax/optional"
 )
 
@@ -44,10 +45,10 @@ func SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }
@@ -69,10 +70,10 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 
 	return
@@ -92,10 +93,10 @@ func SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.Pro
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 
 	return
@@ -121,10 +122,10 @@ func SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }
@@ -164,10 +165,10 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }

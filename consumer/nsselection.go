@@ -3,10 +3,11 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"free5gc/lib/Nnssf_NSSelection"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Nnssf_NSSelection"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
+
 	"github.com/antihax/optional"
 )
 
@@ -37,10 +38,10 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("NSSF No Response")
+		err = openapi.ReportError("NSSF No Response")
 	}
 
 	return
@@ -69,10 +70,10 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (r
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("NSSF No Response")
+		err = openapi.ReportError("NSSF No Response")
 	}
 
 	return

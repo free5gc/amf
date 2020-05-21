@@ -4,7 +4,7 @@ import (
 	"context"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
-	Namf_Communication_Client "free5gc/lib/Namf_Communication"
+	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 
 	"log"

@@ -2,8 +2,8 @@ package consumer
 
 import (
 	"context"
-	"free5gc/lib/Npcf_AMPolicy"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Npcf_AMPolicy"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
@@ -65,10 +65,10 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (pro
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }
@@ -102,10 +102,10 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }
@@ -124,10 +124,10 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 
 	return

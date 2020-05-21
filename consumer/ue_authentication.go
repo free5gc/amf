@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"free5gc/lib/Nausf_UEAuthentication"
 	"free5gc/lib/nas/nasType"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Nausf_UEAuthentication"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
-	"github.com/antihax/optional"
 	"net/url"
 	"strconv"
+
+	"github.com/antihax/optional"
 )
 
 func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe, resynchronizationInfo *models.ResynchronizationInfo) (response *models.UeAuthenticationCtx, problemDetails *models.ProblemDetails, err1 error) {
@@ -39,10 +40,10 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe, resynchroniz
 			err1 = err
 			return
 		}
-		problem := err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err1 = common.ReportError("server no response")
+		err1 = openapi.ReportError("server no response")
 	}
 	return
 }
@@ -72,11 +73,11 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (respons
 		}
 		switch httpResponse.StatusCode {
 		case 400, 500:
-			problem := err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			problemDetails = &problem
 		}
 	} else {
-		err1 = common.ReportError("server no response")
+		err1 = openapi.ReportError("server no response")
 	}
 
 	return
@@ -107,11 +108,11 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 		}
 		switch httpResponse.StatusCode {
 		case 400, 500:
-			problem := err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			problemDetails = &problem
 		}
 	} else {
-		err1 = common.ReportError("server no response")
+		err1 = openapi.ReportError("server no response")
 	}
 
 	return

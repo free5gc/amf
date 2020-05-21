@@ -3,9 +3,9 @@ package location_test
 import (
 	"context"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	Namf_Loc_Clinet "free5gc/lib/Namf_Location"
 	"free5gc/lib/http2_util"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	Namf_Loc_Clinet "free5gc/lib/openapi/Namf_Location"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	Namf_Loc_Server "free5gc/src/amf/location"
@@ -26,7 +26,7 @@ func sendRequestAndPrintResult(client *Namf_Loc_Clinet.APIClient, supi string, r
 			log.Panic(err)
 		} else {
 			var probelmDetail models.ProblemDetails
-			probelmDetail = err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			probelmDetail = err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			TestAmf.Config.Dump(probelmDetail)
 		}
 	} else {

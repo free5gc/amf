@@ -12,13 +12,13 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AUSF/TestUEAuth"
 	"free5gc/lib/CommonConsumerTestData/UDM/TestGenAuthData"
 	"free5gc/lib/MongoDBLibrary"
-	"free5gc/lib/Namf_Communication"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasTestpacket"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/amf_handler"
@@ -185,10 +185,10 @@ func sendN1N2Transfer(client *Namf_Communication.APIClient, supi string, request
 		} else if err.Error() != httpResponse.Status {
 			log.Panic(err)
 		} else if httpResponse.StatusCode == 504 || httpResponse.StatusCode == 409 {
-			transferError := err.(common.GenericOpenAPIError).Model().(models.N1N2MessageTransferError)
+			transferError := err.(openapi.GenericOpenAPIError).Model().(models.N1N2MessageTransferError)
 			TestAmf.Config.Dump(transferError)
 		} else {
-			probelmDetail := err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			probelmDetail := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			TestAmf.Config.Dump(probelmDetail)
 		}
 	} else {

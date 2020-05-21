@@ -2,7 +2,7 @@ package callback
 
 import (
 	"context"
-	"free5gc/lib/Namf_Communication"
+	"free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
