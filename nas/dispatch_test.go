@@ -28,13 +28,14 @@ import (
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
 	ausf_context "free5gc/src/ausf/context"
-	"free5gc/src/ausf/handler"
+	ausf_handler "free5gc/src/ausf/handler"
 	"free5gc/src/ausf/producer"
 	Nausf_UEAU "free5gc/src/ausf/ueauthentication"
 	"free5gc/src/nrf/nrf_handler"
 	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
-	"free5gc/src/udm/udm_handler"
+	udm_handler "free5gc/src/udm/handler"
+	Nudm_UEAU "free5gc/src/udm/ueauthentication"
 	"log"
 	"net/http"
 	"testing"
@@ -77,7 +78,7 @@ func ausfInit() {
 		}
 	}()
 
-	go handler.Handle()
+	go ausf_handler.Handle()
 }
 
 func udmInit() {
