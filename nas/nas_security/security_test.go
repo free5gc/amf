@@ -9,7 +9,7 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/nas/nas_security"
 	"free5gc/src/amf/ngap/message"
@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	go amf_handler.Handle()
+	go handler.Handle()
 
 	TestAmf.SctpSever()
 

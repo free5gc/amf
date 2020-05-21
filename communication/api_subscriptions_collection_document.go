@@ -12,7 +12,7 @@ package communication
 import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/handler/amf_message"
 	"free5gc/src/amf/logger"
 	"github.com/gin-gonic/gin"
 	"net/http"

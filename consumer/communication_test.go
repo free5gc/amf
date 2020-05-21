@@ -9,11 +9,11 @@ import (
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
+	"free5gc/src/amf/handler"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -30,7 +30,7 @@ func TestCreateUEContextRequest(t *testing.T) {
 			assert.True(t, err == nil)
 		}()
 
-		go amf_handler.Handle()
+		go handler.Handle()
 		TestAmf.AmfInit()
 		time.Sleep(100 * time.Millisecond)
 	}

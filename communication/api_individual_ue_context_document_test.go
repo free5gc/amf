@@ -8,10 +8,10 @@ import (
 	"free5gc/lib/openapi"
 	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	Namf_Communication_Server "free5gc/src/amf/communication"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
+	"free5gc/src/amf/handler"
 	"log"
 	"testing"
 	"time"
@@ -105,7 +105,7 @@ func TestCreateUEContext(t *testing.T) {
 			assert.True(t, err == nil)
 		}()
 
-		go amf_handler.Handle()
+		go handler.Handle()
 		TestAmf.AmfInit()
 		time.Sleep(100 * time.Millisecond)
 	}

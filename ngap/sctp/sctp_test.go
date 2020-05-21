@@ -3,7 +3,7 @@ package sctp_test
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	"net"
 	"runtime"
 	"testing"
@@ -20,7 +20,7 @@ var testClientNum = 2
 func TestSctpServer(t *testing.T) {
 	runtime.GOMAXPROCS(20)
 
-	go amf_handler.Handle()
+	go handler.Handle()
 	time.Sleep(200 * time.Microsecond)
 
 	sctp.Server("127.0.0.1")

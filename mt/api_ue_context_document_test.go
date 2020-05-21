@@ -7,7 +7,7 @@ import (
 	"free5gc/lib/openapi"
 	Namf_MT_Clinet "free5gc/lib/openapi/Namf_MT"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	Namf_MT_Server "free5gc/src/amf/mt"
 	"log"
 	"testing"
@@ -43,7 +43,7 @@ func TestProvideDomainSelectionInfo(t *testing.T) {
 		}
 		assert.True(t, err == nil, err.Error())
 	}()
-	go amf_handler.Handle()
+	go handler.Handle()
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(100 * time.Millisecond)

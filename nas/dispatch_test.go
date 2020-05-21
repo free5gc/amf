@@ -21,7 +21,7 @@ import (
 	"free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/gmm/state"
@@ -162,7 +162,7 @@ func smfInit() {
 
 func init() {
 
-	go amf_handler.Handle()
+	go handler.Handle()
 	time.Sleep(10 * time.Millisecond)
 	go nrf_handler.Handle()
 

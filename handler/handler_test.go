@@ -1,18 +1,18 @@
-package amf_handler_test
+package handler_test
 
 import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/ngap"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
-	"free5gc/src/amf/amf_handler/amf_message"
+	"free5gc/src/amf/handler"
+	"free5gc/src/amf/handler/amf_message"
 	"free5gc/src/test/ngapTestpacket"
 	"testing"
 	"time"
 )
 
 func TestHandler(t *testing.T) {
-	go amf_handler.Handle()
+	go handler.Handle()
 	TestAmf.SctpSever()
 	TestAmf.AmfInit()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)

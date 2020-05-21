@@ -8,8 +8,8 @@ import (
 	"free5gc/lib/http2_util"
 	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	Namf_Communication_Server "free5gc/src/amf/communication"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/producer/callback"
 	"log"
 	"net/http"
@@ -47,7 +47,7 @@ func TestAMFStatusChangeSubscribe(t *testing.T) {
 			assert.True(t, err == nil)
 		}()
 
-		go amf_handler.Handle()
+		go handler.Handle()
 		TestAmf.AmfInit()
 		time.Sleep(100 * time.Millisecond)
 	}
