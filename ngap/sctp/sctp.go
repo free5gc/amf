@@ -1,7 +1,7 @@
 package sctp
 
 import (
-	"free5gc/src/amf/handler/amf_message"
+	amf_message "free5gc/src/amf/handler/message"
 	"git.cs.nctu.edu.tw/calee/sctp"
 	"net"
 	"sync"

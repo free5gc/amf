@@ -5,7 +5,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/timer"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/handler/amf_message"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 )
 
