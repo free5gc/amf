@@ -297,7 +297,7 @@ func AesCmacCalculateBit(cmac []byte, key []byte, msg []byte, length int32) {
 			}
 			msg = append(msg, concatSlice...)
 			// fmt.Println("after append len(msg)", len(msg))
-			// msg[len(msg)-shiftSize-1] = msg[len(msg)-shiftSize-1] | 1<<(j%8)
+			msg[len(msg)-shiftSize-1] = msg[len(msg)-shiftSize-1] | 1<<(j%8)
 			// printSlice("after msg", msg)
 			// fmt.Printf("%s", hex.Dump(msg))
 		}
