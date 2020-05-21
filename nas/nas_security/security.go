@@ -71,7 +71,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		}
 		if ciphering {
 			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_ONLY_ONE_BEARER,
+			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
 				return
 			}
@@ -80,7 +80,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		payload = append([]byte{sequenceNumber}, payload[:]...)
 		mac32 := make([]byte, 4)
 		if integrityProtected {
-			mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_ONLY_ONE_BEARER, context.SECURITY_DIRECTION_DOWNLINK, payload)
+			mac32, err = NasMacCalculateByAesCmac(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload, int32(len(payload)*8))
 			if err != nil {
 				return
 			}
@@ -164,8 +164,8 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		ue.ULCountSQN = sequenceNumber
 		if integrityProtected {
 			// ToDo: use real mac calculate
-			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_ONLY_ONE_BEARER,
-				context.SECURITY_DIRECTION_UPLINK, payload)
+			mac32, err := NasMacCalculateByAesCmac(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
+				context.SECURITY_DIRECTION_UPLINK, payload, int32(len(payload)*8))
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
@@ -180,7 +180,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 
 		if ciphering {
 			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_ONLY_ONE_BEARER,
+			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_UPLINK, payload); err != nil {
 				return
 			}
@@ -289,8 +289,6 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 
 }
 
-
-
 func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, Direction uint8, msg []byte, length int32) ([]byte, error) {
 	if len(KnasInt) != 16 {
 		return nil, fmt.Errorf("Size of KnasEnc[%d] != 16 bytes)", len(KnasInt))
@@ -312,8 +310,7 @@ func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer
 	case context.ALG_INTEGRITY_128_NIA2:
 		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
 		m := make([]byte, len(msg)+8)
-		// printSlice("m", m)
-		// fmt.Printf("%s", hex.Dump(m))
+
 		//First 32 bits are count
 		copy(m, Count)
 		//Put Bearer and direction together
@@ -321,15 +318,13 @@ func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer
 		copy(m[8:], msg)
 		// var lastBitLen int32
 
-		// lastBitLen = calZeroBitLen(m[len(m)-1])
-
 		// lenM := (int32(len(m))) * 8 /* -  lastBitLen*/
 		lenM := length
 		// fmt.Printf("lenM %d\n", lastBitLen)
 		// fmt.Printf("lenM %d\n", lenM)
 
-		// printSlice("after m", m)
-		fmt.Printf("%s", hex.Dump(m))
+		logger.NasLog.Debugln("NasMacCalculateByAesCmac", hex.Dump(m))
+		logger.NasLog.Debugln("len(m) \n", len(m))
 
 		cmac := make([]byte, 16)
 
