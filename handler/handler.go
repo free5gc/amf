@@ -1,12 +1,12 @@
-package amf_handler
+package handler
 
 import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap"
 	ngap_message "free5gc/src/amf/ngap/message"

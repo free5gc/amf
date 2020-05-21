@@ -6,12 +6,12 @@ import (
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/eventexposure"
 	"free5gc/src/amf/factory"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/httpcallback"
 	"free5gc/src/amf/location"
 	"free5gc/src/amf/logger"
@@ -142,7 +142,7 @@ func (amf *AMF) Start() {
 	for _, ngapAddr := range self.NgapIpList {
 		sctpListener = sctp.Server(ngapAddr)
 	}
-	go amf_handler.Handle()
+	go handler.Handle()
 
 	// Register to NRF
 	profile, err := consumer.BuildNFInstance(self)

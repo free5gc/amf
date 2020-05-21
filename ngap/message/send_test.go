@@ -13,7 +13,7 @@ import (
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
@@ -30,7 +30,7 @@ import (
 var ran *context.AmfRan
 
 func init() {
-	go amf_handler.Handle()
+	go handler.Handle()
 	go smf_handler.Handle()
 	go func() {
 		router := pdusession.NewRouter()

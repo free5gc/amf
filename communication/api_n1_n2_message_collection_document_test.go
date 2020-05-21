@@ -20,9 +20,9 @@ import (
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
 	"io/ioutil"
@@ -92,7 +92,7 @@ func TestN1N2MessageTransfer(t *testing.T) {
 			assert.True(t, err == nil, err.Error())
 		}
 	}()
-	go amf_handler.Handle()
+	go handler.Handle()
 	TestAmf.AmfInit()
 	TestAmf.SctpSever()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)

@@ -5,9 +5,9 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/httpcallback"
 	nrf_service "free5gc/src/nrf/service"
 	pcf_context "free5gc/src/pcf/context"
@@ -66,7 +66,7 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 		}
 		assert.True(t, err == nil, err.Error())
 	}()
-	go amf_handler.Handle()
+	go handler.Handle()
 
 	TestAmf.AmfInit()
 	TestAmf.SctpSever()
@@ -120,7 +120,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 		}
 		assert.True(t, err == nil, err.Error())
 	}()
-	go amf_handler.Handle()
+	go handler.Handle()
 
 	TestAmf.AmfInit()
 	TestAmf.SctpSever()

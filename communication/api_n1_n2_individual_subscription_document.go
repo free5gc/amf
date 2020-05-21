@@ -11,7 +11,7 @@ package communication
 
 import (
 	"free5gc/lib/http_wrapper"
-	"free5gc/src/amf/amf_handler/amf_message"
+	amf_message "free5gc/src/amf/handler/message"
 	"github.com/gin-gonic/gin"
 )
 

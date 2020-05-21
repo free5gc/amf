@@ -13,8 +13,8 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/httpcallback"
 	amf_nas "free5gc/src/amf/nas"
 	"free5gc/src/nrf/discovery"
@@ -68,7 +68,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 
 	}()
 	TestAmf.SctpSever()
-	go amf_handler.Handle()
+	go handler.Handle()
 	go smf_handler.Handle()
 	go nrf_handler.Handle()
 	time.Sleep(10 * time.Millisecond)

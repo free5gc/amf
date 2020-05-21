@@ -14,7 +14,7 @@ import (
 	libngap "free5gc/lib/ngap"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/path_util"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
@@ -129,7 +129,7 @@ func init() {
 	logger.SetLogLevel(logrus.TraceLevel)
 	logger.SetReportCaller(false)
 
-	go amf_handler.Handle()
+	go handler.Handle()
 	nrfInit()
 	smfInit()
 	udrInit()

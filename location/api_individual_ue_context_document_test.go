@@ -7,7 +7,7 @@ import (
 	"free5gc/lib/openapi"
 	Namf_Loc_Clinet "free5gc/lib/openapi/Namf_Location"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
+	"free5gc/src/amf/handler"
 	Namf_Loc_Server "free5gc/src/amf/location"
 	"log"
 
@@ -44,7 +44,7 @@ func TestProvideLocationInfo(t *testing.T) {
 		assert.True(t, err == nil, err.Error())
 	}()
 
-	go amf_handler.Handle()
+	go handler.Handle()
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(100 * time.Millisecond)

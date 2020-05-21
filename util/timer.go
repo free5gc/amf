@@ -4,8 +4,8 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/lib/timer"
-	"free5gc/src/amf/amf_handler/amf_message"
 	"free5gc/src/amf/context"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 )
 

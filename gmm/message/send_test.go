@@ -4,16 +4,16 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/amf_handler"
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
+	"free5gc/src/amf/handler"
 	"free5gc/src/amf/util"
 	"testing"
 	"time"
 )
 
 func init() {
-	go amf_handler.Handle()
+	go handler.Handle()
 	TestAmf.SctpSever()
 
 }

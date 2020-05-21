@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"strings"
 
-	"free5gc/src/amf/amf_handler/amf_message"
+	amf_message "free5gc/src/amf/handler/message"
 )
 
 // N1N2MessageTransfer - Namf_Communication N1N2 Message Transfer (UE Specific) service Operation
