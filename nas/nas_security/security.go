@@ -80,7 +80,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		payload = append([]byte{sequenceNumber}, payload[:]...)
 		mac32 := make([]byte, 4)
 		if integrityProtected {
-			mac32, err = NasMacCalculateByAesCmac(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload, int32(len(payload)*8))
+			mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload)
 			if err != nil {
 				return
 			}
@@ -164,8 +164,8 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		ue.ULCountSQN = sequenceNumber
 		if integrityProtected {
 			// ToDo: use real mac calculate
-			mac32, err := NasMacCalculateByAesCmac(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
-				context.SECURITY_DIRECTION_UPLINK, payload, int32(len(payload)*8))
+			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
+				context.SECURITY_DIRECTION_UPLINK, payload)
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
