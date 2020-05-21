@@ -3,17 +3,18 @@ package mt_test
 import (
 	"context"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	Namf_MT_Clinet "free5gc/lib/Namf_MT"
 	"free5gc/lib/http2_util"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	Namf_MT_Clinet "free5gc/lib/openapi/Namf_MT"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	Namf_MT_Server "free5gc/src/amf/mt"
-	"github.com/antihax/optional"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/antihax/optional"
+	"github.com/stretchr/testify/assert"
 )
 
 func sendRequestAndPrintResult(client *Namf_MT_Clinet.APIClient, supi string, request *Namf_MT_Clinet.ProvideDomainSelectionInfoParamOpts) {
@@ -25,7 +26,7 @@ func sendRequestAndPrintResult(client *Namf_MT_Clinet.APIClient, supi string, re
 			log.Panic(err)
 		} else {
 			var probelmDetail models.ProblemDetails
-			probelmDetail = err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			probelmDetail = err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			TestAmf.Config.Dump(probelmDetail)
 		}
 	} else {

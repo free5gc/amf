@@ -4,7 +4,7 @@ import (
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/MongoDBLibrary"
-	"free5gc/lib/Nnrf_NFDiscovery"
+	"free5gc/lib/openapi/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	nrf_service "free5gc/src/nrf/service"

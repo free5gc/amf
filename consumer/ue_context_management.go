@@ -2,8 +2,8 @@ package consumer
 
 import (
 	"context"
-	"free5gc/lib/Nudm_UEContextManagement"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Nudm_UEContextManagement"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 )
@@ -34,10 +34,10 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 				err = localErr
 				return
 			}
-			problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			problemDetails = &problem
 		} else {
-			err = common.ReportError("server no response")
+			err = openapi.ReportError("server no response")
 			return
 		}
 	case models.AccessType_NON_3_GPP_ACCESS:
@@ -55,10 +55,10 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 				err = localErr
 				return
 			}
-			problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			problemDetails = &problem
 		} else {
-			err = common.ReportError("server no response")
+			err = openapi.ReportError("server no response")
 			return
 		}
 	}

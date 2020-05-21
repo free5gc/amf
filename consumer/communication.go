@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"free5gc/lib/Namf_Communication"
 	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
@@ -128,10 +128,10 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
+		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
@@ -164,10 +164,10 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
+		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
@@ -208,10 +208,10 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessTyp
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
+		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }
@@ -231,10 +231,10 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusU
 			err = localErr
 			return
 		}
-		problem := localErr.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("%s: server no response", ue.TargetAmfUri)
+		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
 	return
 }

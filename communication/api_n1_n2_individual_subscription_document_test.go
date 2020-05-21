@@ -3,8 +3,8 @@ package communication_test
 import (
 	"context"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	Namf_Communication_Client "free5gc/lib/Namf_Communication"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/gmm"
 	"log"
@@ -20,7 +20,7 @@ func sendN1N2MessageUnSubscribeRequestAndPrintResult(client *Namf_Communication_
 			log.Panic(err)
 		} else {
 			var probelmDetail models.ProblemDetails
-			probelmDetail = err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			probelmDetail = err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			TestAmf.Config.Dump(probelmDetail)
 		}
 	} else {

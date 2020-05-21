@@ -5,22 +5,23 @@ import (
 	"crypto/tls"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
-	Namf_Communication_Client "free5gc/lib/Namf_Communication"
 	"free5gc/lib/http2_util"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasTestpacket"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	Namf_Communication_Server "free5gc/src/amf/communication"
 	"free5gc/src/amf/producer/callback"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/http2"
 	"log"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/http2"
 )
 
 func sendRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi string, request models.UeN1N2InfoSubscriptionCreateData) {
@@ -32,7 +33,7 @@ func sendRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi
 			log.Panic(err)
 		} else {
 			var probelmDetail models.ProblemDetails
-			probelmDetail = err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+			probelmDetail = err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 			TestAmf.Config.Dump(probelmDetail)
 		}
 	} else {

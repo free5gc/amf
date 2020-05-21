@@ -5,19 +5,20 @@ import (
 	"crypto/tls"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
-	Namf_Communication_Client "free5gc/lib/Namf_Communication"
 	"free5gc/lib/http2_util"
+	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	Namf_Communication_Server "free5gc/src/amf/communication"
 	"free5gc/src/amf/producer/callback"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/http2"
 	"log"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/http2"
 )
 
 func sendAMFStatusSubscriptionRequestAndPrintResult(client *Namf_Communication_Client.APIClient, request models.SubscriptionData) {

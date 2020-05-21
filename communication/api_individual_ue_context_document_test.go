@@ -4,18 +4,19 @@ import (
 	"context"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestComm"
-	Namf_Communication_Client "free5gc/lib/Namf_Communication"
 	"free5gc/lib/http2_util"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	Namf_Communication_Client "free5gc/lib/openapi/Namf_Communication"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/amf_handler"
 	Namf_Communication_Server "free5gc/src/amf/communication"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
-	"github.com/stretchr/testify/assert"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func sendCreateUEContextRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi string, request models.CreateUeContextRequest) {
@@ -27,7 +28,7 @@ func sendCreateUEContextRequestAndPrintResult(client *Namf_Communication_Client.
 			log.Println(err)
 		} else {
 			var ueContextCreateError models.UeContextCreateError
-			ueContextCreateError = err.(common.GenericOpenAPIError).Model().(models.UeContextCreateError)
+			ueContextCreateError = err.(openapi.GenericOpenAPIError).Model().(models.UeContextCreateError)
 			TestAmf.Config.Dump(ueContextCreateError.Error)
 		}
 	} else {

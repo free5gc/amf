@@ -3,8 +3,8 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"free5gc/lib/Nnrf_NFManagement"
-	"free5gc/lib/openapi/common"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/Nnrf_NFManagement"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
@@ -121,10 +121,10 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 		if res.Status != err.Error() {
 			return
 		}
-		problem := err.(common.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = common.ReportError("server no response")
+		err = openapi.ReportError("server no response")
 	}
 	return
 }

@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"free5gc/lib/Nnrf_NFDiscovery"
 	"free5gc/lib/fsm"
 	"free5gc/lib/nas"
 	"free5gc/lib/nas/nasConvert"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
+	"free5gc/lib/openapi/Nnrf_NFDiscovery"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
@@ -1607,7 +1607,7 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateCom
 
 	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
-	//		import "free5gc/lib/Nudm_SubscriberDataManagement" client.Info
+	//		import "free5gc/lib/openapi/Nudm_SubscriberDataManagement" client.Info
 
 	return nil
 }
