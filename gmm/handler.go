@@ -1971,6 +1971,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, anType models.AccessType, a
 			ue.Kseaf = response.Kseaf
 			ue.Supi = response.Supi
 			ue.DerivateKamf()
+			logger.GmmLog.Debugln("ue.DerivateKamf()", ue.Kamf)
 			gmm_message.SendSecurityModeCommand(ue.RanUe[anType], false, "")
 			return ue.Sm[anType].Transfer(state.SECURITY_MODE, nil)
 		case models.AuthResult_FAILURE:
