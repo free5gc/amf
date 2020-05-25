@@ -13,7 +13,6 @@ const (
 	EventN1N2MessageSubscribe
 	EventN1N2MessageUnSubscribe
 	EventSmContextStatusNotify
-	EventEBIAssignment
 	EventGMMT3513
 	EventGMMT3565
 	EventGMMT3560ForAuthenticationRequest

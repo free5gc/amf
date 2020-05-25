@@ -322,7 +322,8 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 	return http_wrapper.NewResponse(http.StatusOK, nil, responseBody)
 }
 
-func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.AssignEbiData) {
+// TS 29.518 5.2.2.6
+func HandleAssignEbiDataRequest(request *http_wrapper.Request) *http_wrapper.Response {
 	var response models.AssignedEbiData
 	var assignEbiError models.AssignEbiError
 	var assignEbiFailed models.AssignEbiFailed
@@ -331,48 +332,48 @@ func HandleAssignEbiDataRequest(httpChannel chan amf_message.HandlerResponseMess
 	var ok bool
 	amfSelf := context.AMF_Self()
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
-			problem.Status = 404
+	assignEbiData := request.Body.(models.AssignEbiData)
+	ueContextID := request.Params["ueContextId"]
+
+	if strings.HasPrefix(ueContextID, "imsi") {
+		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextID); !ok {
+			problem.Status = http.StatusNotFound
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			assignEbiError.Error = &problem
-			assignEbiFailed.PduSessionId = body.PduSessionId
+			assignEbiFailed.PduSessionId = assignEbiData.PduSessionId
 			assignEbiFailed.FailedArpList = nil
 			assignEbiError.FailureDetails = &assignEbiFailed
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, assignEbiError)
-			return
+			return http_wrapper.NewResponse(http.StatusNotFound, nil, assignEbiError)
 		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
+	} else if strings.HasPrefix(ueContextID, "imei") {
 		amfSelf.UePool.Range(func(key, value interface{}) bool {
 			ue1 := value.(*context.AmfUe)
-			if ue1.Pei == ueContextId {
+			if ue1.Pei == ueContextID {
 				ue = ue1
 				return false
 			}
 			return true
 		})
 		if ue == nil {
-			problem.Status = 404
+			problem.Status = http.StatusNotFound
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			assignEbiError.Error = &problem
-			assignEbiFailed.PduSessionId = body.PduSessionId
+			assignEbiFailed.PduSessionId = assignEbiData.PduSessionId
 			assignEbiFailed.FailedArpList = nil
 			assignEbiError.FailureDetails = &assignEbiFailed
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, assignEbiError)
-			return
+			return http_wrapper.NewResponse(http.StatusNotFound, nil, assignEbiError)
 		}
 	}
 
 	if ue != nil {
-		if ue.SmContextList[body.PduSessionId] != nil {
-			response.PduSessionId = body.PduSessionId
-			response.AssignedEbiList = ue.SmContextList[body.PduSessionId].PduSessionContext.AllocatedEbiList
+		if ue.SmContextList[assignEbiData.PduSessionId] != nil {
+			response.PduSessionId = assignEbiData.PduSessionId
+			response.AssignedEbiList = ue.SmContextList[assignEbiData.PduSessionId].PduSessionContext.AllocatedEbiList
 		} else {
 			logger.ProducerLog.Errorln("ue.SmContextList is nil")
 		}
-
 	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
+	return http_wrapper.NewResponse(http.StatusOK, nil, response)
 }
 
 func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeRegStatusUpdateReqData) {

@@ -76,15 +76,9 @@ func EBIAssignment(c *gin.Context) {
 
 	req := http_wrapper.NewRequest(c.Request, request)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleAssignEbiDataRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventEBIAssignment, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	c.JSON(rsp.Status, rsp.Body)
 }
 
 // RegistrationStatusUpdate - Namf_Communication RegistrationStatusUpdate service Operation

@@ -205,9 +205,6 @@ func Handle() {
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
 					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
-				case amf_message.EventEBIAssignment:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))
 				case amf_message.EventRegistrationStatusUpdate:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleRegistrationStatusUpdateRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeRegStatusUpdateReqData))
