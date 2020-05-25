@@ -40,7 +40,7 @@ func sendAMFStatusSubscriptionModfyRequestAndPrintResult(t *testing.T, client *N
 }
 
 func TestAMFStatusChangeSubscribeModify(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestAMFStatusChangeSubscribe(t)
 	}
 	configuration := Namf_Communication_Client.NewConfiguration()
@@ -55,7 +55,7 @@ func TestAMFStatusChangeSubscribeModify(t *testing.T) {
 }
 
 func TestAMFStatusChangeUnSubscribe(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestAMFStatusChangeSubscribe(t)
 	}
 	configuration := Namf_Communication_Client.NewConfiguration()

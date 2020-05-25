@@ -35,7 +35,7 @@ func sendAMFStatusSubscriptionRequestAndPrintResult(t *testing.T, client *Namf_C
 }
 
 func TestAMFStatusChangeSubscribe(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		go func() {
 			router := Namf_Communication_Server.NewRouter()
 			server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
@@ -61,7 +61,7 @@ func TestAMFStatusChangeSubscribe(t *testing.T) {
 }
 
 func TestAMFStatusChangeNotify(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestAMFStatusChangeSubscribe(t)
 	}
 	time.Sleep(100 * time.Millisecond)
