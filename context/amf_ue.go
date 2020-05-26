@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"free5gc/lib/UeauCommon"
 	"free5gc/lib/fsm"
+	"free5gc/lib/idgenerator"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi/models"
@@ -101,7 +102,7 @@ type AmfUe struct {
 	/* UeContextForHandover*/
 	HandoverNotifyUri string
 	/* N1N2Message */
-	N1N2MessageIDGenerator          int
+	N1N2MessageIDGenerator          *idgenerator.IDGenerator
 	N1N2Message                     *N1N2Message
 	N1N2MessageSubscribeIDGenerator int
 	N1N2SubscriptionID              string
@@ -250,7 +251,7 @@ func (ue *AmfUe) init() {
 	ue.RanUe = make(map[models.AccessType]*RanUe)
 	ue.RegistrationArea = make(map[models.AccessType][]models.Tai)
 	ue.AllowedNssai = make(map[models.AccessType][]models.AllowedSnssai)
-	ue.N1N2MessageIDGenerator = 1
+	ue.N1N2MessageIDGenerator = idgenerator.NewGenerator(1, 2147483647)
 	ue.N1N2MessageSubscribeInfo = make(map[string]*models.UeN1N2InfoSubscriptionCreateData)
 	ue.OnGoing = make(map[models.AccessType]*OnGoing)
 	ue.OnGoing[models.AccessType_NON_3_GPP_ACCESS] = new(OnGoing)

@@ -15,6 +15,7 @@ import (
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
@@ -23,17 +24,32 @@ import (
 )
 
 // N1N2MessageTransfer - Namf_Communication N1N2 Message Transfer (UE Specific) service Operation
-func N1N2MessageTransfer(c *gin.Context) {
-	var request models.N1N2MessageTransferRequest
+func HTTPN1N2MessageTransfer(c *gin.Context) {
+	var n1n2MessageTransferRequest models.N1N2MessageTransferRequest
+	n1n2MessageTransferRequest.JsonData = new(models.N1N2MessageTransferReqData)
 
-	request.JsonData = new(models.N1N2MessageTransferReqData)
-	s := strings.Split(c.GetHeader("Content-Type"), ";")
-	var err error
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	contentType := c.GetHeader("Content-Type")
+	s := strings.Split(contentType, ";")
 	switch s[0] {
 	case "application/json":
 		err = fmt.Errorf("N1 and N2 datas are both Empty in N1N2MessgeTransfer")
 	case "multipart/related":
-		err = c.ShouldBindWith(&request, openapi.MultipartRelatedBinding{})
+		err = openapi.Deserialize(&n1n2MessageTransferRequest, requestBody, contentType)
+	default:
+		err = fmt.Errorf("Wrong content type")
 	}
 
 	if err != nil {
@@ -47,21 +63,27 @@ func N1N2MessageTransfer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, n1n2MessageTransferRequest)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
 	req.Params["reqUri"] = c.Request.RequestURI
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventN1N2MessageTransfer, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleN1N2MessageTransferRequest(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	for key, val := range HTTPResponse.Header {
+	for key, val := range rsp.Header {
 		c.Header(key, val[0])
 	}
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 func N1N2MessageTransferStatus(c *gin.Context) {

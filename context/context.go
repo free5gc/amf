@@ -96,14 +96,12 @@ func NewPlmnSupportItem() (item PlmnSupportItem) {
 }
 
 func (context *AMFContext) TmsiAllocate() int32 {
-	for {
-		tmsi := tmsiGenerator.Allocate()
-		if _, double := context.TmsiPool.Load(tmsi); double {
-			continue
-		} else {
-			return int32(tmsi)
-		}
+	tmsi, err := tmsiGenerator.Allocate()
+	if err != nil {
+		logger.ContextLog.Errorf("Allocate TMSI error: %+v", err)
+		return -1
 	}
+	return int32(tmsi)
 }
 
 func (context *AMFContext) AmfUeNgapIdAlloc() int64 {
@@ -154,15 +152,14 @@ func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.Acc
 }
 
 func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.SubscriptionData) (subscriptionID string) {
-	subscriptionID = strconv.Itoa(int(amfStatusSubscriptionIDGenerator.Allocate()))
-	for {
-		if _, found := context.AMFStatusSubscriptions.Load(subscriptionID); found {
-			subscriptionID = strconv.Itoa(int(amfStatusSubscriptionIDGenerator.Allocate()))
-		} else {
-			context.AMFStatusSubscriptions.Store(subscriptionID, subscriptionData)
-			break
-		}
+	id, err := amfStatusSubscriptionIDGenerator.Allocate()
+	if err != nil {
+		logger.ContextLog.Errorf("Allocate subscriptionID error: %+v", err)
+		return ""
 	}
+
+	subscriptionID = strconv.Itoa(int(id))
+	context.AMFStatusSubscriptions.Store(subscriptionID, subscriptionData)
 	return
 }
 
@@ -202,11 +199,36 @@ func (context *AMFContext) NewAmfUe(supi string) *AmfUe {
 	return &ue
 }
 
+func (context *AMFContext) AmfUeFindByUeContextID(ueContextID string) (*AmfUe, bool) {
+	if strings.HasPrefix(ueContextID, "imsi") {
+		return context.AmfUeFindBySupi(ueContextID)
+	}
+	if strings.HasPrefix(ueContextID, "imei") {
+		return context.AmfUeFindByPei(ueContextID)
+	}
+	if strings.HasPrefix(ueContextID, "5g-guti") {
+		return context.AmfUeFindByGuti(ueContextID)
+	}
+	return nil, false
+}
+
 func (context *AMFContext) AmfUeFindBySupi(supi string) (ue *AmfUe, ok bool) {
 	if value, loadOk := context.UePool.Load(supi); loadOk {
 		ue = value.(*AmfUe)
 		ok = loadOk
 	}
+	return
+}
+
+func (context *AMFContext) AmfUeFindByPei(pei string) (ue *AmfUe, ok bool) {
+	context.UePool.Range(func(key, value interface{}) bool {
+		candidate := value.(*AmfUe)
+		if ok = (candidate.Pei == pei); ok {
+			ue = candidate
+			return false
+		}
+		return true
+	})
 	return
 }
 

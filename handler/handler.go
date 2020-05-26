@@ -177,10 +177,6 @@ func Handle() {
 						amfUe.T3522RetryTimes++
 						gmm_message.SendDeregistrationRequest(value.RanUe, value.AccessType, value.ReRegistrationRequired, value.Cause5GMM)
 					}
-				case amf_message.EventN1N2MessageTransfer:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					reqUri := msg.HTTPRequest.Params["reqUri"]
-					producer.HandleN1N2MessageTransferRequest(msg.ResponseChan, ueContextId, reqUri, msg.HTTPRequest.Body.(models.N1N2MessageTransferRequest))
 				case amf_message.EventN1N2MessageTransferStatus:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					reqUri := msg.HTTPRequest.Params["reqUri"]

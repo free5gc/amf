@@ -137,7 +137,7 @@ var routes = Routes{
 		"N1N2MessageTransfer",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/n1-n2-messages",
-		N1N2MessageTransfer,
+		HTTPN1N2MessageTransfer,
 	},
 
 	{
