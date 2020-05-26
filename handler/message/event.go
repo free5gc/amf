@@ -18,7 +18,6 @@ const (
 	EventGMMT3560ForAuthenticationRequest
 	EventGMMT3560ForSecurityModeCommand
 	EventGMMT3550
-	EventRegistrationStatusUpdate
 	EventGMMT3522
 	EventAmPolicyControlUpdateNotifyUpdate
 	EventAmPolicyControlUpdateNotifyTerminate

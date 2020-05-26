@@ -285,8 +285,7 @@ func (ue *AmfUe) Remove() {
 	if len(ue.Supi) > 0 {
 		AMF_Self().UePool.Delete(ue.Supi)
 	}
-	delete(AMF_Self().TmsiPool, ue.Tmsi)
-	delete(AMF_Self().GutiPool, ue.Guti)
+	AMF_Self().TmsiPool.Delete(ue.Tmsi)
 }
 
 func (ue *AmfUe) DetachRanUe(anType models.AccessType) {

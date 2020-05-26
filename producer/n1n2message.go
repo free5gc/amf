@@ -5,11 +5,11 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
@@ -28,7 +28,7 @@ func HandleN1N2MessageTransferRequest(httpChannel chan amf_message.HandlerRespon
 	var ue *context.AmfUe
 	var ok bool
 	amfSelf := context.AMF_Self()
-
+	logger.ProducerLog.Infof("Handle N1N2 Message Transfer Request")
 	if strings.HasPrefix(ueContextId, "imsi") {
 		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
 			problem.Status = 404

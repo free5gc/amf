@@ -3,7 +3,6 @@ package producer
 import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
@@ -164,7 +163,7 @@ func HandleReleaseUEContextRequest(request *http_wrapper.Request) *http_wrapper.
 
 // TS 29.518 5.2.2.2.1
 func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper.Response {
-	var responseBody models.UeContextTransferResponse
+	var ueContextTransferResponse models.UeContextTransferResponse
 	var problem models.ProblemDetails
 	var ue *context.AmfUe
 	var ok bool
@@ -208,15 +207,15 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 		}
 	} else if strings.HasPrefix(ueContextID, "5g-guti") {
 		guti := ueContextID[strings.LastIndex(ueContextID, "-")+1:]
-		if ue, ok = amfSelf.GutiPool[guti]; !ok {
+		if ue, ok = amfSelf.AmfUeFindByGuti(guti); !ok {
 			problem.Status = http.StatusForbidden
 			problem.Cause = "CONTEXT_NOT_FOUND"
 			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
 	}
 
-	responseBody.JsonData = new(models.UeContextTransferRspData)
-	ueContextTransferRspData := responseBody.JsonData
+	ueContextTransferResponse.JsonData = new(models.UeContextTransferRspData)
+	ueContextTransferRspData := ueContextTransferResponse.JsonData
 
 	if ue != nil {
 		if ue.GetAnType() != UeContextTransferReqData.AccessType {
@@ -311,7 +310,7 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 				},
 			}
 			b := []byte(ue.UeRadioCapability)
-			copy(responseBody.BinaryDataN2Information, b)
+			copy(ueContextTransferResponse.BinaryDataN2Information, b)
 		} else {
 			logger.ProducerLog.Errorln("error Reason")
 			problem.Status = http.StatusForbidden
@@ -319,12 +318,12 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 			return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
 		}
 	}
-	return http_wrapper.NewResponse(http.StatusOK, nil, responseBody)
+	return http_wrapper.NewResponse(http.StatusOK, nil, ueContextTransferResponse)
 }
 
 // TS 29.518 5.2.2.6
 func HandleAssignEbiDataRequest(request *http_wrapper.Request) *http_wrapper.Response {
-	var response models.AssignedEbiData
+	var assignedEbiData models.AssignedEbiData
 	var assignEbiError models.AssignEbiError
 	var assignEbiFailed models.AssignEbiFailed
 	var problem models.ProblemDetails
@@ -367,41 +366,43 @@ func HandleAssignEbiDataRequest(request *http_wrapper.Request) *http_wrapper.Res
 
 	if ue != nil {
 		if ue.SmContextList[assignEbiData.PduSessionId] != nil {
-			response.PduSessionId = assignEbiData.PduSessionId
-			response.AssignedEbiList = ue.SmContextList[assignEbiData.PduSessionId].PduSessionContext.AllocatedEbiList
+			assignedEbiData.PduSessionId = assignEbiData.PduSessionId
+			assignedEbiData.AssignedEbiList = ue.SmContextList[assignEbiData.PduSessionId].PduSessionContext.AllocatedEbiList
 		} else {
 			logger.ProducerLog.Errorln("ue.SmContextList is nil")
 		}
 	}
-	return http_wrapper.NewResponse(http.StatusOK, nil, response)
+	return http_wrapper.NewResponse(http.StatusOK, nil, assignedEbiData)
 }
 
-func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeRegStatusUpdateReqData) {
-	var response models.UeRegStatusUpdateRspData
+// TS 29.518 5.2.2.2.2
+func HandleRegistrationStatusUpdateRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	var ueRegStatusUpdateRspData models.UeRegStatusUpdateRspData
 	var problem models.ProblemDetails
 	var ue *context.AmfUe
 	var ok bool
 	amfSelf := context.AMF_Self()
 
-	if strings.HasPrefix(ueContextId, "5g-guti") {
-		guti := ueContextId[strings.LastIndex(ueContextId, "-")+1:]
-		if ue, ok = amfSelf.GutiPool[guti]; !ok {
-			problem.Status = 404
+	ueRegStatusUpdateReqData := request.Body.(models.UeRegStatusUpdateReqData)
+	ueContextID := request.Params["ueContextId"]
+
+	if strings.HasPrefix(ueContextID, "5g-guti") {
+		guti := ueContextID[strings.LastIndex(ueContextID, "-")+1:]
+		if ue, ok = amfSelf.AmfUeFindByGuti(guti); !ok {
+			problem.Status = http.StatusNotFound
 			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
+			return http_wrapper.NewResponse(http.StatusNotFound, nil, problem)
 		}
 	} else {
-		problem.Status = 404
+		problem.Status = http.StatusNotFound
 		problem.Cause = "CONTEXT_NOT_FOUND"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-		return
+		return http_wrapper.NewResponse(http.StatusNotFound, nil, problem)
 	}
 
 	if ue != nil {
-		if body.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
+		if ueRegStatusUpdateReqData.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
 			// remove the individual ueContext resource and release any PDU session(s)
-			for _, pduSessionId := range body.ToReleaseSessionList {
+			for _, pduSessionId := range ueRegStatusUpdateReqData.ToReleaseSessionList {
 				cause := models.Cause_REL_DUE_TO_SLICE_NOT_AVAILABLE
 				causeAll := &context.CauseAll{
 					Cause: &cause,
@@ -415,7 +416,7 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 				}
 			}
 
-			if body.PcfReselectedInd {
+			if ueRegStatusUpdateReqData.PcfReselectedInd {
 				problemDetails, err := consumer.AMPolicyControlDelete(ue)
 				if problemDetails != nil {
 					logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
@@ -430,6 +431,6 @@ func HandleRegistrationStatusUpdateRequest(httpChannel chan amf_message.HandlerR
 			logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")
 		}
 	}
-	response.RegStatusTransferComplete = true
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
+	ueRegStatusUpdateRspData.RegStatusTransferComplete = true
+	return http_wrapper.NewResponse(http.StatusOK, nil, ueRegStatusUpdateRspData)
 }

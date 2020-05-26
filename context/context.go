@@ -2,9 +2,9 @@ package context
 
 import (
 	"fmt"
+	"free5gc/lib/idgenerator"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
-	"math"
 	"net"
 	"reflect"
 	"strconv"
@@ -13,37 +13,14 @@ import (
 	"time"
 )
 
-type idGenerator struct {
-	lock      sync.Mutex
-	minValue  int64
-	maxValue  int64
-	generator int64
-}
-
-func (idGenerator *idGenerator) Init(minValue int64, maxValue int64) {
-	idGenerator.minValue = minValue
-	idGenerator.maxValue = maxValue
-	idGenerator.generator = idGenerator.minValue
-}
-
-func (idGenerator *idGenerator) Allocate() (id int64) {
-	idGenerator.lock.Lock()
-	id = idGenerator.generator
-	idGenerator.generator = idGenerator.generator%idGenerator.maxValue + idGenerator.minValue
-	idGenerator.lock.Unlock()
-	return
-}
-
 var amfContext = AMFContext{}
-var TmsiGenerator int32 = 0
+var tmsiGenerator *idgenerator.IDGenerator = nil
 var amfUeNgapIdGenerator int64 = 0
-var amfStatusSubscriptionIDGenerator idGenerator
+var amfStatusSubscriptionIDGenerator *idgenerator.IDGenerator = nil
 
 func init() {
 	AMF_Self().EventSubscriptions = make(map[string]*AMFContextEventSubscription)
-	AMF_Self().GutiPool = make(map[string]*AmfUe)
 	AMF_Self().LadnPool = make(map[string]*LADN)
-	AMF_Self().TmsiPool = make(map[int32]*AmfUe)
 	AMF_Self().RanUePool = make(map[int64]*RanUe)
 	AMF_Self().RanIdPool = make(map[models.GlobalRanNodeId]*AmfRan)
 	AMF_Self().EventSubscriptionIDGenerator = 1
@@ -54,15 +31,15 @@ func init() {
 	AMF_Self().PlmnSupportList = make([]PlmnSupportItem, 0, MaxNumOfPLMNs)
 	AMF_Self().NfService = make(map[models.ServiceName]models.NfService)
 	AMF_Self().NetworkName.Full = "free5GC"
-	amfStatusSubscriptionIDGenerator.Init(1, 2147483647)
+	tmsiGenerator = idgenerator.NewGenerator(1, 2147483647)
+	amfStatusSubscriptionIDGenerator = idgenerator.NewGenerator(1, 2147483647)
 }
 
 type AMFContext struct {
 	EventSubscriptionIDGenerator    int
 	EventSubscriptions              map[string]*AMFContextEventSubscription
 	UePool                          sync.Map // map[supi]*AmfUe
-	GutiPool                        map[string]*AmfUe
-	TmsiPool                        map[int32]*AmfUe // tmsi as key
+	TmsiPool                        sync.Map // map[tmsi]*AmfUe
 	RanIdPool                       map[models.GlobalRanNodeId]*AmfRan
 	RanUePool                       map[int64]*RanUe // AmfUeNgapId as key
 	AmfRanPool                      sync.Map         // map[remoteAddr.String()]*AmfRan
@@ -118,17 +95,15 @@ func NewPlmnSupportItem() (item PlmnSupportItem) {
 	return
 }
 
-func (context *AMFContext) TmsiAlloc() int32 {
-	TmsiGenerator %= math.MaxInt32
-	TmsiGenerator++
+func (context *AMFContext) TmsiAllocate() int32 {
 	for {
-		if _, double := context.TmsiPool[TmsiGenerator]; double {
-			TmsiGenerator++
+		tmsi := tmsiGenerator.Allocate()
+		if _, double := context.TmsiPool.Load(tmsi); double {
+			continue
 		} else {
-			break
+			return int32(tmsi)
 		}
 	}
-	return TmsiGenerator
 }
 
 func (context *AMFContext) AmfUeNgapIdAlloc() int64 {
@@ -148,19 +123,17 @@ func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
 
 	// if ue has a previous tmsi/guti, remove it first
 	if ue.Tmsi != 0 {
-		delete(context.TmsiPool, ue.Tmsi)
-		delete(context.GutiPool, ue.Guti)
+		context.TmsiPool.Delete(ue.Tmsi)
 	}
 
 	servedGuami := context.ServedGuamiList[0]
-	ue.Tmsi = context.TmsiAlloc()
+	ue.Tmsi = context.TmsiAllocate()
 
 	plmnID := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc
 	tmsiStr := fmt.Sprintf("%08x", ue.Tmsi)
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
 
-	context.TmsiPool[ue.Tmsi] = ue
-	context.GutiPool[ue.Guti] = ue
+	context.TmsiPool.Store(ue.Tmsi, ue)
 }
 
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
@@ -254,18 +227,23 @@ func (context *AMFContext) InSupportDnnList(targetDnn string) bool {
 	return false
 }
 
-func (context *AMFContext) AmfUeFindByGuti(targetGuti string) *AmfUe {
-	if ue, ok := context.GutiPool[targetGuti]; ok {
-		return ue
-	}
-	return nil
+func (context *AMFContext) AmfUeFindByGuti(guti string) (ue *AmfUe, ok bool) {
+	context.UePool.Range(func(key, value interface{}) bool {
+		candidate := value.(*AmfUe)
+		if ok = (candidate.Guti == guti); ok {
+			ue = candidate
+			return false
+		}
+		return true
+	})
+	return
 }
 
-func (context *AMFContext) AmfUeFindByPolicyAssociationId(polAssoId string) (ue *AmfUe) {
+func (context *AMFContext) AmfUeFindByPolicyAssociationID(polAssoId string) (ue *AmfUe, ok bool) {
 	context.UePool.Range(func(key, value interface{}) bool {
-		amfUe := value.(*AmfUe)
-		if amfUe.PolicyAssociationId == polAssoId {
-			ue = amfUe
+		candidate := value.(*AmfUe)
+		if ok = (candidate.PolicyAssociationId == polAssoId); ok {
+			ue = candidate
 			return false
 		}
 		return true
@@ -344,9 +322,6 @@ func (context *AMFContext) Reset() {
 		context.UePool.Delete(key)
 		return true
 	})
-	for key := range context.GutiPool {
-		delete(context.GutiPool, key)
-	}
 	for key := range context.LadnPool {
 		delete(context.LadnPool, key)
 	}
@@ -357,9 +332,10 @@ func (context *AMFContext) Reset() {
 		context.UePool.Delete(key)
 		return true
 	})
-	for key := range context.TmsiPool {
-		delete(context.TmsiPool, key)
-	}
+	context.TmsiPool.Range(func(key, value interface{}) bool {
+		context.TmsiPool.Delete(key)
+		return true
+	})
 	for key := range context.RanIdPool {
 		delete(context.RanIdPool, key)
 	}
@@ -381,7 +357,6 @@ func (context *AMFContext) Reset() {
 	context.HttpIPv6Address = ""
 	context.Name = "amf"
 	context.NrfUri = ""
-	TmsiGenerator = 0
 	amfUeNgapIdGenerator = 0
 }
 

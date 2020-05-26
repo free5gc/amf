@@ -2,8 +2,8 @@ package producer
 
 import (
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/context"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"

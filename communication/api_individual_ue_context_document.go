@@ -13,7 +13,6 @@ import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
@@ -83,9 +82,9 @@ func EBIAssignment(c *gin.Context) {
 
 // RegistrationStatusUpdate - Namf_Communication RegistrationStatusUpdate service Operation
 func RegistrationStatusUpdate(c *gin.Context) {
-	var request models.UeRegStatusUpdateReqData
+	var ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData
 
-	err := c.ShouldBindJSON(&request)
+	err := c.ShouldBindJSON(&ueRegStatusUpdateReqData)
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -98,17 +97,10 @@ func RegistrationStatusUpdate(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, ueRegStatusUpdateReqData)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventRegistrationStatusUpdate, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	rsp := producer.HandleRegistrationStatusUpdateRequest(req)
+	c.JSON(rsp.Status, rsp.Body)
 }
 
 // ReleaseUEContext - Namf_Communication ReleaseUEContext service Operation
