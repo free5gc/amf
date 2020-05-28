@@ -78,17 +78,17 @@ var routes = Routes{
 	},
 
 	{
-		"AMFStatusChangeSubscribeModfy",
+		"AMFStatusChangeSubscribeModify",
 		strings.ToUpper("Put"),
 		"/subscriptions/:subscriptionId",
-		AMFStatusChangeSubscribeModfy,
+		HTTPAMFStatusChangeSubscribeModify,
 	},
 
 	{
 		"AMFStatusChangeUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/subscriptions/:subscriptionId",
-		AMFStatusChangeUnSubscribe,
+		HTTPAMFStatusChangeUnSubscribe,
 	},
 
 	{
@@ -179,6 +179,6 @@ var routes = Routes{
 		"AMFStatusChangeSubscribe",
 		strings.ToUpper("Post"),
 		"/subscriptions",
-		AMFStatusChangeSubscribe,
+		HTTPAMFStatusChangeSubscribe,
 	},
 }

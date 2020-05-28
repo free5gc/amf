@@ -13,33 +13,42 @@ import (
 func HandleAMFStatusChangeSubscribeRequest(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Request")
 
-	var responseBody models.SubscriptionData
-	var problem models.ProblemDetails
+	subscriptionDataReq := request.Body.(models.SubscriptionData)
 
-	subscriptionData := request.Body.(models.SubscriptionData)
+	subscriptionDataRsp, locationHeader, problemDetails := AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	}
+
+	headers := http.Header{
+		"Location": {locationHeader},
+	}
+	return http_wrapper.NewResponse(http.StatusCreated, headers, subscriptionDataRsp)
+}
+
+func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (subscriptionDataRsp models.SubscriptionData, locationHeader string, problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
-	for _, guami := range subscriptionData.GuamiList {
+	for _, guami := range subscriptionDataReq.GuamiList {
 		for _, servedGumi := range amfSelf.ServedGuamiList {
 			if reflect.DeepEqual(guami, servedGumi) {
 				//AMF status is available
-				responseBody.GuamiList = append(responseBody.GuamiList, guami)
+				subscriptionDataRsp.GuamiList = append(subscriptionDataRsp.GuamiList, guami)
 			}
 		}
 	}
 
-	if responseBody.GuamiList != nil {
-		newSubscriptionID := amfSelf.NewAMFStatusSubscription(subscriptionData)
-		locationHeader := subscriptionData.AmfStatusUri + "/" + newSubscriptionID
-		headers := http.Header{
-			"Location": {locationHeader},
-		}
+	if subscriptionDataRsp.GuamiList != nil {
+		newSubscriptionID := amfSelf.NewAMFStatusSubscription(subscriptionDataReq)
+		locationHeader = subscriptionDataReq.AmfStatusUri + "/" + newSubscriptionID
 		logger.CommLog.Infof("new AMF Status Subscription[%s]", newSubscriptionID)
-		return http_wrapper.NewResponse(http.StatusCreated, headers, responseBody)
+		return
 	} else {
-		problem.Status = http.StatusForbidden
-		problem.Cause = "UNSPECIFIED"
-		return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "UNSPECIFIED",
+		}
+		return
 	}
 }
 
@@ -47,50 +56,64 @@ func HandleAMFStatusChangeSubscribeRequest(request *http_wrapper.Request) *http_
 func HandleAMFStatusChangeUnSubscribeRequest(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.CommLog.Info("Handle AMF Status Change UnSubscribe Request")
 
-	var problem models.ProblemDetails
-
 	subscriptionID := request.Params["subscriptionId"]
+
+	problemDetails := AMFStatusChangeUnSubscribeProcedure(subscriptionID)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+	}
+}
+
+func AMFStatusChangeUnSubscribeProcedure(subscriptionID string) (problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	if _, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
-		problem.Status = http.StatusNotFound
-		problem.Cause = "SUBSCRIPTION_NOT_FOUND"
-		return http_wrapper.NewResponse(http.StatusNotFound, nil, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "SUBSCRIPTION_NOT_FOUND",
+		}
 	} else {
 		logger.CommLog.Debugf("Delete AMF status subscription[%s]", subscriptionID)
-
 		amfSelf.DeleteAMFStatusSubscription(subscriptionID)
-		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
+	return
 }
 
 // TS 29.518 5.2.2.5.1.3
 func HandleAMFStatusChangeSubscribeModify(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Modify Request")
 
-	var responseBody models.SubscriptionData
-	var problem models.ProblemDetails
-
 	updateSubscriptionData := request.Body.(models.SubscriptionData)
 	subscriptionID := request.Params["subscriptionId"]
+
+	updatedSubscriptionData, problemDetails := AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusAccepted, nil, updatedSubscriptionData)
+	}
+}
+
+func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscriptionData models.SubscriptionData) (updatedSubscriptionData *models.SubscriptionData, problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
-	if subscriptionData, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
-		problem.Status = 403
-		problem.Cause = "Forbidden"
-		return http_wrapper.NewResponse(http.StatusForbidden, nil, problem)
+	if currentSubscriptionData, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "Forbidden",
+		}
 	} else {
 		logger.CommLog.Debugf("Modify AMF status subscription[%s]", subscriptionID)
 
-		subscriptionData.GuamiList = subscriptionData.GuamiList[:0]
-		for _, guamiList := range updateSubscriptionData.GuamiList {
-			subscriptionData.GuamiList = append(subscriptionData.GuamiList, guamiList)
-			responseBody.GuamiList = append(responseBody.GuamiList, guamiList)
-		}
+		currentSubscriptionData.GuamiList = currentSubscriptionData.GuamiList[:0]
 
-		subscriptionData.AmfStatusUri = updateSubscriptionData.AmfStatusUri
-		responseBody.AmfStatusUri = subscriptionData.AmfStatusUri
-		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, subscriptionData)
-		return http_wrapper.NewResponse(http.StatusAccepted, nil, responseBody)
+		currentSubscriptionData.GuamiList = append(currentSubscriptionData.GuamiList, subscriptionData.GuamiList...)
+		currentSubscriptionData.AmfStatusUri = subscriptionData.AmfStatusUri
+
+		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, currentSubscriptionData)
+		updatedSubscriptionData = currentSubscriptionData
 	}
+	return
 }

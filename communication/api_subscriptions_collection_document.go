@@ -11,6 +11,7 @@ package communication
 
 import (
 	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
@@ -19,9 +20,23 @@ import (
 )
 
 // AMFStatusChangeSubscribe - Namf_Communication AMF Status Change Subscribe service Operation
-func AMFStatusChangeSubscribe(c *gin.Context) {
+func HTTPAMFStatusChangeSubscribe(c *gin.Context) {
 	var subscriptionData models.SubscriptionData
-	err := c.ShouldBindJSON(&subscriptionData)
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&subscriptionData, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -40,6 +55,16 @@ func AMFStatusChangeSubscribe(c *gin.Context) {
 	for key, val := range rsp.Header {
 		c.Header(key, val[0])
 	}
-
-	c.JSON(rsp.Status, rsp.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
