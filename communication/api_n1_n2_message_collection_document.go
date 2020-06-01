@@ -63,6 +63,7 @@ func HTTPN1N2MessageTransfer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
+
 	req := http_wrapper.NewRequest(c.Request, n1n2MessageTransferRequest)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
 	req.Params["reqUri"] = c.Request.RequestURI

@@ -207,7 +207,8 @@ func (context *AMFContext) AmfUeFindByUeContextID(ueContextID string) (*AmfUe, b
 		return context.AmfUeFindByPei(ueContextID)
 	}
 	if strings.HasPrefix(ueContextID, "5g-guti") {
-		return context.AmfUeFindByGuti(ueContextID)
+		guti := ueContextID[strings.LastIndex(ueContextID, "-")+1:]
+		return context.AmfUeFindByGuti(guti)
 	}
 	return nil, false
 }

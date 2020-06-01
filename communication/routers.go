@@ -95,35 +95,35 @@ var routes = Routes{
 		"CreateUEContext",
 		strings.ToUpper("Put"),
 		"/ue-contexts/:ueContextId",
-		CreateUEContext,
+		HTTPCreateUEContext,
 	},
 
 	{
 		"EBIAssignment",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/assign-ebi",
-		EBIAssignment,
+		HTTPEBIAssignment,
 	},
 
 	{
 		"RegistrationStatusUpdate",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/transfer-update",
-		RegistrationStatusUpdate,
+		HTTPRegistrationStatusUpdate,
 	},
 
 	{
 		"ReleaseUEContext",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/release",
-		ReleaseUEContext,
+		HTTPReleaseUEContext,
 	},
 
 	{
 		"UEContextTransfer",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/transfer",
-		UEContextTransfer,
+		HTTPUEContextTransfer,
 	},
 
 	{
