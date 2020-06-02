@@ -19,8 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
-
-	amf_message "free5gc/src/amf/handler/message"
 )
 
 // N1N2MessageTransfer - Namf_Communication N1N2 Message Transfer (UE Specific) service Operation
@@ -87,17 +85,24 @@ func HTTPN1N2MessageTransfer(c *gin.Context) {
 	}
 }
 
-func N1N2MessageTransferStatus(c *gin.Context) {
+func HTTPN1N2MessageTransferStatus(c *gin.Context) {
 
 	req := http_wrapper.NewRequest(c.Request, nil)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
 	req.Params["reqUri"] = c.Request.RequestURI
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventN1N2MessageTransferStatus, req)
-	amf_message.SendMessage(handlerMsg)
 
-	rsp := <-handlerMsg.ResponseChan
+	rsp := producer.HandleN1N2MessageTransferStatusRequest(req)
 
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }

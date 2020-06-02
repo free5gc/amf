@@ -54,7 +54,18 @@ func HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 
 	rsp := producer.HandleAMFStatusChangeSubscribeModify(req)
 
-	c.JSON(rsp.Status, rsp.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
@@ -65,5 +76,16 @@ func HTTPAMFStatusChangeUnSubscribe(c *gin.Context) {
 
 	rsp := producer.HandleAMFStatusChangeUnSubscribeRequest(req)
 
-	c.JSON(rsp.Status, rsp.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }

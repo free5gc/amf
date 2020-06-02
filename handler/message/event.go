@@ -6,7 +6,6 @@ const (
 	EventNGAPMessage Event = iota
 	EventNGAPAcceptConn
 	EventNGAPCloseConn
-	EventN1N2MessageTransferStatus
 	EventProvideDomainSelectionInfo
 	EventProvideLocationInfo
 	EventSmContextStatusNotify

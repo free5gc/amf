@@ -9,14 +9,12 @@ import (
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
@@ -301,44 +299,44 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string, n1n2Message
 	return
 }
 
-func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId, reqUri string) {
-	var problem models.ProblemDetails
-	var ue *context.AmfUe
-	var ok bool
-	amfSelf := context.AMF_Self()
-	if strings.HasPrefix(ueContextId, "imsi") {
+func HandleN1N2MessageTransferStatusRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.CommLog.Info("Handle N1N2Message Transfer Status Request")
 
-		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
-			problem.Status = 404
-			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
-		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
-		amfSelf.UePool.Range(func(key, value interface{}) bool {
-			ue1 := value.(*context.AmfUe)
-			if ue1.Pei == ueContextId {
-				ue = ue1
-				return false
-			}
-			return true
-		})
-		if ue == nil {
-			problem.Status = 404
-			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
-		}
+	ueContextID := request.Params["ueContextId"]
+	reqUri := request.Params["reqUri"]
+
+	status, problemDetails := N1N2MessageTransferStatusProcedure(ueContextID, reqUri)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusOK, nil, status)
 	}
-	resourceUri := context.AMF_Self().GetIPv4Uri() + reqUri
-	n1n2Message := ue.N1N2Message
-	if n1n2Message == nil || n1n2Message.ResourceUri != resourceUri {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+}
+
+func N1N2MessageTransferStatusProcedure(ueContextID string, reqUri string) (status models.N1N2MessageTransferCause, problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+		}
 		return
 	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, n1n2Message.Status)
+
+	resourceUri := amfSelf.GetIPv4Uri() + reqUri
+	n1n2Message := ue.N1N2Message
+	if n1n2Message == nil || n1n2Message.ResourceUri != resourceUri {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+		}
+		return
+	}
+
+	status = n1n2Message.Status
+	return
 }
 
 // TS 29.518 5.2.2.3.3
