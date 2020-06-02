@@ -61,7 +61,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 	if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
 		integrityProtected = false
 	}
-	if ciphering || integrityProtected {
+	if integrityProtected {
 		securityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeaderType}
 		sequenceNumber := uint8(ue.DLCount & 0xff)
 
@@ -95,7 +95,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 
 		ue.SecurityContextAvailable = true
 	} else {
-		err = fmt.Errorf("NEA0 & NIA0 are illegal.")
+		err = fmt.Errorf("NIA0 is illegal.")
 		//  err = msg.PlainNasEncode()
 		return
 	}
@@ -150,7 +150,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 	if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
 		integrityProtected = false
 	}
-	if ciphering || integrityProtected {
+	if integrityProtected {
 		securityHeader := payload[0:6]
 		sequenceNumber := payload[6]
 		receivedMac32 := securityHeader[2:]
@@ -185,7 +185,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 				return
 			}
 		}
-	}
+	} 
 	err = msg.PlainNasDecode(&payload)
 
 	return
