@@ -130,7 +130,7 @@ var routes = Routes{
 		"N1N2MessageUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/ue-contexts/:ueContextId/n1-n2-messages/subscriptions/:subscriptionId",
-		N1N2MessageUnSubscribe,
+		HTTPN1N2MessageUnSubscribe,
 	},
 
 	{
@@ -151,7 +151,7 @@ var routes = Routes{
 		"N1N2MessageSubscribe",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/n1-n2-messages/subscriptions",
-		N1N2MessageSubscribe,
+		HTTPN1N2MessageSubscribe,
 	},
 
 	{

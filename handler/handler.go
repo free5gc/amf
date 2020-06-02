@@ -190,13 +190,6 @@ func Handle() {
 				case amf_message.EventProvideLocationInfo:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleProvideLocationInfoRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.RequestLocInfo))
-				case amf_message.EventN1N2MessageSubscribe:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleN1N2MessageSubscirbeRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeN1N2InfoSubscriptionCreateData))
-				case amf_message.EventN1N2MessageUnSubscribe:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleN1N2MessageUnSubscribeRequest(msg.ResponseChan, ueContextId, subscriptionId)
 				case amf_message.EventSmContextStatusNotify:
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]

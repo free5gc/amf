@@ -7,7 +7,6 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	amf_message "free5gc/src/amf/handler/message"
@@ -342,44 +341,75 @@ func HandleN1N2MessageTransferStatusRequest(httpChannel chan amf_message.Handler
 	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, n1n2Message.Status)
 }
 
-func HandleN1N2MessageSubscirbeRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.UeN1N2InfoSubscriptionCreateData) {
-	var response models.UeN1N2InfoSubscriptionCreatedData
+// TS 29.518 5.2.2.3.3
+func HandleN1N2MessageSubscirbeRequest(request *http_wrapper.Request) *http_wrapper.Response {
 
-	var ue *context.AmfUe
-	var ok bool
-	amfSelf := context.AMF_Self()
+	ueN1N2InfoSubscriptionCreateData := request.Body.(models.UeN1N2InfoSubscriptionCreateData)
+	ueContextID := request.Params["ueContextId"]
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
-			ue = amfSelf.NewAmfUe(ueContextId)
-			if err := gmm.InitAmfUeSm(ue); err != nil {
-				HttpLog.Errorf("InitAmfUeSm error: %v", err.Error())
-			}
-		}
+	ueN1N2InfoSubscriptionCreatedData, problemDetails := N1N2MessageSubscribeProcedure(ueContextID, ueN1N2InfoSubscriptionCreateData)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusCreated, nil, ueN1N2InfoSubscriptionCreatedData)
 	}
-	if ue != nil {
-		newSubscriptionID := strconv.Itoa(ue.N1N2MessageSubscribeIDGenerator)
-		ue.N1N2MessageSubscribeInfo[newSubscriptionID] = &body
-		ue.N1N2SubscriptionID = newSubscriptionID
-		response.N1n2NotifySubscriptionId = ue.N1N2SubscriptionID
-		ue.N1N2MessageSubscribeIDGenerator++
-	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusCreated, response)
 }
 
-func HandleN1N2MessageUnSubscribeRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, subscriptionId string) {
-	var ue *context.AmfUe
-	var ok bool
+func N1N2MessageSubscribeProcedure(ueContextID string, ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData) (ueN1N2InfoSubscriptionCreatedData *models.UeN1N2InfoSubscriptionCreatedData, problemDetails *models.ProblemDetails) {
+
 	amfSelf := context.AMF_Self()
 
-	if strings.HasPrefix(ueContextId, "imsi") {
-		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); ok {
-			_, ok := ue.N1N2MessageSubscribeInfo[subscriptionId]
-			if ok {
-				delete(ue.N1N2MessageSubscribeInfo, subscriptionId)
-			}
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
+	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
 		}
+		return
 	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusBadRequest, nil)
+
+	ueN1N2InfoSubscriptionCreatedData = new(models.UeN1N2InfoSubscriptionCreatedData)
+
+	if newSubscriptionID, err := ue.N1N2MessageSubscribeIDGenerator.Allocate(); err != nil {
+		logger.CommLog.Errorf("Create subscriptionID Error: %+v", err)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+		}
+		return
+	} else {
+		ueN1N2InfoSubscriptionCreatedData.N1n2NotifySubscriptionId = strconv.Itoa(int(newSubscriptionID))
+		ue.N1N2MessageSubscription.Store(newSubscriptionID, ueN1N2InfoSubscriptionCreateData)
+	}
+	return
+}
+
+func HandleN1N2MessageUnSubscribeRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.CommLog.Info("Handle N1N2Message Unsubscribe Request")
+
+	ueContextID := request.Params["ueContextId"]
+	subscriptionID := request.Params["subscriptionId"]
+
+	problemDetails := N1N2MessageUnSubscribeProcedure(ueContextID, subscriptionID)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+	}
+}
+
+func N1N2MessageUnSubscribeProcedure(ueContextID string, subscriptionID string) (problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+		}
+		return
+	}
+
+	ue.N1N2MessageSubscription.Delete(subscriptionID)
+	return
 }

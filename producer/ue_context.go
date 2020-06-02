@@ -59,9 +59,9 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
-	ue.N1N2MessageSubscribeInfo[ueContextID] = &models.UeN1N2InfoSubscriptionCreateData{
-		N2NotifyCallbackUri: ueContextCreateData.N2NotifyUri,
-	}
+	// ue.N1N2MessageSubscribeInfo[ueContextID] = &models.UeN1N2InfoSubscriptionCreateData{
+	// 	N2NotifyCallbackUri: ueContextCreateData.N2NotifyUri,
+	// }
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	//should be smInfo list
 

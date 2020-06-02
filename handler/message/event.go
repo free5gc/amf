@@ -9,8 +9,6 @@ const (
 	EventN1N2MessageTransferStatus
 	EventProvideDomainSelectionInfo
 	EventProvideLocationInfo
-	EventN1N2MessageSubscribe
-	EventN1N2MessageUnSubscribe
 	EventSmContextStatusNotify
 	EventGMMT3513
 	EventGMMT3565
