@@ -158,21 +158,21 @@ var routes = Routes{
 		"NonUeN2InfoUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/non-ue-n2-messages/subscriptions/:n2NotifySubscriptionId",
-		NonUeN2InfoUnSubscribe,
+		HTTPNonUeN2InfoUnSubscribe,
 	},
 
 	{
 		"NonUeN2MessageTransfer",
 		strings.ToUpper("Post"),
 		"/non-ue-n2-messages/transfer",
-		NonUeN2MessageTransfer,
+		HTTPNonUeN2MessageTransfer,
 	},
 
 	{
 		"NonUeN2InfoSubscribe",
 		strings.ToUpper("Post"),
 		"/non-ue-n2-messages/subscriptions",
-		NonUeN2InfoSubscribe,
+		HTTPNonUeN2InfoSubscribe,
 	},
 
 	{

@@ -16,7 +16,7 @@ import (
 )
 
 // NonUeN2InfoUnSubscribe - Namf_Communication Non UE N2 Info UnSubscribe service Operation
-func NonUeN2InfoUnSubscribe(c *gin.Context) {
+func HTTPNonUeN2InfoUnSubscribe(c *gin.Context) {
 	logger.CommLog.Warnf("Handle Non Ue N2 Info UnSubscribe is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }
