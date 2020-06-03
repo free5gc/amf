@@ -24,7 +24,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-func sendRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi string, request models.UeN1N2InfoSubscriptionCreateData) {
+func sendN1N2MessageSubscribeRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi string, request models.UeN1N2InfoSubscriptionCreateData) {
 	ueContextInfo, httpResponse, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsDocumentApi.N1N2MessageSubscribe(context.Background(), supi, request)
 	if err != nil {
 		if httpResponse == nil {
@@ -42,7 +42,7 @@ func sendRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi
 }
 
 func TestN1N2MessageSubscribe(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		go func() {
 			router := Namf_Communication_Server.NewRouter()
 			server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
@@ -62,14 +62,14 @@ func TestN1N2MessageSubscribe(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	/* init ue info*/
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	ueN1N2InfoSubscriptionCreateData := TestComm.ConsumerAMFN1N2MessageSubscribeRequsetTable[TestComm.UeN1N2InfoSubsriptionCreateData]
-	sendRequestAndPrintResult(client, ue.Supi, *ueN1N2InfoSubscriptionCreateData)
+	sendN1N2MessageSubscribeRequestAndPrintResult(client, ue.Supi, *ueN1N2InfoSubscriptionCreateData)
 }
 
 func TestN1MessageNotify(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestN1N2MessageSubscribe(t)
 	}
 	go func() {
@@ -90,14 +90,14 @@ func TestN1MessageNotify(t *testing.T) {
 	}()
 	time.Sleep(200 * time.Millisecond)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	n1msg := []byte{0x12}
 	callback.SendN1MessageNotify(ue, models.N1MessageClass__5_GMM, n1msg, nil)
 }
 
 func TestN2InfoNotifyUri(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestN1N2MessageSubscribe(t)
 	}
 	go func() {
@@ -117,7 +117,7 @@ func TestN2InfoNotifyUri(t *testing.T) {
 		assert.True(t, err == nil)
 	}()
 	time.Sleep(200 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	tmp := []byte{0x12}
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", nil)

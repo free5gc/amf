@@ -10,27 +10,44 @@
 package communication
 
 import (
+	"fmt"
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
 )
 
 // CreateUEContext - Namf_Communication CreateUEContext service Operation
-func CreateUEContext(c *gin.Context) {
-	var request models.CreateUeContextRequest
-	request.JsonData = new(models.UeContextCreateData)
-	s := strings.Split(c.GetHeader("Content-Type"), ";")
-	var err error
+func HTTPCreateUEContext(c *gin.Context) {
+	var createUeContextRequest models.CreateUeContextRequest
+	createUeContextRequest.JsonData = new(models.UeContextCreateData)
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	contentType := c.GetHeader("Content-Type")
+	s := strings.Split(contentType, ";")
 	switch s[0] {
 	case "application/json":
-		err = c.ShouldBindJSON(request.JsonData)
+		err = openapi.Deserialize(createUeContextRequest.JsonData, requestBody, contentType)
 	case "multipart/related":
-		err = c.ShouldBindWith(&request, openapi.MultipartRelatedBinding{})
+		err = openapi.Deserialize(&createUeContextRequest, requestBody, contentType)
+	default:
+		err = fmt.Errorf("Wrong content type")
 	}
 
 	if err != nil {
@@ -45,28 +62,57 @@ func CreateUEContext(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, createUeContextRequest)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleCreateUEContextRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventCreateUEContext, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-	if HTTPResponse.Status == http.StatusCreated {
-		c.Render(HTTPResponse.Status, openapi.MultipartRelatedRender{Data: HTTPResponse.Body})
+	if rsp.Status == http.StatusCreated {
+		responseBody, contentType, err := openapi.MultipartSerialize(rsp.Body)
+		if err != nil {
+			logger.CommLog.Errorln(err)
+			problemDetails := models.ProblemDetails{
+				Status: http.StatusInternalServerError,
+				Cause:  "SYSTEM_FAILURE",
+				Detail: err.Error(),
+			}
+			c.JSON(http.StatusInternalServerError, problemDetails)
+		} else {
+			c.Data(rsp.Status, contentType, responseBody)
+		}
 	} else {
-		c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+		responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+		if err != nil {
+			logger.CommLog.Errorln(err)
+			problemDetails := models.ProblemDetails{
+				Status: http.StatusInternalServerError,
+				Cause:  "SYSTEM_FAILURE",
+				Detail: err.Error(),
+			}
+			c.JSON(http.StatusInternalServerError, problemDetails)
+		} else {
+			c.Data(rsp.Status, "application/json", responseBody)
+		}
 	}
-
 }
 
 // EBIAssignment - Namf_Communication EBI Assignment service Operation
-func EBIAssignment(c *gin.Context) {
-	var request models.AssignEbiData
+func HTTPEBIAssignment(c *gin.Context) {
+	var assignEbiData models.AssignEbiData
 
-	err := c.ShouldBindJSON(&request)
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&assignEbiData, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -79,24 +125,42 @@ func EBIAssignment(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, assignEbiData)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleAssignEbiDataRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventEBIAssignment, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 // RegistrationStatusUpdate - Namf_Communication RegistrationStatusUpdate service Operation
-func RegistrationStatusUpdate(c *gin.Context) {
-	var request models.UeRegStatusUpdateReqData
+func HTTPRegistrationStatusUpdate(c *gin.Context) {
+	var ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData
 
-	err := c.ShouldBindJSON(&request)
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&ueRegStatusUpdateReqData, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -109,24 +173,42 @@ func RegistrationStatusUpdate(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, ueRegStatusUpdateReqData)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleRegistrationStatusUpdateRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventRegistrationStatusUpdate, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 // ReleaseUEContext - Namf_Communication ReleaseUEContext service Operation
-func ReleaseUEContext(c *gin.Context) {
-	var request models.UeContextRelease
+func HTTPReleaseUEContext(c *gin.Context) {
+	var ueContextRelease models.UeContextRelease
 
-	err := c.ShouldBindJSON(&request)
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&ueContextRelease, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -139,31 +221,49 @@ func ReleaseUEContext(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, ueContextRelease)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleReleaseUEContextRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventUEContextRelease, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 // UEContextTransfer - Namf_Communication UEContextTransfer service Operation
-func UEContextTransfer(c *gin.Context) {
-	var request models.UeContextTransferRequest
-	request.JsonData = new(models.UeContextTransferReqData)
-	s := strings.Split(c.GetHeader("Content-Type"), ";")
-	var err error
+func HTTPUEContextTransfer(c *gin.Context) {
+	var ueContextTransferRequest models.UeContextTransferRequest
+	ueContextTransferRequest.JsonData = new(models.UeContextTransferReqData)
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	contentType := c.GetHeader("Content-Type")
+	s := strings.Split(contentType, ";")
 	switch s[0] {
 	case "application/json":
-		err = c.ShouldBindJSON(request.JsonData)
+		err = openapi.Deserialize(ueContextTransferRequest.JsonData, requestBody, contentType)
 	case "multipart/related":
-		err = c.ShouldBindWith(&request, openapi.MultipartRelatedBinding{})
+		err = openapi.Deserialize(&ueContextTransferRequest, requestBody, contentType)
 	}
 
 	if err != nil {
@@ -178,18 +278,35 @@ func UEContextTransfer(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, ueContextTransferRequest)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	rsp := producer.HandleUEContextTransferRequest(req)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventUEContextTransfer, req)
-	amf_message.SendMessage(handlerMsg)
-
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-	if HTTPResponse.Status == http.StatusOK {
-		c.Render(HTTPResponse.Status, openapi.MultipartRelatedRender{Data: HTTPResponse.Body})
+	if rsp.Status == http.StatusOK {
+		responseBody, contentType, err := openapi.MultipartSerialize(rsp.Body)
+		if err != nil {
+			logger.CommLog.Errorln(err)
+			problemDetails := models.ProblemDetails{
+				Status: http.StatusInternalServerError,
+				Cause:  "SYSTEM_FAILURE",
+				Detail: err.Error(),
+			}
+			c.JSON(http.StatusInternalServerError, problemDetails)
+		} else {
+			c.Data(rsp.Status, contentType, responseBody)
+		}
 	} else {
-		c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+		responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+		if err != nil {
+			logger.CommLog.Errorln(err)
+			problemDetails := models.ProblemDetails{
+				Status: http.StatusInternalServerError,
+				Cause:  "SYSTEM_FAILURE",
+				Detail: err.Error(),
+			}
+			c.JSON(http.StatusInternalServerError, problemDetails)
+		} else {
+			c.Data(rsp.Status, "application/json", responseBody)
+		}
 	}
 }

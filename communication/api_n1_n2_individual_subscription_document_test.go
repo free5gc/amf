@@ -29,7 +29,7 @@ func sendN1N2MessageUnSubscribeRequestAndPrintResult(client *Namf_Communication_
 }
 
 func TestN1N2MessageUnSubscribe(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestN1N2MessageSubscribe(t)
 	}
 	configuration := Namf_Communication_Client.NewConfiguration()
@@ -37,8 +37,8 @@ func TestN1N2MessageUnSubscribe(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	/* init ue info*/
-	ue, err := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	if err == false {
+	ue, ok := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
+	if !ok {
 		// ue imsi-2089300007487 does not in ue pool
 		supi := "imsi-2089300007487"
 		ue = TestAmf.TestAmf.NewAmfUe(supi)

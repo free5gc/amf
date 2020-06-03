@@ -41,10 +41,11 @@ func Handle() {
 
 				case amf_message.EventNGAPCloseConn:
 					amfSelf := context.AMF_Self()
-					ran, ok := amfSelf.AmfRanPool[msg.NgapAddr]
+					value, ok := amfSelf.AmfRanPool.Load(msg.NgapAddr)
 					if !ok {
 						HandlerLog.Warn("Cannot find the coressponding RAN Context\n")
 					} else {
+						ran := value.(*context.AmfRan)
 						ran.Remove(msg.NgapAddr)
 					}
 				case amf_message.EventGMMT3513:
@@ -176,14 +177,6 @@ func Handle() {
 						amfUe.T3522RetryTimes++
 						gmm_message.SendDeregistrationRequest(value.RanUe, value.AccessType, value.ReRegistrationRequired, value.Cause5GMM)
 					}
-				case amf_message.EventN1N2MessageTransfer:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					reqUri := msg.HTTPRequest.Params["reqUri"]
-					producer.HandleN1N2MessageTransferRequest(msg.ResponseChan, ueContextId, reqUri, msg.HTTPRequest.Body.(models.N1N2MessageTransferRequest))
-				case amf_message.EventN1N2MessageTransferStatus:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					reqUri := msg.HTTPRequest.Params["reqUri"]
-					producer.HandleN1N2MessageTransferStatusRequest(msg.ResponseChan, ueContextId, reqUri)
 				case amf_message.EventProvideDomainSelectionInfo:
 					infoClass := msg.HTTPRequest.Query.Get("info-class")
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
@@ -193,40 +186,10 @@ func Handle() {
 				case amf_message.EventProvideLocationInfo:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleProvideLocationInfoRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.RequestLocInfo))
-				case amf_message.EventN1N2MessageSubscribe:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleN1N2MessageSubscirbeRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeN1N2InfoSubscriptionCreateData))
-				case amf_message.EventN1N2MessageUnSubscribe:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleN1N2MessageUnSubscribeRequest(msg.ResponseChan, ueContextId, subscriptionId)
-				case amf_message.EventCreateUEContext:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleCreateUeContextRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.CreateUeContextRequest))
 				case amf_message.EventSmContextStatusNotify:
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
 					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
-				case amf_message.EventUEContextRelease:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleUEContextReleaseRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextRelease))
-				case amf_message.EventUEContextTransfer:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleUEContextTransferRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeContextTransferRequest))
-				case amf_message.EventEBIAssignment:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleAssignEbiDataRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.AssignEbiData))
-				case amf_message.EventAMFStatusChangeSubscribe:
-					producer.HandleAMFStatusChangeSubscribeRequest(msg.ResponseChan, msg.HTTPRequest.Body.(models.SubscriptionData))
-				case amf_message.EventAMFStatusChangeUnSubscribe:
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleAMFStatusChangeUnSubscribeRequest(msg.ResponseChan, subscriptionId)
-				case amf_message.EventAMFStatusChangeSubscribeModfy:
-					subscriptionId := msg.HTTPRequest.Params["subscriptionId"]
-					producer.HandleAMFStatusChangeSubscribeModfy(msg.ResponseChan, subscriptionId, msg.HTTPRequest.Body.(models.SubscriptionData))
-				case amf_message.EventRegistrationStatusUpdate:
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					producer.HandleRegistrationStatusUpdateRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.UeRegStatusUpdateReqData))
 				case amf_message.EventAmPolicyControlUpdateNotifyUpdate:
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
 					producer.HandleAmPolicyControlUpdateNotifyUpdate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.PolicyUpdate))

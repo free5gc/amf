@@ -11,17 +11,32 @@ package communication
 
 import (
 	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 // AMFStatusChangeSubscribe - Namf_Communication AMF Status Change Subscribe service Operation
-func AMFStatusChangeSubscribe(c *gin.Context) {
-	var request models.SubscriptionData
-	err := c.ShouldBindJSON(&request)
+func HTTPAMFStatusChangeSubscribe(c *gin.Context) {
+	var subscriptionData models.SubscriptionData
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&subscriptionData, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -33,15 +48,23 @@ func AMFStatusChangeSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	req := http_wrapper.NewRequest(c.Request, request)
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventAMFStatusChangeSubscribe, req)
-	amf_message.SendMessage(handlerMsg)
 
-	rsp := <-handlerMsg.ResponseChan
+	req := http_wrapper.NewRequest(c.Request, subscriptionData)
+	rsp := producer.HandleAMFStatusChangeSubscribeRequest(req)
 
-	HTTPResponse := rsp.HTTPResponse
-	for key, val := range HTTPResponse.Header {
+	for key, val := range rsp.Header {
 		c.Header(key, val[0])
 	}
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }

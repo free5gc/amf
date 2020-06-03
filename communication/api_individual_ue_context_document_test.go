@@ -19,6 +19,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func lengthOfUePool(testAmf *amf_context.AMFContext) int {
+	length := 0
+	testAmf.UePool.Range(func(key, value interface{}) bool {
+		length++
+		return true
+	})
+	return length
+}
+
 func sendCreateUEContextRequestAndPrintResult(client *Namf_Communication_Client.APIClient, supi string, request models.CreateUeContextRequest) {
 	ueContextInfo, httpResponse, err := client.IndividualUeContextDocumentApi.CreateUEContext(context.Background(), supi, request)
 	if err != nil {
@@ -95,7 +104,7 @@ func sendRegistrationStatusUpdateRequestAndPrintResult(client *Namf_Communicatio
 }
 
 func TestCreateUEContext(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		go func() {
 			router := Namf_Communication_Server.NewRouter()
 			server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
@@ -114,7 +123,7 @@ func TestCreateUEContext(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	/* init ue info*/
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	ueContextCreateData := TestComm.ConsumerAMFCreateUEContextRequsetTable[TestComm.CreateUEContext403]
 	sendCreateUEContextRequestAndPrintResult(client, ue.Supi, ueContextCreateData)
@@ -124,7 +133,7 @@ func TestCreateUEContext(t *testing.T) {
 }
 
 func TestReleaseUEContext(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestCreateUEContext(t)
 	}
 
@@ -143,14 +152,14 @@ func TestReleaseUEContext(t *testing.T) {
 	ueContextReleaseData := TestComm.ConsumerAMFReleaseUEContextRequestTable[TestComm.UeContextRelease404]
 	sendReleaseContextRequestAndPrintResult(client, ue.Supi, ueContextReleaseData)
 
-	ue = TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ = TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ueContextReleaseData = TestComm.ConsumerAMFReleaseUEContextRequestTable[TestComm.UeContextRelease201]
 	sendReleaseContextRequestAndPrintResult(client, ue.Supi, ueContextReleaseData)
 
 }
 
 func TestUEContextTransfer(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestCreateUEContext(t)
 	}
 
@@ -169,8 +178,8 @@ func TestUEContextTransfer(t *testing.T) {
 	ueContextTransferData := TestComm.ConsumerAMFUEContextTransferRequestTable[TestComm.UeContextTransfer404]
 	sendContextTransferRequestAndPrintResult(client, ue.Supi, ueContextTransferData)
 
-	ue, err := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	if err == false {
+	ue, ok := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
+	if !ok {
 		// ue imsi-2089300007487 does not in ue pool
 		supi := "imsi-2089300007487"
 		ue = TestAmf.TestAmf.NewAmfUe(supi)
@@ -183,7 +192,7 @@ func TestUEContextTransfer(t *testing.T) {
 }
 
 func TestEBIAssignment(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestCreateUEContext(t)
 	}
 	configuration := Namf_Communication_Client.NewConfiguration()
@@ -191,12 +200,12 @@ func TestEBIAssignment(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	/* init ue info*/
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	assignEbiData := TestComm.ConsumerAMFUEContextEBIAssignmentTable[TestComm.AssignEbiData403]
 	sendEBIAssignmentRequestAndPrintResult(client, ue.Supi, assignEbiData)
 
-	ue = TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ = TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.SmContextList[10] = &amf_context.SmContext{
 		SmfId:        "123",
 		SmfUri:       "https://localhost:29503",
@@ -224,7 +233,7 @@ func TestEBIAssignment(t *testing.T) {
 }
 
 func TestRegistrationStatusUpdate(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestCreateUEContext(t)
 	}
 	configuration := Namf_Communication_Client.NewConfiguration()
@@ -234,7 +243,7 @@ func TestRegistrationStatusUpdate(t *testing.T) {
 	ueRegStatusUpdateReqData := TestComm.ConsumerRegistrationStatusUpdateTable[TestComm.RegistrationStatusUpdate404]
 	sendRegistrationStatusUpdateRequestAndPrintResult(client, "", ueRegStatusUpdateReqData)
 	/* init ue info*/
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ueRegStatusUpdateReqData = TestComm.ConsumerRegistrationStatusUpdateTable[TestComm.RegistrationStatusUpdate200]
 	sendRegistrationStatusUpdateRequestAndPrintResult(client, ue.Supi, ueRegStatusUpdateReqData)
 

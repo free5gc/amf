@@ -78,107 +78,107 @@ var routes = Routes{
 	},
 
 	{
-		"AMFStatusChangeSubscribeModfy",
+		"AMFStatusChangeSubscribeModify",
 		strings.ToUpper("Put"),
 		"/subscriptions/:subscriptionId",
-		AMFStatusChangeSubscribeModfy,
+		HTTPAMFStatusChangeSubscribeModify,
 	},
 
 	{
 		"AMFStatusChangeUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/subscriptions/:subscriptionId",
-		AMFStatusChangeUnSubscribe,
+		HTTPAMFStatusChangeUnSubscribe,
 	},
 
 	{
 		"CreateUEContext",
 		strings.ToUpper("Put"),
 		"/ue-contexts/:ueContextId",
-		CreateUEContext,
+		HTTPCreateUEContext,
 	},
 
 	{
 		"EBIAssignment",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/assign-ebi",
-		EBIAssignment,
+		HTTPEBIAssignment,
 	},
 
 	{
 		"RegistrationStatusUpdate",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/transfer-update",
-		RegistrationStatusUpdate,
+		HTTPRegistrationStatusUpdate,
 	},
 
 	{
 		"ReleaseUEContext",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/release",
-		ReleaseUEContext,
+		HTTPReleaseUEContext,
 	},
 
 	{
 		"UEContextTransfer",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/transfer",
-		UEContextTransfer,
+		HTTPUEContextTransfer,
 	},
 
 	{
 		"N1N2MessageUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/ue-contexts/:ueContextId/n1-n2-messages/subscriptions/:subscriptionId",
-		N1N2MessageUnSubscribe,
+		HTTPN1N2MessageUnSubscribe,
 	},
 
 	{
 		"N1N2MessageTransfer",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/n1-n2-messages",
-		N1N2MessageTransfer,
+		HTTPN1N2MessageTransfer,
 	},
 
 	{
 		"N1N2MessageTransferStatus",
 		strings.ToUpper("Get"),
 		"/ue-contexts/:ueContextId/n1-n2-messages/:n1N2MessageId",
-		N1N2MessageTransferStatus,
+		HTTPN1N2MessageTransferStatus,
 	},
 
 	{
 		"N1N2MessageSubscribe",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/n1-n2-messages/subscriptions",
-		N1N2MessageSubscribe,
+		HTTPN1N2MessageSubscribe,
 	},
 
 	{
 		"NonUeN2InfoUnSubscribe",
 		strings.ToUpper("Delete"),
 		"/non-ue-n2-messages/subscriptions/:n2NotifySubscriptionId",
-		NonUeN2InfoUnSubscribe,
+		HTTPNonUeN2InfoUnSubscribe,
 	},
 
 	{
 		"NonUeN2MessageTransfer",
 		strings.ToUpper("Post"),
 		"/non-ue-n2-messages/transfer",
-		NonUeN2MessageTransfer,
+		HTTPNonUeN2MessageTransfer,
 	},
 
 	{
 		"NonUeN2InfoSubscribe",
 		strings.ToUpper("Post"),
 		"/non-ue-n2-messages/subscriptions",
-		NonUeN2InfoSubscribe,
+		HTTPNonUeN2InfoSubscribe,
 	},
 
 	{
 		"AMFStatusChangeSubscribe",
 		strings.ToUpper("Post"),
 		"/subscriptions",
-		AMFStatusChangeSubscribe,
+		HTTPAMFStatusChangeSubscribe,
 	},
 }

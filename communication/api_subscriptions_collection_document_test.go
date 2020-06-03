@@ -11,23 +11,21 @@ import (
 	Namf_Communication_Server "free5gc/src/amf/communication"
 	"free5gc/src/amf/handler"
 	"free5gc/src/amf/producer/callback"
-	"log"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/http2"
 	"net/http"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/http2"
 )
 
-func sendAMFStatusSubscriptionRequestAndPrintResult(client *Namf_Communication_Client.APIClient, request models.SubscriptionData) {
+func sendAMFStatusSubscriptionRequestAndPrintResult(t *testing.T, client *Namf_Communication_Client.APIClient, request models.SubscriptionData) {
 	aMFStatusSubscription, httpResponse, err := client.SubscriptionsCollectionDocumentApi.AMFStatusChangeSubscribe(context.Background(), request)
 	if err != nil {
 		if httpResponse == nil {
-			log.Println(err)
+			t.Error(err)
 		} else if err.Error() != httpResponse.Status {
-			log.Println(err)
+			t.Error(err)
 		} else {
 
 		}
@@ -37,7 +35,7 @@ func sendAMFStatusSubscriptionRequestAndPrintResult(client *Namf_Communication_C
 }
 
 func TestAMFStatusChangeSubscribe(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		go func() {
 			router := Namf_Communication_Server.NewRouter()
 			server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
@@ -56,14 +54,14 @@ func TestAMFStatusChangeSubscribe(t *testing.T) {
 	client := Namf_Communication_Client.NewAPIClient(configuration)
 
 	subscriptionData := TestComm.ConsumerAMFStatusSubscriptionTable[TestComm.AMFStatusSubscription403]
-	sendAMFStatusSubscriptionRequestAndPrintResult(client, subscriptionData)
+	sendAMFStatusSubscriptionRequestAndPrintResult(t, client, subscriptionData)
 
-	subscriptionData = TestComm.ConsumerAMFStatusSubscriptionTable[TestComm.AMFStatusSubscription200]
-	sendAMFStatusSubscriptionRequestAndPrintResult(client, subscriptionData)
+	subscriptionData = TestComm.ConsumerAMFStatusSubscriptionTable[TestComm.AMFStatusSubscription201]
+	sendAMFStatusSubscriptionRequestAndPrintResult(t, client, subscriptionData)
 }
 
 func TestAMFStatusChangeNotify(t *testing.T) {
-	if len(TestAmf.TestAmf.UePool) == 0 {
+	if lengthOfUePool(TestAmf.TestAmf) == 0 {
 		TestAMFStatusChangeSubscribe(t)
 	}
 	time.Sleep(100 * time.Millisecond)
@@ -95,5 +93,4 @@ func TestAMFStatusChangeNotify(t *testing.T) {
 	}
 
 	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_AVAILABLE), guamiList)
-
 }

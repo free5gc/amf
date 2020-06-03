@@ -5,10 +5,10 @@ import (
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
+	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
 	ngap_message "free5gc/src/amf/ngap/message"
@@ -20,7 +20,7 @@ import (
 func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMessage, guti, pduSessionIdString string, body models.SmContextStatusNotification) {
 	var problem models.ProblemDetails
 	amfSelf := context.AMF_Self()
-	ue := amfSelf.AmfUeFindByGuti(guti)
+	ue, _ := amfSelf.AmfUeFindByGuti(guti)
 
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 	if ue == nil {
@@ -76,9 +76,9 @@ func HandleAmPolicyControlUpdateNotifyUpdate(httpChannel chan amf_message.Handle
 
 	var problem models.ProblemDetails
 	amfSelf := context.AMF_Self()
-	ue := amfSelf.AmfUeFindByPolicyAssociationId(polAssoId)
+	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoId)
 
-	if ue == nil {
+	if !ok {
 		problem.Status = 404
 		problem.Cause = "CONTEXT_NOT_FOUND"
 		problem.Detail = fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoId)
@@ -136,9 +136,9 @@ func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.Han
 
 	var problem models.ProblemDetails
 	amfSelf := context.AMF_Self()
-	ue := amfSelf.AmfUeFindByPolicyAssociationId(polAssoId)
+	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoId)
 
-	if ue == nil {
+	if !ok {
 		problem.Status = 404
 		problem.Cause = "CONTEXT_NOT_FOUND"
 		problem.Detail = fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoId)

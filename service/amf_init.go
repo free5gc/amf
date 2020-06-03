@@ -250,9 +250,11 @@ func (amf *AMF) Terminate() {
 	// send AMF status indication to ran to notify ran that this AMF will be unavailable
 	logger.InitLog.Infof("Send AMF Status Indication to Notify RANs due to AMF terminating")
 	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
-	for _, ran := range amfSelf.AmfRanPool {
+	amfSelf.AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*context.AmfRan)
 		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
-	}
+		return true
+	})
 
 	logger.InitLog.Infof("Close SCTP server...")
 	sctpListener.Close()

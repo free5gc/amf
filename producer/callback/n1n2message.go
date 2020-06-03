@@ -6,6 +6,7 @@ import (
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 )
@@ -48,15 +49,18 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.N1N
 }
 
 func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n1Msg []byte, registerContext *models.RegistrationContextContainer) {
-	for subscriptionId, subscribeInfo := range ue.N1N2MessageSubscribeInfo {
-		if subscribeInfo.N1NotifyCallbackUri != "" && subscribeInfo.N1MessageClass == n1class {
+	ue.N1N2MessageSubscription.Range(func(key, value interface{}) bool {
+		subscriptionID := key.(int64)
+		subscription := value.(models.UeN1N2InfoSubscriptionCreateData)
+
+		if subscription.N1NotifyCallbackUri != "" && subscription.N1MessageClass == n1class {
 			configuration := Namf_Communication.NewConfiguration()
 			client := Namf_Communication.NewAPIClient(configuration)
 			n1MessageNotify := models.N1MessageNotify{
 				JsonData: &models.N1MessageNotification{
-					N1NotifySubscriptionId: subscriptionId,
+					N1NotifySubscriptionId: strconv.Itoa(int(subscriptionID)),
 					N1MessageContainer: &models.N1MessageContainer{
-						N1MessageClass: subscribeInfo.N1MessageClass,
+						N1MessageClass: subscription.N1MessageClass,
 						N1MessageContent: &models.RefToBinaryData{
 							ContentId: "n1Msg",
 						},
@@ -65,7 +69,7 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 				},
 				BinaryDataN1Message: n1Msg,
 			}
-			httpResponse, err := client.N1MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.N1MessageNotify(context.Background(), subscribeInfo.N1NotifyCallbackUri, n1MessageNotify)
+			httpResponse, err := client.N1MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.N1MessageNotify(context.Background(), subscription.N1NotifyCallbackUri, n1MessageNotify)
 
 			if err != nil {
 				if httpResponse == nil {
@@ -75,7 +79,8 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 				}
 			}
 		}
-	}
+		return true
+	})
 }
 
 // TS 29.518 5.2.2.3.5.2
@@ -115,14 +120,17 @@ func SendN1MessageNotifyAtAMFReAllocation(ue *amf_context.AmfUe, n1Msg []byte, r
 }
 
 func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.N2InformationClass, n1Msg, n2Msg []byte) {
-	for subscriptionId, subscribeInfo := range ue.N1N2MessageSubscribeInfo {
-		if subscribeInfo.N2NotifyCallbackUri != "" && subscribeInfo.N2InformationClass == n2class {
+	ue.N1N2MessageSubscription.Range(func(key, value interface{}) bool {
+		subscriptionID := key.(int64)
+		subscription := value.(models.UeN1N2InfoSubscriptionCreateData)
+
+		if subscription.N2NotifyCallbackUri != "" && subscription.N2InformationClass == n2class {
 			configuration := Namf_Communication.NewConfiguration()
 			client := Namf_Communication.NewAPIClient(configuration)
 
 			n2InformationNotify := models.N2InfoNotifyRequest{
 				JsonData: &models.N2InformationNotification{
-					N2NotifySubscriptionId: subscriptionId,
+					N2NotifySubscriptionId: strconv.Itoa(int(subscriptionID)),
 					N2InfoContainer: &models.N2InfoContainer{
 						N2InformationClass: n2class,
 					},
@@ -168,7 +176,7 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.N2InformationClass, 
 				}
 			}
 
-			httpResponse, err := client.N2InfoNotifyCallbackDocumentApiServiceCallbackDocumentApi.N2InfoNotify(context.Background(), subscribeInfo.N2NotifyCallbackUri, n2InformationNotify)
+			httpResponse, err := client.N2InfoNotifyCallbackDocumentApiServiceCallbackDocumentApi.N2InfoNotify(context.Background(), subscription.N2NotifyCallbackUri, n2InformationNotify)
 
 			if err != nil {
 				if httpResponse == nil {
@@ -178,5 +186,6 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.N2InformationClass, 
 				}
 			}
 		}
-	}
+		return true
+	})
 }

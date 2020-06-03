@@ -614,7 +614,8 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 	// 	ngaplog.Errorf("Build Paging failed : %s", err.Error())
 	// }
 	taiList := ue.RegistrationArea[models.AccessType__3_GPP_ACCESS]
-	for _, ran := range context.AMF_Self().AmfRanPool {
+	context.AMF_Self().AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*context.AmfRan)
 		for _, item := range ran.SupportedTAList {
 			if context.InTaiList(item.Tai, taiList) {
 				ngaplog.Infof("[AMF] Send Paging to TAI(%+v, Tac:%+v) for Ue[%s]", item.Tai.PlmnId, item.Tai.Tac, ue.Supi)
@@ -622,8 +623,8 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 				break
 			}
 		}
-	}
-
+		return true
+	})
 }
 
 // TS 23.502 4.2.2.2.3

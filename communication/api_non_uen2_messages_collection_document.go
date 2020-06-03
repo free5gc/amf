@@ -10,11 +10,13 @@
 package communication
 
 import (
+	"free5gc/src/amf/logger"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
 
 // NonUeN2MessageTransfer - Namf_Communication Non UE N2 Message Transfer service Operation
-func NonUeN2MessageTransfer(c *gin.Context) {
+func HTTPNonUeN2MessageTransfer(c *gin.Context) {
+	logger.CommLog.Warnf("Handle Non Ue N2 Message Transfer is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }

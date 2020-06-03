@@ -1,82 +1,119 @@
 package producer
 
 import (
+	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/context"
+	"free5gc/src/amf/logger"
 	"net/http"
 	"reflect"
-	"strconv"
 )
 
-func HandleAMFStatusChangeSubscribeRequest(httpChannel chan amf_message.HandlerResponseMessage, body models.SubscriptionData) {
-	var response models.SubscriptionData
-	var problem models.ProblemDetails
-	var guami models.Guami
+// TS 29.518 5.2.2.5.1
+func HandleAMFStatusChangeSubscribeRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.CommLog.Info("Handle AMF Status Change Subscribe Request")
+
+	subscriptionDataReq := request.Body.(models.SubscriptionData)
+
+	subscriptionDataRsp, locationHeader, problemDetails := AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	}
+
+	headers := http.Header{
+		"Location": {locationHeader},
+	}
+	return http_wrapper.NewResponse(http.StatusCreated, headers, subscriptionDataRsp)
+}
+
+func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (subscriptionDataRsp models.SubscriptionData, locationHeader string, problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
-	for _, guami = range body.GuamiList {
+	for _, guami := range subscriptionDataReq.GuamiList {
 		for _, servedGumi := range amfSelf.ServedGuamiList {
 			if reflect.DeepEqual(guami, servedGumi) {
 				//AMF status is available
-				response.GuamiList = append(response.GuamiList, guami)
+				subscriptionDataRsp.GuamiList = append(subscriptionDataRsp.GuamiList, guami)
 			}
 		}
 	}
 
-	if response.GuamiList != nil {
-		newSubscriptionID := strconv.Itoa(amfSelf.AMFStatusSubscriptionIDGenerator)
-		amfSelf.AMFStatusSubscriptions[newSubscriptionID] = new(models.SubscriptionData)
-		locationHeader := body.AmfStatusUri + "/" + newSubscriptionID
-		headers := http.Header{
-			"Location": {locationHeader},
-		}
-		amfSelf.AMFStatusSubscriptions[newSubscriptionID].AmfStatusUri = body.AmfStatusUri
-		amfSelf.AMFStatusSubscriptions[newSubscriptionID].GuamiList = response.GuamiList
-		amfSelf.AMFStatusSubscriptionIDGenerator++
-		amf_message.SendHttpResponseMessage(httpChannel, headers, http.StatusCreated, response)
+	if subscriptionDataRsp.GuamiList != nil {
+		newSubscriptionID := amfSelf.NewAMFStatusSubscription(subscriptionDataReq)
+		locationHeader = subscriptionDataReq.AmfStatusUri + "/" + newSubscriptionID
+		logger.CommLog.Infof("new AMF Status Subscription[%s]", newSubscriptionID)
+		return
 	} else {
-		problem.Status = 403
-		problem.Cause = "UNSPECIFIED"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "UNSPECIFIED",
+		}
+		return
 	}
 }
 
-func HandleAMFStatusChangeUnSubscribeRequest(httpChannel chan amf_message.HandlerResponseMessage, subscriptionId string) {
-	var problem models.ProblemDetails
-	amfSelf := context.AMF_Self()
-	_, ok := amfSelf.AMFStatusSubscriptions[subscriptionId]
+// TS 29.518 5.2.2.5.2
+func HandleAMFStatusChangeUnSubscribeRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.CommLog.Info("Handle AMF Status Change UnSubscribe Request")
 
-	if !ok {
-		problem.Status = 403
-		problem.Cause = "SUBSCRIPTION_NOT_FOUND "
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+	subscriptionID := request.Params["subscriptionId"]
+
+	problemDetails := AMFStatusChangeUnSubscribeProcedure(subscriptionID)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
-		delete(amfSelf.AMFStatusSubscriptions, subscriptionId)
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
 }
 
-func HandleAMFStatusChangeSubscribeModfy(httpChannel chan amf_message.HandlerResponseMessage, subscriptionId string, body models.SubscriptionData) {
-	var problem models.ProblemDetails
-	var response models.SubscriptionData
+func AMFStatusChangeUnSubscribeProcedure(subscriptionID string) (problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
-	_, ok := amfSelf.AMFStatusSubscriptions[subscriptionId]
-	if !ok {
-		problem.Status = 403
-		problem.Cause = "Forbidden"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusForbidden, problem)
-	} else {
-		amfGuamiList := amfSelf.AMFStatusSubscriptions[subscriptionId].GuamiList
-		// clear GuamiList
-		amfGuamiList = amfGuamiList[0:0]
-		for _, guamiList := range body.GuamiList {
-			amfGuamiList = append(amfGuamiList, guamiList)
-			response.GuamiList = append(response.GuamiList, guamiList)
-		}
 
-		amfSelf.AMFStatusSubscriptions[subscriptionId].AmfStatusUri = body.AmfStatusUri
-		response.AmfStatusUri = body.AmfStatusUri
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusAccepted, response)
+	if _, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "SUBSCRIPTION_NOT_FOUND",
+		}
+	} else {
+		logger.CommLog.Debugf("Delete AMF status subscription[%s]", subscriptionID)
+		amfSelf.DeleteAMFStatusSubscription(subscriptionID)
 	}
+	return
+}
+
+// TS 29.518 5.2.2.5.1.3
+func HandleAMFStatusChangeSubscribeModify(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.CommLog.Info("Handle AMF Status Change Subscribe Modify Request")
+
+	updateSubscriptionData := request.Body.(models.SubscriptionData)
+	subscriptionID := request.Params["subscriptionId"]
+
+	updatedSubscriptionData, problemDetails := AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusAccepted, nil, updatedSubscriptionData)
+	}
+}
+
+func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscriptionData models.SubscriptionData) (updatedSubscriptionData *models.SubscriptionData, problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	if currentSubscriptionData, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "Forbidden",
+		}
+	} else {
+		logger.CommLog.Debugf("Modify AMF status subscription[%s]", subscriptionID)
+
+		currentSubscriptionData.GuamiList = currentSubscriptionData.GuamiList[:0]
+
+		currentSubscriptionData.GuamiList = append(currentSubscriptionData.GuamiList, subscriptionData.GuamiList...)
+		currentSubscriptionData.AmfStatusUri = subscriptionData.AmfStatusUri
+
+		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, currentSubscriptionData)
+		updatedSubscriptionData = currentSubscriptionData
+	}
+	return
 }
