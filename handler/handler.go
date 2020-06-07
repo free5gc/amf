@@ -177,12 +177,6 @@ func Handle() {
 						amfUe.T3522RetryTimes++
 						gmm_message.SendDeregistrationRequest(value.RanUe, value.AccessType, value.ReRegistrationRequired, value.Cause5GMM)
 					}
-				case amf_message.EventProvideDomainSelectionInfo:
-					infoClass := msg.HTTPRequest.Query.Get("info-class")
-					ueContextId := msg.HTTPRequest.Params["ueContextId"]
-					HandlerLog.Traceln("handle Provide Domain Selection Start")
-					producer.HandleProvideDomainSelectionInfoRequest(msg.ResponseChan, ueContextId, infoClass)
-					HandlerLog.Traceln("handle Provide Domain Selection End")
 				case amf_message.EventProvideLocationInfo:
 					ueContextId := msg.HTTPRequest.Params["ueContextId"]
 					producer.HandleProvideLocationInfoRequest(msg.ResponseChan, ueContextId, msg.HTTPRequest.Body.(models.RequestLocInfo))

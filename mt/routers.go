@@ -75,13 +75,13 @@ var routes = Routes{
 		"ProvideDomainSelectionInfo",
 		strings.ToUpper("Get"),
 		"/ue-contexts/:ueContextId",
-		ProvideDomainSelectionInfo,
+		HTTPProvideDomainSelectionInfo,
 	},
 
 	{
 		"EnableUeReachability",
 		strings.ToUpper("Post"),
 		"/ue-contexts/:ueContextId/ue-reachind",
-		EnableUeReachability,
+		HTTPEnableUeReachability,
 	},
 }
