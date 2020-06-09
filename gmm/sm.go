@@ -36,7 +36,7 @@ func register_event_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeULNASTransport:
-			return HandleULNASTransport(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.ULNASTransport)
+			return HandleULNASTransport(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.ULNASTransport)
 		case nas.MsgTypeRegistrationRequest:
 			if err := HandleRegistrationRequest(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest); err != nil {
 				return err
@@ -159,7 +159,7 @@ func register_event_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error 
 		procedureCode = args[PROCEDURE_CODE].(int64)
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeULNASTransport:
-			return HandleULNASTransport(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.ULNASTransport)
+			return HandleULNASTransport(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.ULNASTransport)
 		case nas.MsgTypeRegistrationRequest:
 			if err := HandleRegistrationRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest); err != nil {
 				return nil

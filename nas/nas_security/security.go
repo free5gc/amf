@@ -151,6 +151,10 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		integrityProtected = false
 	}
 	if integrityProtected {
+		if len(payload) < 6 {
+			err = fmt.Errorf("payload length error")
+			return
+		}
 		securityHeader := payload[0:6]
 		sequenceNumber := payload[6]
 		receivedMac32 := securityHeader[2:]
@@ -185,7 +189,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 				return
 			}
 		}
-	} 
+	}
 	err = msg.PlainNasDecode(&payload)
 
 	return

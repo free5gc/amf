@@ -21,18 +21,17 @@ import (
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
+	"github.com/antihax/optional"
+	"github.com/mitchellh/mapstructure"
+	"github.com/mohae/deepcopy"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/antihax/optional"
-	"github.com/mitchellh/mapstructure"
-	"github.com/mohae/deepcopy"
 )
 
-func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, ulNasTransport *nasMessage.ULNASTransport) error {
+func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedureCode int64, ulNasTransport *nasMessage.ULNASTransport) error {
 	switch ulNasTransport.GetPayloadContainerType() {
 	case nasMessage.PayloadContainerTypeN1SMInfo:
 
@@ -68,6 +67,26 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, ulNasTran
 				requestType = models.RequestType_INITIAL_EMERGENCY_REQUEST
 			case nasMessage.ULNASTransportRequestTypeExistingEmergencyPduSession:
 				requestType = models.RequestType_EXISTING_EMERGENCY_PDU_SESSION
+			}
+		}
+
+		if procedureCode == ngapType.ProcedureCodeUplinkNASTransport {
+			if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
+				logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
+			} else {
+				securityHeaderType := ulNasTransport.GetSecurityHeaderType() & 0x0f
+				if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
+					logger.GmmLog.Warnln(" securityHeaderType", securityHeaderType)
+					if securityHeaderType == nas.SecurityHeaderTypePlainNas || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
+						return fmt.Errorf("securityHeaderType is PlainNas or New5gNasSecurityContext")
+					}
+				}
+
+				if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
+					if securityHeaderType != nas.SecurityHeaderTypePlainNas && securityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
+						return fmt.Errorf("securityHeaderType should bet PlainNas or New5gNasSecurityContext")
+					}
+				}
 			}
 		}
 
