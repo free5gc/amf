@@ -1,74 +1,66 @@
 package producer
 
 import (
+	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"net/http"
-	"strings"
 )
 
-func HandleProvideLocationInfoRequest(httpChannel chan amf_message.HandlerResponseMessage, ueContextId string, body models.RequestLocInfo) {
-	var response models.ProvideLocInfo
-	var problem models.ProblemDetails
-	var ue *context.AmfUe
-	var ok bool
-	amfSelf := context.AMF_Self()
-	if strings.HasPrefix(ueContextId, "imsi") {
+func HandleProvideLocationInfoRequest(request *http_wrapper.Request) *http_wrapper.Response {
+	logger.ProducerLog.Info("Handle Provide Location Info Request")
 
-		if ue, ok = amfSelf.AmfUeFindBySupi(ueContextId); !ok {
-			problem.Status = 404
-			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
-		}
-	} else if strings.HasPrefix(ueContextId, "imei") {
-		amfSelf.UePool.Range(func(key, value interface{}) bool {
-			ue1 := value.(*context.AmfUe)
-			if ue1.Pei == ueContextId {
-				ue = ue1
-				return false
-			}
-			return true
-		})
-		if ue == nil {
-			problem.Status = 404
-			problem.Cause = "CONTEXT_NOT_FOUND"
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-			return
-		}
+	requestLocInfo := request.Body.(models.RequestLocInfo)
+	ueContextID := request.Params["ueContextId"]
+
+	provideLocInfo, problemDetails := ProvideLocationInfoProcedure(requestLocInfo, ueContextID)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusOK, nil, provideLocInfo)
 	}
+}
 
-	requestData := body
-	anType := ue.GetAnType()
-	if anType == "" {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (provideLocInfo *models.ProvideLocInfo, problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+		}
 		return
 	}
 
-	if ue != nil {
-		ranUe := ue.RanUe[anType]
-		if requestData.Req5gsLoc || requestData.ReqCurrentLoc {
-			response.CurrentLoc = true
-			response.Location = &ue.Location
+	anType := ue.GetAnType()
+	if anType == "" {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
 		}
-
-		if requestData.ReqRatType {
-			response.RatType = ue.RatType
-		}
-
-		if requestData.ReqTimeZone {
-			response.Timezone = ue.TimeZone
-		}
-
-		if requestData.SupportedFeatures != "" {
-			response.SupportedFeatures = ranUe.SupportedFeatures
-		}
-	} else {
-		logger.LocationLog.Errorln("ue is nil")
+		return
 	}
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
+
+	provideLocInfo = new(models.ProvideLocInfo)
+
+	ranUe := ue.RanUe[anType]
+	if requestLocInfo.Req5gsLoc || requestLocInfo.ReqCurrentLoc {
+		provideLocInfo.CurrentLoc = true
+		provideLocInfo.Location = &ue.Location
+	}
+
+	if requestLocInfo.ReqRatType {
+		provideLocInfo.RatType = ue.RatType
+	}
+
+	if requestLocInfo.ReqTimeZone {
+		provideLocInfo.Timezone = ue.TimeZone
+	}
+
+	if requestLocInfo.SupportedFeatures != "" {
+		provideLocInfo.SupportedFeatures = ranUe.SupportedFeatures
+	}
+	return
 }

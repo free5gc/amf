@@ -75,13 +75,13 @@ var routes = Routes{
 		"ProvideLocationInfo",
 		strings.ToUpper("Post"),
 		"/:ueContextId/provide-loc-info",
-		ProvideLocationInfo,
+		HTTPProvideLocationInfo,
 	},
 
 	{
 		"ProvidePositioningInfo",
 		strings.ToUpper("Post"),
 		"/:ueContextId/provide-pos-info",
-		ProvidePositioningInfo,
+		HTTPProvidePositioningInfo,
 	},
 }

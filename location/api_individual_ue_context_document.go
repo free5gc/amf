@@ -11,40 +11,66 @@ package location
 
 import (
 	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 // ProvideLocationInfo - Namf_Location ProvideLocationInfo service Operation
-func ProvideLocationInfo(c *gin.Context) {
+func HTTPProvideLocationInfo(c *gin.Context) {
+	var requestLocInfo models.RequestLocInfo
 
-	var request models.RequestLocInfo
-
-	err := c.ShouldBindJSON(&request)
+	requestBody, err := c.GetRawData()
 	if err != nil {
-		logger.LocationLog.Errorln(err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		logger.LocationLog.Errorf("Get Request Body error: %+v", err)
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	err = openapi.Deserialize(&requestLocInfo, requestBody, "application/json")
+	if err != nil {
+		problemDetail := "[Request Body] " + err.Error()
+		rsp := models.ProblemDetails{
+			Title:  "Malformed request syntax",
+			Status: http.StatusBadRequest,
+			Detail: problemDetail,
+		}
+		logger.LocationLog.Errorln(problemDetail)
+		c.JSON(http.StatusBadRequest, rsp)
+		return
+	}
+
+	req := http_wrapper.NewRequest(c.Request, requestLocInfo)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventProvideLocationInfo, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleProvideLocationInfoRequest(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CommLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
 
 // ProvidePositioningInfo - Namf_Location ProvidePositioningInfo service Operation
-func ProvidePositioningInfo(c *gin.Context) {
-	logger.CommLog.Warnf("Handle Provide Positioning Info is not implemented.")
+func HTTPProvidePositioningInfo(c *gin.Context) {
+	logger.LocationLog.Warnf("Handle Provide Positioning Info is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }
