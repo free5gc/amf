@@ -52,7 +52,7 @@ func TestProvideDomainSelectionInfo(t *testing.T) {
 	client := Namf_MT_Clinet.NewAPIClient(configuration)
 
 	/* init ue info*/
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	anType := ue.GetAnType()
 	ue.RanUe[anType].SupportVoPSn3gpp = false
 	ue.RanUe[anType].SupportVoPS = false

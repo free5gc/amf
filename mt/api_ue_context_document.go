@@ -11,23 +11,36 @@ package mt
 
 import (
 	"free5gc/lib/http_wrapper"
-	amf_message "free5gc/src/amf/handler/message"
+	"free5gc/lib/openapi"
+	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 // ProvideDomainSelectionInfo - Namf_MT Provide Domain Selection Info service Operation
-func ProvideDomainSelectionInfo(c *gin.Context) {
+func HTTPProvideDomainSelectionInfo(c *gin.Context) {
 
 	req := http_wrapper.NewRequest(c.Request, nil)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
+	infoClassQuery := c.Query("info-class")
+	req.Query.Add("info-class", infoClassQuery)
+	supportedFeaturesQuery := c.Query("supported-features")
+	req.Query.Add("supported-features", supportedFeaturesQuery)
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventProvideDomainSelectionInfo, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleProvideDomainSelectionInfoRequest(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.MtLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }
