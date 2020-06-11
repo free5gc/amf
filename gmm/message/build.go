@@ -438,7 +438,7 @@ func BuildRegistrationAccept(
 
 	registrationAccept := nasMessage.NewRegistrationAccept(0)
 	registrationAccept.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
-	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
+	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSpareHalfOctet(0)
 	registrationAccept.RegistrationAcceptMessageIdentity.SetMessageType(nas.MsgTypeRegistrationAccept)
 
