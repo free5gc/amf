@@ -70,23 +70,13 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedure
 			}
 		}
 
-		if procedureCode == ngapType.ProcedureCodeUplinkNASTransport {
-			if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
-				logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
-			} else {
-				securityHeaderType := ulNasTransport.GetSecurityHeaderType() & 0x0f
-				if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
-					logger.GmmLog.Warnln(" securityHeaderType", securityHeaderType)
-					if securityHeaderType == nas.SecurityHeaderTypePlainNas || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
-						return fmt.Errorf("securityHeaderType is PlainNas or New5gNasSecurityContext")
-					}
-				}
-
-				if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
-					if securityHeaderType != nas.SecurityHeaderTypePlainNas && securityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
-						return fmt.Errorf("securityHeaderType should bet PlainNas or New5gNasSecurityContext")
-					}
-				}
+		if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
+			logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
+		} else {
+			securityHeaderType := ulNasTransport.GetSecurityHeaderType() & 0x0f
+			err := checkContextSecurity(ue, securityHeaderType)
+			if err != nil {
+				return err
 			}
 		}
 
@@ -569,6 +559,16 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	default:
 		logger.GmmLog.Debugf("RegistrationType: %v, chage state to InitialRegistration", ue.RegistrationType5GS)
 		ue.RegistrationType5GS = nasMessage.RegistrationType5GSInitialRegistration
+	}
+
+	if ue.RegistrationType5GS == nasMessage.RegistrationType5GSEmergencyRegistration {
+		logger.GmmLog.Infoln("ue.RegistrationType5GS is RegistrationType5GSEmergencyRegistration or RegistrationType5GSInitialRegistration")
+	} else {
+		securityHeaderType := ue.RegistrationRequest.GetSecurityHeaderType() & 0x0f
+		err := checkContextSecurity(ue, securityHeaderType)
+		if err != nil {
+			return err
+		}
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
@@ -1557,6 +1557,12 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 		return fmt.Errorf("AmfUe is nil")
 	}
 
+	securityHeaderType := identityResponse.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
@@ -1590,6 +1596,13 @@ func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMess
 
 	logger.GmmLog.Info("[AMF] Handle Notification Response")
 	util.ClearT3565(ue)
+
+	securityHeaderType := notificationResponse.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	if notificationResponse != nil && notificationResponse.PDUSessionStatus != nil {
 		psiArray := nasConvert.PSIToBooleanArray(notificationResponse.PDUSessionStatus.Buffer)
 		for psi := 1; psi <= 15; psi++ {
@@ -1627,6 +1640,11 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateCom
 	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "free5gc/lib/openapi/Nudm_SubscriberDataManagement" client.Info
+	securityHeaderType := configurationUpdateComplete.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1702,6 +1720,17 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType, procedure
 	suList := ngapType.PDUSessionResourceSetupListSUReq{}
 	ctxList := ngapType.PDUSessionResourceSetupListCxtReq{}
 	initCxt := procedureCode == ngapType.ProcedureCodeInitialUEMessage
+
+	if serviceType == nasMessage.ServiceTypeEmergencyServices || serviceType == nasMessage.ServiceTypeEmergencyServicesFallback {
+
+	} else {
+		securityHeaderType := serviceRequest.GetSecurityHeaderType() & 0x0f
+		err = checkContextSecurity(ue, securityHeaderType)
+		if err != nil {
+			return err
+		}
+	}
+
 	if serviceType == nasMessage.ServiceTypeSignalling {
 		err = sendServiceAccept(initCxt, ue, anType, ctxList, suList, nil, nil, nil, nil)
 		return
@@ -2125,6 +2154,12 @@ func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, reg
 
 	util.ClearT3550(ue)
 
+	securityHeaderType := registrationComplete.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	if registrationComplete.SORTransparentContainer != nil {
 		// TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,
 		// AMF provides the UE's ack with Nudm_SDM_Info (SOR not supportted in this stage)
@@ -2153,6 +2188,12 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 	if ue.SecurityContextIsValid() {
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
+	}
+
+	securityHeaderType := securityModeComplete.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
 	}
 
 	if securityModeComplete.IMEISV != nil {
@@ -2196,6 +2237,12 @@ func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, secur
 
 	logger.GmmLog.Info("[AMF] Handle Security Mode Reject")
 
+	securityHeaderType := securityModeReject.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	// stop T3560
 	util.ClearT3560(ue)
 
@@ -2208,6 +2255,12 @@ func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, secur
 func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType, deregistrationRequest *nasMessage.DeregistrationRequestUEOriginatingDeregistration) error {
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Request(UE Originating)")
+
+	securityHeaderType := deregistrationRequest.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	targetDeregistrationAccessType := deregistrationRequest.GetAccessType()
 	for pduSessionId, smContext := range ue.SmContextList {
@@ -2284,6 +2337,12 @@ func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, der
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Accept(UE Terminated)")
 
+	securityHeaderType := deregistrationAccept.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	util.ClearT3522(ue)
 
 	switch ue.DeregistrationTargetAccessType {
@@ -2312,7 +2371,29 @@ func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *n
 
 	logger.GmmLog.Info("Handle Staus 5GMM")
 
+	securityHeaderType := status5GMM.GetSecurityHeaderType() & 0x0f
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	logger.GmmLog.Errorf("Error condition [Cause Value: %d]", status5GMM.Cause5GMM.Octet)
 
+	return nil
+}
+
+func checkContextSecurity(ue *context.AmfUe, securityHeaderType uint8) error {
+	if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
+		logger.GmmLog.Infoln(" securityHeaderType", securityHeaderType)
+		if securityHeaderType == nas.SecurityHeaderTypePlainNas || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
+			return fmt.Errorf("securityHeaderType is PlainNas or New5gNasSecurityContext")
+		}
+	}
+
+	if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
+		if securityHeaderType != nas.SecurityHeaderTypePlainNas && securityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
+			return fmt.Errorf("securityHeaderType should be PlainNas or New5gNasSecurityContext")
+		}
+	}
 	return nil
 }
