@@ -67,12 +67,12 @@ func Handle() {
 					ranUe, ok := msg.Value.(*context.RanUe)
 					if !ok || ranUe == nil {
 						HandlerLog.Warn("Timer T3565 Parameter Error")
-						return
+						continue
 					}
 					amfUe := ranUe.AmfUe
 					if amfUe == nil {
 						HandlerLog.Warn("AmfUe is nil")
-						return
+						continue
 					}
 					amfUe.NotificationRetryTimes++
 					logger.GmmLog.Infof("UE[%s] Notification expired for the %dth times", amfUe.Supi, amfUe.NotificationRetryTimes)
@@ -89,12 +89,12 @@ func Handle() {
 					ranUe, ok := msg.Value.(*context.RanUe)
 					if !ok || ranUe == nil {
 						HandlerLog.Warn("Timer T3560 Parameter Error")
-						return
+						continue
 					}
 					amfUe := ranUe.AmfUe
 					if amfUe == nil {
 						HandlerLog.Warn("AmfUe is nil")
-						return
+						continue
 					}
 					if amfUe.T3560RetryTimes >= context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort authentication procedure & ongoing 5GMM procedure")
@@ -108,12 +108,12 @@ func Handle() {
 					value, ok := msg.Value.(amf_message.EventGMMT3560ValueForSecurityCommand)
 					if !ok || value.RanUe == nil {
 						HandlerLog.Warn("Timer T3560 Parameter Error")
-						return
+						continue
 					}
 					amfUe := value.RanUe.AmfUe
 					if amfUe == nil {
 						HandlerLog.Warn("AmfUe is nil")
-						return
+						continue
 					}
 					if amfUe.T3560RetryTimes >= context.MaxT3560RetryTimes {
 						logger.GmmLog.Warnf("T3560 Expires 5 times, abort security mode procedure")
@@ -146,12 +146,12 @@ func Handle() {
 					value, ok := msg.Value.(amf_message.EventGMMT3522Value)
 					if !ok || value.RanUe == nil {
 						HandlerLog.Warn("Timer T3522 Parameter Error")
-						return
+						continue
 					}
 					amfUe := value.RanUe.AmfUe
 					if amfUe == nil {
 						HandlerLog.Warn("AmfUe is nil")
-						return
+						continue
 					}
 					if amfUe.T3522RetryTimes >= context.MaxT3522RetryTimes {
 						logger.GmmLog.Warnf("T3522 Expires 5 times, abort deregistration procedure")
