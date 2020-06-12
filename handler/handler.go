@@ -187,9 +187,6 @@ func Handle() {
 				case amf_message.EventAmPolicyControlUpdateNotifyTerminate:
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
 					producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))
-				case amf_message.EventOAMRegisteredUEContext:
-					supi := msg.HTTPRequest.Params["supi"]
-					producer.HandleOAMRegisteredUEContext(msg.ResponseChan, supi)
 				case amf_message.EventN1MessageNotify:
 					producer.HandleN1MessageNotify(msg.ResponseChan, msg.HTTPRequest.Body.(models.N1MessageNotify))
 				default:

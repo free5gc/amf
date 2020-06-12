@@ -1,10 +1,10 @@
 package producer
 
 import (
+	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strconv"
@@ -34,10 +34,20 @@ type UEContext struct {
 
 type UEContexts []UEContext
 
-func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMessage, supi string) {
+func HandleOAMRegisteredUEContext(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
-	var response UEContexts
+	supi := request.Params["supi"]
+
+	ueContexts, problemDetails := OAMRegisteredUEContextProcedure(supi)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusOK, nil, ueContexts)
+	}
+}
+
+func OAMRegisteredUEContextProcedure(supi string) (ueContexts UEContexts, problemDetails *models.ProblemDetails) {
 
 	amfSelf := context.AMF_Self()
 
@@ -45,18 +55,17 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 		if ue, ok := amfSelf.AmfUeFindBySupi(supi); ok {
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
-				response = append(response, *ueContext)
+				ueContexts = append(ueContexts, *ueContext)
 			}
 			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
 			if ueContext != nil {
-				response = append(response, *ueContext)
+				ueContexts = append(ueContexts, *ueContext)
 			}
 		} else {
-			problem := models.ProblemDetails{
+			problemDetails = &models.ProblemDetails{
 				Status: http.StatusNotFound,
 				Cause:  "CONTEXT_NOT_FOUND",
 			}
-			amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
 			return
 		}
 	} else {
@@ -64,19 +73,18 @@ func HandleOAMRegisteredUEContext(httpChannel chan amf_message.HandlerResponseMe
 			ue := value.(*context.AmfUe)
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
-				response = append(response, *ueContext)
+				ueContexts = append(ueContexts, *ueContext)
 			}
 			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
 			if ueContext != nil {
-				response = append(response, *ueContext)
+				ueContexts = append(ueContexts, *ueContext)
 			}
 			return true
 		})
 	}
 
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusOK, response)
+	return
 }
-
 func buildUEContext(ue *context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
 	if ue.Sm[accessType].Check(state.REGISTERED) {
 		ueContext = &UEContext{

@@ -68,13 +68,13 @@ var routes = Routes{
 		"Registered UE Context",
 		"GET",
 		"/registered-ue-context",
-		RegisteredUEContext,
+		HTTPRegisteredUEContext,
 	},
 
 	{
 		"Individual Registered UE Context",
 		"GET",
 		"/registered-ue-context/:supi",
-		RegisteredUEContext,
+		HTTPRegisteredUEContext,
 	},
 }
