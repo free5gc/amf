@@ -1,6 +1,7 @@
 package oam_test
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
@@ -61,7 +62,7 @@ func TestRegisteredUEContext(t *testing.T) {
 	go amf.Start()
 
 	TestAmf.AmfInit()
-	testUe := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	testUe, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	testUe.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	smContext := context.SmContext{
 		PduSessionContext: &models.PduSessionContext{
@@ -80,7 +81,13 @@ func TestRegisteredUEContext(t *testing.T) {
 	amfSelf.AddAmfUeToUePool(testUe, "imsi-2089300007487")
 	time.Sleep(100 * time.Millisecond)
 
-	resp, err := http.Get("https://localhost:29518/namf-oam/v1/registered-ue-context")
+	httpsClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	resp, err := httpsClient.Get("http://localhost:29518/namf-oam/v1/registered-ue-context")
 	if err != nil {
 		t.Error(err)
 	} else {
