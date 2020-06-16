@@ -35,10 +35,8 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 			ue.ULCountOverflow = 0
 			ue.ULCountSQN = 0
 			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext}
-		} else if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
-			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered}
 		} else {
-			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtected}
+			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered}
 		}
 
 		sequenceNumber = uint8(ue.DLCount & 0xff)
