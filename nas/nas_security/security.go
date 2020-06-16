@@ -5,7 +5,6 @@ package nas_security
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/nas"
@@ -98,21 +97,20 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
 		err = msg.PlainNasDecode(&payload)
 		return
-	} else if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
-		logger.NasLog.Traceln("decode payload is ", payload)
-		// remove header
-		payload = payload[3:]
-
-		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
-		if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
-			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
-			return nil, err
+	} else {
+		if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
+			logger.NasLog.Infoln("decode payload is ", payload)
+			if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
+				// remove header
+				payload = payload[3:]
+				err = msg.PlainNasDecode(&payload)
+				return
+			} else {
+				err = fmt.Errorf("NIA0 is not vaild")
+				return nil, err
+			}
 		}
 
-		err = msg.PlainNasDecode(&payload)
-		return
-	} else {
 		if securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
 			ue.ULCountOverflow = 0
 			ue.ULCountSQN = 0
@@ -130,21 +128,21 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		receivedMac32 := securityHeader[2:]
 		// remove security Header except for sequece Number
 		payload = payload[6:]
-		if ue.IntegrityAlg != context.ALG_INTEGRITY_128_NIA0 {
-			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
-				context.SECURITY_DIRECTION_UPLINK, payload)
-			if err != nil {
-				ue.MacFailed = true
-				return nil, err
-			}
-			if !reflect.DeepEqual(mac32, receivedMac32) {
-				logger.NasLog.Errorf("NAS MAC verification failed(0x%x != 0x%x)", mac32, receivedMac32)
-				ue.MacFailed = true
-				return nil, err
-			} else {
-				logger.NasLog.Traceln("cmac value: 0x\n", mac32)
-			}
+
+		mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_UPLINK, payload)
+		if err != nil {
+			ue.MacFailed = true
+			return nil, err
 		}
+		if !reflect.DeepEqual(mac32, receivedMac32) {
+			logger.NasLog.Errorf("NAS MAC verification failed(0x%x != 0x%x)", mac32, receivedMac32)
+			ue.MacFailed = true
+			return nil, err
+		} else {
+			logger.NasLog.Traceln("cmac value: 0x\n", mac32)
+		}
+
 		// remove sequece Number
 		payload = payload[1:]
 
