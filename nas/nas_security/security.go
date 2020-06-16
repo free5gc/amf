@@ -260,7 +260,7 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 
 	switch AlgoID {
 	case context.ALG_INTEGRITY_128_NIA1:
-		logger.NgapLog.Errorf("NEA1 not implement yet.")
+		logger.NgapLog.Errorf("NIA1 not implement yet.")
 		return nil, nil
 	case context.ALG_INTEGRITY_128_NIA2:
 		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
@@ -285,7 +285,7 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 		return cmac[:4], nil
 
 	case context.ALG_INTEGRITY_128_NIA3:
-		logger.NgapLog.Errorf("NEA3 not implement yet.")
+		logger.NgapLog.Errorf("NIA3 not implement yet.")
 		return nil, nil
 	default:
 		return nil, fmt.Errorf("Unknown Algorithm Identity[%d]", AlgoID)
