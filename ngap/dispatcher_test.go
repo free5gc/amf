@@ -21,7 +21,6 @@ import (
 	"free5gc/src/amf/ngap"
 	ngap_message "free5gc/src/amf/ngap/message"
 	ausf_context "free5gc/src/ausf/context"
-	ausf_handler "free5gc/src/ausf/handler"
 	Nausf_UEAU "free5gc/src/ausf/ueauthentication"
 	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
@@ -91,7 +90,6 @@ func ausfInit() {
 		}
 	}()
 
-	go ausf_handler.Handle()
 }
 
 func udmInit() {
