@@ -362,9 +362,14 @@ func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage str
 	}
 
 	m.GmmMessage.SecurityModeCommand = securityModeCommand
-	payload, _ := nas_security.Encode(ue, m, true)
-	ue.SecurityContextAvailable = true
-	return payload, nil
+	payload, err := nas_security.Encode(ue, m, true)
+	if err != nil {
+		return nil, err
+	} else {
+		ue.SecurityContextAvailable = true
+		return payload, nil
+	}
+
 }
 
 // T3346 timer are not supported
