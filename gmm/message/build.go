@@ -56,7 +56,7 @@ func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu [
 
 	m.GmmMessage.DLNASTransport = dLNASTransport
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, false)
 }
 
 func BuildNotification(ue *context.AmfUe, accessType uint8) ([]byte, error) {
@@ -78,7 +78,7 @@ func BuildNotification(ue *context.AmfUe, accessType uint8) ([]byte, error) {
 
 	m.GmmMessage.Notification = notification
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, false)
 }
 
 func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
@@ -183,7 +183,7 @@ func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool, reactivat
 	}
 	m.GmmMessage.ServiceAccept = serviceAccept
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, false)
 }
 
 func BuildAuthenticationReject(ue *context.AmfUe, eapMsg string) ([]byte, error) {
@@ -362,7 +362,9 @@ func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage str
 	}
 
 	m.GmmMessage.SecurityModeCommand = securityModeCommand
-	return nas_security.Encode(ue, m)
+	payload, _ := nas_security.Encode(ue, m, true)
+	ue.SecurityContextAvailable = true
+	return payload, nil
 }
 
 // T3346 timer are not supported
@@ -398,7 +400,7 @@ func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrat
 			SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
 		}
 		m.GmmMessage.DeregistrationRequestUETerminatedDeregistration.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
-		return nas_security.Encode(ue.AmfUe, m)
+		return nas_security.Encode(ue.AmfUe, m, false)
 	}
 	return m.PlainNasEncode()
 }
@@ -585,7 +587,7 @@ func BuildRegistrationAccept(
 
 	m.GmmMessage.RegistrationAccept = registrationAccept
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, false)
 }
 
 func includeConfiguredNssaiCheck(ue *context.AmfUe) bool {

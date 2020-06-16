@@ -5,6 +5,7 @@ package nas_security
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/nas"
@@ -14,10 +15,9 @@ import (
 	"reflect"
 )
 
-func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
-	integrityProtected := false
-	newSecurityContext := false
-	ciphering := false
+func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (payload []byte, err error) {
+	var securityHeader []byte
+	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
 		return
@@ -26,87 +26,66 @@ func Encode(ue *context.AmfUe, msg *nas.Message) (payload []byte, err error) {
 		err = fmt.Errorf("Nas Message is empty")
 		return
 	}
-	switch msg.SecurityHeader.SecurityHeaderType {
-	case nas.SecurityHeaderTypePlainNas:
-		logger.NasLog.Infoln("NasPdu Security: Plain Nas")
-		return msg.PlainNasEncode()
-	case nas.SecurityHeaderTypeIntegrityProtected:
-		logger.NasLog.Infoln("NasPdu Security: Integrity Protected")
-		integrityProtected = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCiphered:
-		logger.NasLog.Infoln("NasPdu Security: Integrity Protected And Ciphered")
-		integrityProtected = true
-		ciphering = true
-	case nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext:
-		logger.NasLog.Infoln("NasPdu Security: Integrity Protected With New 5gNasSecurityContext")
-		integrityProtected = true
-		newSecurityContext = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext:
-		logger.NasLog.Infoln("NasPdu Security: Integrity Protected And Ciphered WithNew 5gNasSecurityContext")
-		integrityProtected = true
-		ciphering = true
-		newSecurityContext = true
-	default:
-		return nil, fmt.Errorf("Security Type[%d] is not be implemented", msg.SecurityHeader.SecurityHeaderType)
-	}
 
-	if newSecurityContext {
-		ue.DLCount = 0
-		ue.ULCountOverflow = 0
-		ue.ULCountSQN = 0
-	}
-	if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
-		ciphering = false
-	}
-	if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
-		integrityProtected = false
-	}
-	if integrityProtected {
-		securityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeaderType}
-		sequenceNumber := uint8(ue.DLCount & 0xff)
+	if !ue.SecurityContextAvailable {
+		return msg.PlainNasEncode()
+	} else {
+		if newSecurityContext {
+			ue.DLCount = 0
+			ue.ULCountOverflow = 0
+			ue.ULCountSQN = 0
+			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext}
+		} else if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
+			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered}
+		} else {
+			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtected}
+		}
+
+		sequenceNumber = uint8(ue.DLCount & 0xff)
 
 		payload, err = msg.PlainNasEncode()
 		if err != nil {
+			logger.NasLog.Errorln("err", err)
 			return
 		}
-		if ciphering {
-			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP,
-				context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
-				return
-			}
+		logger.NasLog.Traceln("ue.CipheringAlg", ue.CipheringAlg)
+		logger.NasLog.Traceln("ue.GetSecurityDLCount()", ue.GetSecurityDLCount())
+		logger.NasLog.Traceln("payload", payload)
+
+		if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+			logger.NasLog.Errorln("err", err)
+			return
 		}
+
 		// add sequece number
 		payload = append([]byte{sequenceNumber}, payload[:]...)
 		mac32 := make([]byte, 4)
-		if integrityProtected {
-			mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload)
-			if err != nil {
-				return
-			}
+		mac32, err = NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityDLCount(), context.SECURITY_BEARER_3GPP, context.SECURITY_DIRECTION_DOWNLINK, payload)
+		if err != nil {
+			logger.NasLog.Errorln("err", err)
+			return
 		}
-		// Add mac value
-		payload = append(mac32, payload[:]...)
-		// Add EPD and Security Type
-		payload = append(securityHeader, payload[:]...)
 
+		// Add mac value
+		logger.NasLog.Traceln("mac32", mac32)
+		payload = append(mac32, payload[:]...)
+
+		// Add EPD and Security Type
+		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
+		payload = append(msgSecurityHeader, payload[:]...)
+		logger.NasLog.Traceln("Encode securityHeader", securityHeader)
+		logger.NasLog.Traceln("Encode payload", payload)
 		// Increase DL Count
 		ue.DLCount = (ue.DLCount + 1) & 0xffffff
 
-		ue.SecurityContextAvailable = true
-	} else {
-		err = fmt.Errorf("NIA0 is illegal.")
-		//  err = msg.PlainNasEncode()
-		return
+		// ue.SecurityContextAvailable = true
 	}
 	return
 }
 
 func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
 
-	integrityProtected := false
-	newSecurityContext := false
-	ciphering := false
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
 		return
@@ -116,58 +95,44 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		return
 	}
 
-	switch securityHeaderType {
-	case nas.SecurityHeaderTypePlainNas:
-	case nas.SecurityHeaderTypeIntegrityProtected:
-		integrityProtected = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCiphered:
-		integrityProtected = true
-		ciphering = true
-	case nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext:
-		integrityProtected = true
-		newSecurityContext = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext:
-		integrityProtected = true
-		ciphering = true
-		newSecurityContext = true
-	default:
-		return nil, fmt.Errorf("Security Type[%d] is not be implemented", securityHeaderType)
-	}
 	msg = new(nas.Message)
+	logger.NasLog.Traceln("securityHeaderType is ", securityHeaderType)
+	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
+		err = msg.PlainNasDecode(&payload)
+		return
+	} else if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
+		logger.NasLog.Traceln("decode payload is ", payload)
+		// remove header
+		payload = payload[3:]
 
-	if !ue.SecurityContextAvailable {
-		integrityProtected = false
-		newSecurityContext = false
-		ciphering = false
-	}
-	if newSecurityContext {
-		ue.ULCountOverflow = 0
-		ue.ULCountSQN = 0
-	}
-	if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
-		ciphering = false
-	}
-	if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
-		integrityProtected = false
-	}
-	if integrityProtected {
-		if len(payload) < 6 {
-			err = fmt.Errorf("payload length error")
-			return
+		var dlcount = make([]byte, 4)
+		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
+		if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+			return nil, err
 		}
-		securityHeader := payload[0:6]
-		sequenceNumber := payload[6]
-		receivedMac32 := securityHeader[2:]
-		// remove security Header except for sequece Number
-		payload = payload[6:]
 
-		// Caculate ul count
+		err = msg.PlainNasDecode(&payload)
+		return
+	} else {
+		if securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
+			ue.ULCountOverflow = 0
+			ue.ULCountSQN = 0
+		}
+		logger.NasLog.Traceln("securityHeaderType is ", securityHeaderType)
+		securityHeader := payload[0:6]
+		logger.NasLog.Traceln("securityHeader is ", securityHeader)
+		sequenceNumber := payload[6]
+		logger.NasLog.Traceln("sequenceNumber", sequenceNumber)
 		if ue.ULCountSQN > sequenceNumber {
 			ue.ULCountOverflow++
 		}
 		ue.ULCountSQN = sequenceNumber
-		if integrityProtected {
-			// ToDo: use real mac calculate
+
+		receivedMac32 := securityHeader[2:]
+		// remove security Header except for sequece Number
+		payload = payload[6:]
+		if ue.IntegrityAlg != context.ALG_INTEGRITY_128_NIA0 {
 			mac32, err := NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
 				context.SECURITY_DIRECTION_UPLINK, payload)
 			if err != nil {
@@ -175,23 +140,24 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 				return nil, err
 			}
 			if !reflect.DeepEqual(mac32, receivedMac32) {
-				logger.NasLog.Warnf("NAS MAC verification failed(0x%x != 0x%x)", mac32, receivedMac32)
+				logger.NasLog.Errorf("NAS MAC verification failed(0x%x != 0x%x)", mac32, receivedMac32)
 				ue.MacFailed = true
+				return nil, err
+			} else {
+				logger.NasLog.Traceln("cmac value: 0x\n", mac32)
 			}
 		}
 		// remove sequece Number
 		payload = payload[1:]
 
-		if ciphering {
-			// TODO: Support for ue has nas connection in both accessType
-			if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
-				context.SECURITY_DIRECTION_UPLINK, payload); err != nil {
-				return
-			}
+		// TODO: Support for ue has nas connection in both accessType
+		logger.NasLog.Traceln("ue.CipheringAlg", ue.CipheringAlg)
+		if err = NasEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.GetSecurityULCount(), context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_UPLINK, payload); err != nil {
+			return nil, err
 		}
 	}
 	err = msg.PlainNasDecode(&payload)
-
 	return
 }
 
@@ -211,6 +177,9 @@ func NasEncrypt(AlgoID uint8, KnasEnc []byte, Count []byte, Bearer uint8, Direct
 	}
 
 	switch AlgoID {
+	case context.ALG_CIPHERING_128_NEA0:
+		logger.NgapLog.Warningln("ALG_CIPHERING is ALG_CIPHERING_128_NEA0")
+		return nil
 	case context.ALG_CIPHERING_128_NEA1:
 		logger.NgapLog.Errorf("NEA1 not implement yet.")
 		return nil
@@ -259,6 +228,9 @@ func NasMacCalculate(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8, D
 	}
 
 	switch AlgoID {
+	case context.ALG_INTEGRITY_128_NIA0:
+		logger.NgapLog.Warningln("Integrity NIA0 is emergency.")
+		return nil, nil
 	case context.ALG_INTEGRITY_128_NIA1:
 		logger.NgapLog.Errorf("NIA1 not implement yet.")
 		return nil, nil

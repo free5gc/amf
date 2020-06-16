@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	// "free5gc/lib/UeauCommon"
-	"free5gc/lib/milenage"
 	"free5gc/lib/nas"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
@@ -60,7 +59,7 @@ func TestMacCalculateTS33401(t *testing.T) {
 		// 	t.Errorf("NIA2Test%s \t mac1[0x%x] \t expected[0x%x]\n", i, mac1, expected)
 		// }
 
-		mac2, err := nas_security.NasMacCalculateByAesCmac(amf_context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg, length)
+		mac2, err := nas_security.NasMacCalculateByAesCmac(context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg, length)
 		// if err != nil {
 		// 	t.Error(err.Error())
 		// } else if !reflect.DeepEqual(mac1, mac2) {
@@ -113,25 +112,71 @@ func TestMacCalculateNISTSP_800_38B(t *testing.T) {
 }
 
 func TestSecurity(t *testing.T) {
-	TestAmf.AmfInit()
-	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
-	ue.DerivateAlgKey()
-	ue.DLCount = 4
-	m := getRegistrationComplete(nil)
-	nasPdu, err := nas_security.Encode(ue, m)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	ngap_message.SendDownlinkNasTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasPdu, nil)
-	msg, err := ranDecode(ue, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, nasPdu)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	if !reflect.DeepEqual(msg.GmmMessage.RegistrationComplete, m.GmmMessage.RegistrationComplete) {
-		t.Errorf("Expect: %s\n Output: %s", TestAmf.Config.Sdump(m.GmmMessage.RegistrationComplete), TestAmf.Config.Sdump(msg.GmmMessage.RegistrationComplete))
+	{
+		TestAmf.AmfInit()
+		TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
+		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
+		ue.DerivateAlgKey()
+		ue.DLCount = 4
+		ue.SecurityContextAvailable = true
+		m := getRegistrationComplete(nil)
+		nasPdu, err := nas_security.Encode(ue, m, false)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		ngap_message.SendDownlinkNasTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasPdu, nil)
+		msg, err := ranDecode(ue, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, nasPdu)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		if !reflect.DeepEqual(msg.GmmMessage.RegistrationComplete, m.GmmMessage.RegistrationComplete) {
+			t.Errorf("Expect: %s\n Output: %s", TestAmf.Config.Sdump(m.GmmMessage.RegistrationComplete), TestAmf.Config.Sdump(msg.GmmMessage.RegistrationComplete))
+		}
 	}
 
+	{
+
+		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
+		ue.CipheringAlg = context.ALG_CIPHERING_128_NEA0
+		ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA0
+		ue.DerivateAlgKey()
+		ue.DLCount = 4
+		ue.SecurityContextAvailable = true
+		m := getRegistrationComplete(nil)
+		nasPdu, err := nas_security.Encode(ue, m, false)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		ngap_message.SendDownlinkNasTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasPdu, nil)
+		msg, err := ranDecode(ue, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, nasPdu)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		if !reflect.DeepEqual(msg.GmmMessage.RegistrationComplete, m.GmmMessage.RegistrationComplete) {
+			t.Errorf("Expect: %s\n Output: %s", TestAmf.Config.Sdump(m.GmmMessage.RegistrationComplete), TestAmf.Config.Sdump(msg.GmmMessage.RegistrationComplete))
+		}
+	}
+	{
+		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
+		ue.CipheringAlg = context.ALG_CIPHERING_128_NEA2
+		ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA0
+		ue.DerivateAlgKey()
+		ue.DLCount = 4
+		ue.SecurityContextAvailable = true
+		m := getRegistrationComplete(nil)
+		nasPdu, err := nas_security.Encode(ue, m, false)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		ngap_message.SendDownlinkNasTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS], nasPdu, nil)
+		msg, err := ranDecode(ue, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered, nasPdu)
+		if err != nil {
+			t.Error(err.Error())
+		}
+		if !reflect.DeepEqual(msg.GmmMessage.RegistrationComplete, m.GmmMessage.RegistrationComplete) {
+			t.Errorf("Expect: %s\n Output: %s", TestAmf.Config.Sdump(m.GmmMessage.RegistrationComplete), TestAmf.Config.Sdump(msg.GmmMessage.RegistrationComplete))
+		}
+	}
 }
 
 func getRegistrationComplete(sorTransparentContainer []uint8) *nas.Message {
@@ -160,11 +205,8 @@ func getRegistrationComplete(sorTransparentContainer []uint8) *nas.Message {
 	return m
 }
 
-func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
+func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *nas.Message, err error) {
 
-	integrityProtected := false
-	newSecurityContext := false
-	ciphering := false
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
 		return
@@ -173,42 +215,29 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		err = fmt.Errorf("Nas payload is empty")
 		return
 	}
-
-	switch securityHeaderType {
-	case nas.SecurityHeaderTypePlainNas:
-	case nas.SecurityHeaderTypeIntegrityProtected:
-		integrityProtected = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCiphered:
-		integrityProtected = true
-		ciphering = true
-	case nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext:
-		integrityProtected = true
-		newSecurityContext = true
-	case nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext:
-		integrityProtected = true
-		ciphering = true
-		newSecurityContext = true
-	default:
-		return nil, fmt.Errorf("Security Type[%d] is not be implemented", securityHeaderType)
-	}
 	msg = new(nas.Message)
+	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
+		err = msg.PlainNasDecode(&payload)
+		return
+	} else if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
 
-	if !ue.SecurityContextAvailable {
-		integrityProtected = false
-		newSecurityContext = false
-		ciphering = false
-	}
-	if newSecurityContext {
-		ue.ULCountOverflow = 0
-		ue.ULCountSQN = 0
-	}
-	if ue.CipheringAlg == amf_context.ALG_CIPHERING_128_NEA0 {
-		ciphering = false
-	}
-	if ue.IntegrityAlg == amf_context.ALG_INTEGRITY_128_NIA0 {
-		integrityProtected = false
-	}
-	if ciphering || integrityProtected {
+		// remove header
+		payload = payload[3:]
+
+		var dlcount = make([]byte, 4)
+		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
+		if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+			return nil, err
+		}
+
+		err = msg.PlainNasDecode(&payload)
+		return
+	} else {
+		if securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
+			ue.ULCountOverflow = 0
+			ue.ULCountSQN = 0
+		}
 		securityHeader := payload[0:6]
 		// sequenceNumber := payload[6]
 		receivedMac32 := securityHeader[2:]
@@ -216,10 +245,10 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		payload = payload[6:]
 
 		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint16(dlcount, uint16((ue.DLCount-1)&0xffffff))
-		if integrityProtected {
-			mac32, err := nas_security.NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, amf_context.SECURITY_ONLY_ONE_BEARER,
-				amf_context.SECURITY_DIRECTION_DOWNLINK, payload)
+		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
+		if ue.IntegrityAlg != context.ALG_INTEGRITY_128_NIA0 {
+			mac32, err := nas_security.NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, context.SECURITY_BEARER_3GPP,
+				context.SECURITY_DIRECTION_DOWNLINK, payload)
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
@@ -234,17 +263,14 @@ func ranDecode(ue *amf_context.AmfUe, securityHeaderType uint8, payload []byte) 
 		// remove sequece Number
 		payload = payload[1:]
 
-		if ciphering {
-			// TODO: Support for ue has nas connection in both accessType
-
-			if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, amf_context.SECURITY_ONLY_ONE_BEARER,
-				amf_context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
-				return
-			}
+		// TODO: Support for ue has nas connection in both accessType
+		if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
+			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+			return nil, err
 		}
+
 	}
 	err = msg.PlainNasDecode(&payload)
-
 	return
 }
 
@@ -259,4 +285,3 @@ func TestAesCmac(t *testing.T) {
 	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
 	return
 }
-
