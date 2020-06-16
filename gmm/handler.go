@@ -69,7 +69,7 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedure
 				requestType = models.RequestType_EXISTING_EMERGENCY_PDU_SESSION
 			}
 		}
-
+		logger.GmmLog.Infoln("requestType is ", requestType)
 		if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
 			logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
 		} else {
@@ -2383,17 +2383,9 @@ func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *n
 }
 
 func checkContextSecurity(ue *context.AmfUe, securityHeaderType uint8) error {
-	if ue.CipheringAlg != context.ALG_CIPHERING_128_NEA0 {
-		logger.GmmLog.Infoln(" securityHeaderType", securityHeaderType)
-		if securityHeaderType == nas.SecurityHeaderTypePlainNas || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
-			return fmt.Errorf("securityHeaderType is PlainNas or New5gNasSecurityContext")
-		}
-	}
-
-	if ue.CipheringAlg == context.ALG_CIPHERING_128_NEA0 {
-		if securityHeaderType != nas.SecurityHeaderTypePlainNas && securityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext {
-			return fmt.Errorf("securityHeaderType should be PlainNas or New5gNasSecurityContext")
-		}
+	if ue.SecurityContextIsValid() != true && (securityHeaderType != nas.SecurityHeaderTypePlainNas) {
+		logger.GmmLog.Errorln("securityHeaderType ", securityHeaderType)
+		return fmt.Errorf("ue.SecurityContextIsValid() != true && (securityHeaderType != nas.SecurityHeaderTypePlainNas)")
 	}
 	return nil
 }
