@@ -14,7 +14,7 @@ func Dispatch(ue *context.AmfUe, anType models.AccessType, procedureCode int64, 
 	if msg.GmmMessage != nil {
 		args := make(fsm.Args)
 		args[gmm.AMF_UE] = ue
-		args[gmm.GMM_MESSAGE] = msg
+		args[gmm.NAS_MESSAGE] = msg
 		args[gmm.PROCEDURE_CODE] = procedureCode
 		return ue.Sm[anType].SendEvent(gmm.EVENT_GMM_MESSAGE, args)
 	} else if msg.GsmMessage != nil {

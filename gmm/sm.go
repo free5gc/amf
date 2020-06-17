@@ -33,7 +33,7 @@ func register_event_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe = args[AMF_UE].(*context.AmfUe)
 		procedureCode = args[PROCEDURE_CODE].(int64)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeULNASTransport:
@@ -87,7 +87,7 @@ func Authentication_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeAuthenticationResponse:
@@ -109,7 +109,7 @@ func SecurityMode_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
 		procedureCode := args[PROCEDURE_CODE].(int64)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeSecurityModeComplete:
@@ -130,7 +130,7 @@ func InitialContextSetup_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeRegistrationComplete:
@@ -159,7 +159,7 @@ func register_event_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error 
 		return nil
 	case EVENT_GMM_MESSAGE:
 		amfUe = args[AMF_UE].(*context.AmfUe)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		procedureCode = args[PROCEDURE_CODE].(int64)
 		switch gmmMessage.GetMessageType() {
@@ -216,7 +216,7 @@ func Authentication_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error 
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeAuthenticationResponse:
@@ -238,7 +238,7 @@ func SecurityMode_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
 		procedureCode := args[PROCEDURE_CODE].(int64)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeSecurityModeComplete:
@@ -259,7 +259,7 @@ func InitialContextSetup_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) e
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		nasMessage := args[GMM_MESSAGE].(*nas.Message)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
 		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeRegistrationComplete:

@@ -10,6 +10,6 @@ const (
 
 const (
 	AMF_UE         string = "AMF Ue"
-	GMM_MESSAGE    string = "Gmm Message"
+	NAS_MESSAGE    string = "NAS Message"
 	PROCEDURE_CODE string = "ProcedureCode"
 )

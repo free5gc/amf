@@ -2204,7 +2204,7 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 			args := make(fsm.Args)
 			args[AMF_UE] = ue
 			args[PROCEDURE_CODE] = procedureCode
-			args[GMM_MESSAGE] = m
+			args[NAS_MESSAGE] = m
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		case nas.MsgTypeServiceRequest:
@@ -2212,7 +2212,7 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 			args := make(fsm.Args)
 			args[AMF_UE] = ue
 			args[PROCEDURE_CODE] = procedureCode
-			args[GMM_MESSAGE] = m
+			args[NAS_MESSAGE] = m
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		default:
