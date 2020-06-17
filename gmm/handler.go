@@ -2383,9 +2383,10 @@ func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *n
 }
 
 func checkContextSecurity(ue *context.AmfUe, securityHeaderType uint8) error {
-	if ue.SecurityContextIsValid() != true && (securityHeaderType != nas.SecurityHeaderTypePlainNas) {
+	if ue.SecurityContextIsValid() && (securityHeaderType == nas.SecurityHeaderTypePlainNas) {
 		logger.GmmLog.Errorln("securityHeaderType ", securityHeaderType)
 		return fmt.Errorf("ue.SecurityContextIsValid() != true && (securityHeaderType != nas.SecurityHeaderTypePlainNas)")
+	} else {
+		return nil
 	}
-	return nil
 }
