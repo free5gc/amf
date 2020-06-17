@@ -88,6 +88,7 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 	}
 
 	msg = new(nas.Message)
+	msg.SecurityHeaderType = securityHeaderType
 	logger.NasLog.Traceln("securityHeaderType is ", securityHeaderType)
 	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
 		err = msg.PlainNasDecode(&payload)
@@ -169,7 +170,7 @@ func NasEncrypt(AlgoID uint8, KnasEnc []byte, Count []byte, Bearer uint8, Direct
 
 	switch AlgoID {
 	case context.ALG_CIPHERING_128_NEA0:
-		logger.NgapLog.Warningln("ALG_CIPHERING is ALG_CIPHERING_128_NEA0")
+		logger.NgapLog.Infoln("ALG_CIPHERING is ALG_CIPHERING_128_NEA0")
 		return nil
 	case context.ALG_CIPHERING_128_NEA1:
 		logger.NgapLog.Errorf("NEA1 not implement yet.")
