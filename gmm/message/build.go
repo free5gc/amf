@@ -361,12 +361,13 @@ func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage str
 		}
 	}
 
+	ue.SecurityContextAvailable = true
 	m.GmmMessage.SecurityModeCommand = securityModeCommand
 	payload, err := nas_security.Encode(ue, m, true)
 	if err != nil {
+		ue.SecurityContextAvailable = false
 		return nil, err
 	} else {
-		ue.SecurityContextAvailable = true
 		return payload, nil
 	}
 
@@ -445,7 +446,7 @@ func BuildRegistrationAccept(
 
 	registrationAccept := nasMessage.NewRegistrationAccept(0)
 	registrationAccept.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
-	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
+	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	registrationAccept.SpareHalfOctetAndSecurityHeaderType.SetSpareHalfOctet(0)
 	registrationAccept.RegistrationAcceptMessageIdentity.SetMessageType(nas.MsgTypeRegistrationAccept)
 
