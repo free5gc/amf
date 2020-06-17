@@ -15,7 +15,6 @@ import (
 )
 
 func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (payload []byte, err error) {
-	var securityHeader []byte
 	var sequenceNumber uint8
 	if ue == nil {
 		err = fmt.Errorf("amfUe is nil")
@@ -33,9 +32,6 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 			ue.DLCount = 0
 			ue.ULCountOverflow = 0
 			ue.ULCountSQN = 0
-			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext}
-		} else {
-			securityHeader = []byte{msg.SecurityHeader.ProtocolDiscriminator, nas.SecurityHeaderTypeIntegrityProtectedAndCiphered}
 		}
 
 		sequenceNumber = uint8(ue.DLCount & 0xff)
@@ -71,7 +67,6 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 		// Add EPD and Security Type
 		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
 		payload = append(msgSecurityHeader, payload[:]...)
-		logger.NasLog.Traceln("Encode securityHeader", securityHeader)
 		logger.NasLog.Traceln("Encode payload", payload)
 		// Increase DL Count
 		ue.DLCount = (ue.DLCount + 1) & 0xffffff
