@@ -33,32 +33,33 @@ func register_event_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe = args[AMF_UE].(*context.AmfUe)
 		procedureCode = args[PROCEDURE_CODE].(int64)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeULNASTransport:
-			return HandleULNASTransport(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.ULNASTransport)
+			return HandleULNASTransport(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.ULNASTransport, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeRegistrationRequest:
-			if err := HandleRegistrationRequest(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest); err != nil {
+			if err := HandleRegistrationRequest(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeIdentityResponse:
-			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
+			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeConfigurationUpdateComplete:
-			if err := HandleConfigurationUpdateComplete(amfUe, gmmMessage.ConfigurationUpdateComplete); err != nil {
+			if err := HandleConfigurationUpdateComplete(amfUe, gmmMessage.ConfigurationUpdateComplete, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeServiceRequest:
-			if err := HandleServiceRequest(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.ServiceRequest); err != nil {
+			if err := HandleServiceRequest(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.ServiceRequest, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration:
-			return HandleDeregistrationRequest(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.DeregistrationRequestUEOriginatingDeregistration)
+			return HandleDeregistrationRequest(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.DeregistrationRequestUEOriginatingDeregistration, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeDeregistrationAcceptUETerminatedDeregistration:
-			return HandleDeregistrationAccept(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.DeregistrationAcceptUETerminatedDeregistration)
+			return HandleDeregistrationAccept(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.DeregistrationAcceptUETerminatedDeregistration, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			if err := HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM); err != nil {
+			if err := HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		default:
@@ -86,14 +87,15 @@ func Authentication_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeAuthenticationResponse:
 			return HandleAuthenticationResponse(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.AuthenticationResponse)
 		case nas.MsgTypeAuthenticationFailure:
 			return HandleAuthenticationFailure(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.AuthenticationFailure)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)
@@ -107,14 +109,15 @@ func SecurityMode_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
 		procedureCode := args[PROCEDURE_CODE].(int64)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeSecurityModeComplete:
-			return HandleSecurityModeComplete(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.SecurityModeComplete)
+			return HandleSecurityModeComplete(amfUe, models.AccessType__3_GPP_ACCESS, procedureCode, gmmMessage.SecurityModeComplete, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeSecurityModeReject:
-			return HandleSecurityModeReject(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.SecurityModeReject)
+			return HandleSecurityModeReject(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.SecurityModeReject, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)
@@ -127,12 +130,13 @@ func InitialContextSetup_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeRegistrationComplete:
-			return HandleRegistrationComplete(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.RegistrationComplete)
+			return HandleRegistrationComplete(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.RegistrationComplete, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType__3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)
@@ -155,37 +159,38 @@ func register_event_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error 
 		return nil
 	case EVENT_GMM_MESSAGE:
 		amfUe = args[AMF_UE].(*context.AmfUe)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		procedureCode = args[PROCEDURE_CODE].(int64)
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeULNASTransport:
-			return HandleULNASTransport(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.ULNASTransport)
+			return HandleULNASTransport(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.ULNASTransport, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeRegistrationRequest:
-			if err := HandleRegistrationRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest); err != nil {
+			if err := HandleRegistrationRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.RegistrationRequest, nasMessage.SecurityHeaderType); err != nil {
 				return nil
 			}
 		case nas.MsgTypeIdentityResponse:
-			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
+			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeNotificationResponse:
-			if err := HandleNotificationResponse(amfUe, gmmMessage.NotificationResponse); err != nil {
+			if err := HandleNotificationResponse(amfUe, gmmMessage.NotificationResponse, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeConfigurationUpdateComplete:
-			if err := HandleConfigurationUpdateComplete(amfUe, gmmMessage.ConfigurationUpdateComplete); err != nil {
+			if err := HandleConfigurationUpdateComplete(amfUe, gmmMessage.ConfigurationUpdateComplete, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeServiceRequest:
-			if err := HandleServiceRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.ServiceRequest); err != nil {
+			if err := HandleServiceRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.ServiceRequest, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		case nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration:
-			return HandleDeregistrationRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.DeregistrationRequestUEOriginatingDeregistration)
+			return HandleDeregistrationRequest(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.DeregistrationRequestUEOriginatingDeregistration, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeDeregistrationAcceptUETerminatedDeregistration:
-			return HandleDeregistrationAccept(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.DeregistrationAcceptUETerminatedDeregistration)
+			return HandleDeregistrationAccept(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.DeregistrationAcceptUETerminatedDeregistration, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			if err := HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM); err != nil {
+			if err := HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType); err != nil {
 				return err
 			}
 		default:
@@ -211,14 +216,15 @@ func Authentication_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error 
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeAuthenticationResponse:
 			return HandleAuthenticationResponse(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.AuthenticationResponse)
 		case nas.MsgTypeAuthenticationFailure:
 			return HandleAuthenticationFailure(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.AuthenticationFailure)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)
@@ -232,14 +238,15 @@ func SecurityMode_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) error {
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
 		procedureCode := args[PROCEDURE_CODE].(int64)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeSecurityModeComplete:
-			return HandleSecurityModeComplete(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.SecurityModeComplete)
+			return HandleSecurityModeComplete(amfUe, models.AccessType_NON_3_GPP_ACCESS, procedureCode, gmmMessage.SecurityModeComplete, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeSecurityModeReject:
-			return HandleSecurityModeReject(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.SecurityModeReject)
+			return HandleSecurityModeReject(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.SecurityModeReject, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)
@@ -252,12 +259,13 @@ func InitialContextSetup_non_3gpp(sm *fsm.FSM, event fsm.Event, args fsm.Args) e
 	case fsm.EVENT_ENTRY:
 	case EVENT_GMM_MESSAGE:
 		amfUe := args[AMF_UE].(*context.AmfUe)
-		gmmMessage := args[GMM_MESSAGE].(*nas.GmmMessage)
+		nasMessage := args[NAS_MESSAGE].(*nas.Message)
+		gmmMessage := nasMessage.GmmMessage
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeRegistrationComplete:
-			return HandleRegistrationComplete(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.RegistrationComplete)
+			return HandleRegistrationComplete(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.RegistrationComplete, nasMessage.SecurityHeaderType)
 		case nas.MsgTypeStatus5GMM:
-			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM)
+			return HandleStatus5GMM(amfUe, models.AccessType_NON_3_GPP_ACCESS, gmmMessage.Status5GMM, nasMessage.SecurityHeaderType)
 		}
 	default:
 		GmmLog.Errorf("Unknown Event[%s]\n", event)

@@ -21,18 +21,17 @@ import (
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
+	"github.com/antihax/optional"
+	"github.com/mitchellh/mapstructure"
+	"github.com/mohae/deepcopy"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/antihax/optional"
-	"github.com/mitchellh/mapstructure"
-	"github.com/mohae/deepcopy"
 )
 
-func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, ulNasTransport *nasMessage.ULNASTransport) error {
+func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedureCode int64, ulNasTransport *nasMessage.ULNASTransport, securityHeaderType uint8) error {
 	switch ulNasTransport.GetPayloadContainerType() {
 	case nasMessage.PayloadContainerTypeN1SMInfo:
 
@@ -68,6 +67,15 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, ulNasTran
 				requestType = models.RequestType_INITIAL_EMERGENCY_REQUEST
 			case nasMessage.ULNASTransportRequestTypeExistingEmergencyPduSession:
 				requestType = models.RequestType_EXISTING_EMERGENCY_PDU_SESSION
+			}
+		}
+		logger.GmmLog.Infoln("requestType is ", requestType)
+		if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
+			logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
+		} else {
+			err := checkContextSecurity(ue, securityHeaderType)
+			if err != nil {
+				return err
 			}
 		}
 
@@ -514,7 +522,7 @@ func HandlePDUSessionAuthenticationForward(ue *context.AmfUe, anType models.Acce
 	return nil
 }
 
-func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, procedureCode int64, registrationRequest *nasMessage.RegistrationRequest) error {
+func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, procedureCode int64, registrationRequest *nasMessage.RegistrationRequest, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Registration Request")
 
@@ -550,6 +558,15 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	default:
 		logger.GmmLog.Debugf("RegistrationType: %v, chage state to InitialRegistration", ue.RegistrationType5GS)
 		ue.RegistrationType5GS = nasMessage.RegistrationType5GSInitialRegistration
+	}
+
+	if ue.RegistrationType5GS == nasMessage.RegistrationType5GSEmergencyRegistration || ue.RegistrationType5GS == nasMessage.RegistrationType5GSInitialRegistration {
+		logger.GmmLog.Infoln("ue.RegistrationType5GS is RegistrationType5GSEmergencyRegistration or RegistrationType5GSInitialRegistration")
+	} else {
+		err := checkContextSecurity(ue, securityHeaderType)
+		if err != nil {
+			return err
+		}
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
@@ -1530,12 +1547,17 @@ func assignLadnInfo(ue *context.AmfUe) {
 	}
 }
 
-func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.IdentityResponse) error {
+func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.IdentityResponse, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Identity Response")
 
 	if ue == nil {
 		return fmt.Errorf("AmfUe is nil")
+	}
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
 	}
 
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
@@ -1567,10 +1589,16 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 }
 
 // TS 24501 5.6.3.2
-func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMessage.NotificationResponse) error {
+func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMessage.NotificationResponse, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Notification Response")
 	util.ClearT3565(ue)
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
+
 	if notificationResponse != nil && notificationResponse.PDUSessionStatus != nil {
 		psiArray := nasConvert.PSIToBooleanArray(notificationResponse.PDUSessionStatus.Buffer)
 		for psi := 1; psi <= 15; psi++ {
@@ -1597,7 +1625,7 @@ func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMess
 	return nil
 }
 
-func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateComplete *nasMessage.ConfigurationUpdateComplete) error {
+func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateComplete *nasMessage.ConfigurationUpdateComplete, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Configuration Update Complete")
 
@@ -1608,6 +1636,10 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateCom
 	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "free5gc/lib/openapi/Nudm_SubscriberDataManagement" client.Info
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1657,7 +1689,7 @@ func startAuthenticationProcedure(ue *context.AmfUe, anType models.AccessType) e
 }
 
 // TS 24501 5.6.1
-func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType, procedureCode int64, serviceRequest *nasMessage.ServiceRequest) (err error) {
+func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType, procedureCode int64, serviceRequest *nasMessage.ServiceRequest, securityHeaderType uint8) (err error) {
 	logger.GmmLog.Info("Handle Service Reqeust")
 
 	if ue == nil {
@@ -1683,6 +1715,16 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType, procedure
 	suList := ngapType.PDUSessionResourceSetupListSUReq{}
 	ctxList := ngapType.PDUSessionResourceSetupListCxtReq{}
 	initCxt := procedureCode == ngapType.ProcedureCodeInitialUEMessage
+
+	if serviceType == nasMessage.ServiceTypeEmergencyServices || serviceType == nasMessage.ServiceTypeEmergencyServicesFallback {
+
+	} else {
+		err = checkContextSecurity(ue, securityHeaderType)
+		if err != nil {
+			return err
+		}
+	}
+
 	if serviceType == nasMessage.ServiceTypeSignalling {
 		err = sendServiceAccept(initCxt, ue, anType, ctxList, suList, nil, nil, nil, nil)
 		return
@@ -2100,11 +2142,16 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType, au
 	return nil
 }
 
-func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, registrationComplete *nasMessage.RegistrationComplete) error {
+func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, registrationComplete *nasMessage.RegistrationComplete, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Registration Complete")
 
 	util.ClearT3550(ue)
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	if registrationComplete.SORTransparentContainer != nil {
 		// TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,
@@ -2125,7 +2172,7 @@ func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, reg
 }
 
 // TODO: finish it; TS 33.501 6.7.2
-func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, procedureCode int64, securityModeComplete *nasMessage.SecurityModeComplete) error {
+func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, procedureCode int64, securityModeComplete *nasMessage.SecurityModeComplete, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Security Mode Complete")
 
@@ -2134,6 +2181,11 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 	if ue.SecurityContextIsValid() {
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
+	}
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
 	}
 
 	if securityModeComplete.IMEISV != nil {
@@ -2152,7 +2204,7 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 			args := make(fsm.Args)
 			args[AMF_UE] = ue
 			args[PROCEDURE_CODE] = procedureCode
-			args[GMM_MESSAGE] = m.GmmMessage
+			args[NAS_MESSAGE] = m
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		case nas.MsgTypeServiceRequest:
@@ -2160,7 +2212,7 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 			args := make(fsm.Args)
 			args[AMF_UE] = ue
 			args[PROCEDURE_CODE] = procedureCode
-			args[GMM_MESSAGE] = m.GmmMessage
+			args[NAS_MESSAGE] = m
 			_ = ue.Sm[anType].Transfer(state.REGISTERED, nil)
 			return ue.Sm[anType].SendEvent(EVENT_GMM_MESSAGE, args)
 		default:
@@ -2173,9 +2225,14 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 	return nil
 }
 
-func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, securityModeReject *nasMessage.SecurityModeReject) error {
+func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, securityModeReject *nasMessage.SecurityModeReject, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Security Mode Reject")
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	// stop T3560
 	util.ClearT3560(ue)
@@ -2186,9 +2243,14 @@ func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, secur
 }
 
 // TODO: finish it TS 23.502 4.2.2.3
-func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType, deregistrationRequest *nasMessage.DeregistrationRequestUEOriginatingDeregistration) error {
+func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType, deregistrationRequest *nasMessage.DeregistrationRequestUEOriginatingDeregistration, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Request(UE Originating)")
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	targetDeregistrationAccessType := deregistrationRequest.GetAccessType()
 	for pduSessionId, smContext := range ue.SmContextList {
@@ -2261,9 +2323,14 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType, de
 }
 
 // TS 23.502 4.2.2.3
-func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, deregistrationAccept *nasMessage.DeregistrationAcceptUETerminatedDeregistration) error {
+func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, deregistrationAccept *nasMessage.DeregistrationAcceptUETerminatedDeregistration, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Accept(UE Terminated)")
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	util.ClearT3522(ue)
 
@@ -2289,11 +2356,25 @@ func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, der
 	return nil
 }
 
-func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *nasMessage.Status5GMM) error {
+func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *nasMessage.Status5GMM, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("Handle Staus 5GMM")
+
+	err := checkContextSecurity(ue, securityHeaderType)
+	if err != nil {
+		return err
+	}
 
 	logger.GmmLog.Errorf("Error condition [Cause Value: %d]", status5GMM.Cause5GMM.Octet)
 
 	return nil
+}
+
+func checkContextSecurity(ue *context.AmfUe, securityHeaderType uint8) error {
+	if ue.SecurityContextIsValid() && (securityHeaderType == nas.SecurityHeaderTypePlainNas) {
+		logger.GmmLog.Errorln("securityHeaderType ", securityHeaderType)
+		return fmt.Errorf("ue.SecurityContextIsValid() == true && (securityHeaderType == nas.SecurityHeaderTypePlainNas)")
+	} else {
+		return nil
+	}
 }
