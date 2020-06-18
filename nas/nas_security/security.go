@@ -71,7 +71,6 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 		// Increase DL Count
 		ue.DLCount = (ue.DLCount + 1) & 0xffffff
 
-		// ue.SecurityContextAvailable = true
 	}
 	return
 }
