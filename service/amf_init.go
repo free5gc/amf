@@ -80,13 +80,18 @@ func (*AMF) Initialize(c *cli.Context) {
 		factory.InitConfigFactory(DefaultAmfConfigPath)
 	}
 
-	initLog.Traceln("AMF debug level(string):", app.ContextSelf().Logger.AMF.DebugLevel)
 	if app.ContextSelf().Logger.AMF.DebugLevel != "" {
-		initLog.Infoln("AMF debug level(string):", app.ContextSelf().Logger.AMF.DebugLevel)
 		level, err := logrus.ParseLevel(app.ContextSelf().Logger.AMF.DebugLevel)
-		if err == nil {
+		if err != nil {
+			initLog.Warnf("Log level [%s] is not valid, set to [info] level", app.ContextSelf().Logger.AMF.DebugLevel)
+			logger.SetLogLevel(logrus.InfoLevel)
+		} else {
 			logger.SetLogLevel(level)
+			initLog.Infof("Log level is set to [%s] level", level)
 		}
+	} else {
+		initLog.Infoln("Log level is default set to [info] level")
+		logger.SetLogLevel(logrus.InfoLevel)
 	}
 
 	logger.SetReportCaller(app.ContextSelf().Logger.AMF.ReportCaller)
