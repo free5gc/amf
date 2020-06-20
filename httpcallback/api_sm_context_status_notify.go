@@ -2,19 +2,32 @@ package httpcallback
 
 import (
 	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
+	"free5gc/src/amf/producer"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 func HTTPSmContextStatusNotify(c *gin.Context) {
+	var smContextStatusNotification models.SmContextStatusNotification
 
-	var request models.SmContextStatusNotification
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CallbackLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
 
-	err := c.ShouldBindJSON(&request)
+	err = openapi.Deserialize(&smContextStatusNotification, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -27,17 +40,22 @@ func HTTPSmContextStatusNotify(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, smContextStatusNotification)
 	req.Params["guti"] = c.Params.ByName("guti")
 	req.Params["pduSessionId"] = c.Params.ByName("pduSessionId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventSmContextStatusNotify, req)
-	amf_message.SendMessage(handlerMsg)
+	rsp := producer.HandleSmContextStatusNotify(req)
 
-	rsp := <-handlerMsg.ResponseChan
-
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
-
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CallbackLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 }

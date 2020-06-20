@@ -17,58 +17,76 @@ import (
 	"strconv"
 )
 
-func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMessage, guti, pduSessionIdString string, body models.SmContextStatusNotification) {
-	var problem models.ProblemDetails
-	amfSelf := context.AMF_Self()
-	ue, _ := amfSelf.AmfUeFindByGuti(guti)
-
+func HandleSmContextStatusNotify(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
-	if ue == nil {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		problem.Detail = fmt.Sprintf("Guti[%s] Not Found", guti)
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
-		return
+
+	guti := request.Params["guti"]
+	pduSessionIDString := request.Params["pduSessionId"]
+	pduSessionID, _ := strconv.Atoi(pduSessionIDString)
+	smContextStatusNotification := request.Body.(models.SmContextStatusNotification)
+
+	problemDetails := SmContextStatusNotifyProcedure(guti, int32(pduSessionID), smContextStatusNotification)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
-	pduSessionID, _ := strconv.Atoi(pduSessionIdString)
-	_, ok := ue.SmContextList[int32(pduSessionID)]
+}
+
+func SmContextStatusNotifyProcedure(guti string, pduSessionID int32, smContextStatusNotification models.SmContextStatusNotification) (problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByGuti(guti)
 	if !ok {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		problem.Detail = fmt.Sprintf("PDUSessionID[%d] Not Found", pduSessionID)
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+			Detail: fmt.Sprintf("Guti[%s] Not Found", guti),
+		}
 		return
 	}
-	logger.CallbackLog.Debugf("Release PDUSessionId[%d] of UE[%s] By SmContextStatus Notification because of %s", pduSessionID, ue.Supi, body.StatusInfo.Cause)
-	pduSessionId := int32(pduSessionID)
-	delete(ue.SmContextList, pduSessionId)
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
-	if storedSmContext, exist := ue.StoredSmContext[pduSessionId]; exist {
 
-		smContextCreateData := consumer.BuildCreateSmContextRequest(ue, *storedSmContext.PduSessionContext, models.RequestType_INITIAL_REQUEST)
-
-		response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
-		if response != nil {
-			var smContext context.SmContext
-			smContext.PduSessionContext = storedSmContext.PduSessionContext
-			smContext.PduSessionContext.SmContextRef = smContextRef
-			smContext.UserLocation = deepcopy.Copy(ue.Location).(models.UserLocation)
-			smContext.SmfUri = storedSmContext.SmfUri
-			smContext.SmfId = storedSmContext.SmfId
-			ue.SmContextList[pduSessionId] = &smContext
-			logger.CallbackLog.Infof("Http create smContext[pduSessionID: %d] Success", pduSessionId)
-			// TODO: handle response(response N2SmInfo to RAN if exists)
-		} else if errResponse != nil {
-			logger.CallbackLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]\n", pduSessionId)
-			gmm_message.SendDLNASTransport(ue.RanUe[storedSmContext.AnType], nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmInfoToUe, &pduSessionId, 0, nil, 0)
-		} else if err != nil {
-			logger.CallbackLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%s]\n", pduSessionID, err.Error())
-		} else {
-			logger.CallbackLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]\n", pduSessionID, problemDetail)
+	_, ok = ue.SmContextList[pduSessionID]
+	if !ok {
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+			Detail: fmt.Sprintf("PDUSessionID[%d] Not Found", pduSessionID),
 		}
-		delete(ue.StoredSmContext, pduSessionId)
-
+		return
 	}
+
+	logger.ProducerLog.Debugf("Release PDUSessionId[%d] of UE[%s] By SmContextStatus Notification because of %s", pduSessionID, ue.Supi, smContextStatusNotification.StatusInfo.Cause)
+	delete(ue.SmContextList, pduSessionID)
+
+	if storedSmContext, exist := ue.StoredSmContext[pduSessionID]; exist {
+		go func() {
+			smContextCreateData := consumer.BuildCreateSmContextRequest(ue, *storedSmContext.PduSessionContext, models.RequestType_INITIAL_REQUEST)
+
+			response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
+			if response != nil {
+				var smContext context.SmContext
+				smContext.PduSessionContext = storedSmContext.PduSessionContext
+				smContext.PduSessionContext.SmContextRef = smContextRef
+				smContext.UserLocation = deepcopy.Copy(ue.Location).(models.UserLocation)
+				smContext.SmfUri = storedSmContext.SmfUri
+				smContext.SmfId = storedSmContext.SmfId
+				ue.SmContextList[pduSessionID] = &smContext
+				logger.CallbackLog.Infof("Http create smContext[pduSessionID: %d] Success", pduSessionID)
+				// TODO: handle response(response N2SmInfo to RAN if exists)
+			} else if errResponse != nil {
+				logger.ProducerLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]\n", pduSessionID)
+				gmm_message.SendDLNASTransport(ue.RanUe[storedSmContext.AnType], nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmInfoToUe, &pduSessionID, 0, nil, 0)
+			} else if err != nil {
+				logger.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%s]\n", pduSessionID, err.Error())
+			} else {
+				logger.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]\n", pduSessionID, problemDetail)
+			}
+			delete(ue.StoredSmContext, pduSessionID)
+		}()
+	}
+
+	return
 }
 
 func HandleAmPolicyControlUpdateNotifyUpdate(request *http_wrapper.Request) (*context.AmfUe, *http_wrapper.Response) {
