@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SmContextStatusNotify(c *gin.Context) {
+func HTTPSmContextStatusNotify(c *gin.Context) {
 
 	var request models.SmContextStatusNotification
 

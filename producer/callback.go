@@ -2,6 +2,7 @@ package producer
 
 import (
 	"fmt"
+	"free5gc/lib/http_wrapper"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
@@ -11,7 +12,6 @@ import (
 	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
-	ngap_message "free5gc/src/amf/ngap/message"
 	"github.com/mohae/deepcopy"
 	"net/http"
 	"strconv"
@@ -71,25 +71,38 @@ func HandleSmContextStatusNotify(httpChannel chan amf_message.HandlerResponseMes
 	}
 }
 
-func HandleAmPolicyControlUpdateNotifyUpdate(httpChannel chan amf_message.HandlerResponseMessage, polAssoId string, body models.PolicyUpdate) {
+func HandleAmPolicyControlUpdateNotifyUpdate(request *http_wrapper.Request) (*context.AmfUe, *http_wrapper.Response) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
-	var problem models.ProblemDetails
-	amfSelf := context.AMF_Self()
-	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoId)
+	polAssoID := request.Params["polAssoId"]
+	policyUpdate := request.Body.(models.PolicyUpdate)
 
+	ue, problemDetails := AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
+
+	if problemDetails != nil {
+		return nil, http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return ue, http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+	}
+}
+
+func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string, policyUpdate models.PolicyUpdate) (ue *context.AmfUe, problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
 	if !ok {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		problem.Detail = fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoId)
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+			Detail: fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoID),
+		}
 		return
 	}
 
-	ue.AmPolicyAssociation.Triggers = body.Triggers
+	ue.AmPolicyAssociation.Triggers = policyUpdate.Triggers
 	ue.RequestTriggerLocationChange = false
 
-	for _, trigger := range body.Triggers {
+	for _, trigger := range policyUpdate.Triggers {
 		if trigger == models.RequestTrigger_LOC_CH {
 			ue.RequestTriggerLocationChange = true
 		}
@@ -98,37 +111,15 @@ func HandleAmPolicyControlUpdateNotifyUpdate(httpChannel chan amf_message.Handle
 		}
 	}
 
-	if body.ServAreaRes != nil {
-		ue.AmPolicyAssociation.ServAreaRes = body.ServAreaRes
+	if policyUpdate.ServAreaRes != nil {
+		ue.AmPolicyAssociation.ServAreaRes = policyUpdate.ServAreaRes
 	}
 
-	if body.Rfsp != 0 {
-		ue.AmPolicyAssociation.Rfsp = body.Rfsp
+	if policyUpdate.Rfsp != 0 {
+		ue.AmPolicyAssociation.Rfsp = policyUpdate.Rfsp
 	}
 
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
-
-	// UE is CM-Connected State
-	if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-		gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
-		// UE is CM-IDLE => paging
-	} else {
-		message, err := gmm_message.BuildConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
-		if err != nil {
-			logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
-			return
-		}
-
-		ue.ConfigurationUpdateMessage = message
-		ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedurePaging
-
-		pkg, err := ngap_message.BuildPaging(ue, nil, false)
-		if err != nil {
-			logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
-			return
-		}
-		ngap_message.SendPaging(ue, pkg)
-	}
+	return
 }
 
 func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.HandlerResponseMessage, polAssoId string, body models.TerminationNotification) {

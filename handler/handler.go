@@ -181,9 +181,6 @@ func Handle() {
 					guti := msg.HTTPRequest.Params["guti"]
 					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
 					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
-				case amf_message.EventAmPolicyControlUpdateNotifyUpdate:
-					polAssoId := msg.HTTPRequest.Params["polAssoId"]
-					producer.HandleAmPolicyControlUpdateNotifyUpdate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.PolicyUpdate))
 				case amf_message.EventAmPolicyControlUpdateNotifyTerminate:
 					polAssoId := msg.HTTPRequest.Params["polAssoId"]
 					producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))

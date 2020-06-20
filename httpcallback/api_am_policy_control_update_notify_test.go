@@ -62,7 +62,7 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
-			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
+			err = server.ListenAndServe()
 		}
 		assert.True(t, err == nil, err.Error())
 	}()
@@ -73,12 +73,12 @@ func TestAmPolicyControlUpdateNotifyUpdate(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(100 * time.Millisecond)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.PlmnId = models.PlmnId{
 		Mcc: "208",
 		Mnc: "93",
 	}
-	ue.PcfUri = "https://localhost:29507"
+	ue.PcfUri = "http://localhost:29507"
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}
@@ -127,7 +127,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(100 * time.Millisecond)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.PlmnId = models.PlmnId{
 		Mcc: "208",
 		Mnc: "93",

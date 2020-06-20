@@ -10,7 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func N1MessageNotify(c *gin.Context) {
+func HTTPN1MessageNotify(c *gin.Context) {
 	var request models.N1MessageNotification
 
 	err := c.ShouldBindJSON(&request)
