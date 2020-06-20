@@ -116,7 +116,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 
 		server, err := http2_util.NewServer(":29518", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
-			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
+			err = server.ListenAndServe()
 		}
 		assert.True(t, err == nil, err.Error())
 	}()
@@ -132,7 +132,7 @@ func TestAmPolicyControlUpdateNotifyTerminate(t *testing.T) {
 		Mcc: "208",
 		Mnc: "93",
 	}
-	ue.PcfUri = "https://localhost:29507"
+	ue.PcfUri = "http://localhost:29507"
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		RfspIndex: 1,
 	}

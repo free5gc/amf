@@ -122,31 +122,36 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string, policyUpdate m
 	return
 }
 
-func HandleAmPolicyControlUpdateNotifyTerminate(httpChannel chan amf_message.HandlerResponseMessage, polAssoId string, body models.TerminationNotification) {
+// TS 29.507 4.2.4.3
+func HandleAmPolicyControlUpdateNotifyTerminate(request *http_wrapper.Request) (*context.AmfUe, *http_wrapper.Response) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
-	var problem models.ProblemDetails
-	amfSelf := context.AMF_Self()
-	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoId)
+	polAssoID := request.Params["polAssoId"]
+	terminationNotification := request.Body.(models.TerminationNotification)
 
+	ue, problemDetails := AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
+	if problemDetails != nil {
+		return nil, http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return ue, http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+	}
+}
+
+func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string, terminationNotification models.TerminationNotification) (ue *context.AmfUe, problemDetails *models.ProblemDetails) {
+	amfSelf := context.AMF_Self()
+
+	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
 	if !ok {
-		problem.Status = 404
-		problem.Cause = "CONTEXT_NOT_FOUND"
-		problem.Detail = fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoId)
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNotFound, problem)
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusNotFound,
+			Cause:  "CONTEXT_NOT_FOUND",
+			Detail: fmt.Sprintf("Policy Association ID[%s] Not Found", polAssoID),
+		}
 		return
 	}
 
-	logger.CallbackLog.Warnf("Cause of AM Policy termination[%+v]", body.Cause)
-
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
-
-	problemDetails, err := consumer.AMPolicyControlDelete(ue)
-	if problemDetails != nil {
-		logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
-	} else if err != nil {
-		logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
-	}
+	logger.CallbackLog.Infof("Cause of AM Policy termination[%+v]", terminationNotification.Cause)
+	return
 }
 
 // TS 23.502 4.2.2.2.3 Registration with AMF re-allocation

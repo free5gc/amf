@@ -4,9 +4,9 @@ import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer"
@@ -20,7 +20,7 @@ func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
-		logger.CommLog.Errorf("Get Request Body error: %+v", err)
+		logger.CallbackLog.Errorf("Get Request Body error: %+v", err)
 		problemDetail := models.ProblemDetails{
 			Title:  "System failure",
 			Status: http.StatusInternalServerError,
@@ -39,7 +39,7 @@ func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 			Status: http.StatusBadRequest,
 			Detail: problemDetail,
 		}
-		logger.CommLog.Errorln(problemDetail)
+		logger.CallbackLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
@@ -51,7 +51,7 @@ func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 
 	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
 	if err != nil {
-		logger.CommLog.Errorln(err)
+		logger.CallbackLog.Errorln(err)
 		problemDetails := models.ProblemDetails{
 			Status: http.StatusInternalServerError,
 			Cause:  "SYSTEM_FAILURE",
@@ -63,35 +63,50 @@ func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 	}
 
 	if ue != nil {
-		// UE is CM-Connected State
-		if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-			gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
-			// UE is CM-IDLE => paging
-		} else {
-			message, err := gmm_message.BuildConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
-			if err != nil {
-				logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
-				return
-			}
+		// use go routine to write response first to ensure the order of the procedure
+		go func() {
+			// UE is CM-Connected State
+			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
+				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				// UE is CM-IDLE => paging
+			} else {
+				message, err := gmm_message.BuildConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				if err != nil {
+					logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
+					return
+				}
 
-			ue.ConfigurationUpdateMessage = message
-			ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedurePaging
+				ue.ConfigurationUpdateMessage = message
+				ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedurePaging
 
-			pkg, err := ngap_message.BuildPaging(ue, nil, false)
-			if err != nil {
-				logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
-				return
+				pkg, err := ngap_message.BuildPaging(ue, nil, false)
+				if err != nil {
+					logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
+					return
+				}
+				ngap_message.SendPaging(ue, pkg)
 			}
-			ngap_message.SendPaging(ue, pkg)
-		}
+		}()
 	}
 }
 
 func HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
+	var terminationNotification models.TerminationNotification
 
-	var request models.TerminationNotification
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CallbackLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
 
-	err := c.ShouldBindJSON(&request)
+	err = openapi.Deserialize(&terminationNotification, requestBody, "application/json")
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := models.ProblemDetails{
@@ -104,15 +119,31 @@ func HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(c.Request, request)
+	req := http_wrapper.NewRequest(c.Request, terminationNotification)
 	req.Params["polAssoId"] = c.Params.ByName("polAssoId")
 
-	handlerMsg := amf_message.NewHandlerMessage(amf_message.EventAmPolicyControlUpdateNotifyTerminate, req)
-	amf_message.SendMessage(handlerMsg)
+	ue, rsp := producer.HandleAmPolicyControlUpdateNotifyTerminate(req)
 
-	rsp := <-handlerMsg.ResponseChan
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.CallbackLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody)
+	}
 
-	HTTPResponse := rsp.HTTPResponse
-
-	c.JSON(HTTPResponse.Status, HTTPResponse.Body)
+	// use go routine to write response first to ensure the order of the procedure
+	go func() {
+		problemDetails, err := consumer.AMPolicyControlDelete(ue)
+		if problemDetails != nil {
+			logger.CallbackLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
+		} else if err != nil {
+			logger.CallbackLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
+		}
+	}()
 }
