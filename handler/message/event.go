@@ -12,5 +12,4 @@ const (
 	EventGMMT3560ForSecurityModeCommand
 	EventGMMT3550
 	EventGMMT3522
-	EventN1MessageNotify
 )

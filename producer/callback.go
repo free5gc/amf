@@ -9,7 +9,6 @@ import (
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
 	gmm_message "free5gc/src/amf/gmm/message"
-	amf_message "free5gc/src/amf/handler/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
 	"github.com/mohae/deepcopy"
@@ -173,63 +172,73 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string, termination
 }
 
 // TS 23.502 4.2.2.2.3 Registration with AMF re-allocation
-func HandleN1MessageNotify(httpChannel chan amf_message.HandlerResponseMessage, body models.N1MessageNotify) {
+func HandleN1MessageNotify(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.ProducerLog.Infoln("[AMF] Handle N1 Message Notify")
 
-	logger.ProducerLog.Debugf("request body: %+v", body)
+	n1MessageNotify := request.Body.(models.N1MessageNotify)
+
+	problemDetails := N1MessageNotifyProcedure(n1MessageNotify)
+	if problemDetails != nil {
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+	} else {
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+	}
+}
+
+func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) (problemDetails *models.ProblemDetails) {
+	logger.ProducerLog.Debugf("n1MessageNotify: %+v", n1MessageNotify)
 
 	amfSelf := context.AMF_Self()
 
-	registrationCtxtContainer := body.JsonData.RegistrationCtxtContainer
+	registrationCtxtContainer := n1MessageNotify.JsonData.RegistrationCtxtContainer
 	if registrationCtxtContainer.UeContext == nil {
-		problem := models.ProblemDetails{
-			Status: 400,
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING", // Defined in TS 29.500 5.2.7.2
 			Detail: "Missing IE [UeContext] in RegistrationCtxtContainer",
 		}
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusBadRequest, problem)
 		return
 	}
-
-	amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusNoContent, nil)
-
-	var amfUe *context.AmfUe
-	ueContext := registrationCtxtContainer.UeContext
-	if ueContext.Supi != "" {
-		amfUe = amfSelf.NewAmfUe(ueContext.Supi)
-	} else {
-		amfUe = amfSelf.NewAmfUe("")
-	}
-	amfUe.CopyDataFromUeContextModel(*ueContext)
 
 	ran := amfSelf.RanIdPool[*registrationCtxtContainer.RanNodeId]
 	if ran == nil {
-		problem := models.ProblemDetails{
-			Status: 400,
+		problemDetails = &models.ProblemDetails{
+			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_INCORRECT",
 			Detail: fmt.Sprintf("Can not find RAN[RanId: %+v]", *registrationCtxtContainer.RanNodeId),
 		}
-		amf_message.SendHttpResponseMessage(httpChannel, nil, http.StatusBadRequest, problem)
 		return
 	}
 
-	ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+	go func() {
+		var amfUe *context.AmfUe
+		ueContext := registrationCtxtContainer.UeContext
+		if ueContext.Supi != "" {
+			amfUe = amfSelf.NewAmfUe(ueContext.Supi)
+		} else {
+			amfUe = amfSelf.NewAmfUe("")
+		}
+		amfUe.CopyDataFromUeContextModel(*ueContext)
 
-	ranUe.Location = *registrationCtxtContainer.UserLocation
-	amfUe.Location = *registrationCtxtContainer.UserLocation
-	ranUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
-	ranUe.OldAmfName = registrationCtxtContainer.InitialAmfName
+		ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
 
-	if registrationCtxtContainer.AllowedNssai != nil {
-		allowedNssai := registrationCtxtContainer.AllowedNssai
-		amfUe.AllowedNssai[allowedNssai.AccessType] = allowedNssai.AllowedSnssaiList
-	}
+		ranUe.Location = *registrationCtxtContainer.UserLocation
+		amfUe.Location = *registrationCtxtContainer.UserLocation
+		ranUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
+		ranUe.OldAmfName = registrationCtxtContainer.InitialAmfName
 
-	if len(registrationCtxtContainer.ConfiguredNssai) > 0 {
-		amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
-	}
+		if registrationCtxtContainer.AllowedNssai != nil {
+			allowedNssai := registrationCtxtContainer.AllowedNssai
+			amfUe.AllowedNssai[allowedNssai.AccessType] = allowedNssai.AllowedSnssaiList
+		}
 
-	amfUe.AttachRanUe(ranUe)
+		if len(registrationCtxtContainer.ConfiguredNssai) > 0 {
+			amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
+		}
 
-	nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, body.BinaryDataN1Message)
+		amfUe.AttachRanUe(ranUe)
+
+		nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message)
+	}()
+	return
 }
