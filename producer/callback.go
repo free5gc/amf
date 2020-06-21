@@ -11,6 +11,7 @@ import (
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
+	ngap_message "free5gc/src/amf/ngap/message"
 	"github.com/mohae/deepcopy"
 	"net/http"
 	"strconv"
@@ -88,22 +89,22 @@ func SmContextStatusNotifyProcedure(guti string, pduSessionID int32, smContextSt
 	return
 }
 
-func HandleAmPolicyControlUpdateNotifyUpdate(request *http_wrapper.Request) (*context.AmfUe, *http_wrapper.Response) {
+func HandleAmPolicyControlUpdateNotifyUpdate(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	polAssoID := request.Params["polAssoId"]
 	policyUpdate := request.Body.(models.PolicyUpdate)
 
-	ue, problemDetails := AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
+	problemDetails := AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
 
 	if problemDetails != nil {
-		return nil, http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
-		return ue, http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
 }
 
-func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string, policyUpdate models.PolicyUpdate) (ue *context.AmfUe, problemDetails *models.ProblemDetails) {
+func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string, policyUpdate models.PolicyUpdate) (problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
@@ -136,25 +137,51 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string, policyUpdate m
 		ue.AmPolicyAssociation.Rfsp = policyUpdate.Rfsp
 	}
 
+	if ue != nil {
+		// use go routine to write response first to ensure the order of the procedure
+		go func() {
+			// UE is CM-Connected State
+			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
+				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				// UE is CM-IDLE => paging
+			} else {
+				message, err := gmm_message.BuildConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				if err != nil {
+					logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
+					return
+				}
+
+				ue.ConfigurationUpdateMessage = message
+				ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = context.OnGoingProcedurePaging
+
+				pkg, err := ngap_message.BuildPaging(ue, nil, false)
+				if err != nil {
+					logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
+					return
+				}
+				ngap_message.SendPaging(ue, pkg)
+			}
+		}()
+	}
 	return
 }
 
 // TS 29.507 4.2.4.3
-func HandleAmPolicyControlUpdateNotifyTerminate(request *http_wrapper.Request) (*context.AmfUe, *http_wrapper.Response) {
+func HandleAmPolicyControlUpdateNotifyTerminate(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
 	polAssoID := request.Params["polAssoId"]
 	terminationNotification := request.Body.(models.TerminationNotification)
 
-	ue, problemDetails := AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
+	problemDetails := AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
 	if problemDetails != nil {
-		return nil, http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
-		return ue, http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
+		return http_wrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
 }
 
-func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string, terminationNotification models.TerminationNotification) (ue *context.AmfUe, problemDetails *models.ProblemDetails) {
+func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string, terminationNotification models.TerminationNotification) (problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
@@ -168,6 +195,16 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string, termination
 	}
 
 	logger.CallbackLog.Infof("Cause of AM Policy termination[%+v]", terminationNotification.Cause)
+
+	// use go routine to write response first to ensure the order of the procedure
+	go func() {
+		problem, err := consumer.AMPolicyControlDelete(ue)
+		if problem != nil {
+			logger.ProducerLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
+		} else if err != nil {
+			logger.ProducerLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
+		}
+	}()
 	return
 }
 
