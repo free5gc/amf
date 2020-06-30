@@ -74,27 +74,27 @@ var routes = Routes{
 		"SmContextStatusNotify",
 		strings.ToUpper("Post"),
 		"/smContextStatus/:guti/:pduSessionId",
-		SmContextStatusNotify,
+		HTTPSmContextStatusNotify,
 	},
 
 	{
 		"AmPolicyControlUpdateNotifyUpdate",
 		strings.ToUpper("Post"),
 		"/am-policy/:polAssoId/update",
-		AmPolicyControlUpdateNotifyUpdate,
+		HTTPAmPolicyControlUpdateNotifyUpdate,
 	},
 
 	{
 		"AmPolicyControlUpdateNotifyTerminate",
 		strings.ToUpper("Post"),
 		"/am-policy/:polAssoId/terminate",
-		AmPolicyControlUpdateNotifyTerminate,
+		HTTPAmPolicyControlUpdateNotifyTerminate,
 	},
 
 	{
 		"N1MessageNotify",
 		strings.ToUpper("Post"),
 		"/n1-message-notify",
-		N1MessageNotify,
+		HTTPN1MessageNotify,
 	},
 }

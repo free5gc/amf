@@ -10,7 +10,6 @@ import (
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/ngap"
 	ngap_message "free5gc/src/amf/ngap/message"
-	"free5gc/src/amf/producer"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
 	"net"
@@ -177,18 +176,6 @@ func Handle() {
 						amfUe.T3522RetryTimes++
 						gmm_message.SendDeregistrationRequest(value.RanUe, value.AccessType, value.ReRegistrationRequired, value.Cause5GMM)
 					}
-				case amf_message.EventSmContextStatusNotify:
-					guti := msg.HTTPRequest.Params["guti"]
-					pduSessionId := msg.HTTPRequest.Params["pduSessionId"]
-					producer.HandleSmContextStatusNotify(msg.ResponseChan, guti, pduSessionId, msg.HTTPRequest.Body.(models.SmContextStatusNotification))
-				case amf_message.EventAmPolicyControlUpdateNotifyUpdate:
-					polAssoId := msg.HTTPRequest.Params["polAssoId"]
-					producer.HandleAmPolicyControlUpdateNotifyUpdate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.PolicyUpdate))
-				case amf_message.EventAmPolicyControlUpdateNotifyTerminate:
-					polAssoId := msg.HTTPRequest.Params["polAssoId"]
-					producer.HandleAmPolicyControlUpdateNotifyTerminate(msg.ResponseChan, polAssoId, msg.HTTPRequest.Body.(models.TerminationNotification))
-				case amf_message.EventN1MessageNotify:
-					producer.HandleN1MessageNotify(msg.ResponseChan, msg.HTTPRequest.Body.(models.N1MessageNotify))
 				default:
 					HandlerLog.Warnf("Event[%d] has not implemented", msg.Event)
 				}

@@ -18,8 +18,8 @@ import (
 	"free5gc/src/amf/httpcallback"
 	amf_nas "free5gc/src/amf/nas"
 	"free5gc/src/nrf/discovery"
+	nrf_handler "free5gc/src/nrf/handler"
 	"free5gc/src/nrf/management"
-	"free5gc/src/nrf/nrf_handler"
 	smf_handler "free5gc/src/smf/handler"
 	"free5gc/src/smf/pdusession"
 
@@ -96,7 +96,7 @@ func TestSmContextStatusNotify(t *testing.T) {
 	// InitialRequest with known dnn and Snssai (success)
 	nasPdu := nasTestpacket.GetUlNasTransport_PduSessionEstablishmentRequest(10, nasMessage.ULNASTransportRequestTypeInitialRequest, "internet", &sNssai)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	m := nas.NewMessage()
 	err = m.GmmMessageDecode(&nasPdu)
