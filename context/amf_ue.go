@@ -9,6 +9,7 @@ import (
 	"free5gc/lib/idgenerator"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
+	"free5gc/lib/nas/security"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
 	"reflect"
@@ -404,7 +405,7 @@ func (ue *AmfUe) DerivateKamf() {
 func (ue *AmfUe) DerivateAlgKey() {
 
 	// Security Key
-	P0 := []byte{N_NAS_ENC_ALG}
+	P0 := []byte{security.NNASEncAlg}
 	L0 := UeauCommon.KDFLen(P0)
 	P1 := []byte{ue.CipheringAlg}
 	L1 := UeauCommon.KDFLen(P1)
@@ -414,7 +415,7 @@ func (ue *AmfUe) DerivateAlgKey() {
 	ue.KnasEnc = kenc[16:32]
 
 	// Integrity Key
-	P0 = []byte{N_NAS_INT_ALG}
+	P0 = []byte{security.NNASIntAlg}
 	L0 = UeauCommon.KDFLen(P0)
 	P1 = []byte{ue.IntegrityAlg}
 	L1 = UeauCommon.KDFLen(P1)
@@ -426,11 +427,11 @@ func (ue *AmfUe) DerivateAlgKey() {
 // Access Network key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 
-	accessType := ACCESS_TYPE_3GPP // Defalut 3gpp
+	accessType := security.AccessType3GPP // Defalut 3gpp
 	P0 := ue.GetSecurityULCount()
 	L0 := UeauCommon.KDFLen(P0)
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
-		accessType = ACCESS_TYPE_NON_3GPP
+		accessType = security.AccessTypeNon3GPP
 	}
 	P1 := []byte{accessType}
 	L1 := UeauCommon.KDFLen(P1)
@@ -438,9 +439,9 @@ func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 	KamfBytes, _ := hex.DecodeString(ue.Kamf)
 	key := UeauCommon.GetKDFValue(KamfBytes, UeauCommon.FC_FOR_KGNB_KN3IWF_DERIVATION, P0, L0, P1, L1)
 	switch accessType {
-	case ACCESS_TYPE_3GPP:
+	case security.AccessType3GPP:
 		ue.Kgnb = key
-	case ACCESS_TYPE_NON_3GPP:
+	case security.AccessTypeNon3GPP:
 		ue.Kn3iwf = key
 	}
 }
@@ -481,8 +482,8 @@ func (ue *AmfUe) UpdateNH() {
 }
 
 func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
-	ue.CipheringAlg = ALG_CIPHERING_128_NEA0
-	ue.IntegrityAlg = ALG_INTEGRITY_128_NIA0
+	ue.CipheringAlg = security.AlgCiphering128NEA0
+	ue.IntegrityAlg = security.AlgIntegrity128NIA0
 	for _, intAlg := range intOrder {
 		if intAlg == 0 && ue.NasUESecurityCapability.GetIA0_5G() == 1 {
 			break
@@ -491,11 +492,11 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
 		if match > 0 {
 			switch match {
 			case 0x80:
-				ue.IntegrityAlg = ALG_INTEGRITY_128_NIA1
+				ue.IntegrityAlg = security.AlgIntegrity128NIA1
 			case 0x40:
-				ue.IntegrityAlg = ALG_INTEGRITY_128_NIA2
+				ue.IntegrityAlg = security.AlgIntegrity128NIA2
 			case 0x20:
-				ue.IntegrityAlg = ALG_INTEGRITY_128_NIA3
+				ue.IntegrityAlg = security.AlgIntegrity128NIA3
 			}
 			break
 		}
@@ -508,11 +509,11 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
 		if match > 0 {
 			switch match {
 			case 0x80:
-				ue.CipheringAlg = ALG_CIPHERING_128_NEA1
+				ue.CipheringAlg = security.AlgCiphering128NEA1
 			case 0x40:
-				ue.CipheringAlg = ALG_CIPHERING_128_NEA2
+				ue.CipheringAlg = security.AlgCiphering128NEA2
 			case 0x20:
-				ue.CipheringAlg = ALG_CIPHERING_128_NEA3
+				ue.CipheringAlg = security.AlgCiphering128NEA3
 			}
 			break
 		}
@@ -649,24 +650,24 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 				if nasSecurityMode := mmContext.NasSecurityMode; nasSecurityMode != nil {
 					switch nasSecurityMode.IntegrityAlgorithm {
 					case models.IntegrityAlgorithm_NIA0:
-						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA0
+						ue.IntegrityAlg = security.AlgIntegrity128NIA0
 					case models.IntegrityAlgorithm_NIA1:
-						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA1
+						ue.IntegrityAlg = security.AlgIntegrity128NIA1
 					case models.IntegrityAlgorithm_NIA2:
-						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA2
+						ue.IntegrityAlg = security.AlgIntegrity128NIA2
 					case models.IntegrityAlgorithm_NIA3:
-						ue.IntegrityAlg = ALG_INTEGRITY_128_NIA3
+						ue.IntegrityAlg = security.AlgIntegrity128NIA3
 					}
 
 					switch nasSecurityMode.CipheringAlgorithm {
 					case models.CipheringAlgorithm_NEA0:
-						ue.CipheringAlg = ALG_CIPHERING_128_NEA0
+						ue.CipheringAlg = security.AlgCiphering128NEA0
 					case models.CipheringAlgorithm_NEA1:
-						ue.CipheringAlg = ALG_CIPHERING_128_NEA1
+						ue.CipheringAlg = security.AlgCiphering128NEA1
 					case models.CipheringAlgorithm_NEA2:
-						ue.CipheringAlg = ALG_CIPHERING_128_NEA2
+						ue.CipheringAlg = security.AlgCiphering128NEA2
 					case models.CipheringAlgorithm_NEA3:
-						ue.CipheringAlg = ALG_CIPHERING_128_NEA3
+						ue.CipheringAlg = security.AlgCiphering128NEA3
 					}
 
 					if mmContext.NasDownlinkCount != 0 {
