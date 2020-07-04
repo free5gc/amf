@@ -2,7 +2,6 @@ package nas_security_test
 
 import (
 	"crypto/aes"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
@@ -118,7 +117,7 @@ func TestSecurity(t *testing.T) {
 		TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -141,7 +140,7 @@ func TestSecurity(t *testing.T) {
 		ue.CipheringAlg = security.AlgCiphering128NEA0
 		ue.IntegrityAlg = security.AlgIntegrity128NIA0
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -162,7 +161,7 @@ func TestSecurity(t *testing.T) {
 		ue.CipheringAlg = security.AlgCiphering128NEA2
 		ue.IntegrityAlg = security.AlgIntegrity128NIA0
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -225,8 +224,7 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		// remove header
 		payload = payload[3:]
 
-		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
+		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
 		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.SecurityBearer3GPP,
 			security.SecurityDirectionDownlink, payload); err != nil {
 			return nil, err
@@ -236,8 +234,7 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		return
 	} else {
 		if securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
-			ue.ULCountOverflow = 0
-			ue.ULCountSQN = 0
+			ue.ULCount.Set(0, 0)
 		}
 		securityHeader := payload[0:6]
 		// sequenceNumber := payload[6]
@@ -245,8 +242,7 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		// remove security Header except for sequece Number
 		payload = payload[6:]
 
-		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
+		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
 		if ue.IntegrityAlg != security.AlgIntegrity128NIA0 {
 			mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, security.SecurityBearer3GPP,
 				security.SecurityDirectionDownlink, payload)

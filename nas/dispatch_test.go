@@ -23,6 +23,7 @@ import (
 	"free5gc/lib/path_util"
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
+	amf_context "free5gc/src/amf/context"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/handler"
 	"free5gc/src/amf/logger"
@@ -30,7 +31,7 @@ import (
 	ausf_context "free5gc/src/ausf/context"
 	"free5gc/src/ausf/producer"
 	Nausf_UEAU "free5gc/src/ausf/ueauthentication"
-	"free5gc/src/nrf/nrf_handler"
+	nrf_handler "free5gc/src/nrf/handler"
 	nrf_service "free5gc/src/nrf/service"
 	smf_service "free5gc/src/smf/service"
 	udm_handler "free5gc/src/udm/handler"
@@ -56,10 +57,11 @@ var c = cli.NewContext(nil, &flags, nil)
 func addNon3gppRan() {
 	TestAmf.Conn2, _ = sctp.DialSCTP("sctp", TestAmf.Laddr2, TestAmf.ServerAddr)
 	time.Sleep(10 * time.Millisecond)
-	ran := TestAmf.TestAmf.AmfRanPool[TestAmf.Laddr2.String()]
+	value, _ := TestAmf.TestAmf.AmfRanPool.Load(TestAmf.Laddr2.String())
+	ran := value.(*amf_context.AmfRan)
 	ran.AnType = models.AccessType_NON_3_GPP_ACCESS
 	ranUe := ran.NewRanUe()
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.AttachRanUe(ranUe)
 }
 
@@ -213,7 +215,7 @@ func TestULNASTransportPDUSessionEstablishemnt(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
@@ -261,7 +263,7 @@ func TestULNASTransportPDUSessionModification(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
@@ -296,7 +298,7 @@ func TestULNASTransportPDUSessionRelease(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
@@ -331,7 +333,7 @@ func TestULNASTransportPDUSessionAuthentication(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
@@ -357,7 +359,7 @@ func TestIdentityResponse(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	// imei
 	mobilityIdentity := nasType.MobileIdentity{
@@ -385,7 +387,7 @@ func TestNotificationResponse(t *testing.T) {
 	TestAmf.UeAttach(models.AccessType_NON_3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
@@ -409,7 +411,7 @@ func TestUeConfiguratioinUpdateComplete(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	nasPdu := nasTestpacket.GetConfigurationUpdateComplete()
 
@@ -428,7 +430,7 @@ func TestServiceRequest(t *testing.T) {
 	}()
 	TestAmf.AmfInit()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.AccessAndMobilitySubscriptionData = &models.AccessAndMobilitySubscriptionData{
 		SubscribedUeAmbr: &models.AmbrRm{
 			Uplink:   "500",
@@ -519,7 +521,7 @@ func TestAuthenticationResponse5gAka(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 	assert.True(t, err == nil)
 
@@ -614,7 +616,7 @@ func TestAuthenticationResponseEapAkaPrime(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.AUTHENTICATION, nil)
 	assert.True(t, err == nil)
 
@@ -671,7 +673,7 @@ func TestAuthenticationFailure(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	ue.AuthenticationCtx = &models.UeAuthenticationCtx{
 		AuthType: models.AuthType__5_G_AKA,
@@ -708,7 +710,7 @@ func TestRegistrationComplete(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.INITIAL_CONTEXT_SETUP, nil)
 	assert.True(t, err == nil)
 
@@ -726,7 +728,7 @@ func TestSecurityModeComplete(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	ranUe := ue.RanUe[models.AccessType__3_GPP_ACCESS]
 	ranUe.Tai = models.Tai{
@@ -751,7 +753,7 @@ func TestSecurityModeReject(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.SECURITY_MODE, nil)
 	assert.True(t, err == nil)
@@ -767,7 +769,7 @@ func TestDeregistrationRequestUEOriginating(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
@@ -789,7 +791,7 @@ func TestDeregistrationAccpetUETerminated(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	err := ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
 	assert.True(t, err == nil)
@@ -804,7 +806,7 @@ func TestStatus5GMM(t *testing.T) {
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	nasPdu := nasTestpacket.GetStatus5GMM(nasMessage.Cause5GMMIllegalUE)
 
@@ -837,7 +839,7 @@ func TestStatus5GSM(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 	time.Sleep(10 * time.Millisecond)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	sNssai := models.Snssai{
 		Sst: 1,
 		Sd:  "010203",
