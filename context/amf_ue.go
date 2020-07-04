@@ -128,15 +128,14 @@ type AmfUe struct {
 	NasUESecurityCapability  nasType.UESecurityCapability // for security command
 	NgKsi                    models.NgKsi
 	MacFailed                bool
-	KnasInt                  []uint8 // 16 byte
-	KnasEnc                  []uint8 // 16 byte
-	Kgnb                     []uint8 // 32 byte
-	Kn3iwf                   []uint8 // 32 byte
-	NH                       []uint8 // 32 byte
-	NCC                      uint8   // 0..7
-	ULCountOverflow          uint16
-	ULCountSQN               uint8
-	DLCount                  uint32
+	KnasInt                  [16]uint8 // 16 byte
+	KnasEnc                  [16]uint8 // 16 byte
+	Kgnb                     []uint8   // 32 byte
+	Kn3iwf                   []uint8   // 32 byte
+	NH                       []uint8   // 32 byte
+	NCC                      uint8     // 0..7
+	ULCount                  security.Count
+	DLCount                  security.Count
 	CipheringAlg             uint8
 	IntegrityAlg             uint8
 	/* Registration Area */
@@ -412,7 +411,7 @@ func (ue *AmfUe) DerivateAlgKey() {
 
 	KamfBytes, _ := hex.DecodeString(ue.Kamf)
 	kenc := UeauCommon.GetKDFValue(KamfBytes, UeauCommon.FC_FOR_ALGORITHM_KEY_DERIVATION, P0, L0, P1, L1)
-	ue.KnasEnc = kenc[16:32]
+	copy(ue.KnasEnc[:], kenc[16:32])
 
 	// Integrity Key
 	P0 = []byte{security.NNASIntAlg}
@@ -421,14 +420,15 @@ func (ue *AmfUe) DerivateAlgKey() {
 	L1 = UeauCommon.KDFLen(P1)
 
 	kint := UeauCommon.GetKDFValue(KamfBytes, UeauCommon.FC_FOR_ALGORITHM_KEY_DERIVATION, P0, L0, P1, L1)
-	ue.KnasInt = kint[16:32]
+	copy(ue.KnasInt[:], kint[16:32])
 }
 
 // Access Network key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 
 	accessType := security.AccessType3GPP // Defalut 3gpp
-	P0 := ue.GetSecurityULCount()
+	P0 := make([]byte, 4)
+	binary.BigEndian.PutUint32(P0, ue.ULCount.Get())
 	L0 := UeauCommon.KDFLen(P0)
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
 		accessType = security.AccessTypeNon3GPP
@@ -454,15 +454,6 @@ func (ue *AmfUe) DerivateNH(syncInput []byte) {
 
 	KamfBytes, _ := hex.DecodeString(ue.Kamf)
 	ue.NH = UeauCommon.GetKDFValue(KamfBytes, UeauCommon.FC_FOR_NH_DERIVATION, P0, L0)
-}
-
-func (ue *AmfUe) GetSecurityULCount() []byte {
-	return GetSecurityCount(ue.ULCountOverflow, ue.ULCountSQN)
-}
-func (ue *AmfUe) GetSecurityDLCount() []byte {
-	var r = make([]byte, 4)
-	binary.BigEndian.PutUint32(r, ue.DLCount&0xffffff)
-	return r
 }
 
 func (ue *AmfUe) UpdateSecurityContext(anType models.AccessType) {
@@ -671,12 +662,15 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 					}
 
 					if mmContext.NasDownlinkCount != 0 {
-						ue.DLCount = uint32(mmContext.NasDownlinkCount)
+						overflow := uint16((uint32(mmContext.NasDownlinkCount) & 0x00ffff00) >> 8)
+						sqn := uint8(uint32(mmContext.NasDownlinkCount & 0x000000ff))
+						ue.DLCount.Set(overflow, sqn)
 					}
 
 					if mmContext.NasUplinkCount != 0 {
-						ue.ULCountOverflow = uint16((mmContext.NasUplinkCount & 0x0ff0) >> 8)
-						ue.ULCountSQN = uint8((mmContext.NasUplinkCount & 0x000f))
+						overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
+						sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
+						ue.ULCount.Set(overflow, sqn)
 					}
 
 					// TS 29.518 Table 6.1.6.3.2.1

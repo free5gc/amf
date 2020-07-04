@@ -20,11 +20,9 @@ func TestAmfKdf(t *testing.T) {
 	ue.Kamf = strings.Repeat("1", 64)
 	ue.CipheringAlg = security.AlgCiphering128NEA2
 	ue.IntegrityAlg = security.AlgIntegrity128NIA2
-	ue.ULCountOverflow = 0x0011
-	ue.ULCountSQN = 0x02
-	count := ue.GetSecurityULCount()
-	assert.Equal(t, []byte("\x00\x00\x11\x02"), count)
-	fmt.Printf("Uplink Count: 0x%0x\n", count)
+	ue.ULCount.Set(0x0011, 0x02)
+	assert.Equal(t, uint32(0x00001102), ue.ULCount.Get())
+	fmt.Printf("Uplink Count: 0x%0x\n", ue.ULCount.Get())
 	ue.DerivateAlgKey()
 	fmt.Printf("KnasEnc: 0x%0x\nKnasInt: 0x%0x\n", ue.KnasEnc, ue.KnasInt)
 	assert.Equal(t, 16, len(ue.KnasEnc))

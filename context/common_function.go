@@ -1,11 +1,11 @@
 package context
 
 import (
-	"encoding/binary"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
-	"github.com/mohae/deepcopy"
 	"reflect"
+
+	"github.com/mohae/deepcopy"
 )
 
 func CompareUserLocation(loc1 models.UserLocation, loc2 models.UserLocation) bool {
@@ -50,15 +50,6 @@ func TacInAreas(targetTac string, areas []models.Area) bool {
 	return false
 }
 
-func GetSecurityCount(overflow uint16, sqn uint8) []uint8 {
-	var r = make([]byte, 4)
-	binary.BigEndian.PutUint16(r, overflow)
-	r[3] = sqn
-	r[2] = r[1]
-	r[1] = r[0]
-	r[0] = 0x00
-	return r
-}
 func AttachSourceUeTargetUe(sourceUe, targetUe *RanUe) {
 	if sourceUe == nil {
 		logger.ContextLog.Error("Source Ue is Nil")
