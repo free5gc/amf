@@ -40,8 +40,8 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 		logger.NasLog.Traceln("ue.DLCount()", ue.DLCount.Get())
 		logger.NasLog.Traceln("payload", payload)
 
-		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(), security.SecurityBearer3GPP,
-			security.SecurityDirectionDownlink, payload); err != nil {
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(), security.Bearer3GPP,
+			security.DirectionDownlink, payload); err != nil {
 			logger.NasLog.Errorln("err", err)
 			return
 		}
@@ -49,7 +49,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message, newSecurityContext bool) (paylo
 		// add sequece number
 		payload = append([]byte{sequenceNumber}, payload[:]...)
 		mac32 := make([]byte, 4)
-		mac32, err = security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.DLCount.Get(), security.SecurityBearer3GPP, security.SecurityDirectionDownlink, payload)
+		mac32, err = security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.DLCount.Get(), security.Bearer3GPP, security.DirectionDownlink, payload)
 		if err != nil {
 			logger.NasLog.Errorln("MAC calcuate error:", err)
 			return
@@ -117,8 +117,8 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 		// remove security Header except for sequece Number
 		payload = payload[6:]
 
-		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), security.SecurityBearer3GPP,
-			security.SecurityDirectionUplink, payload)
+		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), security.Bearer3GPP,
+			security.DirectionUplink, payload)
 		if err != nil {
 			ue.MacFailed = true
 			return nil, err
@@ -136,8 +136,8 @@ func Decode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg *n
 
 		// TODO: Support for ue has nas connection in both accessType
 		logger.NasLog.Traceln("ue.CipheringAlg", ue.CipheringAlg)
-		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), security.SecurityBearer3GPP,
-			security.SecurityDirectionUplink, payload); err != nil {
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), security.Bearer3GPP,
+			security.DirectionUplink, payload); err != nil {
 			return nil, err
 		}
 	}

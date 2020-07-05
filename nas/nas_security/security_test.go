@@ -225,8 +225,8 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		payload = payload[3:]
 
 		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
-		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.SecurityBearer3GPP,
-			security.SecurityDirectionDownlink, payload); err != nil {
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.Bearer3GPP,
+			security.DirectionDownlink, payload); err != nil {
 			return nil, err
 		}
 
@@ -244,8 +244,8 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 
 		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
 		if ue.IntegrityAlg != security.AlgIntegrity128NIA0 {
-			mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, security.SecurityBearer3GPP,
-				security.SecurityDirectionDownlink, payload)
+			mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, security.Bearer3GPP,
+				security.DirectionDownlink, payload)
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
@@ -261,8 +261,8 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		payload = payload[1:]
 
 		// TODO: Support for ue has nas connection in both accessType
-		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.SecurityBearer3GPP,
-			security.SecurityDirectionDownlink, payload); err != nil {
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.Bearer3GPP,
+			security.DirectionDownlink, payload); err != nil {
 			return nil, err
 		}
 
