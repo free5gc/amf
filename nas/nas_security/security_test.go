@@ -2,23 +2,23 @@ package nas_security_test
 
 import (
 	"crypto/aes"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
-	// "free5gc/lib/UeauCommon"
 	"free5gc/lib/nas"
 	"free5gc/lib/nas/nasMessage"
 	"free5gc/lib/nas/nasType"
+	"free5gc/lib/nas/security"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/handler"
 	"free5gc/src/amf/nas/nas_security"
 	ngap_message "free5gc/src/amf/ngap/message"
-	"github.com/aead/cmac"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/aead/cmac"
 )
 
 func init() {
@@ -59,7 +59,7 @@ func TestMacCalculateTS33401(t *testing.T) {
 		// 	t.Errorf("NIA2Test%s \t mac1[0x%x] \t expected[0x%x]\n", i, mac1, expected)
 		// }
 
-		mac2, err := nas_security.NasMacCalculateByAesCmac(context.ALG_INTEGRITY_128_NIA2, key, count, bearer, direction, msg, length)
+		mac2, err := nas_security.NasMacCalculateByAesCmac(security.AlgIntegrity128NIA2, key, count, bearer, direction, msg, length)
 		// if err != nil {
 		// 	t.Error(err.Error())
 		// } else if !reflect.DeepEqual(mac1, mac2) {
@@ -117,7 +117,7 @@ func TestSecurity(t *testing.T) {
 		TestAmf.SctpConnectToServer(models.AccessType__3_GPP_ACCESS)
 		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -137,10 +137,10 @@ func TestSecurity(t *testing.T) {
 	{
 
 		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
-		ue.CipheringAlg = context.ALG_CIPHERING_128_NEA0
-		ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA0
+		ue.CipheringAlg = security.AlgCiphering128NEA0
+		ue.IntegrityAlg = security.AlgIntegrity128NIA0
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -158,10 +158,10 @@ func TestSecurity(t *testing.T) {
 	}
 	{
 		ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
-		ue.CipheringAlg = context.ALG_CIPHERING_128_NEA2
-		ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA0
+		ue.CipheringAlg = security.AlgCiphering128NEA2
+		ue.IntegrityAlg = security.AlgIntegrity128NIA0
 		ue.DerivateAlgKey()
-		ue.DLCount = 4
+		ue.DLCount.Set(0, 4)
 		ue.SecurityContextAvailable = true
 		m := getRegistrationComplete(nil)
 		nasPdu, err := nas_security.Encode(ue, m, false)
@@ -219,15 +219,14 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
 		err = msg.PlainNasDecode(&payload)
 		return
-	} else if ue.IntegrityAlg == context.ALG_INTEGRITY_128_NIA0 {
+	} else if ue.IntegrityAlg == security.AlgIntegrity128NIA0 {
 
 		// remove header
 		payload = payload[3:]
 
-		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
-		if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
-			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.Bearer3GPP,
+			security.DirectionDownlink, payload); err != nil {
 			return nil, err
 		}
 
@@ -235,8 +234,7 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		return
 	} else {
 		if securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext || securityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
-			ue.ULCountOverflow = 0
-			ue.ULCountSQN = 0
+			ue.ULCount.Set(0, 0)
 		}
 		securityHeader := payload[0:6]
 		// sequenceNumber := payload[6]
@@ -244,11 +242,10 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		// remove security Header except for sequece Number
 		payload = payload[6:]
 
-		var dlcount = make([]byte, 4)
-		binary.BigEndian.PutUint32(dlcount, uint32((ue.DLCount-1)&0xffffff))
-		if ue.IntegrityAlg != context.ALG_INTEGRITY_128_NIA0 {
-			mac32, err := nas_security.NasMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, context.SECURITY_BEARER_3GPP,
-				context.SECURITY_DIRECTION_DOWNLINK, payload)
+		dlcount := (ue.DLCount.Get() - 1) & 0x00ffffff
+		if ue.IntegrityAlg != security.AlgIntegrity128NIA0 {
+			mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, dlcount, security.Bearer3GPP,
+				security.DirectionDownlink, payload)
 			if err != nil {
 				ue.MacFailed = true
 				return nil, err
@@ -264,8 +261,8 @@ func ranDecode(ue *context.AmfUe, securityHeaderType uint8, payload []byte) (msg
 		payload = payload[1:]
 
 		// TODO: Support for ue has nas connection in both accessType
-		if err = nas_security.NasEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, context.SECURITY_BEARER_3GPP,
-			context.SECURITY_DIRECTION_DOWNLINK, payload); err != nil {
+		if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, dlcount, security.Bearer3GPP,
+			security.DirectionDownlink, payload); err != nil {
 			return nil, err
 		}
 

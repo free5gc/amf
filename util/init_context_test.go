@@ -58,21 +58,21 @@ func compareContext(t *testing.T, context, testContext *context.AMFContext) {
 func TestInitAmfContext1(t *testing.T) {
 
 	configFile := path_util.Gofree5gcPath("free5gc/src/amf/util/test/testAmfcfg.conf")
-	context := getExpAmf1()
+	ctx := getExpAmf1()
 	testContext := context.AMF_Self()
 	factory.InitConfigFactory(configFile)
 	util.InitAmfContext(testContext)
-	compareContext(t, context, testContext)
+	compareContext(t, ctx, testContext)
 }
 
 func TestInitAmfContext2(t *testing.T) {
 	context.AMF_Self().Reset()
 	configFile := path_util.Gofree5gcPath("free5gc/src/amf/util/test/testAmfcfg2.conf")
-	context := getExpAmf2()
+	ctx := getExpAmf2()
 	testContext := context.AMF_Self()
 	factory.InitConfigFactory(configFile)
 	util.InitAmfContext(testContext)
-	compareContext(t, context, testContext)
+	compareContext(t, ctx, testContext)
 }
 
 var dnn = []string{
@@ -136,61 +136,61 @@ var sNssaiList = []models.Snssai{
 	},
 }
 
-func initTestAmfContext() (context *context.AMFContext) {
-	context = new(context.AMFContext)
-	context.UriScheme = models.UriScheme_HTTPS
-	context.ServedGuamiList = make([]models.Guami, 0, context.MaxNumOfServedGuamiList)
-	context.PlmnSupportList = make([]context.PlmnSupportItem, 0, context.MaxNumOfPLMNs)
-	context.NfService = make(map[models.ServiceName]models.NfService)
+func initTestAmfContext() (ctx *context.AMFContext) {
+	ctx = new(context.AMFContext)
+	ctx.UriScheme = models.UriScheme_HTTPS
+	ctx.ServedGuamiList = make([]models.Guami, 0, context.MaxNumOfServedGuamiList)
+	ctx.PlmnSupportList = make([]context.PlmnSupportItem, 0, context.MaxNumOfPLMNs)
+	ctx.NfService = make(map[models.ServiceName]models.NfService)
 	return
 }
 
-func getExpAmf1() (context *context.AMFContext) {
-	context = initTestAmfContext()
-	context.Name = "AMF"
-	context.NgapIpList = []string{"127.0.0.1"}
-	context.UriScheme = models.UriScheme_HTTPS
-	context.HttpIPv4Address = "127.0.0.1"
-	context.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
-	context.HttpIpv4Port = 29518
-	context.NrfUri = "https://localhost:29510"
-	context.InitNFService(serivceName, "1.0.0")
-	context.SecurityAlgorithm.IntegrityOrder = []uint8{0x40}
-	context.SecurityAlgorithm.CipheringOrder = []uint8{0x40}
-	context.NetworkName.Full = "free5GC"
-	context.NetworkName.Short = "free"
-	context.SupportDnnLists = append(context.SupportDnnLists, dnn[0])
-	context.SupportTaiLists = append(context.SupportTaiLists, tai[0])
-	context.ServedGuamiList = append(context.ServedGuamiList, guami[0])
+func getExpAmf1() (ctx *context.AMFContext) {
+	ctx = initTestAmfContext()
+	ctx.Name = "AMF"
+	ctx.NgapIpList = []string{"127.0.0.1"}
+	ctx.UriScheme = models.UriScheme_HTTPS
+	ctx.HttpIPv4Address = "127.0.0.1"
+	ctx.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
+	ctx.HttpIpv4Port = 29518
+	ctx.NrfUri = "https://localhost:29510"
+	ctx.InitNFService(serivceName, "1.0.0")
+	ctx.SecurityAlgorithm.IntegrityOrder = []uint8{0x40}
+	ctx.SecurityAlgorithm.CipheringOrder = []uint8{0x40}
+	ctx.NetworkName.Full = "free5GC"
+	ctx.NetworkName.Short = "free"
+	ctx.SupportDnnLists = append(ctx.SupportDnnLists, dnn[0])
+	ctx.SupportTaiLists = append(ctx.SupportTaiLists, tai[0])
+	ctx.ServedGuamiList = append(ctx.ServedGuamiList, guami[0])
 	plmnSupportItem := context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[0]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[:1]...)
-	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)
+	ctx.PlmnSupportList = append(ctx.PlmnSupportList, plmnSupportItem)
 	return
 }
 
-func getExpAmf2() (context *context.AMFContext) {
-	context = initTestAmfContext()
-	context.Name = "Wirelab"
-	context.NgapIpList = []string{"127.0.0.1", "192.188.2.2"}
-	context.UriScheme = models.UriScheme_HTTP
-	context.HttpIPv4Address = "192.168.0.1"
-	context.HttpIpv4Port = 8888
-	context.NrfUri = "https://192.168.0.2:29510"
-	context.InitNFService(serivceName[:2], "2.0.0")
-	context.SecurityAlgorithm.IntegrityOrder = []uint8{0x40, 0x80}
-	context.SecurityAlgorithm.CipheringOrder = []uint8{0x40, 0x20, 0x08}
-	context.NetworkName.Full = "HAHAHAHA"
-	context.SupportDnnLists = append(context.SupportDnnLists, dnn...)
-	context.SupportTaiLists = append(context.SupportTaiLists, tai...)
-	context.ServedGuamiList = append(context.ServedGuamiList, guami...)
+func getExpAmf2() (ctx *context.AMFContext) {
+	ctx = initTestAmfContext()
+	ctx.Name = "Wirelab"
+	ctx.NgapIpList = []string{"127.0.0.1", "192.188.2.2"}
+	ctx.UriScheme = models.UriScheme_HTTP
+	ctx.HttpIPv4Address = "192.168.0.1"
+	ctx.HttpIpv4Port = 8888
+	ctx.NrfUri = "https://192.168.0.2:29510"
+	ctx.InitNFService(serivceName[:2], "2.0.0")
+	ctx.SecurityAlgorithm.IntegrityOrder = []uint8{0x40, 0x80}
+	ctx.SecurityAlgorithm.CipheringOrder = []uint8{0x40, 0x20, 0x08}
+	ctx.NetworkName.Full = "HAHAHAHA"
+	ctx.SupportDnnLists = append(ctx.SupportDnnLists, dnn...)
+	ctx.SupportTaiLists = append(ctx.SupportTaiLists, tai...)
+	ctx.ServedGuamiList = append(ctx.ServedGuamiList, guami...)
 	plmnSupportItem := context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[0]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[:2]...)
-	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)
+	ctx.PlmnSupportList = append(ctx.PlmnSupportList, plmnSupportItem)
 	plmnSupportItem = context.NewPlmnSupportItem()
 	plmnSupportItem.PlmnId = plmnId[1]
 	plmnSupportItem.SNssaiList = append(plmnSupportItem.SNssaiList, sNssaiList[2])
-	context.PlmnSupportList = append(context.PlmnSupportList, plmnSupportItem)
+	ctx.PlmnSupportList = append(ctx.PlmnSupportList, plmnSupportItem)
 	return
 }

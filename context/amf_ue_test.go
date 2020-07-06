@@ -4,11 +4,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
+	"free5gc/lib/nas/security"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAmfKdf(t *testing.T) {
@@ -17,13 +18,11 @@ func TestAmfKdf(t *testing.T) {
 	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.ABBA = []uint8{0x00, 0x00}
 	ue.Kamf = strings.Repeat("1", 64)
-	ue.CipheringAlg = context.ALG_CIPHERING_128_NEA2
-	ue.IntegrityAlg = context.ALG_INTEGRITY_128_NIA2
-	ue.ULCountOverflow = 0x0011
-	ue.ULCountSQN = 0x02
-	count := ue.GetSecurityULCount()
-	assert.Equal(t, []byte("\x00\x00\x11\x02"), count)
-	fmt.Printf("Uplink Count: 0x%0x\n", count)
+	ue.CipheringAlg = security.AlgCiphering128NEA2
+	ue.IntegrityAlg = security.AlgIntegrity128NIA2
+	ue.ULCount.Set(0x0011, 0x02)
+	assert.Equal(t, uint32(0x00001102), ue.ULCount.Get())
+	fmt.Printf("Uplink Count: 0x%0x\n", ue.ULCount.Get())
 	ue.DerivateAlgKey()
 	fmt.Printf("KnasEnc: 0x%0x\nKnasInt: 0x%0x\n", ue.KnasEnc, ue.KnasInt)
 	assert.Equal(t, 16, len(ue.KnasEnc))
