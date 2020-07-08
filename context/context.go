@@ -17,14 +17,7 @@ var TmsiGenerator int32 = 0
 var amfUeNgapIdGenerator int64 = 0
 
 func init() {
-	AMF_Self().EventSubscriptions = make(map[string]*AMFContextEventSubscription)
-	AMF_Self().UePool = make(map[string]*AmfUe)
-	AMF_Self().GutiPool = make(map[string]*AmfUe)
-	AMF_Self().LadnPool = make(map[string]*LADN)
-	AMF_Self().TmsiPool = make(map[int32]*AmfUe)
-	AMF_Self().RanUePool = make(map[int64]*RanUe)
-	AMF_Self().AmfRanPool = make(map[string]*AmfRan)
-	AMF_Self().RanIdPool = make(map[models.GlobalRanNodeId]*AmfRan)
+	AMF_Self().Factory()
 	AMF_Self().EventSubscriptionIDGenerator = 1
 	AMF_Self().Name = "amf"
 	AMF_Self().UriScheme = models.UriScheme_HTTPS
@@ -33,8 +26,19 @@ func init() {
 	AMF_Self().PlmnSupportList = make([]PlmnSupportItem, 0, MaxNumOfPLMNs)
 	AMF_Self().AMFStatusSubscriptionIDGenerator = 1
 	AMF_Self().AMFStatusSubscriptions = make(map[string]*models.SubscriptionData)
-	AMF_Self().NfService = make(map[models.ServiceName]models.NfService)
 	AMF_Self().NetworkName.Full = "free5GC"
+}
+
+func (this *AMFContext) Factory() {
+	this.EventSubscriptions = make(map[string]*AMFContextEventSubscription)
+	this.UePool = make(map[string]*AmfUe)
+	this.GutiPool = make(map[string]*AmfUe)
+	this.LadnPool = make(map[string]*LADN)
+	this.TmsiPool = make(map[int32]*AmfUe)
+	this.RanUePool = make(map[int64]*RanUe)
+	this.AmfRanPool = make(map[string]*AmfRan)
+	this.RanIdPool = make(map[models.GlobalRanNodeId]*AmfRan)
+	this.NfService = make(map[models.ServiceName]models.NfService)
 }
 
 type AMFContext struct {
@@ -278,33 +282,16 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 
 // Reset AMF Context
 func (context *AMFContext) Reset() {
-	for key := range context.AmfRanPool {
-		delete(context.AmfRanPool, key)
-	}
-	for key := range context.GutiPool {
-		delete(context.GutiPool, key)
-	}
-	for key := range context.LadnPool {
-		delete(context.LadnPool, key)
-	}
-	for key := range context.RanUePool {
-		delete(context.RanUePool, key)
-	}
-	for key := range context.UePool {
-		delete(context.UePool, key)
-	}
-	for key := range context.TmsiPool {
-		delete(context.TmsiPool, key)
-	}
-	for key := range context.RanIdPool {
-		delete(context.RanIdPool, key)
-	}
-	for key := range context.EventSubscriptions {
-		delete(context.EventSubscriptions, key)
-	}
-	for key := range context.NfService {
-		delete(context.NfService, key)
-	}
+	context.AmfRanPool = nil
+	context.GutiPool = nil
+	context.LadnPool = nil
+	context.RanUePool = nil
+	context.UePool = nil
+	context.TmsiPool = nil
+	context.RanIdPool = nil
+	context.EventSubscriptions = nil
+	context.NfService = nil
+	context.Factory()
 	context.SupportTaiLists = context.SupportTaiLists[:0]
 	context.PlmnSupportList = context.PlmnSupportList[:0]
 	context.ServedGuamiList = context.ServedGuamiList[:0]
