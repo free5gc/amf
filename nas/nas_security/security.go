@@ -89,8 +89,8 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, securityHeaderType 
 	msg.SecurityHeaderType = securityHeaderType
 	logger.NasLog.Traceln("securityHeaderType is ", securityHeaderType)
 	if securityHeaderType == nas.SecurityHeaderTypePlainNas {
-		// RRCEstablishmentCause 2 is for emergency service
-		if ue.SecurityContextAvailable && ue.RanUe[accessType].RRCEstablishmentCause != "2" {
+		// RRCEstablishmentCause 0 is for emergency service
+		if ue.SecurityContextAvailable && ue.RanUe[accessType].RRCEstablishmentCause != "0" {
 			logger.NasLog.Warnln("Received Plain NAS message")
 			err = fmt.Errorf("UE can not send plain nas for non-emergency service when there is a valid security context")
 		} else {

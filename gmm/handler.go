@@ -68,11 +68,11 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedure
 			switch NasRequestType {
 			case nasMessage.ULNASTransportRequestTypeInitialRequest:
 				requestType = models.RequestType_INITIAL_REQUEST
-				logger.GmmLog.Warnln("requestType INITIAL_EMERGENCY_REQUEST is not supported")
 			case nasMessage.ULNASTransportRequestTypeExistingPduSession:
 				requestType = models.RequestType_EXISTING_PDU_SESSION
 			case nasMessage.ULNASTransportRequestTypeInitialEmergencyRequest:
 				requestType = models.RequestType_INITIAL_EMERGENCY_REQUEST
+				logger.GmmLog.Warnln("requestType INITIAL_EMERGENCY_REQUEST is not supported")
 			case nasMessage.ULNASTransportRequestTypeExistingEmergencyPduSession:
 				requestType = models.RequestType_EXISTING_EMERGENCY_PDU_SESSION
 			}

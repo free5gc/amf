@@ -27,6 +27,7 @@ func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte) {
 		ue.AmfUe = amfSelf.NewAmfUe("")
 		if err := gmm.InitAmfUeSm(ue.AmfUe); err != nil {
 			logger.NgapLog.Errorf("InitAmfUeSm error: %v", err.Error())
+			return
 		}
 		ue.AmfUe.AttachRanUe(ue)
 	}
