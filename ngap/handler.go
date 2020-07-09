@@ -10,7 +10,6 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
@@ -984,12 +983,6 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				Ngaplog.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
 				amfUe.AttachRanUe(ranUe)
 			}
-		} else {
-			ranUe.AmfUe = amfSelf.NewAmfUe("")
-			if err := gmm.InitAmfUeSm(ranUe.AmfUe); err != nil {
-				logger.NgapLog.Errorf("InitAmfUeSm error: %v", err.Error())
-			}
-			ranUe.AmfUe.AttachRanUe(ranUe)
 		}
 	} else {
 		ranUe.AmfUe.AttachRanUe(ranUe)

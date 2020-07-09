@@ -21,17 +21,24 @@ import (
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
 	"free5gc/src/amf/util"
-	"github.com/antihax/optional"
-	"github.com/mitchellh/mapstructure"
-	"github.com/mohae/deepcopy"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/antihax/optional"
+	"github.com/mitchellh/mapstructure"
+	"github.com/mohae/deepcopy"
 )
 
 func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedureCode int64, ulNasTransport *nasMessage.ULNASTransport, securityHeaderType uint8) error {
+	logger.GmmLog.Infoln("Handle UL NAS Transport")
+
+	if ue.MacFailed {
+		return fmt.Errorf("NAS message integrity check failed")
+	}
+
 	switch ulNasTransport.GetPayloadContainerType() {
 	case nasMessage.PayloadContainerTypeN1SMInfo:
 
@@ -65,17 +72,9 @@ func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType, procedure
 				requestType = models.RequestType_EXISTING_PDU_SESSION
 			case nasMessage.ULNASTransportRequestTypeInitialEmergencyRequest:
 				requestType = models.RequestType_INITIAL_EMERGENCY_REQUEST
+				logger.GmmLog.Warnln("requestType INITIAL_EMERGENCY_REQUEST is not supported")
 			case nasMessage.ULNASTransportRequestTypeExistingEmergencyPduSession:
 				requestType = models.RequestType_EXISTING_EMERGENCY_PDU_SESSION
-			}
-		}
-		logger.GmmLog.Infoln("requestType is ", requestType)
-		if requestType == models.RequestType_INITIAL_EMERGENCY_REQUEST {
-			logger.GmmLog.Warnln("requestType is INITIAL_EMERGENCY_REQUEST")
-		} else {
-			err := checkContextSecurity(ue, securityHeaderType)
-			if err != nil {
-				return err
 			}
 		}
 
@@ -558,15 +557,6 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	default:
 		logger.GmmLog.Debugf("RegistrationType: %v, chage state to InitialRegistration", ue.RegistrationType5GS)
 		ue.RegistrationType5GS = nasMessage.RegistrationType5GSInitialRegistration
-	}
-
-	if ue.RegistrationType5GS == nasMessage.RegistrationType5GSEmergencyRegistration || ue.RegistrationType5GS == nasMessage.RegistrationType5GSInitialRegistration {
-		logger.GmmLog.Infoln("ue.RegistrationType5GS is RegistrationType5GSEmergencyRegistration or RegistrationType5GSInitialRegistration")
-	} else {
-		err := checkContextSecurity(ue, securityHeaderType)
-		if err != nil {
-			return err
-		}
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
@@ -1555,11 +1545,6 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 		return fmt.Errorf("AmfUe is nil")
 	}
 
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
-
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
@@ -1568,19 +1553,31 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
 		logger.GmmLog.Debugf("get SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
+		if ue.MacFailed {
+			return fmt.Errorf("NAS message integrity check failed")
+		}
 		_, guti := nasConvert.GutiToString(mobileIdentityContents)
 		ue.Guti = guti
 		logger.GmmLog.Debugf("get GUTI: %s", guti)
 	case nasMessage.MobileIdentity5GSType5gSTmsi:
+		if ue.MacFailed {
+			return fmt.Errorf("NAS message integrity check failed")
+		}
 		sTmsi := hex.EncodeToString(mobileIdentityContents[1:])
 		tmp, _ := strconv.ParseInt(sTmsi[4:], 10, 32)
 		ue.Tmsi = int32(tmp)
 		logger.GmmLog.Debugf("get 5G-S-TMSI: %s", sTmsi)
 	case nasMessage.MobileIdentity5GSTypeImei:
+		if ue.MacFailed {
+			return fmt.Errorf("NAS message integrity check failed")
+		}
 		imei := nasConvert.PeiToString(mobileIdentityContents)
 		ue.Pei = imei
 		logger.GmmLog.Debugf("get PEI: %s", imei)
 	case nasMessage.MobileIdentity5GSTypeImeisv:
+		if ue.MacFailed {
+			return fmt.Errorf("NAS message integrity check failed")
+		}
 		imeisv := nasConvert.PeiToString(mobileIdentityContents)
 		ue.Pei = imeisv
 		logger.GmmLog.Debugf("get PEI: %s", imeisv)
@@ -1592,12 +1589,12 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMessage.NotificationResponse, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Notification Response")
-	util.ClearT3565(ue)
 
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
+	if ue.MacFailed {
+		return fmt.Errorf("NAS message integrity check failed")
 	}
+
+	util.ClearT3565(ue)
 
 	if notificationResponse != nil && notificationResponse.PDUSessionStatus != nil {
 		psiArray := nasConvert.PSIToBooleanArray(notificationResponse.PDUSessionStatus.Buffer)
@@ -1629,17 +1626,13 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe, configurationUpdateCom
 
 	logger.GmmLog.Info("[AMF] Handle Configuration Update Complete")
 
-	if ue == nil {
-		return fmt.Errorf("AmfUe is nil")
+	if ue.MacFailed {
+		return fmt.Errorf("NAS message integrity check failed")
 	}
 
 	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "free5gc/lib/openapi/Nudm_SubscriberDataManagement" client.Info
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -1717,12 +1710,7 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType, procedure
 	initCxt := procedureCode == ngapType.ProcedureCodeInitialUEMessage
 
 	if serviceType == nasMessage.ServiceTypeEmergencyServices || serviceType == nasMessage.ServiceTypeEmergencyServicesFallback {
-
-	} else {
-		err = checkContextSecurity(ue, securityHeaderType)
-		if err != nil {
-			return err
-		}
+		logger.GmmLog.Warnf("emergency service is not supported")
 	}
 
 	if serviceType == nasMessage.ServiceTypeSignalling {
@@ -2148,11 +2136,6 @@ func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, reg
 
 	util.ClearT3550(ue)
 
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
-
 	if registrationComplete.SORTransparentContainer != nil {
 		// TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,
 		// AMF provides the UE's ack with Nudm_SDM_Info (SOR not supportted in this stage)
@@ -2171,21 +2154,20 @@ func HandleRegistrationComplete(ue *context.AmfUe, anType models.AccessType, reg
 	return ue.Sm[anType].Transfer(state.REGISTERED, nil)
 }
 
-// TODO: finish it; TS 33.501 6.7.2
+// TS 33.501 6.7.2
 func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, procedureCode int64, securityModeComplete *nasMessage.SecurityModeComplete, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Security Mode Complete")
+
+	if ue.MacFailed {
+		return fmt.Errorf("NAS message integrity check failed")
+	}
 
 	// stop T3560
 	util.ClearT3560(ue)
 	if ue.SecurityContextIsValid() {
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
-	}
-
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
 	}
 
 	if securityModeComplete.IMEISV != nil {
@@ -2229,11 +2211,6 @@ func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, secur
 
 	logger.GmmLog.Info("[AMF] Handle Security Mode Reject")
 
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
-
 	// stop T3560
 	util.ClearT3560(ue)
 
@@ -2242,15 +2219,10 @@ func HandleSecurityModeReject(ue *context.AmfUe, anType models.AccessType, secur
 	return ue.Sm[anType].Transfer(state.EXCEPTION, nil)
 }
 
-// TODO: finish it TS 23.502 4.2.2.3
+// TS 23.502 4.2.2.3
 func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType, deregistrationRequest *nasMessage.DeregistrationRequestUEOriginatingDeregistration, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Request(UE Originating)")
-
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
 
 	targetDeregistrationAccessType := deregistrationRequest.GetAccessType()
 	for pduSessionId, smContext := range ue.SmContextList {
@@ -2327,11 +2299,6 @@ func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, der
 
 	logger.GmmLog.Info("[AMF] Handle Deregistration Accept(UE Terminated)")
 
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
-	}
-
 	util.ClearT3522(ue)
 
 	switch ue.DeregistrationTargetAccessType {
@@ -2359,22 +2326,11 @@ func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType, der
 func HandleStatus5GMM(ue *context.AmfUe, anType models.AccessType, status5GMM *nasMessage.Status5GMM, securityHeaderType uint8) error {
 
 	logger.GmmLog.Info("Handle Staus 5GMM")
-
-	err := checkContextSecurity(ue, securityHeaderType)
-	if err != nil {
-		return err
+	if ue.MacFailed {
+		return fmt.Errorf("NAS message integrity check failed")
 	}
 
 	logger.GmmLog.Errorf("Error condition [Cause Value: %d]", status5GMM.Cause5GMM.Octet)
 
 	return nil
-}
-
-func checkContextSecurity(ue *context.AmfUe, securityHeaderType uint8) error {
-	if ue.SecurityContextIsValid() && (securityHeaderType == nas.SecurityHeaderTypePlainNas) {
-		logger.GmmLog.Errorln("securityHeaderType ", securityHeaderType)
-		return fmt.Errorf("ue.SecurityContextIsValid() == true && (securityHeaderType == nas.SecurityHeaderTypePlainNas)")
-	} else {
-		return nil
-	}
 }

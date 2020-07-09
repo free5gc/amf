@@ -280,5 +280,4 @@ func TestAesCmac(t *testing.T) {
 	// fb ee d6 18 35 71 33 66  7c 85 e0 8f 72 36 a8 de
 	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
 	// f7 dd ac 30 6a e2 66 cc  f9 0b c1 1e e4 6d 51 3b
-	return
 }

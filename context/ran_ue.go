@@ -56,7 +56,7 @@ type RanUe struct {
 	/* context used for AMF Re-allocation procedure */
 	OldAmfName            string
 	InitialUEMessage      []byte
-	RRCEstablishmentCause string
+	RRCEstablishmentCause string // Received from initial ue message, value is defined in TS 38.413 9.3.1.111; pattern: ^[0-9a-fA-F]+$
 	UeContextRequest      bool
 }
 
