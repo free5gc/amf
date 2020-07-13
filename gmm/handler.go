@@ -336,7 +336,9 @@ func selectSmf(ue *context.AmfUe, anType models.AccessType, pduSession *models.P
 	logger.GmmLog.Debugf("Search SMF from NRF[%s]", nrfUri)
 
 	result, err := consumer.SendSearchNFInstances(nrfUri, models.NfType_SMF, models.NfType_AMF, &param)
-	if err != nil || result.NfInstances == nil {
+
+	if err != nil || len(result.NfInstances) == 0 {
+		logger.GmmLog.Errorln("number of result.NfInstances :", len(result.NfInstances))
 		err = fmt.Errorf("DNN[%s] is not support by network and AMF can not select an SMF by NRF\n", pduSession.Dnn)
 		logger.GmmLog.Errorf(err.Error())
 		gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo, payload, &pduSession.PduSessionId, nasMessage.Cause5GMMDNNNotSupportedOrNotSubscribedInTheSlice, nil, 0)
