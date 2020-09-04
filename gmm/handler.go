@@ -2009,6 +2009,13 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 				Auts: hex.EncodeToString(auts[:]),
 			}
 
+			var av5gAka models.Av5gAka
+			if err := mapstructure.Decode(ue.AuthenticationCtx.Var5gAuthData, &av5gAka); err != nil {
+				logger.GmmLog.Error("Var5gAuthData Convert Type Error")
+				return err
+			}
+			resynchronizationInfo.Rand = av5gAka.Rand
+
 			response, problemDetails, err := consumer.SendUEAuthenticationAuthenticateRequest(ue, resynchronizationInfo)
 			if err != nil {
 				return err
