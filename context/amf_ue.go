@@ -158,6 +158,8 @@ type AmfUe struct {
 	AllowedNssai                      map[models.AccessType][]models.AllowedSnssai
 	ConfiguredNssai                   []models.ConfiguredSnssai
 	NetworkSlicingSubscriptionChanged bool
+	SdmSubscriptionId                 string
+	UeCmRegistered                    bool
 	/* T3513(Paging) */
 	T3513           *time.Timer // for paging
 	T3513RetryTimes int

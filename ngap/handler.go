@@ -14,6 +14,7 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
+	gmm_common "free5gc/src/amf/gmm/common"
 	gmm_message "free5gc/src/amf/gmm/message"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
@@ -573,11 +574,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 		}
 	case context.UeContextReleaseUeContext:
 		logger.NgapLog.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
-		err := ranUe.Remove()
-		if err != nil {
-			logger.NgapLog.Errorln(err.Error())
-		}
-		amfUe.Remove()
+		gmm_common.RemoveAmfUe(amfUe)
 	case context.UeContextReleaseHandover:
 		logger.NgapLog.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		context.DetachSourceUeTargetUe(ranUe)

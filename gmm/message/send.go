@@ -6,6 +6,7 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
+	gmm_common "free5gc/src/amf/gmm/common"
 	"free5gc/src/amf/logger"
 	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/amf/producer/callback"
@@ -99,7 +100,7 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 			logger.GmmLog.Warnf("T3560 Expires %d times, abort authentication procedure & ongoing 5GMM procedure",
 				amfUe.T3560RetryTimes)
 			util.StopT3560(amfUe)
-			amfUe.Remove()
+			gmm_common.RemoveAmfUe(amfUe)
 		} else {
 			logger.GmmLog.Warnf("[NAS] T3560 expires, retransmit Authentication Request (retry: %d)", amfUe.T3560RetryTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
@@ -210,7 +211,7 @@ func SendSecurityModeCommand(ue *context.RanUe, eapSuccess bool, eapMessage stri
 		if amfUe.T3560RetryTimes > context.MaxT3560RetryTimes {
 			logger.GmmLog.Warnf("T3560 Expires %d times, abort security mode control procedure", amfUe.T3560RetryTimes)
 			util.StopT3560(amfUe)
-			amfUe.Remove()
+			gmm_common.RemoveAmfUe(amfUe)
 		} else {
 			logger.GmmLog.Warnf("[NAS] T3560 expires, retransmit Security Mode Command (retry: %d)", amfUe.T3560RetryTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
