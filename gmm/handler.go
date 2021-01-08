@@ -234,7 +234,8 @@ func HandlePDUSessionEstablishmentRequest(ue *context.AmfUe, anType models.Acces
 		}
 
 		smContextCreateData := consumer.BuildCreateSmContextRequest(ue, pduSession, requestType)
-
+		ue.Lock.Lock()
+		defer ue.Lock.Unlock()
 		response, smContextRef, errResponse, problemDetail, err :=
 			consumer.SendCreateSmContextRequest(ue, smfUri, payload, smContextCreateData)
 		if response != nil {

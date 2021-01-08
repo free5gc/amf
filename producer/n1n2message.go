@@ -84,6 +84,9 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 		return nil, "", problemDetails, nil
 	}
 
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	if requestData.N1MessageContainer != nil && requestData.N1MessageContainer.N1MessageClass == models.N1MessageClass_SM {
 		smContext = ue.SmContextList[requestData.PduSessionId]
 	}

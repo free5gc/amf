@@ -179,6 +179,7 @@ type AmfUe struct {
 	/* T3522 (for deregistration request) */
 	T3522           *time.Timer
 	T3522RetryTimes int
+	Lock            sync.Mutex
 }
 
 type AmfUeEventSubscription struct {
