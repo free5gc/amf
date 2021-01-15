@@ -2,13 +2,15 @@ package consumer
 
 import (
 	"context"
+
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/Nudm_UEContextManagement"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
 )
 
-func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (problemDetails *models.ProblemDetails, err error) {
+func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (
+	*models.ProblemDetails, error) {
 
 	configuration := Nudm_UEContextManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmUECMUri)
@@ -23,22 +25,22 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 			InitialRegistrationInd: initialRegistrationInd,
 			Guami:                  &amfSelf.ServedGuamiList[0],
 			RatType:                ue.RatType,
-			ImsVoPs:                models.ImsVoPs_HOMOGENEOUS_NON_SUPPORT, // TODO: not support Homogenous Support of IMS Voice over PS Sessions this stage
+			// TODO: not support Homogenous Support of IMS Voice over PS Sessions this stage
+			ImsVoPs: models.ImsVoPs_HOMOGENEOUS_NON_SUPPORT,
 		}
 
-		_, httpResp, localErr := client.AMFRegistrationFor3GPPAccessApi.Registration(context.Background(), ue.Supi, registrationData)
+		_, httpResp, localErr := client.AMFRegistrationFor3GPPAccessApi.Registration(context.Background(),
+			ue.Supi, registrationData)
 		if localErr == nil {
-			return
+			return nil, nil
 		} else if httpResp != nil {
 			if httpResp.Status != localErr.Error() {
-				err = localErr
-				return
+				return nil, localErr
 			}
 			problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetails = &problem
+			return &problem, nil
 		} else {
-			err = openapi.ReportError("server no response")
-			return
+			return nil, openapi.ReportError("server no response")
 		}
 	case models.AccessType_NON_3_GPP_ACCESS:
 		registrationData := models.AmfNon3GppAccessRegistration{
@@ -47,20 +49,20 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 			RatType:       ue.RatType,
 		}
 
-		_, httpResp, localErr := client.AMFRegistrationForNon3GPPAccessApi.Register(context.Background(), ue.Supi, registrationData)
+		_, httpResp, localErr :=
+			client.AMFRegistrationForNon3GPPAccessApi.Register(context.Background(), ue.Supi, registrationData)
 		if localErr == nil {
-			return
+			return nil, nil
 		} else if httpResp != nil {
 			if httpResp.Status != localErr.Error() {
-				err = localErr
-				return
+				return nil, localErr
 			}
 			problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetails = &problem
+			return &problem, nil
 		} else {
-			err = openapi.ReportError("server no response")
-			return
+			return nil, openapi.ReportError("server no response")
 		}
 	}
-	return
+
+	return nil, nil
 }

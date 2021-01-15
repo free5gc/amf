@@ -10,28 +10,60 @@
 package eventexposure
 
 import (
+	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
+	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
-	"github.com/gin-gonic/gin"
-	"log"
 	"net/http"
-	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // CreateSubscription - Namf_EventExposure Subscribe service Operation
-func CreateSubscription(c *gin.Context) {
-
+func HTTPCreateSubscription(c *gin.Context) {
 	var createEventSubscription models.AmfCreateEventSubscription
 
-	if err := c.ShouldBindJSON(&createEventSubscription); err != nil {
-		log.Panic(err.Error())
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.EeLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
 	}
-	self := context.AMF_Self()
-	res, problem := producer.CreateAMFEventSubscription(self, createEventSubscription, time.Now().UTC())
-	if problem.Cause != "" {
-		c.JSON(int(problem.Status), problem)
+
+	err = openapi.Deserialize(&createEventSubscription, requestBody, "application/json")
+	if err != nil {
+		problemDetail := "[Request Body] " + err.Error()
+		rsp := models.ProblemDetails{
+			Title:  "Malformed request syntax",
+			Status: http.StatusBadRequest,
+			Detail: problemDetail,
+		}
+		logger.EeLog.Errorln(problemDetail)
+		c.JSON(http.StatusBadRequest, rsp)
+		return
+	}
+
+	req := http_wrapper.NewRequest(c.Request, createEventSubscription)
+
+	rsp := producer.HandleCreateAMFEventSubscription(req)
+
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.EeLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.JSON(http.StatusCreated, res)
+		c.Data(rsp.Status, "application/json", responseBody)
 	}
 }

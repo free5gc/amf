@@ -4,7 +4,6 @@ import (
 	"free5gc/lib/http_wrapper"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strconv"
@@ -47,8 +46,8 @@ func HandleOAMRegisteredUEContext(request *http_wrapper.Request) *http_wrapper.R
 	}
 }
 
-func OAMRegisteredUEContextProcedure(supi string) (ueContexts UEContexts, problemDetails *models.ProblemDetails) {
-
+func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDetails) {
+	var ueContexts UEContexts
 	amfSelf := context.AMF_Self()
 
 	if supi != "" {
@@ -62,11 +61,11 @@ func OAMRegisteredUEContextProcedure(supi string) (ueContexts UEContexts, proble
 				ueContexts = append(ueContexts, *ueContext)
 			}
 		} else {
-			problemDetails = &models.ProblemDetails{
+			problemDetails := &models.ProblemDetails{
 				Status: http.StatusNotFound,
 				Cause:  "CONTEXT_NOT_FOUND",
 			}
-			return
+			return nil, problemDetails
 		}
 	} else {
 		amfSelf.UePool.Range(func(key, value interface{}) bool {
@@ -83,11 +82,11 @@ func OAMRegisteredUEContextProcedure(supi string) (ueContexts UEContexts, proble
 		})
 	}
 
-	return
+	return ueContexts, nil
 }
-func buildUEContext(ue *context.AmfUe, accessType models.AccessType) (ueContext *UEContext) {
-	if ue.Sm[accessType].Check(state.REGISTERED) {
-		ueContext = &UEContext{
+func buildUEContext(ue *context.AmfUe, accessType models.AccessType) *UEContext {
+	if ue.State[accessType].Is(context.Registered) {
+		ueContext := &UEContext{
 			AccessType: models.AccessType__3_GPP_ACCESS,
 			Supi:       ue.Supi,
 			Guti:       ue.Guti,
@@ -117,6 +116,7 @@ func buildUEContext(ue *context.AmfUe, accessType models.AccessType) (ueContext 
 		} else {
 			ueContext.CmState = models.CmState_IDLE
 		}
+		return ueContext
 	}
-	return
+	return nil
 }

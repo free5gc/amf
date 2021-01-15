@@ -2,6 +2,7 @@ package util
 
 import (
 	"encoding/json"
+	"free5gc/src/amf/logger"
 	"reflect"
 )
 
@@ -10,12 +11,19 @@ func MarshToJsonString(v interface{}) (result []string) {
 	val := reflect.ValueOf(v)
 	if types.Kind() == reflect.Slice {
 		for i := 0; i < val.Len(); i++ {
-			tmp, _ := json.Marshal(val.Index(i).Interface())
+			tmp, err := json.Marshal(val.Index(i).Interface())
+			if err != nil {
+				logger.UtilLog.Errorf("Marshal error: %+v", err)
+			}
+
 			result = append(result, string(tmp))
 
 		}
 	} else {
-		tmp, _ := json.Marshal(v)
+		tmp, err := json.Marshal(v)
+		if err != nil {
+			logger.UtilLog.Errorf("Marshal error: %+v", err)
+		}
 		result = append(result, string(tmp))
 	}
 	return

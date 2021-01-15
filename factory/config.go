@@ -52,10 +52,11 @@ type Configuration struct {
 }
 
 type Sbi struct {
-	Scheme   string `yaml:"scheme"`
-	IPv4Addr string `yaml:"ipv4Addr,omitempty"`
+	Scheme       string `yaml:"scheme"`
+	RegisterIPv4 string `yaml:"registerIPv4,omitempty"` // IP that is registered at NRF.
 	// IPv6Addr string `yaml:"ipv6Addr,omitempty"`
-	Port int `yaml:"port,omitempty"`
+	BindingIPv4 string `yaml:"bindingIPv4,omitempty"` // IP used to run the server in the node.
+	Port        int    `yaml:"port,omitempty"`
 }
 
 type Security struct {

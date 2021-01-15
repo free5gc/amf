@@ -10,7 +10,7 @@ import (
 	"regexp"
 )
 
-func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (problemDetails *models.ProblemDetails, err error) {
+func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*models.ProblemDetails, error) {
 
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
@@ -52,9 +52,9 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (pro
 				if trigger == models.RequestTrigger_LOC_CH {
 					ue.RequestTriggerLocationChange = true
 				}
-				if trigger == models.RequestTrigger_PRA_CH {
-					// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
-				}
+				//if trigger == models.RequestTrigger_PRA_CH {
+				// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
+				//}
 			}
 		}
 
@@ -62,23 +62,24 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (pro
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return
+			return nil, localErr
 		}
 		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
+		return &problem, nil
 	} else {
-		err = openapi.ReportError("server no response")
+		return nil, openapi.ReportError("server no response")
 	}
-	return
+	return nil, nil
 }
 
-func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (problemDetails *models.ProblemDetails, err error) {
+func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (
+	problemDetails *models.ProblemDetails, err error) {
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
 
-	res, httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdUpdatePost(context.Background(), ue.PolicyAssociationId, updateRequest)
+	res, httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdUpdatePost(
+		context.Background(), ue.PolicyAssociationId, updateRequest)
 	if localErr == nil {
 		if res.ServAreaRes != nil {
 			ue.AmPolicyAssociation.ServAreaRes = res.ServAreaRes
@@ -92,9 +93,9 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 			if trigger == models.RequestTrigger_LOC_CH {
 				ue.RequestTriggerLocationChange = true
 			}
-			if trigger == models.RequestTrigger_PRA_CH {
-				// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
-			}
+			// if trigger == models.RequestTrigger_PRA_CH {
+			// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
+			// }
 		}
 		return
 	} else if httpResp != nil {
@@ -107,7 +108,7 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 	} else {
 		err = openapi.ReportError("server no response")
 	}
-	return
+	return problemDetails, err
 }
 
 func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {

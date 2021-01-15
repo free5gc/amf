@@ -3,25 +3,6 @@ package service
 import (
 	"bufio"
 	"fmt"
-	"free5gc/lib/http2_util"
-	"free5gc/lib/openapi/models"
-	"free5gc/lib/path_util"
-	"free5gc/src/amf/communication"
-	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/eventexposure"
-	"free5gc/src/amf/factory"
-	"free5gc/src/amf/handler"
-	"free5gc/src/amf/httpcallback"
-	"free5gc/src/amf/location"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/mt"
-	ngap_message "free5gc/src/amf/ngap/message"
-	"free5gc/src/amf/ngap/sctp"
-	"free5gc/src/amf/oam"
-	"free5gc/src/amf/producer/callback"
-	"free5gc/src/amf/util"
-	"free5gc/src/app"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -29,9 +10,29 @@ import (
 	"syscall"
 
 	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	"free5gc/lib/http2_util"
+	"free5gc/lib/logger_util"
+	"free5gc/lib/openapi/models"
+	"free5gc/lib/path_util"
+	"free5gc/src/amf/communication"
+	"free5gc/src/amf/consumer"
+	"free5gc/src/amf/context"
+	"free5gc/src/amf/eventexposure"
+	"free5gc/src/amf/factory"
+	"free5gc/src/amf/httpcallback"
+	"free5gc/src/amf/location"
+	"free5gc/src/amf/logger"
+	"free5gc/src/amf/mt"
+	"free5gc/src/amf/ngap"
+	ngap_message "free5gc/src/amf/ngap/message"
+	ngap_service "free5gc/src/amf/ngap/service"
+	"free5gc/src/amf/oam"
+	"free5gc/src/amf/producer/callback"
+	"free5gc/src/amf/util"
+	"free5gc/src/app"
 )
 
 type AMF struct{}
@@ -57,7 +58,6 @@ var amfCLi = []cli.Flag{
 }
 
 var initLog *logrus.Entry
-var sctpListener *sctp.SCTPListener
 
 func init() {
 	initLog = logger.InitLog
@@ -114,10 +114,11 @@ func (amf *AMF) FilterCli(c *cli.Context) (args []string) {
 func (amf *AMF) Start() {
 	initLog.Infoln("Server started")
 
-	router := gin.Default()
+	router := logger_util.NewGinWithLogrus(logger.GinLog)
 	router.Use(cors.New(cors.Config{
-		AllowMethods:     []string{"GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "User-Agent", "Referrer", "Host", "Token", "X-Requested-With"},
+		AllowMethods: []string{"GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"},
+		AllowHeaders: []string{"Origin", "Content-Length", "Content-Type", "User-Agent", "Referrer", "Host",
+			"Token", "X-Requested-With"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		AllowAllOrigins:  true,
@@ -142,20 +143,23 @@ func (amf *AMF) Start() {
 	self := context.AMF_Self()
 	util.InitAmfContext(self)
 
-	addr := fmt.Sprintf("%s:%d", self.HttpIPv4Address, self.HttpIpv4Port)
+	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
 
-	for _, ngapAddr := range self.NgapIpList {
-		sctpListener = sctp.Server(ngapAddr)
-	}
-	go handler.Handle()
+	ngap_service.Run(self.NgapIpList, 38412, ngap.Dispatch)
 
 	// Register to NRF
-	profile, err := consumer.BuildNFInstance(self)
-	if err != nil {
+	var profile models.NfProfile
+	if profileTmp, err := consumer.BuildNFInstance(self); err != nil {
 		initLog.Error("Build AMF Profile Error")
+	} else {
+		profile = profileTmp
 	}
 
-	_, self.NfId, _ = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
+	if _, nfId, err := consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile); err != nil {
+		initLog.Warnf("Send Register NF Instance failed: %+v", err)
+	} else {
+		self.NfId = nfId
+	}
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
@@ -168,12 +172,12 @@ func (amf *AMF) Start() {
 	server, err := http2_util.NewServer(addr, util.AmfLogPath, router)
 
 	if server == nil {
-		initLog.Errorln("Initialize HTTP server failed: %+v", err)
+		initLog.Errorf("Initialize HTTP server failed: %+v", err)
 		return
 	}
 
 	if err != nil {
-		initLog.Warnln("Initialize HTTP server: +%v", err)
+		initLog.Warnf("Initialize HTTP server: %+v", err)
 	}
 
 	serverScheme := factory.AmfConfig.Configuration.Sbi.Scheme
@@ -184,7 +188,7 @@ func (amf *AMF) Start() {
 	}
 
 	if err != nil {
-		initLog.Fatalln("HTTP server setup failed: %+v", err)
+		initLog.Fatalf("HTTP server setup failed: %+v", err)
 	}
 }
 
@@ -224,8 +228,8 @@ func (amf *AMF) Exec(c *cli.Context) error {
 	}()
 
 	go func() {
-		if err := command.Start(); err != nil {
-			initLog.Errorf("AMF Start error: %v", err)
+		if err = command.Start(); err != nil {
+			initLog.Errorf("AMF Start error: %+v", err)
 		}
 		wg.Done()
 	}()
@@ -261,9 +265,7 @@ func (amf *AMF) Terminate() {
 		return true
 	})
 
-	logger.InitLog.Infof("Close SCTP server...")
-	sctpListener.Close()
-	logger.InitLog.Infof("SCTP server closed")
+	ngap_service.Stop()
 
 	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")

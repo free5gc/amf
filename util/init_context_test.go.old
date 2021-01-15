@@ -23,8 +23,8 @@ func compareContext(t *testing.T, context, testContext *context.AMFContext) {
 	if testContext.UriScheme != context.UriScheme {
 		t.Errorf("Expect : %s\nOuput: %s", context.UriScheme, testContext.UriScheme)
 	}
-	if testContext.HttpIPv4Address != context.HttpIPv4Address {
-		t.Errorf("Expect : %s\nOuput: %s", context.HttpIPv4Address, testContext.HttpIPv4Address)
+	if testContext.RegisterIPv4 != context.RegisterIPv4 {
+		t.Errorf("Expect : %s\nOuput: %s", context.RegisterIPv4, testContext.RegisterIPv4)
 	}
 	if testContext.HttpIpv4Port != context.HttpIpv4Port {
 		t.Errorf("Expect : %d\nOuput: %d", context.HttpIpv4Port, testContext.HttpIpv4Port)
@@ -150,7 +150,7 @@ func getExpAmf1() (ctx *context.AMFContext) {
 	ctx.Name = "AMF"
 	ctx.NgapIpList = []string{"127.0.0.1"}
 	ctx.UriScheme = models.UriScheme_HTTPS
-	ctx.HttpIPv4Address = "127.0.0.1"
+	ctx.RegisterIPv4 = "127.0.0.1"
 	ctx.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
 	ctx.HttpIpv4Port = 29518
 	ctx.NrfUri = "https://localhost:29510"
@@ -174,7 +174,7 @@ func getExpAmf2() (ctx *context.AMFContext) {
 	ctx.Name = "Wirelab"
 	ctx.NgapIpList = []string{"127.0.0.1", "192.188.2.2"}
 	ctx.UriScheme = models.UriScheme_HTTP
-	ctx.HttpIPv4Address = "192.168.0.1"
+	ctx.RegisterIPv4 = "192.168.0.1"
 	ctx.HttpIpv4Port = 8888
 	ctx.NrfUri = "https://192.168.0.2:29510"
 	ctx.InitNFService(serivceName[:2], "2.0.0")

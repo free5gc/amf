@@ -13,7 +13,7 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/ngap/message"
+	ngap_message "free5gc/src/amf/ngap/message"
 	"free5gc/src/test/ngapTestpacket"
 	"reflect"
 	"testing"
@@ -24,7 +24,7 @@ func TestBuildPDUSessionResourceReleaseCommand(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	transfer := TestComm.GetPDUSessionResourceReleaseCommandTransfer()
 	pduSessionResourceToReleaseListRelCmd := ngapType.PDUSessionResourceToReleaseListRelCmd{}
 
@@ -69,12 +69,6 @@ func TestBuildNGSetupResponse(t *testing.T) {
 }
 
 func TestBuildNGSetupFailure(t *testing.T) {
-
-	if len(TestAmf.TestAmf.UePool) == 0 {
-		TestAmf.AmfInit()
-		TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	}
-
 	cause := ngapType.Cause{
 		Present: ngapType.CausePresentMisc,
 		Misc: &ngapType.CauseMisc{
@@ -156,7 +150,7 @@ func TestBuildDownlinkNasTransport(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	nasPdu := ngapType.NASPDU{
 		Value: aper.OctetString("\x01\x02"),
@@ -182,7 +176,7 @@ func TestBuildUEContextReleaseCommand(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pdu, err := ngap_message.BuildUEContextReleaseCommand(ue.RanUe[models.AccessType__3_GPP_ACCESS], ngapType.CausePresentMisc, ngapType.CauseMiscPresentUnspecified)
 
@@ -230,7 +224,7 @@ func TestBuildUERadioCapabilityCheckRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pdu, err := ngap_message.BuildUERadioCapabilityCheckRequest(ue.RanUe[models.AccessType__3_GPP_ACCESS])
 
@@ -252,7 +246,7 @@ func TestBuildHandoverCancelAcknowledge(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pdu, err := ngap_message.BuildHandoverCancelAcknowledge(ue.RanUe[models.AccessType__3_GPP_ACCESS], nil)
 
@@ -274,7 +268,7 @@ func TestBuildPDUSessionResourceSetupRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	nasPdu := []byte{0x01, 0x02}
 	pduSessionResourceSetupListSUReq := ngapType.PDUSessionResourceSetupListSUReq{}
 
@@ -312,7 +306,7 @@ func TestBuildPDUSessionResourceModifyConfirm(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].AmfUeNgapId = 1
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].RanUeNgapId = 2
 	pduSessionResourceModifyConfirmList := ngapType.PDUSessionResourceModifyListModCfm{}
@@ -353,7 +347,7 @@ func TestBuildPDUSessionResourceModifyRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	pduModifyRequestList := ngapType.PDUSessionResourceModifyListModReq{}
 	item := ngapType.PDUSessionResourceModifyItemModReq{
 		PDUSessionID: ngapType.PDUSessionID{
@@ -387,7 +381,7 @@ func TestBuildInitialContextSetupRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.PlmnId = models.PlmnId{
 		Mcc: "208",
 		Mnc: "93",
@@ -421,7 +415,7 @@ func TestBuildUEContextModificationRequest(t *testing.T) {
 
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	oldAmfUeNgapID := int64(1234)
 
 	emergencyFallbackIndicator := ngapType.EmergencyFallbackIndicator{}
@@ -446,7 +440,7 @@ func TestBuildUEContextModificationRequest(t *testing.T) {
 
 func TestBuildHandoverCommand(t *testing.T) {
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pduSessionResourceHandoverList := ngapType.PDUSessionResourceHandoverList{}
 	pduSessionResourceToReleaseList := ngapType.PDUSessionResourceToReleaseListHOCmd{}
@@ -489,7 +483,7 @@ func TestBuildHandoverPreparationFailure(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	cause := ngapType.Cause{
 		Present: ngapType.CausePresentMisc,
@@ -518,7 +512,7 @@ func TestBuildHandoverRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.NCC = 5
 	ue.NH, _ = hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
@@ -575,7 +569,7 @@ func TestBuildPathSwitchRequestAcknowledge(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pduSessionResourceSwitchedList := ngapType.PDUSessionResourceSwitchedList{}
 	pduSessionResourceReleasedList := ngapType.PDUSessionResourceReleasedListPSAck{}
@@ -624,7 +618,7 @@ func TestBuildPathSwitchRequestFailure(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	pduSessionResourceReleasedList := ngapType.PDUSessionResourceReleasedListPSFail{}
 
@@ -655,7 +649,7 @@ func TestBuildDownlinkRanStatusTransfer(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	item := ngapType.DRBsSubjectToStatusTransferItem{
 		DRBID: ngapType.DRBID{Value: int64(8)},
@@ -718,7 +712,7 @@ func TestBuildPaging(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.Tai.PlmnId = &models.PlmnId{
 		Mcc: "208",
 		Mnc: "f93",
@@ -775,7 +769,7 @@ func TestBuildRerouteNasRequest(t *testing.T) {
 
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	mobileIdentity5GS := nasType.MobileIdentity5GS{
 		Len:    12, // suci
@@ -805,8 +799,6 @@ func TestBuildRanConfigurationUpdateAcknowledge(t *testing.T) {
 
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-
-	//ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
 
 	pdu, err := ngap_message.BuildRanConfigurationUpdateAcknowledge(nil)
 
@@ -1054,7 +1046,7 @@ func TestBuildDownlinkNonUEAssociatedNRPPATransport(t *testing.T) {
 
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	nRPPaPDU := ngapType.NRPPaPDU{
 		Value: aper.OctetString("\x02\x03"),
@@ -1079,7 +1071,7 @@ func TestBuildDeactivateTrace(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].AmfUeNgapId = 123
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].RanUeNgapId = 456
 
@@ -1103,7 +1095,7 @@ func TestBuildLocationReportingControl(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].AmfUeNgapId = 123
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].RanUeNgapId = 456
 
@@ -1204,7 +1196,7 @@ func TestBuildUETNLABindingReleaseRequest(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].AmfUeNgapId = 123
 	ue.RanUe[models.AccessType__3_GPP_ACCESS].RanUeNgapId = 456
 
@@ -1228,7 +1220,7 @@ func TestBuildAMFConfigurationUpdate(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 	amfSelf := context.AMF_Self()
-	amfSelf.HttpIPv4Address = "127.0.0.1"
+	amfSelf.RegisterIPv4 = "127.0.0.1"
 	amfSelf.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
 	amfSelf.TNLWeightFactor = 123
 
@@ -1258,7 +1250,7 @@ func TestBuildDownlinkUEAssociatedNRPPaTransport(t *testing.T) {
 	TestAmf.AmfInit()
 	TestAmf.UeAttach(models.AccessType__3_GPP_ACCESS)
 
-	ue := TestAmf.TestAmf.UePool["imsi-2089300007487"]
+	ue, _ := TestAmf.TestAmf.AmfUeFindBySupi("imsi-2089300007487")
 
 	nRPPaPDU := ngapType.NRPPaPDU{
 		Value: aper.OctetString("\x03\x02"),

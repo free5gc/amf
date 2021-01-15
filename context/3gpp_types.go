@@ -2,6 +2,7 @@ package context
 
 import (
 	"free5gc/lib/openapi/models"
+	"time"
 )
 
 const (
@@ -15,20 +16,24 @@ const (
 	MaxNumOfPDUSessions               int   = 256
 	MaxNumOfDRBs                      int   = 32
 	MaxNumOfAOI                       int   = 64
-	MaxPagingRetryTime                int   = 3
-	TimeT3513                         int   = 2
-	MaxNotificationRetryTime          int   = 5
-	TimeT3565                         int   = 6
-	TimeT3560                         int   = 6
-	MaxT3560RetryTimes                int   = 4
-	MAxNumOfAlgorithm                 int   = 8
-	TimeT3550                         int   = 6
+	MaxT3513RetryTimes                int   = 3
+	MaxT3522RetryTimes                int   = 4
 	MaxT3550RetryTimes                int   = 4
+	MaxT3560RetryTimes                int   = 4
+	MaxT3565RetryTimes                int   = 4
+	MAxNumOfAlgorithm                 int   = 8
 	DefaultT3502                      int   = 720  // 12 min
 	DefaultT3512                      int   = 3240 // 54 min
 	DefaultNon3gppDeregistrationTimer int   = 3240 // 54 min
-	TimeT3522                         int   = 6
-	MaxT3522RetryTimes                int   = 4
+)
+
+// timers at AMF side, defined in TS 24.501 table 10.2.2
+const (
+	TimeT3513 time.Duration = 6 * time.Second
+	TimeT3522 time.Duration = 6 * time.Second
+	TimeT3550 time.Duration = 6 * time.Second
+	TimeT3560 time.Duration = 6 * time.Second
+	TimeT3565 time.Duration = 6 * time.Second
 )
 
 type LADN struct {

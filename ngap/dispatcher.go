@@ -5,6 +5,8 @@ import (
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/logger"
+	"net"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,21 +16,28 @@ func init() {
 	Ngaplog = logger.NgapLog
 }
 
-func Dispatch(addr string, msg []byte) {
+func Dispatch(conn net.Conn, msg []byte) {
 	var ran *context.AmfRan
+	amfSelf := context.AMF_Self()
 
-	value, ok := context.AMF_Self().AmfRanPool.Load(addr)
+	ran, ok := amfSelf.AmfRanFindByConn(conn)
 	if !ok {
-		Ngaplog.Errorf("Cannot find the coressponding RAN Context\n")
+		Ngaplog.Infof("Create a new NG connection for: %s", conn.RemoteAddr().String())
+		ran = amfSelf.NewAmfRan(conn)
+	}
+
+	if len(msg) == 0 {
+		Ngaplog.Infof("RAN[ID: %+v] close the connection.", ran.RanId)
+		ran.Remove()
 		return
 	}
-	ran = value.(*context.AmfRan)
 
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
 		Ngaplog.Errorf("NGAP decode error : %s\n", err)
 		return
 	}
+
 	switch pdu.Present {
 	case ngapType.NGAPPDUPresentInitiatingMessage:
 		initiatingMessage := pdu.InitiatingMessage
@@ -134,7 +143,5 @@ func Dispatch(addr string, msg []byte) {
 		default:
 			Ngaplog.Warnf("Not implemented(choice:%d, procedureCode:%d)\n", pdu.Present, unsuccessfulOutcome.ProcedureCode.Value)
 		}
-
 	}
-
 }

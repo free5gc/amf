@@ -13,7 +13,8 @@ import (
 	"strings"
 )
 
-func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte, pduSessionResourceReleasedList ngapType.PDUSessionResourceToReleaseListRelCmd) ([]byte, error) {
+func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
+	pduSessionResourceReleasedList ngapType.PDUSessionResourceToReleaseListRelCmd) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentInitiatingMessage
@@ -185,7 +186,8 @@ func BuildNGSetupFailure(cause ngapType.Cause) ([]byte, error) {
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGReset(cause ngapType.Cause, partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList) ([]byte, error) {
+func BuildNGReset(
+	cause ngapType.Cause, partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -237,7 +239,8 @@ func BuildNGReset(cause ngapType.Cause, partOfNGInterface *ngapType.UEAssociated
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGResetAcknowledge(partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildNGResetAcknowledge(partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList,
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -275,15 +278,18 @@ func BuildNGResetAcknowledge(partOfNGInterface *ngapType.UEAssociatedLogicalNGCo
 			if item.AMFUENGAPID != nil {
 				uEAssociatedLogicalNGConnectionItem.AMFUENGAPID = new(ngapType.AMFUENGAPID)
 				uEAssociatedLogicalNGConnectionItem.AMFUENGAPID = item.AMFUENGAPID
-				logger.NgapLog.Tracef("[Build NG Reset Ack] (pair %d) AmfUeNgapID[%d]", i, uEAssociatedLogicalNGConnectionItem.AMFUENGAPID)
+				logger.NgapLog.Tracef(
+					"[Build NG Reset Ack] (pair %d) AmfUeNgapID[%d]", i, uEAssociatedLogicalNGConnectionItem.AMFUENGAPID)
 			}
 			if item.RANUENGAPID != nil {
 				uEAssociatedLogicalNGConnectionItem.RANUENGAPID = new(ngapType.RANUENGAPID)
 				uEAssociatedLogicalNGConnectionItem.RANUENGAPID = item.RANUENGAPID
-				logger.NgapLog.Tracef("[Build NG Reset Ack] (pair %d) RanUeNgapID[%d]", i, uEAssociatedLogicalNGConnectionItem.RANUENGAPID)
+				logger.NgapLog.Tracef(
+					"[Build NG Reset Ack] (pair %d) RanUeNgapID[%d]", i, uEAssociatedLogicalNGConnectionItem.RANUENGAPID)
 			}
 
-			uEAssociatedLogicalNGConnectionList.List = append(uEAssociatedLogicalNGConnectionList.List, uEAssociatedLogicalNGConnectionItem)
+			uEAssociatedLogicalNGConnectionList.List =
+				append(uEAssociatedLogicalNGConnectionList.List, uEAssociatedLogicalNGConnectionItem)
 		}
 
 		nGResetAcknowledgeIEs.List = append(nGResetAcknowledgeIEs.List, ie)
@@ -305,7 +311,8 @@ func BuildNGResetAcknowledge(partOfNGInterface *ngapType.UEAssociatedLogicalNGCo
 	return ngap.Encoder(pdu)
 }
 
-func BuildDownlinkNasTransport(ue *context.RanUe, nasPdu []byte, mobilityRestrictionList *ngapType.MobilityRestrictionList) ([]byte, error) {
+func BuildDownlinkNasTransport(ue *context.RanUe, nasPdu []byte,
+	mobilityRestrictionList *ngapType.MobilityRestrictionList) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -393,7 +400,8 @@ func BuildDownlinkNasTransport(ue *context.RanUe, nasPdu []byte, mobilityRestric
 	return ngap.Encoder(pdu)
 }
 
-func BuildUEContextReleaseCommand(ue *context.RanUe, causePresent int, cause aper.Enumerated) ([]byte, error) {
+func BuildUEContextReleaseCommand(
+	ue *context.RanUe, causePresent int, cause aper.Enumerated) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -470,7 +478,8 @@ func BuildUEContextReleaseCommand(ue *context.RanUe, causePresent int, cause ape
 	return ngap.Encoder(pdu)
 }
 
-func BuildErrorIndication(amfUeNgapId, ranUeNgapId *int64, cause *ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildErrorIndication(amfUeNgapId, ranUeNgapId *int64, cause *ngapType.Cause,
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -488,7 +497,8 @@ func BuildErrorIndication(amfUeNgapId, ranUeNgapId *int64, cause *ngapType.Cause
 	errorIndicationIEs := &errorIndication.ProtocolIEs
 
 	if cause == nil && criticalityDiagnostics == nil {
-		logger.NgapLog.Error("[Build Error Indication] shall contain at least either the Cause or the Criticality Diagnostics")
+		logger.NgapLog.Error(
+			"[Build Error Indication] shall contain at least either the Cause or the Criticality Diagnostics")
 	}
 
 	if amfUeNgapId != nil {
@@ -589,7 +599,8 @@ func BuildUERadioCapabilityCheckRequest(ue *context.RanUe) ([]byte, error) {
 	return ngap.Encoder(pdu)
 }
 
-func BuildHandoverCancelAcknowledge(ue *context.RanUe, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildHandoverCancelAcknowledge(
+	ue *context.RanUe, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
@@ -646,7 +657,8 @@ func BuildHandoverCancelAcknowledge(ue *context.RanUe, criticalityDiagnostics *n
 
 // nasPDU: from nas layer
 // pduSessionResourceSetupRequestList: provided by AMF, and transfer data is from SMF
-func BuildPDUSessionResourceSetupRequest(ue *context.RanUe, nasPdu []byte, pduSessionResourceSetupRequestList ngapType.PDUSessionResourceSetupListSUReq) ([]byte, error) {
+func BuildPDUSessionResourceSetupRequest(ue *context.RanUe, nasPdu []byte,
+	pduSessionResourceSetupRequestList ngapType.PDUSessionResourceSetupListSUReq) ([]byte, error) {
 
 	// TODO: Ran Paging Priority (optional)
 
@@ -792,7 +804,8 @@ func BuildPDUSessionResourceModifyConfirm(
 }
 
 // pduSessionResourceModifyRequestList: from SMF
-func BuildPDUSessionResourceModifyRequest(ue *context.RanUe, pduSessionResourceModifyRequestList ngapType.PDUSessionResourceModifyListModReq) ([]byte, error) {
+func BuildPDUSessionResourceModifyRequest(ue *context.RanUe,
+	pduSessionResourceModifyRequestList ngapType.PDUSessionResourceModifyListModReq) ([]byte, error) {
 
 	// TODO: Ran Paging Priority (optional)
 
@@ -936,7 +949,8 @@ func BuildInitialContextSetupRequest(
 	}
 
 	// UE Aggregate Maximum Bit Rate (conditional: if pdu session resource setup)
-	// The subscribed UE-AMBR is a subscription parameter which is retrieved from UDM and provided to the (R)AN by the AMF
+	// The subscribed UE-AMBR is a subscription parameter which is
+	// retrieved from UDM and provided to the (R)AN by the AMF
 	if pduSessionResourceSetupRequestList != nil {
 		ie = ngapType.InitialContextSetupRequestIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDUEAggregateMaximumBitRate
@@ -1018,10 +1032,29 @@ func BuildInitialContextSetupRequest(
 	ie.Value.UESecurityCapabilities = new(ngapType.UESecurityCapabilities)
 
 	ueSecurityCapabilities := ie.Value.UESecurityCapabilities
-	ueSecurityCapabilities.NRencryptionAlgorithms.Value = ngapConvert.ByteToBitString([]byte(amfUe.SecurityCapabilities.NREncryptionAlgorithms[:]), 16)
-	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(amfUe.SecurityCapabilities.NRIntegrityProtectionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value = ngapConvert.ByteToBitString(amfUe.SecurityCapabilities.EUTRAEncryptionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(amfUe.SecurityCapabilities.EUTRAIntegrityProtectionAlgorithms[:], 16)
+	nrEncryptionAlgorighm := []byte{0x00, 0x00}
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA1_128_5G()
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA2_128_5G()
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA3_128_5G()
+	ueSecurityCapabilities.NRencryptionAlgorithms.Value =
+		ngapConvert.ByteToBitString(nrEncryptionAlgorighm, 16)
+
+	nrIntegrityAlgorithm := []byte{0x00, 0x00}
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA1_128_5G()
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA2_128_5G()
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA3_128_5G()
+	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(nrIntegrityAlgorithm, 16)
+
+	// only support NR algorithms
+	eutraEncryptionAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraEncryptionAlgorithm, 16)
+
+	eutraIntegrityAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraIntegrityAlgorithm, 16)
+
 	initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
 
 	// Security Key
@@ -1106,7 +1139,11 @@ func BuildInitialContextSetupRequest(
 		ie.Value.MaskedIMEISV = new(ngapType.MaskedIMEISV)
 
 		imeisv := strings.TrimPrefix(amfUe.Pei, "imeisv-")
-		imeisvBytes, _ := hex.DecodeString(imeisv)
+		imeisvBytes, err := hex.DecodeString(imeisv)
+		if err != nil {
+			logger.NgapLog.Errorf(
+				"[Build Error] DecodeString imeisv error: %+v", err)
+		}
 
 		var maskedImeisv []byte
 		maskedImeisv = append(maskedImeisv, imeisvBytes[:5]...)
@@ -1160,11 +1197,24 @@ func BuildInitialContextSetupRequest(
 		ie.Value.Present = ngapType.InitialContextSetupRequestIEsPresentUERadioCapabilityForPaging
 		ie.Value.UERadioCapabilityForPaging = new(ngapType.UERadioCapabilityForPaging)
 		uERadioCapabilityForPaging := ie.Value.UERadioCapabilityForPaging
+		var err error
 		if amfUe.UeRadioCapabilityForPaging.NR != "" {
-			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfNR.Value, _ = hex.DecodeString(amfUe.UeRadioCapabilityForPaging.NR)
+			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfNR.Value, err =
+				hex.DecodeString(amfUe.UeRadioCapabilityForPaging.NR)
+			if err != nil {
+				logger.NgapLog.Errorf(
+					"[Build Error] DecodeString amfUe.UeRadioCapabilityForPaging.NR error: %+v", err)
+			}
+
 		}
 		if amfUe.UeRadioCapabilityForPaging.EUTRA != "" {
-			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfEUTRA.Value, _ = hex.DecodeString(amfUe.UeRadioCapabilityForPaging.EUTRA)
+			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfEUTRA.Value, err =
+				hex.DecodeString(amfUe.UeRadioCapabilityForPaging.EUTRA)
+			if err != nil {
+				logger.NgapLog.Errorf(
+					"[Build Error] DecodeString amfUe.UeRadioCapabilityForPaging.NR error: %+v", err)
+			}
+
 		}
 		initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
 	}
@@ -1259,7 +1309,8 @@ func BuildUEContextModificationRequest(
 	}
 
 	// UE Aggregate Maximum Bit Rate (optional)
-	if amfUe.AccessAndMobilitySubscriptionData != nil && amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr != nil {
+	if amfUe.AccessAndMobilitySubscriptionData != nil &&
+		amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr != nil {
 		ie = ngapType.UEContextModificationRequestIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDUEAggregateMaximumBitRate
 		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
@@ -1324,7 +1375,8 @@ func BuildUEContextModificationRequest(
 
 // pduSessionResourceHandoverList: provided by amf and transfer is return from smf
 // pduSessionResourceToReleaseList: provided by amf and transfer is return from smf
-// criticalityDiagnostics = criticalityDiagonstics IE in receiver node's error indication when received node can't comprehend the IE or missing IE
+// criticalityDiagnostics = criticalityDiagonstics IE in receiver node's error indication
+// when received node can't comprehend the IE or missing IE
 func BuildHandoverCommand(
 	sourceUe *context.RanUe,
 	pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList,
@@ -1436,11 +1488,13 @@ func BuildHandoverCommand(
 	return ngap.Encoder(pdu)
 }
 
-func BuildHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Cause,
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 
 	// cause = initiate the Handover Cancel procedure with the appropriate value for the Cause IE.
 
-	// criticalityDiagnostics = criticalityDiagonstics IE in receiver node's error indication when received node can't comprehend the IE or missing IE
+	// criticalityDiagnostics = criticalityDiagonstics IE in receiver node's error indication
+	// when received node can't comprehend the IE or missing IE
 
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
@@ -1511,8 +1565,10 @@ a Nsmf_PDUSession_CreateSMContext Response(N2 SM Information (PDU Session ID, ca
 // Cause is from SMF
 // pduSessionResourceSetupList provided by AMF, and the transfer data is from SMF
 // sourceToTargetTransparentContainer is received from S-RAN
-// nsci: new security context indicator, if amfUe has updated security context, set nsci to true, otherwise set to false
-func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause, pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
+// nsci: new security context indicator, if amfUe has updated security context,
+// set nsci to true, otherwise set to false
+func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause,
+	pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
 	sourceToTargetTransparentContainer ngapType.SourceToTargetTransparentContainer, nsci bool) ([]byte, error) {
 
 	amfSelf := context.AMF_Self()
@@ -1591,10 +1647,28 @@ func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause, pduSessionRes
 	ie.Value.UESecurityCapabilities = new(ngapType.UESecurityCapabilities)
 
 	ueSecurityCapabilities := ie.Value.UESecurityCapabilities
-	ueSecurityCapabilities.NRencryptionAlgorithms.Value = ngapConvert.ByteToBitString([]byte(ue.AmfUe.SecurityCapabilities.NREncryptionAlgorithms[:]), 16)
-	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.NRIntegrityProtectionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.EUTRAEncryptionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.EUTRAIntegrityProtectionAlgorithms[:], 16)
+
+	nrEncryptionAlgorighm := []byte{0x00, 0x00}
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA1_128_5G()
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA2_128_5G()
+	nrEncryptionAlgorighm[0] |= amfUe.UESecurityCapability.GetEA3_128_5G()
+	ueSecurityCapabilities.NRencryptionAlgorithms.Value = ngapConvert.ByteToBitString(nrEncryptionAlgorighm, 16)
+
+	nrIntegrityAlgorithm := []byte{0x00, 0x00}
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA1_128_5G()
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA2_128_5G()
+	nrIntegrityAlgorithm[0] |= amfUe.UESecurityCapability.GetIA3_128_5G()
+	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(nrIntegrityAlgorithm, 16)
+
+	// only support NR algorithms
+	eutraEncryptionAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraEncryptionAlgorithm, 16)
+
+	eutraIntegrityAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraIntegrityAlgorithm, 16)
 
 	handoverRequestIEs.List = append(handoverRequestIEs.List, ie)
 
@@ -1706,8 +1780,10 @@ func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause, pduSessionRes
 
 // pduSessionResourceSwitchedList: provided by AMF, and the transfer data is from SMF
 // pduSessionResourceReleasedList: provided by AMF, and the transfer data is from SMF
-// newSecurityContextIndicator: if AMF has activated a new 5G NAS security context, set it to true, otherwise set to false
-// coreNetworkAssistanceInformation: provided by AMF, based on collection of UE behaviour statistics and/or other available
+// newSecurityContextIndicator: if AMF has activated a new 5G NAS security context,
+// set it to true, otherwise set to false
+// coreNetworkAssistanceInformation: provided by AMF,
+// based on collection of UE behaviour statistics and/or other available
 // information about the expected UE behaviour. TS 23.501 5.4.6, 5.4.6.2
 // rrcInactiveTransitionReportRequest: configured by amf
 // criticalityDiagnostics: from received node when received not comprehended IE or missing IE
@@ -1768,10 +1844,27 @@ func BuildPathSwitchRequestAcknowledge(
 	ie.Value.UESecurityCapabilities = new(ngapType.UESecurityCapabilities)
 
 	ueSecurityCapabilities := ie.Value.UESecurityCapabilities
-	ueSecurityCapabilities.NRencryptionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.NREncryptionAlgorithms[:], 16)
-	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.NRIntegrityProtectionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.EUTRAEncryptionAlgorithms[:], 16)
-	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value = ngapConvert.ByteToBitString(ue.AmfUe.SecurityCapabilities.EUTRAIntegrityProtectionAlgorithms[:], 16)
+	nrEncryptionAlgorighm := []byte{0x00, 0x00}
+	nrEncryptionAlgorighm[0] |= ue.AmfUe.UESecurityCapability.GetEA1_128_5G()
+	nrEncryptionAlgorighm[0] |= ue.AmfUe.UESecurityCapability.GetEA2_128_5G()
+	nrEncryptionAlgorighm[0] |= ue.AmfUe.UESecurityCapability.GetEA3_128_5G()
+	ueSecurityCapabilities.NRencryptionAlgorithms.Value = ngapConvert.ByteToBitString(nrEncryptionAlgorighm, 16)
+
+	nrIntegrityAlgorithm := []byte{0x00, 0x00}
+	nrIntegrityAlgorithm[0] |= ue.AmfUe.UESecurityCapability.GetIA1_128_5G()
+	nrIntegrityAlgorithm[0] |= ue.AmfUe.UESecurityCapability.GetIA2_128_5G()
+	nrIntegrityAlgorithm[0] |= ue.AmfUe.UESecurityCapability.GetIA3_128_5G()
+	ueSecurityCapabilities.NRintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(nrIntegrityAlgorithm, 16)
+
+	// only support NR algorithms
+	eutraEncryptionAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAencryptionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraEncryptionAlgorithm, 16)
+
+	eutraIntegrityAlgorithm := []byte{0x00, 0x00}
+	ueSecurityCapabilities.EUTRAintegrityProtectionAlgorithms.Value =
+		ngapConvert.ByteToBitString(eutraIntegrityAlgorithm, 16)
 
 	pathSwitchRequestAckIEs.List = append(pathSwitchRequestAckIEs.List, ie)
 
@@ -1936,7 +2029,8 @@ func BuildPathSwitchRequestFailure(
 	return ngap.Encoder(pdu)
 }
 
-func BuildDownlinkRanStatusTransfer(ue *context.RanUe, ranStatusTransferTransparentContainer ngapType.RANStatusTransferTransparentContainer) ([]byte, error) {
+func BuildDownlinkRanStatusTransfer(ue *context.RanUe,
+	ranStatusTransferTransparentContainer ngapType.RANStatusTransferTransparentContainer) ([]byte, error) {
 	//ranStatusTransferTransparentContainer from Uplink Ran Configuration Transfer
 	var pdu ngapType.NGAPPDU
 
@@ -1990,14 +2084,17 @@ func BuildDownlinkRanStatusTransfer(ue *context.RanUe, ranStatusTransferTranspar
 }
 
 // anType indicate amfUe send this msg for which accessType
-// Paging Priority: is included only if the AMF receives an Namf_Communication_N1N2MessageTransfer message with an ARP value associated with
+// Paging Priority: is included only if the AMF receives an Namf_Communication_N1N2MessageTransfer message
+// with an ARP value associated with
 // priority services (e.g., MPS, MCS), as configured by the operator. (TS 23.502 4.2.3.3, TS 23.501 5.22.3)
-// pagingOriginNon3GPP: TS 23.502 4.2.3.3 step 4b: If the UE is simultaneously registered over 3GPP and non-3GPP accesses in the same PLMN,
+// pagingOriginNon3GPP: TS 23.502 4.2.3.3 step 4b: If the UE is simultaneously registered over
+// 3GPP and non-3GPP accesses in the same PLMN,
 // the UE is in CM-IDLE state in both 3GPP access and non-3GPP access, and the PDU Session ID in step 3a
 // is associated with non-3GPP access, the AMF sends a Paging message with associated access "non-3GPP" to
 // NG-RAN node(s) via 3GPP access.
 // more paging policy with 3gpp/non-3gpp access is described in TS 23.501 5.6.8
-func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pagingOriginNon3GPP bool) ([]byte, error) {
+func BuildPaging(
+	ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pagingOriginNon3GPP bool) ([]byte, error) {
 
 	// TODO: Paging DRX (optional)
 
@@ -2037,9 +2134,14 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 	}
 	_, amfSetID, amfPointer := ngapConvert.AmfIdToNgap(amfID)
 
+	var err error
 	uePagingIdentity.FiveGSTMSI.AMFSetID.Value = amfSetID
 	uePagingIdentity.FiveGSTMSI.AMFPointer.Value = amfPointer
-	uePagingIdentity.FiveGSTMSI.FiveGTMSI.Value, _ = hex.DecodeString(tmsi)
+	uePagingIdentity.FiveGSTMSI.FiveGTMSI.Value, err = hex.DecodeString(tmsi)
+	if err != nil {
+		logger.NgapLog.Errorf(
+			"[Build Error] DecodeString tmsi error: %+v", err)
+	}
 
 	pagingIEs.List = append(pagingIEs.List, ie)
 
@@ -2054,13 +2156,18 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 
 	taiListForPaging := ie.Value.TAIListForPaging
 	if ue.RegistrationArea[models.AccessType__3_GPP_ACCESS] == nil {
-		err := fmt.Errorf("Registration Area of Ue[%s] is empty", ue.Supi)
+		err = fmt.Errorf("Registration Area of Ue[%s] is empty", ue.Supi)
 		return nil, err
 	} else {
 		for _, tai := range ue.RegistrationArea[models.AccessType__3_GPP_ACCESS] {
+			var tac []byte
 			taiListforPagingItem := ngapType.TAIListForPagingItem{}
 			taiListforPagingItem.TAI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*tai.PlmnId)
-			tac, _ := hex.DecodeString(tai.Tac)
+			tac, err = hex.DecodeString(tai.Tac)
+			if err != nil {
+				logger.NgapLog.Errorf(
+					"[Build Error] DecodeString tai.Tac error: %+v", err)
+			}
 			taiListforPagingItem.TAI.TAC.Value = tac
 			taiListForPaging.List = append(taiListForPaging.List, taiListforPagingItem)
 		}
@@ -2087,10 +2194,20 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 		ie.Value.UERadioCapabilityForPaging = new(ngapType.UERadioCapabilityForPaging)
 		uERadioCapabilityForPaging := ie.Value.UERadioCapabilityForPaging
 		if ue.UeRadioCapabilityForPaging.NR != "" {
-			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfNR.Value, _ = hex.DecodeString(ue.UeRadioCapabilityForPaging.NR)
+			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfNR.Value, err =
+				hex.DecodeString(ue.UeRadioCapabilityForPaging.NR)
+			if err != nil {
+				logger.NgapLog.Errorf(
+					"[Build Error] DecodeString ue.UeRadioCapabilityForPaging.NR error: %+v", err)
+			}
 		}
 		if ue.UeRadioCapabilityForPaging.EUTRA != "" {
-			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfEUTRA.Value, _ = hex.DecodeString(ue.UeRadioCapabilityForPaging.EUTRA)
+			uERadioCapabilityForPaging.UERadioCapabilityForPagingOfEUTRA.Value, err =
+				hex.DecodeString(ue.UeRadioCapabilityForPaging.EUTRA)
+			if err != nil {
+				logger.NgapLog.Errorf(
+					"[Build Error] DecodeString ue.UeRadioCapabilityForPaging.EUTRA error: %+v", err)
+			}
 		}
 		pagingIEs.List = append(pagingIEs.List, ie)
 	}
@@ -2104,8 +2221,10 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 		ie.Value.AssistanceDataForPaging = new(ngapType.AssistanceDataForPaging)
 
 		assistanceDataForPaging := ie.Value.AssistanceDataForPaging
-		assistanceDataForPaging.AssistanceDataForRecommendedCells = new(ngapType.AssistanceDataForRecommendedCells)
-		recommendedCellList := &assistanceDataForPaging.AssistanceDataForRecommendedCells.RecommendedCellsForPaging.RecommendedCellList
+		assistanceDataForPaging.AssistanceDataForRecommendedCells =
+			new(ngapType.AssistanceDataForRecommendedCells)
+		recommendedCellList := &assistanceDataForPaging.
+			AssistanceDataForRecommendedCells.RecommendedCellsForPaging.RecommendedCellList
 
 		for _, recommendedCell := range ue.InfoOnRecommendedCellsAndRanNodesForPaging.RecommendedCells {
 			recommendedCellItem := ngapType.RecommendedCellItem{}
@@ -2121,7 +2240,8 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 				recommendedCellItem.NGRANCGI.EUTRACGI = new(ngapType.EUTRACGI)
 				eutraCGI := recommendedCellItem.NGRANCGI.EUTRACGI
 				eutraCGI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*recommendedCell.NgRanCGI.EUTRACGI.PlmnId)
-				eutraCGI.EUTRACellIdentity.Value = ngapConvert.HexToBitString(recommendedCell.NgRanCGI.EUTRACGI.EutraCellId, 28)
+				eutraCGI.EUTRACellIdentity.Value =
+					ngapConvert.HexToBitString(recommendedCell.NgRanCGI.EUTRACGI.EutraCellId, 28)
 			}
 
 			if recommendedCell.TimeStayedInCell != nil {
@@ -2153,7 +2273,8 @@ func BuildPaging(ue *context.AmfUe, pagingPriority *ngapType.PagingPriority, pag
 // amfUeNgapID: initial AMF get it from target AMF
 // ngapMessage: initial UE Message to reroute
 // allowedNSSAI: provided by AMF, and AMF get it from NSSF (4.2.2.2.3 step 4b)
-func BuildRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNgapID *int64, ngapMessage []byte, allowedNSSAI *ngapType.AllowedNSSAI) ([]byte, error) {
+func BuildRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNgapID *int64,
+	ngapMessage []byte, allowedNSSAI *ngapType.AllowedNSSAI) ([]byte, error) {
 
 	var pdu ngapType.NGAPPDU
 
@@ -2244,7 +2365,8 @@ func BuildRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNg
 	return ngap.Encoder(pdu)
 }
 
-func BuildRanConfigurationUpdateAcknowledge(criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildRanConfigurationUpdateAcknowledge(
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 	// criticality ->from received node when received node can't comprehend the IE or missing IE
 
 	var pdu ngapType.NGAPPDU
@@ -2275,7 +2397,8 @@ func BuildRanConfigurationUpdateAcknowledge(criticalityDiagnostics *ngapType.Cri
 	return ngap.Encoder(pdu)
 }
 
-func BuildRanConfigurationUpdateFailure(cause ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
+func BuildRanConfigurationUpdateFailure(
+	cause ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) ([]byte, error) {
 	// criticality ->from received node when received node can't comprehend the IE or missing IE
 	// If the AMF cannot accept the update,
 	// it shall respond with a RAN CONFIGURATION UPDATE FAILURE message and appropriate cause value.
@@ -2443,7 +2566,8 @@ func BuildOverloadStop() ([]byte, error) {
 	return ngap.Encoder(pdu)
 }
 
-func BuildDownlinkRanConfigurationTransfer(sONConfigurationTransfer *ngapType.SONConfigurationTransfer) ([]byte, error) {
+func BuildDownlinkRanConfigurationTransfer(
+	sONConfigurationTransfer *ngapType.SONConfigurationTransfer) ([]byte, error) {
 
 	// sONConfigurationTransfer = sONConfigurationTransfer from uplink Ran Configuration Transfer
 
@@ -2475,7 +2599,8 @@ func BuildDownlinkRanConfigurationTransfer(sONConfigurationTransfer *ngapType.SO
 	return ngap.Encoder(pdu)
 }
 
-func BuildDownlinkNonUEAssociatedNRPPATransport(ue *context.RanUe, nRPPaPDU ngapType.NRPPaPDU) ([]byte, error) {
+func BuildDownlinkNonUEAssociatedNRPPATransport(
+	ue *context.RanUe, nRPPaPDU ngapType.NRPPaPDU) ([]byte, error) {
 	//NRPPa PDU is by pass
 	//NRPPa PDU is from LMF define in 4.13.5.6
 
@@ -2488,7 +2613,8 @@ func BuildDownlinkNonUEAssociatedNRPPATransport(ue *context.RanUe, nRPPaPDU ngap
 	initiatingMessage.Criticality.Value = ngapType.CriticalityPresentIgnore
 
 	initiatingMessage.Value.Present = ngapType.InitiatingMessagePresentDownlinkNonUEAssociatedNRPPaTransport
-	initiatingMessage.Value.DownlinkNonUEAssociatedNRPPaTransport = new(ngapType.DownlinkNonUEAssociatedNRPPaTransport)
+	initiatingMessage.Value.DownlinkNonUEAssociatedNRPPaTransport =
+		new(ngapType.DownlinkNonUEAssociatedNRPPaTransport)
 
 	downlinkNonUEAssociatedNRPPaTransport := initiatingMessage.Value.DownlinkNonUEAssociatedNRPPaTransport
 	downlinkNonUEAssociatedNRPPaTransportIEs := &downlinkNonUEAssociatedNRPPaTransport.ProtocolIEs
@@ -2501,8 +2627,13 @@ func BuildDownlinkNonUEAssociatedNRPPATransport(ue *context.RanUe, nRPPaPDU ngap
 	ie.Value.Present = ngapType.DownlinkNonUEAssociatedNRPPaTransportIEsPresentRoutingID
 	ie.Value.RoutingID = new(ngapType.RoutingID)
 
+	var err error
 	routingID := ie.Value.RoutingID
-	routingID.Value, _ = hex.DecodeString(ue.RoutingID)
+	routingID.Value, err = hex.DecodeString(ue.RoutingID)
+	if err != nil {
+		logger.NgapLog.Errorf(
+			"[Build Error] DecodeString ue.RoutingID error: %+v", err)
+	}
 
 	downlinkNonUEAssociatedNRPPaTransportIEs.List = append(downlinkNonUEAssociatedNRPPaTransportIEs.List, ie)
 
@@ -2589,12 +2720,20 @@ func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byt
 		plmnID := models.PlmnId{}
 		plmnID.Mcc = subStringSlice[0][:3]
 		plmnID.Mnc = subStringSlice[0][3:]
-		traceID, _ := hex.DecodeString(subStringSlice[1])
+		traceID, err := hex.DecodeString(subStringSlice[1])
+		if err != nil {
+			logger.NgapLog.Errorf(
+				"[Build Error] DecodeString traceID error: %+v", err)
+		}
 
 		tmp := ngapConvert.PlmnIdToNgap(plmnID)
 		traceReference := append(tmp.Value, traceID...)
 		trsr := ranUe.Trsr
-		trsrNgap, _ := hex.DecodeString(trsr)
+		trsrNgap, err := hex.DecodeString(trsr)
+		if err != nil {
+			logger.NgapLog.Errorf(
+				"[Build Error] DecodeString trsr error: %+v", err)
+		}
 		ie.Value.NGRANTraceID.Value = append(traceReference, trsrNgap...)
 		deactivateTraceIEs.List = append(deactivateTraceIEs.List, ie)
 	}
@@ -2602,10 +2741,16 @@ func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byt
 }
 
 // AOI List is from SMF
-// The SMF may subscribe to the UE mobility event notification from the AMF (e.g. location reporting, UE moving into or out of Area Of Interest) TS 23.502 4.3.2.2.1 Step.17
-// The Location Reporting Control message shall identify the UE for which reports are requested and may include Reporting Type, Location Reporting Level, Area Of Interest and Request Reference ID TS 23.502 4.10 LocationReportingProcedure
-// The AMF may request the NG-RAN location reporting with event reporting type (e.g. UE location or UE presence in Area of Interest), reporting mode and its related parameters (e.g. number of reporting) TS 23.501 5.4.7
-// Location Reference ID To Be Cancelled IE shall be present if the Event Type IE is set to "Stop UE presence in the area of interest".
+// The SMF may subscribe to the UE mobility event notification from the AMF
+// (e.g. location reporting, UE moving into or out of Area Of Interest) TS 23.502 4.3.2.2.1 Step.17
+// The Location Reporting Control message shall identify the UE for which reports are requested and
+// may include Reporting Type, Location Reporting Level, Area Of Interest and
+// Request Reference ID TS 23.502 4.10 LocationReportingProcedure
+// The AMF may request the NG-RAN location reporting with event reporting type
+// (e.g. UE location or UE presence in Area of Interest),
+// reporting mode and its related parameters (e.g. number of reporting) TS 23.501 5.4.7
+// Location Reference ID To Be Cancelled IE shall be present if
+// the Event Type IE is set to "Stop UE presence in the area of interest".
 func BuildLocationReportingControl(
 	ue *context.RanUe,
 	AOIList *ngapType.AreaOfInterestList,
@@ -2674,9 +2819,12 @@ func BuildLocationReportingControl(
 	}
 
 	// location reference ID to be Cancelled [Conditional]
-	if locationReportingRequestType.EventType.Value == ngapType.EventTypePresentStopUePresenceInAreaOfInterest {
-		locationReportingRequestType.LocationReportingReferenceIDToBeCancelled = new(ngapType.LocationReportingReferenceID)
-		locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value = LocationReportingReferenceIDToBeCancelled
+	if locationReportingRequestType.EventType.Value ==
+		ngapType.EventTypePresentStopUePresenceInAreaOfInterest {
+		locationReportingRequestType.LocationReportingReferenceIDToBeCancelled =
+			new(ngapType.LocationReportingReferenceID)
+		locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value =
+			LocationReportingReferenceIDToBeCancelled
 	}
 
 	locationReportingControlIEs.List = append(locationReportingControlIEs.List, ie)
@@ -2729,7 +2877,8 @@ func BuildUETNLABindingReleaseRequest(ue *context.RanUe) ([]byte, error) {
 }
 
 // Weight Factor associated with each of the TNL association within the AMF
-func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsage, tNLAddressWeightFactor ngapType.TNLAddressWeightFactor) ([]byte, error) {
+func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsage,
+	tNLAddressWeightFactor ngapType.TNLAddressWeightFactor) ([]byte, error) {
 
 	amfSelf := context.AMF_Self()
 	var pdu ngapType.NGAPPDU
@@ -2803,7 +2952,8 @@ func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsag
 		for _, snssai := range plmnItem.SNssaiList {
 			sliceSupportItem := ngapType.SliceSupportItem{}
 			sliceSupportItem.SNSSAI = ngapConvert.SNssaiToNgap(snssai)
-			pLMNSupportItem.SliceSupportList.List = append(pLMNSupportItem.SliceSupportList.List, sliceSupportItem)
+			pLMNSupportItem.SliceSupportList.List =
+				append(pLMNSupportItem.SliceSupportList.List, sliceSupportItem)
 		}
 		pLMNSupportList.List = append(pLMNSupportList.List, pLMNSupportItem)
 	}
@@ -2821,9 +2971,12 @@ func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsag
 
 	//	AMFTNLAssociationToAddItem in AMFTNLAssociationToAddList
 	aMFTNLAssociationToAddItem := ngapType.AMFTNLAssociationToAddItem{}
-	aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.Present = ngapType.CPTransportLayerInformationPresentEndpointIPAddress
-	aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.EndpointIPAddress = new(ngapType.TransportLayerAddress)
-	*aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.EndpointIPAddress = ngapConvert.IPAddressToNgap(amfSelf.HttpIPv4Address, amfSelf.HttpIPv6Address)
+	aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.Present =
+		ngapType.CPTransportLayerInformationPresentEndpointIPAddress
+	aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		new(ngapType.TransportLayerAddress)
+	*aMFTNLAssociationToAddItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		ngapConvert.IPAddressToNgap(amfSelf.RegisterIPv4, amfSelf.HttpIPv6Address)
 
 	//	AMF TNL Association Usage[optional]
 	if aMFTNLAssociationToAddItem.TNLAssociationUsage != nil {
@@ -2848,9 +3001,12 @@ func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsag
 
 	//	AMFTNLAssociationToRemoveItem
 	aMFTNLAssociationToRemoveItem := ngapType.AMFTNLAssociationToRemoveItem{}
-	aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.Present = ngapType.CPTransportLayerInformationPresentEndpointIPAddress
-	aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.EndpointIPAddress = new(ngapType.TransportLayerAddress)
-	*aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.EndpointIPAddress = ngapConvert.IPAddressToNgap(amfSelf.HttpIPv4Address, amfSelf.HttpIPv6Address)
+	aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.Present =
+		ngapType.CPTransportLayerInformationPresentEndpointIPAddress
+	aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		new(ngapType.TransportLayerAddress)
+	*aMFTNLAssociationToRemoveItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		ngapConvert.IPAddressToNgap(amfSelf.RegisterIPv4, amfSelf.HttpIPv6Address)
 
 	aMFTNLAssociationToRemoveList.List = append(aMFTNLAssociationToRemoveList.List, aMFTNLAssociationToRemoveItem)
 	aMFConfigurationUpdateIEs.List = append(aMFConfigurationUpdateIEs.List, ie)
@@ -2866,9 +3022,12 @@ func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsag
 
 	//	AMFTNLAssociationAddress in AMFTNLAssociationtoUpdateItem
 	aMFTNLAssociationToUpdateItem := ngapType.AMFTNLAssociationToUpdateItem{}
-	aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.Present = ngapType.CPTransportLayerInformationPresentEndpointIPAddress
-	aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.EndpointIPAddress = new(ngapType.TransportLayerAddress)
-	*aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.EndpointIPAddress = ngapConvert.IPAddressToNgap(amfSelf.HttpIPv4Address, amfSelf.HttpIPv6Address)
+	aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.Present =
+		ngapType.CPTransportLayerInformationPresentEndpointIPAddress
+	aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		new(ngapType.TransportLayerAddress)
+	*aMFTNLAssociationToUpdateItem.AMFTNLAssociationAddress.EndpointIPAddress =
+		ngapConvert.IPAddressToNgap(amfSelf.RegisterIPv4, amfSelf.HttpIPv6Address)
 
 	//	TNLAssociationUsage in AMFTNLAssociationtoUpdateItem [optional]
 	if aMFTNLAssociationToUpdateItem.TNLAssociationUsage != nil {
@@ -2935,8 +3094,13 @@ func BuildDownlinkUEAssociatedNRPPaTransport(ue *context.RanUe, nRPPaPDU ngapTyp
 	ie.Value.Present = ngapType.DownlinkUEAssociatedNRPPaTransportIEsPresentRoutingID
 	ie.Value.RoutingID = new(ngapType.RoutingID)
 
+	var err error
 	routingID := ie.Value.RoutingID
-	routingID.Value, _ = hex.DecodeString(ue.RoutingID)
+	routingID.Value, err = hex.DecodeString(ue.RoutingID)
+	if err != nil {
+		logger.NgapLog.Errorf(
+			"[Build Error] DecodeString ue.RoutingID error: %+v", err)
+	}
 
 	downlinkUEAssociatedNRPPaTransportIEs.List = append(downlinkUEAssociatedNRPPaTransportIEs.List, ie)
 

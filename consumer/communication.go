@@ -12,7 +12,11 @@ import (
 	"free5gc/src/amf/logger"
 )
 
-func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId, sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation, n2NotifyUri string, ngapCause *models.NgApCause) (ueContextCreateData models.UeContextCreateData) {
+func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId,
+	sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation,
+	n2NotifyUri string, ngapCause *models.NgApCause) models.UeContextCreateData {
+
+	var ueContextCreateData models.UeContextCreateData
 
 	ueContext := BuildUeContextModel(ue)
 	ueContextCreateData.UeContext = &ueContext
@@ -29,7 +33,7 @@ func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTar
 		}
 	}
 	ueContextCreateData.NgapCause = ngapCause
-	return
+	return ueContextCreateData
 }
 
 func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
@@ -92,7 +96,7 @@ func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
 	if ue.TraceData != nil {
 		ueContext.TraceData = ue.TraceData
 	}
-	return
+	return ueContext
 }
 
 func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
@@ -111,7 +115,8 @@ func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTrig
 	return
 }
 
-func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error) {
+func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
+	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -136,7 +141,8 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 	return
 }
 
-func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (problemDetails *models.ProblemDetails, err error) {
+func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (
+	problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -156,7 +162,8 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 		ueContextRelease.UnauthenticatedSupi = true
 	}
 
-	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(context.TODO(), ueContextId, ueContextRelease)
+	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(
+		context.TODO(), ueContextId, ueContextRelease)
 	if localErr == nil {
 		return
 	} else if httpResp != nil {
@@ -169,10 +176,12 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 	} else {
 		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
-	return
+	return problemDetails, err
 }
 
-func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
+func UEContextTransferRequest(
+	ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (
+	ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -197,7 +206,8 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessTyp
 		req.BinaryDataN1Message = buf.Bytes()
 	}
 
-	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti) // guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
+	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
+	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
 	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
 	if localErr == nil {
@@ -213,17 +223,19 @@ func UEContextTransferRequest(ue *amf_context.AmfUe, accessType models.AccessTyp
 	} else {
 		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
-	return
+	return ueContextTransferRspData, problemDetails, err
 }
 
 // This operation is called "RegistrationCompleteNotify" at TS 23.502
-func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
+func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (
+	regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(context.TODO(), ueContextId, request)
+	res, httpResp, localErr :=
+		client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(context.TODO(), ueContextId, request)
 	if localErr == nil {
 		regStatusTransferComplete = res.RegStatusTransferComplete
 	} else if httpResp != nil {

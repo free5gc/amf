@@ -7,9 +7,9 @@ import (
 	"free5gc/lib/CommonConsumerTestData/AMF/TestAmf"
 	"free5gc/lib/CommonConsumerTestData/SMF/TestPDUSession"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
 	"free5gc/src/amf/consumer"
-	"free5gc/src/smf/smf_service"
+	"free5gc/src/amf/context"
+	"free5gc/src/smf/service"
 	"testing"
 	"time"
 
@@ -21,7 +21,7 @@ import (
 func smfInit() {
 	flags := flag.FlagSet{}
 	c := cli.NewContext(nil, &flags, nil)
-	smf := &smf_service.SMF{}
+	smf := &service.SMF{}
 	smf.Initialize(c)
 	go smf.Start()
 	time.Sleep(100 * time.Millisecond)

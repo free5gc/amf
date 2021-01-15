@@ -46,11 +46,11 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 	}
 	amfInfo.TaiList = &context.SupportTaiLists
 	profile.AmfInfo = &amfInfo
-	if context.HttpIPv4Address == "" {
+	if context.RegisterIPv4 == "" {
 		err = fmt.Errorf("AMF Address is empty")
 		return
 	}
-	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.HttpIPv4Address)
+	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIPv4)
 	service := []models.NfService{}
 	for _, nfService := range context.NfService {
 		service = append(service, nfService)
@@ -64,11 +64,13 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 		NotificationType: models.NotificationType_N1_MESSAGES,
 		N1MessageClass:   models.N1MessageClass__5_GMM,
 	}
-	profile.DefaultNotificationSubscriptions = append(profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
-	return
+	profile.DefaultNotificationSubscriptions =
+		append(profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
+	return profile, err
 }
 
-func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfile) (resouceNrfUri string, retrieveNfInstanceId string, err error) {
+func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfile) (
+	resouceNrfUri string, retrieveNfInstanceId string, err error) {
 
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
@@ -99,7 +101,7 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 			fmt.Println(fmt.Errorf("NRF return wrong status code %d", status))
 		}
 	}
-	return
+	return resouceNrfUri, retrieveNfInstanceId, err
 }
 
 func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {

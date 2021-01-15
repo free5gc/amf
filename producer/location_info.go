@@ -22,28 +22,29 @@ func HandleProvideLocationInfoRequest(request *http_wrapper.Request) *http_wrapp
 	}
 }
 
-func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (provideLocInfo *models.ProvideLocInfo, problemDetails *models.ProblemDetails) {
+func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (
+	*models.ProvideLocInfo, *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, problemDetails
 	}
 
 	anType := ue.GetAnType()
 	if anType == "" {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, problemDetails
 	}
 
-	provideLocInfo = new(models.ProvideLocInfo)
+	provideLocInfo := new(models.ProvideLocInfo)
 
 	ranUe := ue.RanUe[anType]
 	if requestLocInfo.Req5gsLoc || requestLocInfo.ReqCurrentLoc {
@@ -62,5 +63,5 @@ func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContex
 	if requestLocInfo.SupportedFeatures != "" {
 		provideLocInfo.SupportedFeatures = ranUe.SupportedFeatures
 	}
-	return
+	return provideLocInfo, nil
 }

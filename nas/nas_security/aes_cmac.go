@@ -2,8 +2,11 @@ package nas_security
 
 import (
 	// "encoding/hex"
+	"encoding/hex"
 	"fmt"
 	"free5gc/lib/aes"
+	"free5gc/lib/nas/security"
+	"free5gc/src/amf/logger"
 )
 
 var AES_BLOCK_SIZE int32 = 16
@@ -12,10 +15,12 @@ const (
 	MaxKeyBits int32 = 256
 )
 
+/*
 func printSlice(s string, x []byte) {
 	fmt.Printf("%s len=%d cap=%d %v\n",
 		s, len(x), cap(x), x)
 }
+*/
 
 func rtLength(keybits int) int {
 	return (keybits)/8 + 28
@@ -107,16 +112,15 @@ func GenerateSubkey(key []byte) (K1 []byte, K2 []byte) {
 	// printSlice("K2", K2)
 	// fmt.Printf("%s", hex.Dump(K2))
 
-	return
+	return K1, K2
 }
 
 func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	x := make([]byte, 16)
 	var flag bool
-	K1 := make([]byte, 16)
-	K2 := make([]byte, 16)
+
 	// Step 1.  (K1,K2) := Generate_Subkey(K);
-	K1, K2 = GenerateSubkey(key)
+	K1, K2 := GenerateSubkey(key)
 
 	//  Step 2.  n := ceil(len/const_Bsize);
 	n := (len + 15) / AES_BLOCK_SIZE
@@ -145,9 +149,7 @@ func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	   then M_last := M_n XOR K1;
 	   else M_last := padding(M_n) XOR K2;
 	*/
-	bs := (n - 1) * AES_BLOCK_SIZE
 	// fmt.Println("bs ", bs)
-	var i int32 = 0
 	m_last := make([]byte, 16)
 	// printSlice("msg", msg)
 	// fmt.Printf("%s", hex.Dump(msg))
@@ -156,10 +158,13 @@ func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	//38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
 	//38 a6 f0 56 c0 00 00 00  33 32 34 62 63 39 38 40
 	if flag {
-		for i = 0; i < 16; i++ {
+		bs := (n - 1) * AES_BLOCK_SIZE
+		for i := int32(0); i < 16; i++ {
 			m_last[i] = msg[bs+i] ^ K1[i]
 		}
 	} else {
+		var i int32
+		bs := (n - 1) * AES_BLOCK_SIZE
 		for i = 0; i < len%AES_BLOCK_SIZE; i++ {
 			m_last[i] = msg[bs+i] ^ K2[i]
 		}
@@ -187,22 +192,21 @@ func AesCmacCalculateBlock(cmac []byte, key []byte, msg []byte, len int32) {
 	var nrounds = aes.AesSetupEnc(rk, key, 128)
 	// fmt.Printf("nrounds: %d\n", nrounds)
 	y := make([]byte, 16)
-	var j int32 = 0
 	// fmt.Println("msg ", msg)
 	// fmt.Printf(" %s", hex.Dump(msg))
 	// fmt.Println("n", n)
-	for i = 0; i < n-1; i++ {
-		bs = i * AES_BLOCK_SIZE
+	for i := int32(0); i < n-1; i++ {
+		bs := i * AES_BLOCK_SIZE
 
-		for j = 0; j < 16; j++ {
+		for j := int32(0); j < 16; j++ {
 			y[j] = x[j] ^ msg[bs+j]
 		}
 		aes.AesEncrypt(rk, nrounds, y, x)
 
 	}
 
-	bs = (n - 1) * AES_BLOCK_SIZE
-	for j = 0; j < 16; j++ {
+	//bs = (n - 1) * AES_BLOCK_SIZE
+	for j := int32(0); j < 16; j++ {
 		y[j] = m_last[j] ^ x[j]
 	}
 	aes.AesEncrypt(rk, nrounds, y, cmac)
@@ -227,11 +231,10 @@ M1 || M2 || ... || Mn-1 || Mn*, where M1, M2,..., Mn-1 are complete blocks.2
 func AesCmacCalculateBit(cmac []byte, key []byte, msg []byte, length int32) {
 	plainText := make([]byte, 16)
 	var flag bool
-	K1 := make([]byte, 16)
-	K2 := make([]byte, 16)
+
 	// Step 1.  (K1,K2) := Generate_Subkey(K);
 	// Apply the subkey generation process in Sec. 6.1 to K to produce K1 and K2.
-	K1, K2 = GenerateSubkey(key)
+	K1, K2 := GenerateSubkey(key)
 	// fmt.Printf("k1 %s", hex.Dump(K1))
 	// fmt.Printf("k2 %s", hex.Dump(K2))
 	// fmt.Printf("msg %s", hex.Dump(msg))
@@ -338,5 +341,56 @@ func AesCmacCalculateBit(cmac []byte, key []byte, msg []byte, length int32) {
 	// fmt.Printf("%s", hex.Dump(cipherText))
 
 	copy(cmac, cipherText[:4])
-	return
+}
+
+func NasMacCalculateByAesCmac(AlgoID uint8, KnasInt []byte, Count []byte, Bearer uint8,
+	Direction uint8, msg []byte, length int32) ([]byte, error) {
+	if len(KnasInt) != 16 {
+		return nil, fmt.Errorf("Size of KnasEnc[%d] != 16 bytes)", len(KnasInt))
+	}
+	if Bearer > 0x1f {
+		return nil, fmt.Errorf("Bearer is beyond 5 bits")
+	}
+	if Direction > 1 {
+		return nil, fmt.Errorf("Direction is beyond 1 bits")
+	}
+	if msg == nil {
+		return nil, fmt.Errorf("Nas Payload is nil")
+	}
+
+	switch AlgoID {
+	case security.AlgIntegrity128NIA0:
+		logger.NgapLog.Errorf("NEA1 not implement yet.")
+		return nil, nil
+	case security.AlgIntegrity128NIA2:
+		// Couter[0..32] | BEARER[0..4] | DIRECTION[0] | 0^26
+		m := make([]byte, len(msg)+8)
+
+		//First 32 bits are count
+		copy(m, Count)
+		//Put Bearer and direction together
+		m[4] = (Bearer << 3) | (Direction << 2)
+		copy(m[8:], msg)
+		// var lastBitLen int32
+
+		// lenM := (int32(len(m))) * 8 /* -  lastBitLen*/
+		lenM := length
+		// fmt.Printf("lenM %d\n", lastBitLen)
+		// fmt.Printf("lenM %d\n", lenM)
+
+		logger.NasLog.Debugln("NasMacCalculateByAesCmac", hex.Dump(m))
+		logger.NasLog.Debugln("len(m) \n", len(m))
+
+		cmac := make([]byte, 16)
+
+		AesCmacCalculateBit(cmac, KnasInt, m, lenM)
+		// only get the most significant 32 bits to be mac value
+		return cmac[:4], nil
+
+	case security.AlgIntegrity128NIA3:
+		logger.NgapLog.Errorf("NEA3 not implement yet.")
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("Unknown Algorithm Identity[%d]", AlgoID)
+	}
 }

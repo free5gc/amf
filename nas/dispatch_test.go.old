@@ -24,7 +24,6 @@ import (
 	"free5gc/src/amf/communication"
 	"free5gc/src/amf/consumer"
 	amf_context "free5gc/src/amf/context"
-	"free5gc/src/amf/gmm/state"
 	"free5gc/src/amf/handler"
 	"free5gc/src/amf/logger"
 	"free5gc/src/amf/nas"
@@ -439,11 +438,11 @@ func TestServiceRequest(t *testing.T) {
 	}
 	addNon3gppRan()
 
-	err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
+	err := ue.Sm[models.AccessType_NON_3_GPP_ACCESS].Transfer(amf_context.Registered, nil)
 	assert.True(t, err == nil)
 	time.Sleep(10 * time.Millisecond)
 
-	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(state.REGISTERED, nil)
+	err = ue.Sm[models.AccessType__3_GPP_ACCESS].Transfer(amf_context.Registered, nil)
 	assert.True(t, err == nil)
 	ue.NCC = 5
 	ue.NH, _ = hex.DecodeString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")

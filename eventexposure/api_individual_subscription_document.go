@@ -10,50 +10,86 @@
 package eventexposure
 
 import (
+	"free5gc/lib/http_wrapper"
+	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
+	"free5gc/src/amf/logger"
 	"free5gc/src/amf/producer"
 	"net/http"
-	"reflect"
 
 	"github.com/gin-gonic/gin"
 )
 
 // DeleteSubscription - Namf_EventExposure Unsubscribe service Operation
-func DeleteSubscription(c *gin.Context) {
-	subscriptionId := c.Param("subscriptionId")
-	self := context.AMF_Self()
-	problem := producer.DeleteAMFEventSubscription(self, subscriptionId)
-	if problem.Cause != "" {
-		c.JSON(int(problem.Status), problem)
-	} else {
+func HTTPDeleteSubscription(c *gin.Context) {
+	req := http_wrapper.NewRequest(c.Request, nil)
+	req.Params["subscriptionId"] = c.Param("subscriptionId")
+
+	rsp := producer.HandleDeleteAMFEventSubscription(req)
+
+	if rsp.Status == http.StatusOK {
 		c.JSON(http.StatusOK, gin.H{})
+	} else {
+		responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+		if err != nil {
+			logger.EeLog.Errorln(err)
+			problemDetails := models.ProblemDetails{
+				Status: http.StatusInternalServerError,
+				Cause:  "SYSTEM_FAILURE",
+				Detail: err.Error(),
+			}
+			c.JSON(http.StatusInternalServerError, problemDetails)
+		} else {
+			c.Data(rsp.Status, "application/json", responseBody)
+		}
 	}
 }
 
 // ModifySubscription - Namf_EventExposure Subscribe Modify service Operation
-func ModifySubscription(c *gin.Context) {
-
+func HTTPModifySubscription(c *gin.Context) {
 	var modifySubscriptionRequest models.ModifySubscriptionRequest
-	v := reflect.ValueOf(&modifySubscriptionRequest).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		value := v.Field(i)
-		fieldType := value.Type()
-		ptr := reflect.New(fieldType.Elem())
-		value.Set(ptr)
-		if err := c.ShouldBindJSON(value.Interface()); err == nil {
-			break
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.EeLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
 		}
-		value.Set(reflect.Zero(fieldType))
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
 	}
-	subscriptionId := c.Param("subscriptionId")
-	self := context.AMF_Self()
-	problem := producer.ModifyAMFEventSubscription(self, subscriptionId, modifySubscriptionRequest)
-	if problem.Cause != "" {
-		c.JSON(int(problem.Status), problem)
+
+	err = openapi.Deserialize(&modifySubscriptionRequest, requestBody, "application/json")
+	if err != nil {
+		problemDetail := "[Request Body] " + err.Error()
+		rsp := models.ProblemDetails{
+			Title:  "Malformed request syntax",
+			Status: http.StatusBadRequest,
+			Detail: problemDetail,
+		}
+		logger.EeLog.Errorln(problemDetail)
+		c.JSON(http.StatusBadRequest, rsp)
+		return
+	}
+
+	req := http_wrapper.NewRequest(c.Request, modifySubscriptionRequest)
+	req.Params["subscriptionId"] = c.Param("subscriptionId")
+
+	rsp := producer.HandleModifyAMFEventSubscription(req)
+
+	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
+	if err != nil {
+		logger.EeLog.Errorln(err)
+		problemDetails := models.ProblemDetails{
+			Status: http.StatusInternalServerError,
+			Cause:  "SYSTEM_FAILURE",
+			Detail: err.Error(),
+		}
+		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		response := models.AmfUpdatedEventSubscription{}
-		response.Subscription = &self.EventSubscriptions[subscriptionId].EventSubscription
-		c.JSON(http.StatusOK, response)
+		c.Data(rsp.Status, "application/json", responseBody)
 	}
 }

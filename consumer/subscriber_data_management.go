@@ -2,12 +2,13 @@ package consumer
 
 import (
 	"context"
+
+	"github.com/antihax/optional"
+
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/Nudm_SubscriberDataManagement"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
-
-	"github.com/antihax/optional"
 )
 
 func PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
@@ -36,7 +37,8 @@ func SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
 	}
 
-	data, httpResp, localErr := client.AccessAndMobilitySubscriptionDataRetrievalApi.GetAmData(context.Background(), ue.Supi, &getAmDataParamOpt)
+	data, httpResp, localErr := client.AccessAndMobilitySubscriptionDataRetrievalApi.GetAmData(
+		context.Background(), ue.Supi, &getAmDataParamOpt)
 	if localErr == nil {
 		ue.AccessAndMobilitySubscriptionData = &data
 		ue.Gpsi = data.Gpsis[0] // TODO: select GPSI
@@ -62,7 +64,8 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 	paramOpt := Nudm_SubscriberDataManagement.GetSmfSelectDataParamOpts{
 		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
 	}
-	data, httpResp, localErr := client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(context.Background(), ue.Supi, &paramOpt)
+	data, httpResp, localErr :=
+		client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(context.Background(), ue.Supi, &paramOpt)
 	if localErr == nil {
 		ue.SmfSelectionData = &data
 	} else if httpResp != nil {
@@ -85,7 +88,8 @@ func SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.Pro
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
-	data, httpResp, localErr := client.UEContextInSMFDataRetrievalApi.GetUeContextInSmfData(context.Background(), ue.Supi, nil)
+	data, httpResp, localErr :=
+		client.UEContextInSMFDataRetrievalApi.GetUeContextInSmfData(context.Background(), ue.Supi, nil)
 	if localErr == nil {
 		ue.UeContextInSmfData = &data
 	} else if httpResp != nil {
@@ -138,7 +142,8 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 	paramOpt := Nudm_SubscriberDataManagement.GetNssaiParamOpts{
 		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
 	}
-	nssai, httpResp, localErr := client.SliceSelectionSubscriptionDataRetrievalApi.GetNssai(context.Background(), ue.Supi, &paramOpt)
+	nssai, httpResp, localErr :=
+		client.SliceSelectionSubscriptionDataRetrievalApi.GetNssai(context.Background(), ue.Supi, &paramOpt)
 	if localErr == nil {
 		for _, defaultSnssai := range nssai.DefaultSingleNssais {
 			subscribedSnssai := models.SubscribedSnssai{
@@ -170,5 +175,5 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 	} else {
 		err = openapi.ReportError("server no response")
 	}
-	return
+	return problemDetails, err
 }

@@ -21,7 +21,8 @@ func SendN2InfoNotifyN2Handover(ue *amf_context.AmfUe, releaseList []int32) erro
 		NotifyReason:           models.N2InfoNotifyReason_HANDOVER_COMPLETED,
 	}
 
-	_, httpResponse, err := client.N2MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.N2InfoNotify(context.Background(), ue.HandoverNotifyUri, n2InformationNotification)
+	_, httpResponse, err := client.N2MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.
+		N2InfoNotify(context.Background(), ue.HandoverNotifyUri, n2InformationNotification)
 
 	if err == nil {
 		// TODO: handle Msg

@@ -1,18 +1,17 @@
-package sctp_test
+package service_test
 
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"free5gc/src/amf/handler"
+	"free5gc/src/amf/logger"
+	ngap_service "free5gc/src/amf/ngap/service"
+	"log"
 	"net"
 	"runtime"
 	"testing"
 	"time"
 
-	libsctp "git.cs.nctu.edu.tw/calee/sctp"
-
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/ngap/sctp"
+	"git.cs.nctu.edu.tw/calee/sctp"
 )
 
 var testClientNum = 2
@@ -20,18 +19,20 @@ var testClientNum = 2
 func TestSctpServer(t *testing.T) {
 	runtime.GOMAXPROCS(20)
 
-	go handler.Handle()
-	time.Sleep(200 * time.Microsecond)
+	ngap_service.Run([]string{"127.0.0.1"}, 38412, handleConnection)
 
-	sctp.Server("127.0.0.1")
-	logger.NgapLog.Print("Start Client")
 	for i := 0; i < testClientNum; i++ {
 		time.Sleep(100 * time.Millisecond)
 		go func(clientOrder int) {
 			testClient(clientOrder)
 		}(i)
 	}
+
 	time.Sleep(800 * time.Millisecond)
+}
+
+func handleConnection(conn net.Conn, msg []byte) {
+	log.Printf("receive:\n%+v", hex.Dump(msg))
 }
 
 func testClient(clientOrder int) {
@@ -43,14 +44,14 @@ func testClient(clientOrder int) {
 	} else {
 		ips = append(ips, *ip)
 	}
-	addr := &libsctp.SCTPAddr{
+	addr := &sctp.SCTPAddr{
 		IPAddrs: ips,
 		Port:    38412,
 	}
 	logger.NgapLog.Printf("raw addr: %+v\n", addr.ToRawSockAddrBuf())
 
-	var laddr *libsctp.SCTPAddr
-	conn, err := libsctp.DialSCTP("sctp", laddr, addr)
+	var laddr *sctp.SCTPAddr
+	conn, err := sctp.DialSCTP("sctp", laddr, addr)
 
 	if err != nil {
 		logger.NgapLog.Errorf("failed to dial: %v\n", err)
@@ -61,11 +62,11 @@ func testClient(clientOrder int) {
 		bs := make([]byte, 4)
 		binary.BigEndian.PutUint32(bs, 60)
 		ppid := binary.LittleEndian.Uint32(bs)
-		info := &libsctp.SndRcvInfo{
+		info := &sctp.SndRcvInfo{
 			Stream: uint16(ppid),
 			PPID:   uint32(ppid),
 		}
-		err := conn.SubscribeEvents(libsctp.SCTP_EVENT_DATA_IO)
+		err := conn.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO)
 		if err != nil {
 			logger.NgapLog.Fatalf("Connection Error %v", err)
 		}

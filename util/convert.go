@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"free5gc/lib/openapi/models"
+	"free5gc/src/amf/logger"
 	"strconv"
 )
 
@@ -50,7 +51,10 @@ func PlmnIdStringToModels(plmnId string) (plmnID models.PlmnId) {
 }
 
 func TACConfigToModels(intString string) (hexString string) {
-	tmp, _ := strconv.ParseUint(intString, 10, 32)
+	tmp, err := strconv.ParseUint(intString, 10, 32)
+	if err != nil {
+		logger.UtilLog.Errorf("ParseUint error: %+v", err)
+	}
 	hexString = fmt.Sprintf("%06x", tmp)
 	return
 }

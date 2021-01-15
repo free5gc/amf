@@ -26,7 +26,8 @@ func HandleAMFStatusChangeSubscribeRequest(request *http_wrapper.Request) *http_
 	return http_wrapper.NewResponse(http.StatusCreated, headers, subscriptionDataRsp)
 }
 
-func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (subscriptionDataRsp models.SubscriptionData, locationHeader string, problemDetails *models.ProblemDetails) {
+func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (
+	subscriptionDataRsp models.SubscriptionData, locationHeader string, problemDetails *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	for _, guami := range subscriptionDataReq.GuamiList {
@@ -88,7 +89,8 @@ func HandleAMFStatusChangeSubscribeModify(request *http_wrapper.Request) *http_w
 	updateSubscriptionData := request.Body.(models.SubscriptionData)
 	subscriptionID := request.Params["subscriptionId"]
 
-	updatedSubscriptionData, problemDetails := AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
+	updatedSubscriptionData, problemDetails := AMFStatusChangeSubscribeModifyProcedure(subscriptionID,
+		updateSubscriptionData)
 	if problemDetails != nil {
 		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -96,14 +98,16 @@ func HandleAMFStatusChangeSubscribeModify(request *http_wrapper.Request) *http_w
 	}
 }
 
-func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscriptionData models.SubscriptionData) (updatedSubscriptionData *models.SubscriptionData, problemDetails *models.ProblemDetails) {
+func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscriptionData models.SubscriptionData) (
+	*models.SubscriptionData, *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	if currentSubscriptionData, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusForbidden,
 			Cause:  "Forbidden",
 		}
+		return nil, problemDetails
 	} else {
 		logger.CommLog.Debugf("Modify AMF status subscription[%s]", subscriptionID)
 
@@ -113,7 +117,6 @@ func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscription
 		currentSubscriptionData.AmfStatusUri = subscriptionData.AmfStatusUri
 
 		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, currentSubscriptionData)
-		updatedSubscriptionData = currentSubscriptionData
+		return currentSubscriptionData, nil
 	}
-	return
 }

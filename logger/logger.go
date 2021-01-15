@@ -1,11 +1,10 @@
 package logger
 
 import (
-	"fmt"
 	"os"
-	"runtime"
-	"strings"
+	"time"
 
+	formatter "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 
 	"free5gc/lib/logger_conf"
@@ -28,30 +27,19 @@ var CallbackLog *logrus.Entry
 var UtilLog *logrus.Entry
 var NasLog *logrus.Entry
 var ConsumerLog *logrus.Entry
+var EeLog *logrus.Entry
+var GinLog *logrus.Entry
 
 func init() {
 	log = logrus.New()
-	log.SetReportCaller(true)
+	log.SetReportCaller(false)
 
-	log.Formatter = &logrus.TextFormatter{
-		ForceColors:               true,
-		DisableColors:             false,
-		EnvironmentOverrideColors: false,
-		DisableTimestamp:          false,
-		FullTimestamp:             true,
-		TimestampFormat:           "",
-		DisableSorting:            false,
-		SortingFunc:               nil,
-		DisableLevelTruncation:    false,
-		QuoteEmptyFields:          false,
-		FieldMap:                  nil,
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) {
-			orgFilename, _ := os.Getwd()
-			repopath := orgFilename
-			repopath = strings.Replace(repopath, "/bin", "", 1)
-			filename := strings.Replace(f.File, repopath, "", -1)
-			return fmt.Sprintf("%s()", f.Function), fmt.Sprintf("%s:%d", filename, f.Line)
-		},
+	log.Formatter = &formatter.Formatter{
+		TimestampFormat: time.RFC3339,
+		TrimMessages:    true,
+		NoFieldsSpace:   true,
+		HideKeys:        true,
+		FieldsOrder:     []string{"component", "category"},
 	}
 
 	free5gcLogHook, err := logger_util.NewFileHook(logger_conf.Free5gcLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
@@ -64,21 +52,23 @@ func init() {
 		log.Hooks.Add(selfLogHook)
 	}
 
-	AppLog = log.WithFields(logrus.Fields{"AMF": "app"})
-	InitLog = log.WithFields(logrus.Fields{"AMF": "init"})
-	ContextLog = log.WithFields(logrus.Fields{"AMF": "Context"})
-	NgapLog = log.WithFields(logrus.Fields{"AMF": "NGAP"})
-	HandlerLog = log.WithFields(logrus.Fields{"AMF": "Handler"})
-	HttpLog = log.WithFields(logrus.Fields{"AMF": "HTTP"})
-	GmmLog = log.WithFields(logrus.Fields{"AMF": "Gmm"})
-	MtLog = log.WithFields(logrus.Fields{"AMF": "MT"})
-	ProducerLog = log.WithFields(logrus.Fields{"AMF": "Producer"})
-	LocationLog = log.WithFields(logrus.Fields{"AMF": "LocInfo"})
-	CommLog = log.WithFields(logrus.Fields{"AMF": "Comm"})
-	CallbackLog = log.WithFields(logrus.Fields{"AMF": "Callback"})
-	UtilLog = log.WithFields(logrus.Fields{"AMF": "Util"})
-	NasLog = log.WithFields(logrus.Fields{"AMF": "NAS"})
-	ConsumerLog = log.WithFields(logrus.Fields{"AMF": "Consumer"})
+	AppLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "App"})
+	InitLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Init"})
+	ContextLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Context"})
+	NgapLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "NGAP"})
+	HandlerLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Handler"})
+	HttpLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "HTTP"})
+	GmmLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Gmm"})
+	MtLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "MT"})
+	ProducerLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Producer"})
+	LocationLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "LocInfo"})
+	CommLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Comm"})
+	CallbackLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Callback"})
+	UtilLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Util"})
+	NasLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "NAS"})
+	ConsumerLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Consumer"})
+	EeLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "EventExposure"})
+	GinLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "GIN"})
 }
 
 func SetLogLevel(level logrus.Level) {

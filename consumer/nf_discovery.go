@@ -11,27 +11,27 @@ import (
 	"net/http"
 )
 
-func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (result models.SearchResult, err error) {
+func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
 
 	// Set client and set url
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
 	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
 
-	var res *http.Response
-	result, res, err = client.NFInstancesStoreApi.SearchNFInstances(context.TODO(), targetNfType, requestNfType, param)
+	result, res, err := client.NFInstancesStoreApi.SearchNFInstances(context.TODO(), targetNfType, requestNfType, param)
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
 		err = fmt.Errorf("Temporary Redirect For Non NRF Consumer")
 	}
-	return
+	return result, err
 }
 
-func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
+func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) error {
 
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
-		err = localErr
-		return
+		return localErr
 	}
 
 	// select the first UDM_SDM, TODO: select base on other info
@@ -45,18 +45,19 @@ func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, re
 	}
 	ue.NudmSDMUri = sdmUri
 	if ue.NudmSDMUri == "" {
-		err = fmt.Errorf("AMF can not select an UDM by NRF")
+		err := fmt.Errorf("AMF can not select an UDM by NRF")
 		logger.ConsumerLog.Errorf(err.Error())
+		return err
 	}
-	return
+	return nil
 }
 
-func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
+func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) error {
 
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
-		err = localErr
-		return
+		return localErr
 	}
 
 	// select the first NSSF, TODO: select base on other info
@@ -70,12 +71,13 @@ func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetN
 	}
 	ue.NssfUri = nssfUri
 	if ue.NssfUri == "" {
-		err = fmt.Errorf("AMF can not select an NSSF by NRF")
+		return fmt.Errorf("AMF can not select an NSSF by NRF")
 	}
-	return
+	return nil
 }
 
-func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
+func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType,
+	requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
 
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {

@@ -5,6 +5,7 @@ import (
 	"free5gc/lib/idgenerator"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/logger"
+	"math"
 	"net"
 	"reflect"
 	"strconv"
@@ -15,15 +16,12 @@ import (
 
 var amfContext = AMFContext{}
 var tmsiGenerator *idgenerator.IDGenerator = nil
-var amfUeNgapIdGenerator int64 = 0
+var amfUeNGAPIDGenerator *idgenerator.IDGenerator = nil
 var amfStatusSubscriptionIDGenerator *idgenerator.IDGenerator = nil
 
 func init() {
-	AMF_Self().EventSubscriptions = make(map[string]*AMFContextEventSubscription)
 	AMF_Self().LadnPool = make(map[string]*LADN)
-	AMF_Self().RanUePool = make(map[int64]*RanUe)
-	AMF_Self().RanIdPool = make(map[models.GlobalRanNodeId]*AmfRan)
-	AMF_Self().EventSubscriptionIDGenerator = 1
+	AMF_Self().EventSubscriptionIDGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
 	AMF_Self().Name = "amf"
 	AMF_Self().UriScheme = models.UriScheme_HTTPS
 	AMF_Self().RelativeCapacity = 0xff
@@ -31,18 +29,17 @@ func init() {
 	AMF_Self().PlmnSupportList = make([]PlmnSupportItem, 0, MaxNumOfPLMNs)
 	AMF_Self().NfService = make(map[models.ServiceName]models.NfService)
 	AMF_Self().NetworkName.Full = "free5GC"
-	tmsiGenerator = idgenerator.NewGenerator(1, 2147483647)
-	amfStatusSubscriptionIDGenerator = idgenerator.NewGenerator(1, 2147483647)
+	tmsiGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
+	amfStatusSubscriptionIDGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
+	amfUeNGAPIDGenerator = idgenerator.NewGenerator(1, MaxValueOfAmfUeNgapId)
 }
 
 type AMFContext struct {
-	EventSubscriptionIDGenerator    int
-	EventSubscriptions              map[string]*AMFContextEventSubscription
-	UePool                          sync.Map // map[supi]*AmfUe
-	TmsiPool                        sync.Map // map[tmsi]*AmfUe
-	RanIdPool                       map[models.GlobalRanNodeId]*AmfRan
-	RanUePool                       map[int64]*RanUe // AmfUeNgapId as key
-	AmfRanPool                      sync.Map         // map[remoteAddr.String()]*AmfRan
+	EventSubscriptionIDGenerator    *idgenerator.IDGenerator
+	EventSubscriptions              sync.Map
+	UePool                          sync.Map         // map[supi]*AmfUe
+	RanUePool                       sync.Map         // map[AmfUeNgapID]*RanUe
+	AmfRanPool                      sync.Map         // map[net.Conn]*AmfRan
 	LadnPool                        map[string]*LADN // dnn as key
 	SupportTaiLists                 []models.Tai
 	ServedGuamiList                 []models.Guami
@@ -50,10 +47,11 @@ type AMFContext struct {
 	RelativeCapacity                int64
 	NfId                            string
 	Name                            string
-	NfService                       map[models.ServiceName]models.NfService // use ServiceName as key, nfservice that amf support
+	NfService                       map[models.ServiceName]models.NfService // nfservice that amf support
 	UriScheme                       models.UriScheme
-	HttpIpv4Port                    int
-	HttpIPv4Address                 string
+	BindingIPv4                     string
+	SBIPort                         int
+	RegisterIPv4                    string
 	HttpIPv6Address                 string
 	TNLWeightFactor                 int64
 	SupportDnnLists                 []string
@@ -86,8 +84,8 @@ type NetworkName struct {
 }
 
 type SecurityAlgorithm struct {
-	IntegrityOrder []uint8 // 8bits(NIA1, NIA2, NIA3 , EIA0, EIA1, EIA2, EIA3, ..)
-	CipheringOrder []uint8 // 8bits(NEA1, NEA2, NEA3 , EEA0, EEA1, EEA2, EEA3, ..)
+	IntegrityOrder []uint8 // slice of security.AlgIntegrityXXX
+	CipheringOrder []uint8 // slice of security.AlgCipheringXXX
 }
 
 func NewPlmnSupportItem() (item PlmnSupportItem) {
@@ -104,34 +102,17 @@ func (context *AMFContext) TmsiAllocate() int32 {
 	return int32(tmsi)
 }
 
-func (context *AMFContext) AmfUeNgapIdAlloc() int64 {
-	amfUeNgapIdGenerator %= MaxValueOfAmfUeNgapId
-	amfUeNgapIdGenerator++
-	for {
-		if _, double := context.RanUePool[amfUeNgapIdGenerator]; double {
-			amfUeNgapIdGenerator++
-		} else {
-			break
-		}
-	}
-	return amfUeNgapIdGenerator
+func (context *AMFContext) AllocateAmfUeNgapID() (int64, error) {
+	return amfUeNGAPIDGenerator.Allocate()
 }
 
 func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
-
-	// if ue has a previous tmsi/guti, remove it first
-	if ue.Tmsi != 0 {
-		context.TmsiPool.Delete(ue.Tmsi)
-	}
-
 	servedGuami := context.ServedGuamiList[0]
 	ue.Tmsi = context.TmsiAllocate()
 
 	plmnID := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc
 	tmsiStr := fmt.Sprintf("%08x", ue.Tmsi)
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
-
-	context.TmsiPool.Store(ue.Tmsi, ue)
 }
 
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
@@ -163,19 +144,43 @@ func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.Subs
 	return
 }
 
-func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (subscriptionData *models.SubscriptionData, ok bool) {
-	if value, loadOk := context.AMFStatusSubscriptions.Load(subscriptionID); loadOk {
-		tmp := value.(models.SubscriptionData)
-		subscriptionData = &tmp
-		ok = loadOk
+// Return Value: (subscriptionData *models.SubScriptionData, ok bool)
+func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (*models.SubscriptionData, bool) {
+	if value, ok := context.AMFStatusSubscriptions.Load(subscriptionID); ok {
+		subscriptionData := value.(models.SubscriptionData)
+		return &subscriptionData, ok
 	} else {
-		subscriptionData = nil
+		return nil, false
 	}
-	return
 }
 
 func (context *AMFContext) DeleteAMFStatusSubscription(subscriptionID string) {
 	context.AMFStatusSubscriptions.Delete(subscriptionID)
+	if id, err := strconv.ParseInt(subscriptionID, 10, 64); err != nil {
+		logger.ContextLog.Error(err)
+	} else {
+		amfStatusSubscriptionIDGenerator.FreeID(id)
+	}
+}
+
+func (context *AMFContext) NewEventSubscription(subscriptionID string, subscription *AMFContextEventSubscription) {
+	context.EventSubscriptions.Store(subscriptionID, subscription)
+}
+
+func (context *AMFContext) FindEventSubscription(subscriptionID string) (*AMFContextEventSubscription, bool) {
+	if value, ok := context.EventSubscriptions.Load(subscriptionID); ok {
+		return value.(*AMFContextEventSubscription), ok
+	} else {
+		return nil, false
+	}
+}
+func (context *AMFContext) DeleteEventSubscription(subscriptionID string) {
+	context.EventSubscriptions.Delete(subscriptionID)
+	if id, err := strconv.ParseInt(subscriptionID, 10, 32); err != nil {
+		logger.ContextLog.Error(err)
+	} else {
+		context.EventSubscriptionIDGenerator.FreeID(id)
+	}
 }
 
 func (context *AMFContext) AddAmfUeToUePool(ue *AmfUe, supi string) {
@@ -237,8 +242,52 @@ func (context *AMFContext) NewAmfRan(conn net.Conn) *AmfRan {
 	ran := AmfRan{}
 	ran.SupportedTAList = make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
 	ran.Conn = conn
-	context.AmfRanPool.Store(conn.RemoteAddr().String(), &ran)
+	context.AmfRanPool.Store(conn, &ran)
 	return &ran
+}
+
+// use net.Conn to find RAN context, return *AmfRan and ok bit
+func (context *AMFContext) AmfRanFindByConn(conn net.Conn) (*AmfRan, bool) {
+	if value, ok := context.AmfRanPool.Load(conn); ok {
+		return value.(*AmfRan), ok
+	}
+	return nil, false
+}
+
+// use ranNodeID to find RAN context, return *AmfRan and ok bit
+func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (*AmfRan, bool) {
+	var ran *AmfRan
+	var ok bool
+	context.AmfRanPool.Range(func(key, value interface{}) bool {
+		amfRan := value.(*AmfRan)
+		switch amfRan.RanPresent {
+		case RanPresentGNbId:
+			logger.ContextLog.Infof("aaa: %+v\n", amfRan.RanId.GNbId)
+			if amfRan.RanId.GNbId.GNBValue == ranNodeID.GNbId.GNBValue {
+				ran = amfRan
+				ok = true
+				return false
+			}
+		case RanPresentNgeNbId:
+			if amfRan.RanId.NgeNbId == ranNodeID.NgeNbId {
+				ran = amfRan
+				ok = true
+				return false
+			}
+		case RanPresentN3IwfId:
+			if amfRan.RanId.N3IwfId == ranNodeID.N3IwfId {
+				ran = amfRan
+				ok = true
+				return false
+			}
+		}
+		return true
+	})
+	return ran, ok
+}
+
+func (context *AMFContext) DeleteAmfRan(conn net.Conn) {
+	context.AmfRanPool.Delete(conn)
 }
 
 func (context *AMFContext) InSupportDnnList(targetDnn string) bool {
@@ -274,41 +323,16 @@ func (context *AMFContext) AmfUeFindByPolicyAssociationID(polAssoId string) (ue 
 	return
 }
 
-func (context *AMFContext) AmfRanFindByRanId(ranNodeId models.GlobalRanNodeId) (ran *AmfRan) {
-	context.AmfRanPool.Range(func(key, value interface{}) bool {
-		amfRan := value.(*AmfRan)
-		switch amfRan.RanPresent {
-		case RanPresentGNbId:
-			logger.ContextLog.Infof("aaa: %+v\n", amfRan.RanId.GNbId)
-			if amfRan.RanId.GNbId.GNBValue == ranNodeId.GNbId.GNBValue {
-				ran = amfRan
-				return false
-			}
-		case RanPresentNgeNbId:
-			if amfRan.RanId.NgeNbId == ranNodeId.NgeNbId {
-				ran = amfRan
-				return false
-			}
-		case RanPresentN3IwfId:
-			if amfRan.RanId.N3IwfId == ranNodeId.N3IwfId {
-				ran = amfRan
-				return false
-			}
-		}
-		return true
-	})
-	return
-}
-
 func (context *AMFContext) RanUeFindByAmfUeNgapID(amfUeNgapID int64) *RanUe {
-	if ue, ok := context.RanUePool[amfUeNgapID]; ok {
-		return ue
+	if value, ok := context.RanUePool.Load(amfUeNgapID); ok {
+		return value.(*RanUe)
+	} else {
+		return nil
 	}
-	return nil
 }
 
 func (context *AMFContext) GetIPv4Uri() string {
-	return fmt.Sprintf("%s://%s:%d", context.UriScheme, context.HttpIPv4Address, context.HttpIpv4Port)
+	return fmt.Sprintf("%s://%s:%d", context.UriScheme, context.RegisterIPv4, context.SBIPort)
 }
 
 func (context *AMFContext) InitNFService(serivceName []string, version string) {
@@ -330,9 +354,9 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			ApiPrefix:       context.GetIPv4Uri(),
 			IpEndPoints: &[]models.IpEndPoint{
 				{
-					Ipv4Address: context.HttpIPv4Address,
+					Ipv4Address: context.RegisterIPv4,
 					Transport:   models.TransportProtocol_TCP,
-					Port:        int32(context.HttpIpv4Port),
+					Port:        int32(context.SBIPort),
 				},
 			},
 		}
@@ -348,39 +372,33 @@ func (context *AMFContext) Reset() {
 	for key := range context.LadnPool {
 		delete(context.LadnPool, key)
 	}
-	for key := range context.RanUePool {
-		delete(context.RanUePool, key)
-	}
+	context.RanUePool.Range(func(key, value interface{}) bool {
+		context.RanUePool.Delete(key)
+		return true
+	})
 	context.UePool.Range(func(key, value interface{}) bool {
 		context.UePool.Delete(key)
 		return true
 	})
-	context.TmsiPool.Range(func(key, value interface{}) bool {
-		context.TmsiPool.Delete(key)
+	context.EventSubscriptions.Range(func(key, value interface{}) bool {
+		context.DeleteEventSubscription(key.(string))
 		return true
 	})
-	for key := range context.RanIdPool {
-		delete(context.RanIdPool, key)
-	}
-	for key := range context.EventSubscriptions {
-		delete(context.EventSubscriptions, key)
-	}
 	for key := range context.NfService {
 		delete(context.NfService, key)
 	}
 	context.SupportTaiLists = context.SupportTaiLists[:0]
 	context.PlmnSupportList = context.PlmnSupportList[:0]
 	context.ServedGuamiList = context.ServedGuamiList[:0]
-	context.EventSubscriptionIDGenerator = 1
 	context.RelativeCapacity = 0xff
 	context.NfId = ""
 	context.UriScheme = models.UriScheme_HTTPS
-	context.HttpIpv4Port = 0
-	context.HttpIPv4Address = ""
+	context.SBIPort = 0
+	context.BindingIPv4 = ""
+	context.RegisterIPv4 = ""
 	context.HttpIPv6Address = ""
 	context.Name = "amf"
 	context.NrfUri = ""
-	amfUeNgapIdGenerator = 0
 }
 
 // Create new AMF context

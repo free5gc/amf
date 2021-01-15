@@ -56,8 +56,11 @@ type RanUe struct {
 	/* context used for AMF Re-allocation procedure */
 	OldAmfName            string
 	InitialUEMessage      []byte
-	RRCEstablishmentCause string // Received from initial ue message, value is defined in TS 38.413 9.3.1.111; pattern: ^[0-9a-fA-F]+$
+	RRCEstablishmentCause string // Received from initial ue message; pattern: ^[0-9a-fA-F]+$
 	UeContextRequest      bool
+
+	/* send initial context setup request or not*/
+	SentInitialContextSetupRequest bool
 }
 
 func (ranUe *RanUe) Remove() error {
@@ -72,6 +75,7 @@ func (ranUe *RanUe) Remove() error {
 		ranUe.AmfUe.DetachRanUe(ran.AnType)
 		ranUe.DetachAmfUe()
 	}
+
 	for index, ranUe1 := range ran.RanUeList {
 		if ranUe1 == ranUe {
 			ran.RanUeList = append(ran.RanUeList[:index], ran.RanUeList[index+1:]...)
@@ -79,7 +83,7 @@ func (ranUe *RanUe) Remove() error {
 		}
 	}
 	self := AMF_Self()
-	delete(self.RanUePool, ranUe.AmfUeNgapId)
+	self.RanUePool.Delete(ranUe.AmfUeNgapId)
 	return nil
 }
 
@@ -155,7 +159,8 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 		ranUe.Location.EutraLocation.Ecgi.EutraCellId = eutraCellID
 		ranUe.Location.EutraLocation.UeLocationTimestamp = &curTime
 		if locationInfoEUTRA.TimeStamp != nil {
-			ranUe.Location.EutraLocation.AgeOfLocationInformation = ngapConvert.TimeStampToInt32(locationInfoEUTRA.TimeStamp.Value)
+			ranUe.Location.EutraLocation.AgeOfLocationInformation = ngapConvert.TimeStampToInt32(
+				locationInfoEUTRA.TimeStamp.Value)
 		}
 		if ranUe.AmfUe != nil {
 			if ranUe.AmfUe.Tai != ranUe.Tai {

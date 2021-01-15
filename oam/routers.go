@@ -1,8 +1,11 @@
 package oam
 
 import (
-	"github.com/gin-contrib/cors"
+	"free5gc/lib/logger_util"
+	"free5gc/src/amf/logger"
 	"net/http"
+
+	"github.com/gin-contrib/cors"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,7 +27,7 @@ type Routes []Route
 
 // NewRouter returns a new router.
 func NewRouter() *gin.Engine {
-	router := gin.Default()
+	router := logger_util.NewGinWithLogrus(logger.GinLog)
 	AddService(router)
 
 	router.Use(cors.New(cors.Config{

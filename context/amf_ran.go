@@ -1,6 +1,7 @@
 package context
 
 import (
+	"fmt"
 	"free5gc/lib/ngap/ngapConvert"
 	"free5gc/lib/ngap/ngapType"
 	"free5gc/lib/openapi/models"
@@ -38,25 +39,27 @@ func NewSupportedTAI() (tai SupportedTAI) {
 	return
 }
 
-func (ran *AmfRan) Remove(key string) {
+func (ran *AmfRan) Remove() {
 	ran.RemoveAllUeInRan()
-	AMF_Self().AmfRanPool.Delete(key)
-	if ran.RanId != nil {
-		delete(AMF_Self().RanIdPool, *ran.RanId)
-	}
+	AMF_Self().DeleteAmfRan(ran.Conn)
 }
 
-func (ran *AmfRan) NewRanUe() *RanUe {
+func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	ranUe := RanUe{}
 	self := AMF_Self()
-	amfUeNgapId := self.AmfUeNgapIdAlloc()
-	ranUe.AmfUeNgapId = amfUeNgapId
-	ranUe.RanUeNgapId = RanUeNgapIdUnspecified
+	amfUeNgapID, err := self.AllocateAmfUeNgapID()
+	if err != nil {
+		return nil, fmt.Errorf("Allocate AMF UE NGAP ID error: %+v", err)
+	}
+	ranUe.AmfUeNgapId = amfUeNgapID
+	ranUe.RanUeNgapId = ranUeNgapID
 	ranUe.Ran = ran
+
 	ran.RanUeList = append(ran.RanUeList, &ranUe)
-	self.RanUePool[amfUeNgapId] = &ranUe
-	return &ranUe
+	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
+	return &ranUe, nil
 }
+
 func (ran *AmfRan) RemoveAllUeInRan() {
 	for _, ranUe := range ran.RanUeList {
 		if err := ranUe.Remove(); err != nil {
@@ -71,12 +74,10 @@ func (ran *AmfRan) RanUeFindByRanUeNgapID(ranUeNgapID int64) *RanUe {
 			return ranUe
 		}
 	}
-
 	return nil
 }
 
 func (ran *AmfRan) SetRanId(ranNodeId *ngapType.GlobalRANNodeID) {
-	self := AMF_Self()
 	ranId := ngapConvert.RanIdToModels(*ranNodeId)
 	ran.RanPresent = ranNodeId.Present
 	ran.RanId = &ranId
@@ -85,5 +86,4 @@ func (ran *AmfRan) SetRanId(ranNodeId *ngapType.GlobalRANNodeID) {
 	} else {
 		ran.AnType = models.AccessType__3_GPP_ACCESS
 	}
-	self.RanIdPool[*ran.RanId] = ran
 }

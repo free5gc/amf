@@ -15,7 +15,8 @@ func HandleProvideDomainSelectionInfoRequest(request *http_wrapper.Request) *htt
 	infoClassQuery := request.Query.Get("info-class")
 	supportedFeaturesQuery := request.Query.Get("supported-features")
 
-	ueContextInfo, problemDetails := ProvideDomainSelectionInfoProcedure(ueContextID, infoClassQuery, supportedFeaturesQuery)
+	ueContextInfo, problemDetails := ProvideDomainSelectionInfoProcedure(ueContextID,
+		infoClassQuery, supportedFeaturesQuery)
 	if problemDetails != nil {
 		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -23,19 +24,20 @@ func HandleProvideDomainSelectionInfoRequest(request *http_wrapper.Request) *htt
 	}
 }
 
-func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string, supportedFeaturesQuery string) (ueContextInfo *models.UeContextInfo, problemDetails *models.ProblemDetails) {
+func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string, supportedFeaturesQuery string) (
+	*models.UeContextInfo, *models.ProblemDetails) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, problemDetails
 	}
 
-	ueContextInfo = new(models.UeContextInfo)
+	ueContextInfo := new(models.UeContextInfo)
 
 	// TODO: Error Status 307, 403 in TS29.518 Table 6.3.3.3.3.1-3
 	anType := ue.GetAnType()
@@ -49,5 +51,5 @@ func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery stri
 		ueContextInfo.SupportVoPSn3gpp = ranUe.SupportVoPSn3gpp
 	}
 
-	return
+	return ueContextInfo, nil
 }

@@ -4,18 +4,21 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strconv"
+
+	"github.com/antihax/optional"
+
 	"free5gc/lib/nas/nasType"
 	"free5gc/lib/openapi"
 	"free5gc/lib/openapi/Nausf_UEAuthentication"
 	"free5gc/lib/openapi/models"
 	amf_context "free5gc/src/amf/context"
-	"net/url"
-	"strconv"
-
-	"github.com/antihax/optional"
+	"free5gc/src/amf/logger"
 )
 
-func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe, resynchronizationInfo *models.ResynchronizationInfo) (response *models.UeAuthenticationCtx, problemDetails *models.ProblemDetails, err1 error) {
+func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
+	resynchronizationInfo *models.ResynchronizationInfo) (*models.UeAuthenticationCtx, *models.ProblemDetails, error) {
 	configuration := Nausf_UEAuthentication.NewConfiguration()
 	configuration.SetBasePath(ue.AusfUri)
 
@@ -26,32 +29,38 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe, resynchroniz
 
 	var authInfo models.AuthenticationInfo
 	authInfo.SupiOrSuci = ue.Suci
-	mnc, _ := strconv.Atoi(servedGuami.PlmnId.Mnc)
-	authInfo.ServingNetworkName = fmt.Sprintf("5G:mnc%03d.mcc%s.3gppnetwork.org", mnc, servedGuami.PlmnId.Mcc)
+	if mnc, err := strconv.Atoi(servedGuami.PlmnId.Mnc); err != nil {
+		return nil, nil, err
+	} else {
+		authInfo.ServingNetworkName = fmt.Sprintf("5G:mnc%03d.mcc%s.3gppnetwork.org", mnc, servedGuami.PlmnId.Mcc)
+	}
 	if resynchronizationInfo != nil {
 		authInfo.ResynchronizationInfo = resynchronizationInfo
 	}
 
 	ueAuthenticationCtx, httpResponse, err := client.DefaultApi.UeAuthenticationsPost(context.Background(), authInfo)
 	if err == nil {
-		response = &ueAuthenticationCtx
+		return &ueAuthenticationCtx, nil, nil
 	} else if httpResponse != nil {
 		if httpResponse.Status != err.Error() {
-			err1 = err
-			return
+			return nil, nil, err
 		}
 		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
+		return nil, &problem, nil
 	} else {
-		err1 = openapi.ReportError("server no response")
+		return nil, nil, openapi.ReportError("server no response")
 	}
-	return
 }
 
-func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (response *models.ConfirmationDataResponse, problemDetails *models.ProblemDetails, err1 error) {
+func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
+	*models.ConfirmationDataResponse, *models.ProblemDetails, error) {
 
-	confirmUri, _ := url.Parse(ue.AuthenticationCtx.Links["link"].Href)
-	ausfUri := fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
+	var ausfUri string
+	if confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["link"].Href); err != nil {
+		return nil, nil, err
+	} else {
+		ausfUri = fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
+	}
 
 	configuration := Nausf_UEAuthentication.NewConfiguration()
 	configuration.SetBasePath(ausfUri)
@@ -63,29 +72,32 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (respons
 		}),
 	}
 
-	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(context.Background(), ue.Suci, confirmData)
+	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
+		context.Background(), ue.Suci, confirmData)
 	if err == nil {
-		response = &confirmResult
+		return &confirmResult, nil, nil
 	} else if httpResponse != nil {
 		if httpResponse.Status != err.Error() {
-			err1 = err
-			return
+			return nil, nil, err
 		}
 		switch httpResponse.StatusCode {
 		case 400, 500:
 			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetails = &problem
+			return nil, &problem, nil
 		}
+		return nil, nil, nil
 	} else {
-		err1 = openapi.ReportError("server no response")
+		return nil, nil, openapi.ReportError("server no response")
 	}
-
-	return
 }
 
-func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (response *models.EapSession, problemDetails *models.ProblemDetails, err1 error) {
+func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
+	response *models.EapSession, problemDetails *models.ProblemDetails, err1 error) {
 
-	confirmUri, _ := url.Parse(ue.AuthenticationCtx.Links["link"].Href)
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["link"].Href)
+	if err != nil {
+		logger.ConsumerLog.Errorf("url Parse failed: %+v", err)
+	}
 	ausfUri := fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
 
 	configuration := Nausf_UEAuthentication.NewConfiguration()
@@ -115,5 +127,5 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 		err1 = openapi.ReportError("server no response")
 	}
 
-	return
+	return response, problemDetails, err1
 }

@@ -1,26 +1,27 @@
 package nas
 
 import (
-	"fmt"
+	"errors"
 	"free5gc/lib/fsm"
 	"free5gc/lib/nas"
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/context"
 	"free5gc/src/amf/gmm"
-	"free5gc/src/amf/logger"
 )
 
-func Dispatch(ue *context.AmfUe, anType models.AccessType, procedureCode int64, msg *nas.Message) error {
-	if msg.GmmMessage != nil {
-		args := make(fsm.Args)
-		args[gmm.AMF_UE] = ue
-		args[gmm.NAS_MESSAGE] = msg
-		args[gmm.PROCEDURE_CODE] = procedureCode
-		return ue.Sm[anType].SendEvent(gmm.EVENT_GMM_MESSAGE, args)
-	} else if msg.GsmMessage != nil {
-		logger.NasLog.Warn("GSM Message should include in GMM Message")
-	} else {
-		return fmt.Errorf("Nas Payload is Empty")
+func Dispatch(ue *context.AmfUe, accessType models.AccessType, procedureCode int64, msg *nas.Message) error {
+	if msg.GmmMessage == nil {
+		return errors.New("Gmm Message is nil")
 	}
-	return nil
+
+	if msg.GsmMessage != nil {
+		return errors.New("GSM Message should include in GMM Message")
+	}
+
+	return gmm.GmmFSM.SendEvent(ue.State[accessType], gmm.GmmMessageEvent, fsm.ArgsType{
+		gmm.ArgAmfUe:         ue,
+		gmm.ArgAccessType:    accessType,
+		gmm.ArgNASMessage:    msg.GmmMessage,
+		gmm.ArgProcedureCode: procedureCode,
+	})
 }

@@ -5,7 +5,6 @@ import (
 	"free5gc/lib/openapi/models"
 	"free5gc/src/amf/consumer"
 	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm"
 	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
@@ -26,24 +25,24 @@ func HandleCreateUEContextRequest(request *http_wrapper.Request) *http_wrapper.R
 	}
 }
 
-func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (createUeContextResponse *models.CreateUeContextResponse, ueContextCreateError *models.UeContextCreateError) {
+func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
+	*models.CreateUeContextResponse, *models.UeContextCreateError) {
 	amfSelf := context.AMF_Self()
 	ueContextCreateData := createUeContextRequest.JsonData
 
-	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil || ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil || ueContextCreateData.N2NotifyUri == "" {
-		ueContextCreateError = &models.UeContextCreateError{
+	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
+		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
+		ueContextCreateData.N2NotifyUri == "" {
+		ueContextCreateError := &models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
 				Cause:  "HANDOVER_FAILURE",
 			},
 		}
-		return
+		return nil, ueContextCreateError
 	}
 	// create the UE context in target amf
 	ue := amfSelf.NewAmfUe(ueContextID)
-	if err := gmm.InitAmfUeSm(ue); err != nil {
-		HttpLog.Errorf("InitAmfUeSm error: %v", err.Error())
-	}
 	//amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
 	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
 	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
@@ -55,7 +54,7 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
-	amfSelf.AmfRanFindByRanId(*ueContextCreateData.TargetId.RanNodeId)
+	amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
@@ -65,11 +64,11 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	//should be smInfo list
 
-	for _, smInfo := range ueContextCreateData.PduSessionList {
-		if smInfo.N2InfoContent.NgapIeType == "NgapIeType_HANDOVER_REQUIRED" {
-			// ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo = &smInfo
-		}
-	}
+	//for _, smInfo := range ueContextCreateData.PduSessionList {
+	//if smInfo.N2InfoContent.NgapIeType == "NgapIeType_HANDOVER_REQUIRED" {
+	// ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo = &smInfo
+	//}
+	//}
 
 	ue.RoutingIndicator = ueContextCreateData.UeContext.RoutingIndicator
 
@@ -101,16 +100,18 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	//ueContextCreateData.UeContext.MmContextList
 	//ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
 	//ue.TraceData = ueContextCreateData.UeContext.TraceData
-	createUeContextResponse = new(models.CreateUeContextResponse)
+	createUeContextResponse := new(models.CreateUeContextResponse)
 	createUeContextResponse.JsonData = &models.UeContextCreatedData{
 		UeContext: &models.UeContext{
 			Supi: ueContextCreateData.UeContext.Supi,
 		},
 	}
 
-	// response.JsonData.TargetToSourceData = ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
+	// response.JsonData.TargetToSourceData =
+	// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
 	createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-	createUeContextResponse.JsonData.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+	createUeContextResponse.JsonData.PcfReselectedInd = false
+	// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 
 	//response.UeContext = ueContextCreateData.UeContext
 	//response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
@@ -119,7 +120,7 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	//
 
 	// return http_wrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-	return
+	return createUeContextResponse, nil
 }
 
 // TS 29.518 5.2.2.2.4
@@ -137,25 +138,25 @@ func HandleReleaseUEContextRequest(request *http_wrapper.Request) *http_wrapper.
 	}
 }
 
-func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeContextRelease) (problemDetails *models.ProblemDetails) {
+func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeContextRelease) *models.ProblemDetails {
 	amfSelf := context.AMF_Self()
 
 	// TODO: UE is emergency registered and the SUPI is not authenticated
 	if ueContextRelease.Supi != "" {
 		logger.GmmLog.Warnf("Emergency registered UE is not supported.")
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusForbidden,
 			Cause:  "UNSPECIFIED",
 		}
-		return
+		return problemDetails
 	}
 
 	if ueContextRelease.NgapCause == nil {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING",
 		}
-		return
+		return problemDetails
 	}
 
 	logger.CommLog.Debugf("Release UE Context NGAP cause: %+v", ueContextRelease.NgapCause)
@@ -163,13 +164,14 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 	if ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID); ok {
 		ue.Remove()
 	} else {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
+		return problemDetails
 	}
 
-	return
+	return nil
 }
 
 // TS 29.518 5.2.2.2.1
@@ -187,47 +189,49 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 	}
 }
 
-func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest models.UeContextTransferRequest) (ueContextTransferResponse *models.UeContextTransferResponse, problemDetails *models.ProblemDetails) {
+func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest models.UeContextTransferRequest) (
+	*models.UeContextTransferResponse, *models.ProblemDetails) {
 
 	amfSelf := context.AMF_Self()
 
 	if ueContextTransferRequest.JsonData == nil {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING",
 		}
-		return
+		return nil, problemDetails
 	}
 
 	UeContextTransferReqData := ueContextTransferRequest.JsonData
 
 	if UeContextTransferReqData.AccessType == "" || UeContextTransferReqData.Reason == "" {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING",
 		}
-		return
+		return nil, problemDetails
 	}
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, problemDetails
 	}
 
+	var ueContextTransferResponse *models.UeContextTransferResponse
 	ueContextTransferResponse.JsonData = new(models.UeContextTransferRspData)
 	ueContextTransferRspData := ueContextTransferResponse.JsonData
 
-	if ue.GetAnType() != UeContextTransferReqData.AccessType {
-		for _, tai := range ue.RegistrationArea[ue.GetAnType()] {
-			if UeContextTransferReqData.PlmnId == tai.PlmnId {
-				// TODO : generate N2 signalling
-			}
-		}
-	}
+	//if ue.GetAnType() != UeContextTransferReqData.AccessType {
+	//for _, tai := range ue.RegistrationArea[ue.GetAnType()] {
+	//if UeContextTransferReqData.PlmnId == tai.PlmnId {
+	// TODO : generate N2 signalling
+	//}
+	//}
+	//}
 
 	switch UeContextTransferReqData.Reason {
 	case models.TransferReason_INIT_REG:
@@ -238,9 +242,9 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
 
-		sessionContextList := ueContextTransferRspData.UeContext.SessionContextList
+		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
 		for _, smContext := range ue.SmContextList {
-			sessionContextList = append(sessionContextList, *smContext.PduSessionContext)
+			*sessionContextList = append(*sessionContextList, *smContext.PduSessionContext)
 		}
 
 		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
@@ -255,9 +259,9 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	case models.TransferReason_MOBI_REG_UE_VALIDATED:
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
 
-		sessionContextList := ueContextTransferRspData.UeContext.SessionContextList
+		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
 		for _, smContext := range ue.SmContextList {
-			sessionContextList = append(sessionContextList, *smContext.PduSessionContext)
+			*sessionContextList = append(*sessionContextList, *smContext.PduSessionContext)
 		}
 
 		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
@@ -271,7 +275,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		copy(ueContextTransferResponse.BinaryDataN2Information, b)
 	default:
 		logger.ProducerLog.Warnf("Invalid Transfer Reason: %+v", UeContextTransferReqData.Reason)
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusForbidden,
 			Cause:  "MANDATORY_IE_INCORRECT",
 			InvalidParams: []models.InvalidParam{
@@ -280,12 +284,13 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 				},
 			},
 		}
+		return nil, problemDetails
 	}
-	return
+	return ueContextTransferResponse, nil
 }
 
-func buildUEContextModel(ue *context.AmfUe) (ueContext *models.UeContext) {
-	ueContext = new(models.UeContext)
+func buildUEContextModel(ue *context.AmfUe) *models.UeContext {
+	ueContext := new(models.UeContext)
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 
@@ -344,7 +349,7 @@ func buildUEContextModel(ue *context.AmfUe) (ueContext *models.UeContext) {
 	if ue.TraceData != nil {
 		ueContext.TraceData = ue.TraceData
 	}
-	return
+	return ueContext
 }
 
 func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
@@ -380,26 +385,30 @@ func HandleAssignEbiDataRequest(request *http_wrapper.Request) *http_wrapper.Res
 	}
 }
 
-func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (assignedEbiData *models.AssignedEbiData, assignEbiError *models.AssignEbiError, problemDetails *models.ProblemDetails) {
+func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (
+	*models.AssignedEbiData, *models.AssignEbiError, *models.ProblemDetails) {
 
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, nil, problemDetails
 	}
 
+	// TODO: AssignEbiError not used, check it!
 	if ue.SmContextList[assignEbiData.PduSessionId] != nil {
+		var assignedEbiData *models.AssignedEbiData
 		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
 		assignedEbiData.AssignedEbiList = ue.SmContextList[assignEbiData.PduSessionId].PduSessionContext.AllocatedEbiList
+		return assignedEbiData, nil, nil
 	} else {
 		logger.ProducerLog.Errorln("ue.SmContextList is nil")
+		return nil, nil, nil
 	}
-	return
 }
 
 // TS 29.518 5.2.2.2.2
@@ -417,29 +426,30 @@ func HandleRegistrationStatusUpdateRequest(request *http_wrapper.Request) *http_
 	}
 }
 
-func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (ueRegStatusUpdateRspData *models.UeRegStatusUpdateRspData, problemDetails *models.ProblemDetails) {
+func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (
+	*models.UeRegStatusUpdateRspData, *models.ProblemDetails) {
 
 	amfSelf := context.AMF_Self()
 
 	// ueContextID must be a 5g GUTI (TS 29.518 6.1.3.2.4.5.1)
 	if !strings.HasPrefix(ueContextID, "5g-guti") {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusForbidden,
 			Cause:  "UNSPECIFIED",
 		}
-		return
+		return nil, problemDetails
 	}
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
-		problemDetails = &models.ProblemDetails{
+		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
-		return
+		return nil, problemDetails
 	}
 
-	ueRegStatusUpdateRspData = new(models.UeRegStatusUpdateRspData)
+	ueRegStatusUpdateRspData := new(models.UeRegStatusUpdateRspData)
 
 	if ueRegStatusUpdateReqData.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
 		// remove the individual ueContext resource and release any PDU session(s)
@@ -473,5 +483,5 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 	}
 
 	ueRegStatusUpdateRspData.RegStatusTransferComplete = true
-	return
+	return ueRegStatusUpdateRspData, nil
 }
