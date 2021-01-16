@@ -1,13 +1,14 @@
 package producer
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi/models"
 )
 
 func HandleCreateAMFEventSubscription(request *http_wrapper.Request) *http_wrapper.Response {
@@ -30,7 +31,6 @@ func HandleCreateAMFEventSubscription(request *http_wrapper.Request) *http_wrapp
 // TODO: handle event filter
 func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreateEventSubscription) (
 	*models.AmfCreatedEventSubscription, *models.ProblemDetails) {
-
 	amfSelf := context.AMF_Self()
 
 	createdEventSubscription := &models.AmfCreatedEventSubscription{}
@@ -89,7 +89,6 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 			}
 			return true
 		})
-
 	} else {
 		if ue, ok := amfSelf.AmfUeFindBySupi(subscription.Supi); !ok {
 			problemDetails := &models.ProblemDetails{
@@ -131,7 +130,7 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 				}
 			}
 			// delete subscription
-			if len := len(reportlist); len > 0 && (!reportlist[len-1].State.Active) {
+			if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
 				delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 			}
 			return true
@@ -152,7 +151,7 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 					}
 				}
 				// delete subscription
-				if len := len(reportlist); len > 0 && (!reportlist[len-1].State.Active) {
+				if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
 					delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 				}
 			}
@@ -172,7 +171,7 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 			}
 		}
 		// delete subscription
-		if len := len(reportlist); len > 0 && (!reportlist[len-1].State.Active) {
+		if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
 			delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 		}
 	}
@@ -246,7 +245,6 @@ func ModifyAMFEventSubscriptionProcedure(
 	subscriptionID string,
 	modifySubscriptionRequest models.ModifySubscriptionRequest) (
 	*models.AmfUpdatedEventSubscription, *models.ProblemDetails) {
-
 	amfSelf := context.AMF_Self()
 
 	contextSubscription, ok := amfSelf.FindEventSubscription(subscriptionID)
@@ -281,15 +279,15 @@ func ModifyAMFEventSubscriptionProcedure(
 			return nil, problemDetails
 		}
 		lists := (*subscription.EventList)
-		len := len(*subscription.EventList)
+		eventlistLen := len(*subscription.EventList)
 		switch op {
 		case "replace":
 			event := *modifySubscriptionRequest.SubscriptionItemInner.Value
-			if index < len {
+			if index < eventlistLen {
 				(*subscription.EventList)[index] = event
 			}
 		case "remove":
-			if index < len {
+			if index < eventlistLen {
 				*subscription.EventList = append(lists[:index], lists[index+1:]...)
 			}
 		case "add":
@@ -379,11 +377,9 @@ func NewAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscription
 		report.SubscriptionId = subscriptionId
 	}
 	return report, ok
-
 }
 
 func getDuration(expiry *time.Time, remainDuration *int32) bool {
-
 	if expiry != nil {
 		if time.Now().After(*expiry) {
 			return false
@@ -393,5 +389,4 @@ func getDuration(expiry *time.Time, remainDuration *int32) bool {
 		}
 	}
 	return true
-
 }

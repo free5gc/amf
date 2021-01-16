@@ -11,14 +11,16 @@ package communication
 
 import (
 	"fmt"
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/producer"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/producer"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/models"
 )
 
 // N1N2MessageTransfer - Namf_Communication N1N2 Message Transfer (UE Specific) service Operation
@@ -86,7 +88,6 @@ func HTTPN1N2MessageTransfer(c *gin.Context) {
 }
 
 func HTTPN1N2MessageTransferStatus(c *gin.Context) {
-
 	req := http_wrapper.NewRequest(c.Request, nil)
 	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
 	req.Params["reqUri"] = c.Request.RequestURI

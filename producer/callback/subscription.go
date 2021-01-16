@@ -2,11 +2,12 @@ package callback
 
 import (
 	"context"
-	"free5gc/lib/openapi/Namf_Communication"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"reflect"
+
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi/Namf_Communication"
+	"github.com/free5gc/openapi/models"
 )
 
 func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
@@ -18,12 +19,12 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 		configuration := Namf_Communication.NewConfiguration()
 		client := Namf_Communication.NewAPIClient(configuration)
 		amfStatusNotification := models.AmfStatusChangeNotification{}
-		var amfStatusInfo = models.AmfStatusInfo{}
+		amfStatusInfo := models.AmfStatusInfo{}
 
 		for _, guami := range guamiList {
 			for _, subGumi := range subscriptionData.GuamiList {
 				if reflect.DeepEqual(guami, subGumi) {
-					//AMF status is available
+					// AMF status is available
 					amfStatusInfo.GuamiList = append(amfStatusInfo.GuamiList, guami)
 				}
 			}

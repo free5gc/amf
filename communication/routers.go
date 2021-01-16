@@ -10,14 +10,14 @@
 package communication
 
 import (
-	"free5gc/lib/logger_util"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
-	"github.com/gin-gonic/gin"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/logger_util"
 )
 
 var HttpLog *logrus.Entry

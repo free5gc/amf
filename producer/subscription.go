@@ -1,12 +1,13 @@
 package producer
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"reflect"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi/models"
 )
 
 // TS 29.518 5.2.2.5.1
@@ -33,7 +34,7 @@ func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionDa
 	for _, guami := range subscriptionDataReq.GuamiList {
 		for _, servedGumi := range amfSelf.ServedGuamiList {
 			if reflect.DeepEqual(guami, servedGumi) {
-				//AMF status is available
+				// AMF status is available
 				subscriptionDataRsp.GuamiList = append(subscriptionDataRsp.GuamiList, guami)
 			}
 		}

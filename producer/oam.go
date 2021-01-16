@@ -1,12 +1,13 @@
 package producer
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"strconv"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi/models"
 )
 
 type PduSession struct {
@@ -84,6 +85,7 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 
 	return ueContexts, nil
 }
+
 func buildUEContext(ue *context.AmfUe, accessType models.AccessType) *UEContext {
 	if ue.State[accessType].Is(context.Registered) {
 		ueContext := &UEContext{
@@ -95,21 +97,20 @@ func buildUEContext(ue *context.AmfUe, accessType models.AccessType) *UEContext 
 			Tac:        ue.Tai.Tac,
 		}
 
-		for _, smContext := range ue.SmContextList {
-			pduSessionContext := smContext.PduSessionContext
-			if pduSessionContext != nil {
-				if pduSessionContext.AccessType == accessType {
-					pduSession := PduSession{
-						PduSessionId: strconv.Itoa(int(pduSessionContext.PduSessionId)),
-						SmContextRef: pduSessionContext.SmContextRef,
-						Sst:          strconv.Itoa(int(pduSessionContext.SNssai.Sst)),
-						Sd:           pduSessionContext.SNssai.Sd,
-						Dnn:          pduSessionContext.Dnn,
-					}
-					ueContext.PduSessions = append(ueContext.PduSessions, pduSession)
+		ue.SmContextList.Range(func(key, value interface{}) bool {
+			smContext := value.(*context.SmContext)
+			if smContext.AccessType() == accessType {
+				pduSession := PduSession{
+					PduSessionId: strconv.Itoa(int(smContext.PduSessionID())),
+					SmContextRef: smContext.SmContextRef(),
+					Sst:          strconv.Itoa(int(smContext.Snssai().Sst)),
+					Sd:           smContext.Snssai().Sd,
+					Dnn:          smContext.Dnn(),
 				}
+				ueContext.PduSessions = append(ueContext.PduSessions, pduSession)
 			}
-		}
+			return true
+		})
 
 		if ue.CmConnect(accessType) {
 			ueContext.CmState = models.CmState_CONNECTED

@@ -3,30 +3,37 @@ package consumer
 import (
 	"context"
 	"encoding/json"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/Nnssf_NSSelection"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
-	"free5gc/src/nssf/logger"
 
 	"github.com/antihax/optional"
+
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/Nnssf_NSSelection"
+	"github.com/free5gc/openapi/models"
 )
 
-func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.Snssai) (
+func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.MappingOfSnssai) (
 	*models.ProblemDetails, error) {
 	configuration := Nnssf_NSSelection.NewConfiguration()
 	configuration.SetBasePath(ue.NssfUri)
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
 
 	amfSelf := amf_context.AMF_Self()
-	sliceInfoForRegistration := models.SliceInfoForRegistration{
-		RequestedNssai:  requestedNssai,
+	sliceInfo := models.SliceInfoForRegistration{
 		SubscribedNssai: ue.SubscribedNssai,
 	}
 
+	for _, snssai := range requestedNssai {
+		sliceInfo.RequestedNssai = append(sliceInfo.RequestedNssai, *snssai.ServingSnssai)
+		if snssai.HomeSnssai != nil {
+			sliceInfo.MappingOfNssai = append(sliceInfo.MappingOfNssai, snssai)
+		}
+	}
+
 	var paramOpt Nnssf_NSSelection.NSSelectionGetParamOpts
-	if e, err := json.Marshal(sliceInfoForRegistration); err != nil {
-		logger.Nsselection.Warnf("json marshal failed: %+v", err)
+	if e, err := json.Marshal(sliceInfo); err != nil {
+		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
 	} else {
 		paramOpt = Nnssf_NSSelection.NSSelectionGetParamOpts{
 			SliceInfoRequestForRegistration: optional.NewInterface(string(e)),
@@ -68,7 +75,7 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 
 	e, err := json.Marshal(sliceInfoForPduSession)
 	if err != nil {
-		logger.Nsselection.Warnf("json marshal failed: %+v", err)
+		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
 	}
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),

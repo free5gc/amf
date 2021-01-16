@@ -1,8 +1,9 @@
 package context
 
 import (
-	"free5gc/lib/openapi/models"
 	"time"
+
+	"github.com/free5gc/openapi/models"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 	MaxNumOfPDUSessions               int   = 256
 	MaxNumOfDRBs                      int   = 32
 	MaxNumOfAOI                       int   = 64
-	MaxT3513RetryTimes                int   = 3
+	MaxT3513RetryTimes                int   = 4
 	MaxT3522RetryTimes                int   = 4
 	MaxT3550RetryTimes                int   = 4
 	MaxT3560RetryTimes                int   = 4

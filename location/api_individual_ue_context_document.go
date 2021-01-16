@@ -10,14 +10,15 @@
 package location
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/producer"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/producer"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/models"
 )
 
 // ProvideLocationInfo - Namf_Location ProvideLocationInfo service Operation
