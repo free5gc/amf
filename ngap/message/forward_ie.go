@@ -2,11 +2,12 @@ package message
 
 import (
 	"encoding/hex"
-	"free5gc/lib/ngap/ngapConvert"
-	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/ngap/ngapConvert"
+	"github.com/free5gc/ngap/ngapType"
+	"github.com/free5gc/openapi/models"
 )
 
 func AppendPDUSessionResourceSetupListSUReq(list *ngapType.PDUSessionResourceSetupListSUReq,
@@ -30,6 +31,7 @@ func AppendPDUSessionResourceSetupListHOReq(list *ngapType.PDUSessionResourceSet
 	item.HandoverRequestTransfer = transfer
 	list.List = append(list.List, item)
 }
+
 func AppendPDUSessionResourceSetupListCxtReq(list *ngapType.PDUSessionResourceSetupListCxtReq,
 	pduSessionId int32, snssai models.Snssai, nasPDU []byte, transfer []byte) {
 	var item ngapType.PDUSessionResourceSetupItemCxtReq

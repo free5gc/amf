@@ -2,11 +2,14 @@ package context
 
 import (
 	"fmt"
-	"free5gc/lib/ngap/ngapConvert"
-	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"net"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/ngap/ngapConvert"
+	"github.com/free5gc/ngap/ngapType"
+	"github.com/free5gc/openapi/models"
 )
 
 const (
@@ -27,6 +30,9 @@ type AmfRan struct {
 
 	/* RAN UE List */
 	RanUeList []*RanUe // RanUeNgapId as key
+
+	/* logger */
+	Log *logrus.Entry
 }
 
 type SupportedTAI struct {
@@ -40,6 +46,7 @@ func NewSupportedTAI() (tai SupportedTAI) {
 }
 
 func (ran *AmfRan) Remove() {
+	ran.Log.Infof("Remove RAN Context[ID: %+v]", ran.RanID())
 	ran.RemoveAllUeInRan()
 	AMF_Self().DeleteAmfRan(ran.Conn)
 }
@@ -54,6 +61,7 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	ranUe.AmfUeNgapId = amfUeNgapID
 	ranUe.RanUeNgapId = ranUeNgapID
 	ranUe.Ran = ran
+	ranUe.Log = ran.Log.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
 
 	ran.RanUeList = append(ran.RanUeList, &ranUe)
 	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
@@ -85,5 +93,18 @@ func (ran *AmfRan) SetRanId(ranNodeId *ngapType.GlobalRANNodeID) {
 		ran.AnType = models.AccessType_NON_3_GPP_ACCESS
 	} else {
 		ran.AnType = models.AccessType__3_GPP_ACCESS
+	}
+}
+
+func (ran *AmfRan) RanID() string {
+	switch ran.RanPresent {
+	case RanPresentGNbId:
+		return fmt.Sprintf("<PlmnID: %+v, GNbID: %s>", *ran.RanId.PlmnId, ran.RanId.GNbId.GNBValue)
+	case RanPresentN3IwfId:
+		return fmt.Sprintf("<PlmnID: %+v, N3IwfID: %s>", *ran.RanId.PlmnId, ran.RanId.N3IwfId)
+	case RanPresentNgeNbId:
+		return fmt.Sprintf("<PlmnID: %+v, NgeNbID: %s>", *ran.RanId.PlmnId, ran.RanId.NgeNbId)
+	default:
+		return ""
 	}
 }

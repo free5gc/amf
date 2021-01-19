@@ -1,9 +1,9 @@
 package gmm
 
 import (
-	"free5gc/lib/fsm"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/fsm"
 )
 
 const (

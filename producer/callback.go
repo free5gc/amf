@@ -2,20 +2,23 @@ package producer
 
 import (
 	"fmt"
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/context"
-	gmm_message "free5gc/src/amf/gmm/message"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/nas"
-	ngap_message "free5gc/src/amf/ngap/message"
 	"net/http"
 	"strconv"
 
 	"github.com/mohae/deepcopy"
+
+	"github.com/free5gc/amf/consumer"
+	"github.com/free5gc/amf/context"
+	gmm_message "github.com/free5gc/amf/gmm/message"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/nas"
+	ngap_message "github.com/free5gc/amf/ngap/message"
+	"github.com/free5gc/amf/util"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/nas/nasConvert"
+	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/ngap/ngapType"
+	"github.com/free5gc/openapi/models"
 )
 
 func HandleSmContextStatusNotify(request *http_wrapper.Request) *http_wrapper.Response {
@@ -53,7 +56,7 @@ func SmContextStatusNotifyProcedure(guti string, pduSessionID int32,
 		return problemDetails
 	}
 
-	_, ok = ue.SmContextList[pduSessionID]
+	smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionID)
 	if !ok {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
@@ -63,40 +66,92 @@ func SmContextStatusNotifyProcedure(guti string, pduSessionID int32,
 		return problemDetails
 	}
 
-	logger.ProducerLog.Debugf("Release PDUSessionId[%d] of UE[%s] By SmContextStatus Notification because of %s",
-		pduSessionID, ue.Supi, smContextStatusNotification.StatusInfo.Cause)
-	delete(ue.SmContextList, pduSessionID)
+	if smContextStatusNotification.StatusInfo.ResourceStatus == models.ResourceStatus_RELEASED {
+		ue.ProducerLog.Debugf("Release PDU Session[%d] (Cause: %s)", pduSessionID,
+			smContextStatusNotification.StatusInfo.Cause)
 
-	if storedSmContext, exist := ue.StoredSmContext[pduSessionID]; exist {
-		go func() {
-			smContextCreateData := consumer.BuildCreateSmContextRequest(ue, *storedSmContext.PduSessionContext,
-				models.RequestType_INITIAL_REQUEST)
+		if smContext.PduSessionIDDuplicated() {
+			ue.ProducerLog.Debugf("Resume establishing PDU Session[%d]", pduSessionID)
+			smContext.SetDuplicatedPduSessionID(false)
+			go func() {
+				var (
+					snssai    models.Snssai
+					dnn       string
+					smMessage []byte
+				)
+				smMessage = smContext.ULNASTransport().GetPayloadContainerContents()
 
-			response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(
-				ue, storedSmContext.SmfUri, storedSmContext.Payload, smContextCreateData)
-			if response != nil {
-				var smContext context.SmContext
-				smContext.PduSessionContext = storedSmContext.PduSessionContext
-				smContext.PduSessionContext.SmContextRef = smContextRef
-				smContext.UserLocation = deepcopy.Copy(ue.Location).(models.UserLocation)
-				smContext.SmfUri = storedSmContext.SmfUri
-				smContext.SmfId = storedSmContext.SmfId
-				ue.SmContextList[pduSessionID] = &smContext
-				logger.CallbackLog.Infof("Http create smContext[pduSessionID: %d] Success", pduSessionID)
-				// TODO: handle response(response N2SmInfo to RAN if exists)
-			} else if errResponse != nil {
-				logger.ProducerLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]\n", pduSessionID)
-				gmm_message.SendDLNASTransport(ue.RanUe[storedSmContext.AnType],
-					nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
-			} else if err != nil {
-				logger.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%s]\n", pduSessionID, err.Error())
-			} else {
-				logger.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]\n", pduSessionID, problemDetail)
-			}
-			delete(ue.StoredSmContext, pduSessionID)
-		}()
+				if smContext.ULNASTransport().SNSSAI != nil {
+					snssai = nasConvert.SnssaiToModels(smContext.ULNASTransport().SNSSAI)
+				} else {
+					if allowedNssai, ok := ue.AllowedNssai[smContext.AccessType()]; ok {
+						snssai = *allowedNssai[0].AllowedSnssai
+					} else {
+						ue.GmmLog.Error("Ue doesn't have allowedNssai")
+						return
+					}
+				}
+
+				if smContext.ULNASTransport().DNN != nil {
+					dnn = string(smContext.ULNASTransport().DNN.GetDNN())
+				} else {
+					if ue.SmfSelectionData != nil {
+						snssaiStr := util.SnssaiModelsToHex(snssai)
+						if snssaiInfo, ok := ue.SmfSelectionData.SubscribedSnssaiInfos[snssaiStr]; ok {
+							for _, dnnInfo := range snssaiInfo.DnnInfos {
+								if dnnInfo.DefaultDnnIndicator {
+									dnn = dnnInfo.Dnn
+								}
+							}
+						} else {
+							// user's subscription context obtained from UDM does not contain the default DNN for the,
+							// S-NSSAI, the AMF shall use a locally configured DNN as the DNN
+							dnn = "internet"
+						}
+					}
+				}
+
+				newSmContext, cause, err := consumer.SelectSmf(ue, smContext.AccessType(), pduSessionID, snssai, dnn)
+				if err != nil {
+					logger.CallbackLog.Error(err)
+					gmm_message.SendDLNASTransport(ue.RanUe[smContext.AccessType()],
+						nasMessage.PayloadContainerTypeN1SMInfo,
+						smContext.ULNASTransport().GetPayloadContainerContents(), pduSessionID, cause, nil, 0)
+					return
+				}
+
+				response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(
+					ue, newSmContext, nil, smMessage)
+				if response != nil {
+					newSmContext.SetSmContextRef(smContextRef)
+					newSmContext.SetUserLocation(deepcopy.Copy(ue.Location).(models.UserLocation))
+					ue.GmmLog.Infof("create smContext[pduSessionID: %d] Success", pduSessionID)
+					ue.StoreSmContext(pduSessionID, newSmContext)
+					// TODO: handle response(response N2SmInfo to RAN if exists)
+				} else if errResponse != nil {
+					ue.ProducerLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]\n", pduSessionID)
+					gmm_message.SendDLNASTransport(ue.RanUe[smContext.AccessType()],
+						nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
+				} else if err != nil {
+					ue.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%s]\n", pduSessionID, err.Error())
+				} else {
+					ue.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]\n", pduSessionID, problemDetail)
+				}
+				smContext.DeleteULNASTransport()
+			}()
+		} else {
+			ue.SmContextList.Delete(pduSessionID)
+		}
+	} else {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "INVALID_MSG_FORMAT",
+			InvalidParams: []models.InvalidParam{
+				{Param: "StatusInfo.ResourceStatus", Reason: "invalid value"},
+			},
+		}
+		return problemDetails
 	}
-
 	return nil
 }
 

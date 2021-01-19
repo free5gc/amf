@@ -1,28 +1,30 @@
 package gmm
 
 import (
-	"free5gc/lib/fsm"
-	"free5gc/lib/nas"
-	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	gmm_message "free5gc/src/amf/gmm/message"
-	"free5gc/src/amf/logger"
+	"fmt"
+
+	"github.com/free5gc/amf/context"
+	gmm_message "github.com/free5gc/amf/gmm/message"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/fsm"
+	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/openapi/models"
 )
 
 func DeRegistered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State[DeRegistered]")
-
 	switch event {
 	case fsm.EntryEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
 		amfUe.ClearRegistrationRequestData(accessType)
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[DeRegistered]")
 	case GmmMessageEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		procedureCode := args[ArgProcedureCode].(int64)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent at GMM State[DeRegistered]")
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeRegistrationRequest:
 			if err := HandleRegistrationRequest(amfUe, accessType, procedureCode, gmmMessage.RegistrationRequest); err != nil {
@@ -37,7 +39,7 @@ func DeRegistered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				}
 			}
 		default:
-			logger.GmmLog.Errorf("UE state mismatch: receieve gmm message[message type 0x%0x] at %s state",
+			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.GetMessageType(), state.Current())
 		}
 	case StartAuthEvent:
@@ -50,19 +52,19 @@ func DeRegistered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 }
 
 func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State[Registered]")
-
 	switch event {
 	case fsm.EntryEvent:
 		// clear stored registration request data for this registration
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
 		amfUe.ClearRegistrationRequestData(accessType)
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[Registered]")
 	case GmmMessageEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		procedureCode := args[ArgProcedureCode].(int64)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent at GMM State[Registered]")
 		switch gmmMessage.GetMessageType() {
 		// Mobility Registration update / Periodic Registration update
 		case nas.MsgTypeRegistrationRequest:
@@ -106,7 +108,7 @@ func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				logger.GmmLog.Errorln(err)
 			}
 		default:
-			logger.GmmLog.Errorf("UE state mismatch: receieve gmm message[message type 0x%0x] at %s state",
+			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.GetMessageType(), state.Current())
 		}
 	case StartAuthEvent:
@@ -121,14 +123,16 @@ func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 }
 
 func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State [Authentication]")
-
+	var amfUe *context.AmfUe
 	switch event {
 	case fsm.EntryEvent:
+		amfUe = args[ArgAmfUe].(*context.AmfUe)
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[Authentication]")
 		fallthrough
 	case AuthRestartEvent:
-		amfUe := args[ArgAmfUe].(*context.AmfUe)
+		amfUe = args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("AuthRestartEvent at GMM State[Authentication]")
 
 		pass, err := AuthenticationProcedure(amfUe, accessType)
 		if err != nil {
@@ -143,9 +147,10 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			}
 		}
 	case GmmMessageEvent:
-		amfUe := args[ArgAmfUe].(*context.AmfUe)
+		amfUe = args[ArgAmfUe].(*context.AmfUe)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent at GMM State[Authentication]")
 
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeIdentityResponse:
@@ -179,8 +184,8 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		logger.GmmLog.Warnln("Reject authentication")
 	case fsm.ExitEvent:
 		// clear authentication related data at exit
-		logger.GmmLog.Debugln(event)
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
+		amfUe.GmmLog.Debugln(event)
 		amfUe.AuthenticationCtx = nil
 		amfUe.AuthFailureCauseSynchFailureTimes = 0
 	default:
@@ -189,14 +194,18 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 }
 
 func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State[SecurityMode]")
-
 	switch event {
 	case fsm.EntryEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
+		// set log information
+		amfUe.NASLog = amfUe.NASLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", amfUe.Supi))
+		amfUe.GmmLog = amfUe.GmmLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", amfUe.Supi))
+		amfUe.ProducerLog = logger.ProducerLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", amfUe.Supi))
+
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[SecurityMode]")
 		if amfUe.SecurityContextIsValid() {
-			logger.GmmLog.Debugln("UE has a valid security context - skip security mode control procedure")
+			amfUe.GmmLog.Debugln("UE has a valid security context - skip security mode control procedure")
 			if err := GmmFSM.SendEvent(state, SecurityModeSuccessEvent, fsm.ArgsType{
 				ArgAmfUe:      amfUe,
 				ArgAccessType: accessType,
@@ -219,6 +228,7 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		procedureCode := args[ArgProcedureCode].(int64)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent to GMM State[SecurityMode]")
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeSecurityModeComplete:
 			if err := HandleSecurityModeComplete(amfUe, accessType, procedureCode, gmmMessage.SecurityModeComplete); err != nil {
@@ -240,7 +250,7 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				logger.GmmLog.Errorln(err)
 			}
 		default:
-			logger.GmmLog.Errorf("UE state mismatch: receieve gmm message[message type 0x%0x] at %s state",
+			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.GetMessageType(), state.Current())
 		}
 	case SecurityModeSuccessEvent:
@@ -256,14 +266,12 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 }
 
 func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State[ContextSetup]")
-
 	switch event {
 	case fsm.EntryEvent:
-		logger.GmmLog.Debugln("EntryEvent")
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		gmmMessage := args[ArgNASMessage]
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[ContextSetup]")
 
 		switch message := gmmMessage.(type) {
 		case *nasMessage.RegistrationRequest:
@@ -288,10 +296,10 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			logger.GmmLog.Errorf("UE state mismatch: receieve wrong gmm message")
 		}
 	case GmmMessageEvent:
-		logger.GmmLog.Debugln("GmmMessageEvent")
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent at GMM State[ContextSetup]")
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeIdentityResponse:
 			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
@@ -332,7 +340,8 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				logger.GmmLog.Errorln(err)
 			}
 		default:
-			logger.GmmLog.Errorln("UE state mismatch")
+			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
+				gmmMessage.GetMessageType(), state.Current())
 		}
 	case ContextSetupSuccessEvent:
 		logger.GmmLog.Debugln(event)
@@ -346,13 +355,12 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 }
 
 func DeregisteredInitiated(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
-	logger.GmmLog.Debugln("UE in GMM State[DeregisteredInitiated]")
-
 	switch event {
 	case fsm.EntryEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("EntryEvent at GMM State[DeregisteredInitiated]")
 		if err := HandleDeregistrationRequest(amfUe, accessType,
 			gmmMessage.DeregistrationRequestUEOriginatingDeregistration); err != nil {
 			logger.GmmLog.Errorln(err)
@@ -361,6 +369,7 @@ func DeregisteredInitiated(state *fsm.State, event fsm.EventType, args fsm.ArgsT
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		gmmMessage := args[ArgNASMessage].(*nas.GmmMessage)
 		accessType := args[ArgAccessType].(models.AccessType)
+		amfUe.GmmLog.Debugln("GmmMessageEvent at GMM State[DeregisteredInitiated]")
 		switch gmmMessage.GetMessageType() {
 		case nas.MsgTypeDeregistrationAcceptUETerminatedDeregistration:
 			if err := HandleDeregistrationAccept(amfUe, accessType,
@@ -368,7 +377,7 @@ func DeregisteredInitiated(state *fsm.State, event fsm.EventType, args fsm.ArgsT
 				logger.GmmLog.Errorln(err)
 			}
 		default:
-			logger.GmmLog.Errorf("UE state mismatch: receieve gmm message[message type 0x%0x] at %s state",
+			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.GetMessageType(), state.Current())
 		}
 	case DeregistrationAcceptEvent:

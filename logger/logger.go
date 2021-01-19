@@ -7,28 +7,37 @@ import (
 	formatter "github.com/antonfisher/nested-logrus-formatter"
 	"github.com/sirupsen/logrus"
 
-	"free5gc/lib/logger_conf"
-	"free5gc/lib/logger_util"
+	"github.com/free5gc/logger_conf"
+	"github.com/free5gc/logger_util"
 )
 
-var log *logrus.Logger
-var AppLog *logrus.Entry
-var InitLog *logrus.Entry
-var ContextLog *logrus.Entry
-var NgapLog *logrus.Entry
-var HandlerLog *logrus.Entry
-var HttpLog *logrus.Entry
-var GmmLog *logrus.Entry
-var MtLog *logrus.Entry
-var ProducerLog *logrus.Entry
-var LocationLog *logrus.Entry
-var CommLog *logrus.Entry
-var CallbackLog *logrus.Entry
-var UtilLog *logrus.Entry
-var NasLog *logrus.Entry
-var ConsumerLog *logrus.Entry
-var EeLog *logrus.Entry
-var GinLog *logrus.Entry
+var (
+	log         *logrus.Logger
+	AppLog      *logrus.Entry
+	InitLog     *logrus.Entry
+	CfgLog      *logrus.Entry
+	ContextLog  *logrus.Entry
+	NgapLog     *logrus.Entry
+	HandlerLog  *logrus.Entry
+	HttpLog     *logrus.Entry
+	GmmLog      *logrus.Entry
+	MtLog       *logrus.Entry
+	ProducerLog *logrus.Entry
+	LocationLog *logrus.Entry
+	CommLog     *logrus.Entry
+	CallbackLog *logrus.Entry
+	UtilLog     *logrus.Entry
+	NasLog      *logrus.Entry
+	ConsumerLog *logrus.Entry
+	EeLog       *logrus.Entry
+	GinLog      *logrus.Entry
+)
+
+const (
+	FieldRanAddr     string = "ran_addr"
+	FieldAmfUeNgapID string = "amf_ue_ngap_id"
+	FieldSupi        string = "supi"
+)
 
 func init() {
 	log = logrus.New()
@@ -39,26 +48,27 @@ func init() {
 		TrimMessages:    true,
 		NoFieldsSpace:   true,
 		HideKeys:        true,
-		FieldsOrder:     []string{"component", "category"},
+		FieldsOrder:     []string{"component", "category", FieldRanAddr, FieldAmfUeNgapID, FieldSupi},
 	}
 
-	free5gcLogHook, err := logger_util.NewFileHook(logger_conf.Free5gcLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	free5gcLogHook, err := logger_util.NewFileHook(logger_conf.Free5gcLogFile, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
 	if err == nil {
 		log.Hooks.Add(free5gcLogHook)
 	}
 
-	selfLogHook, err := logger_util.NewFileHook(logger_conf.NfLogDir+"amf.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	selfLogHook, err := logger_util.NewFileHook(logger_conf.NfLogDir+"amf.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
 	if err == nil {
 		log.Hooks.Add(selfLogHook)
 	}
 
 	AppLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "App"})
 	InitLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Init"})
+	CfgLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "CFG"})
 	ContextLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Context"})
 	NgapLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "NGAP"})
 	HandlerLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Handler"})
 	HttpLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "HTTP"})
-	GmmLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Gmm"})
+	GmmLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "GMM"})
 	MtLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "MT"})
 	ProducerLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "Producer"})
 	LocationLog = log.WithFields(logrus.Fields{"component": "AMF", "category": "LocInfo"})
@@ -75,6 +85,6 @@ func SetLogLevel(level logrus.Level) {
 	log.SetLevel(level)
 }
 
-func SetReportCaller(bool bool) {
-	log.SetReportCaller(bool)
+func SetReportCaller(set bool) {
+	log.SetReportCaller(set)
 }

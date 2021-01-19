@@ -10,13 +10,15 @@
 package communication
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/producer"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/producer"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/models"
 )
 
 // AMFStatusChangeSubscribeModify - Namf_Communication AMF Status Change Subscribe Modify service Operation
@@ -70,7 +72,6 @@ func HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
 func HTTPAMFStatusChangeUnSubscribe(c *gin.Context) {
-
 	req := http_wrapper.NewRequest(c.Request, nil)
 	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
 
