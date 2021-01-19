@@ -3,15 +3,14 @@ package consumer
 import (
 	"context"
 
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/Nudm_UEContextManagement"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/Nudm_UEContextManagement"
+	"github.com/free5gc/openapi/models"
 )
 
 func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (
 	*models.ProblemDetails, error) {
-
 	configuration := Nudm_UEContextManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmUECMUri)
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)

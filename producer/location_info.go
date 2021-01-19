@@ -1,11 +1,12 @@
 package producer
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"net/http"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi/models"
 )
 
 func HandleProvideLocationInfoRequest(request *http_wrapper.Request) *http_wrapper.Response {

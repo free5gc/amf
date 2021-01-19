@@ -1,11 +1,12 @@
 package context
 
 import (
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"reflect"
 
 	"github.com/mohae/deepcopy"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi/models"
 )
 
 func CompareUserLocation(loc1 models.UserLocation, loc2 models.UserLocation) bool {
@@ -79,12 +80,10 @@ func DetachSourceUeTargetUe(ranUe *RanUe) {
 
 		ranUe.TargetUe = nil
 		targetUe.SourceUe = nil
-
 	} else if ranUe.SourceUe != nil {
 		source := ranUe.SourceUe
 
 		ranUe.SourceUe = nil
 		source.TargetUe = nil
 	}
-
 }

@@ -4,18 +4,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/Namf_Communication"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
+
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/Namf_Communication"
+	"github.com/free5gc/openapi/models"
 )
 
 func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId,
 	sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation,
 	n2NotifyUri string, ngapCause *models.NgApCause) models.UeContextCreateData {
-
 	var ueContextCreateData models.UeContextCreateData
 
 	ueContext := BuildUeContextModel(ue)
@@ -37,7 +37,6 @@ func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTar
 }
 
 func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
-
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 

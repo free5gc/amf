@@ -3,9 +3,10 @@ package util
 import (
 	"encoding/hex"
 	"fmt"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"strconv"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi/models"
 )
 
 func SnssaiHexToModels(hexString string) (*models.Snssai, error) {

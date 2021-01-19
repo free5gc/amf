@@ -10,10 +10,11 @@
 package mt
 
 import (
-	"free5gc/src/amf/logger"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/free5gc/amf/logger"
 )
 
 // EnableUeReachability - Namf_MT EnableUEReachability service Operation

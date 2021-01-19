@@ -1,14 +1,14 @@
 package producer
 
 import (
-	"free5gc/lib/http_wrapper"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/context"
-	gmm_common "free5gc/src/amf/gmm/common"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
+
+	"github.com/free5gc/amf/consumer"
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/http_wrapper"
+	"github.com/free5gc/openapi/models"
 )
 
 // TS 29.518 5.2.2.2.3
@@ -44,7 +44,7 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	}
 	// create the UE context in target amf
 	ue := amfSelf.NewAmfUe(ueContextID)
-	//amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
+	// amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
 	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
 	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
 	// 	N2InfoContainer: &models.N2InfoContainer{
@@ -63,7 +63,7 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	// 	N2NotifyCallbackUri: ueContextCreateData.N2NotifyUri,
 	// }
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
-	//should be smInfo list
+	// should be smInfo list
 
 	//for _, smInfo := range ueContextCreateData.PduSessionList {
 	//if smInfo.N2InfoContent.NgapIeType == "NgapIeType_HANDOVER_REQUIRED" {
@@ -76,31 +76,31 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	// optional
 	ue.UdmGroupId = ueContextCreateData.UeContext.UdmGroupId
 	ue.AusfGroupId = ueContextCreateData.UeContext.AusfGroupId
-	//ueContextCreateData.UeContext.HpcfId
-	ue.RatType = ueContextCreateData.UeContext.RestrictedRatList[0] //minItem = -1
-	//ueContextCreateData.UeContext.ForbiddenAreaList
-	//ueContextCreateData.UeContext.ServiceAreaRestriction
-	//ueContextCreateData.UeContext.RestrictedCoreNwTypeList
+	// ueContextCreateData.UeContext.HpcfId
+	ue.RatType = ueContextCreateData.UeContext.RestrictedRatList[0] // minItem = -1
+	// ueContextCreateData.UeContext.ForbiddenAreaList
+	// ueContextCreateData.UeContext.ServiceAreaRestriction
+	// ueContextCreateData.UeContext.RestrictedCoreNwTypeList
 
-	//it's not in 5.2.2.1.1 step 2a, so don't support
-	//ue.Gpsi = ueContextCreateData.UeContext.GpsiList
-	//ue.Pei = ueContextCreateData.UeContext.Pei
-	//ueContextCreateData.UeContext.GroupList
-	//ueContextCreateData.UeContext.DrxParameter
-	//ueContextCreateData.UeContext.SubRfsp
-	//ueContextCreateData.UeContext.UsedRfsp
-	//ue.UEAMBR = ueContextCreateData.UeContext.SubUeAmbr
-	//ueContextCreateData.UeContext.SmsSupport
-	//ueContextCreateData.UeContext.SmsfId
-	//ueContextCreateData.UeContext.SeafData
-	//ueContextCreateData.UeContext.Var5gMmCapability
-	//ueContextCreateData.UeContext.PcfId
-	//ueContextCreateData.UeContext.PcfAmPolicyUri
-	//ueContextCreateData.UeContext.AmPolicyReqTriggerList
-	//ueContextCreateData.UeContext.EventSubscriptionList
-	//ueContextCreateData.UeContext.MmContextList
-	//ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
-	//ue.TraceData = ueContextCreateData.UeContext.TraceData
+	// it's not in 5.2.2.1.1 step 2a, so don't support
+	// ue.Gpsi = ueContextCreateData.UeContext.GpsiList
+	// ue.Pei = ueContextCreateData.UeContext.Pei
+	// ueContextCreateData.UeContext.GroupList
+	// ueContextCreateData.UeContext.DrxParameter
+	// ueContextCreateData.UeContext.SubRfsp
+	// ueContextCreateData.UeContext.UsedRfsp
+	// ue.UEAMBR = ueContextCreateData.UeContext.SubUeAmbr
+	// ueContextCreateData.UeContext.SmsSupport
+	// ueContextCreateData.UeContext.SmsfId
+	// ueContextCreateData.UeContext.SeafData
+	// ueContextCreateData.UeContext.Var5gMmCapability
+	// ueContextCreateData.UeContext.PcfId
+	// ueContextCreateData.UeContext.PcfAmPolicyUri
+	// ueContextCreateData.UeContext.AmPolicyReqTriggerList
+	// ueContextCreateData.UeContext.EventSubscriptionList
+	// ueContextCreateData.UeContext.MmContextList
+	// ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
+	// ue.TraceData = ueContextCreateData.UeContext.TraceData
 	createUeContextResponse := new(models.CreateUeContextResponse)
 	createUeContextResponse.JsonData = &models.UeContextCreatedData{
 		UeContext: &models.UeContext{
@@ -192,7 +192,6 @@ func HandleUEContextTransferRequest(request *http_wrapper.Request) *http_wrapper
 
 func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest models.UeContextTransferRequest) (
 	*models.UeContextTransferResponse, *models.ProblemDetails) {
-
 	amfSelf := context.AMF_Self()
 
 	if ueContextTransferRequest.JsonData == nil {
@@ -244,9 +243,22 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
 
 		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
-		for _, smContext := range ue.SmContextList {
-			*sessionContextList = append(*sessionContextList, *smContext.PduSessionContext)
-		}
+		ue.SmContextList.Range(func(key, value interface{}) bool {
+			smContext := value.(*context.SmContext)
+			snssai := smContext.Snssai()
+			pduSessionContext := models.PduSessionContext{
+				PduSessionId: smContext.PduSessionID(),
+				SmContextRef: smContext.SmContextRef(),
+				SNssai:       &snssai,
+				Dnn:          smContext.Dnn(),
+				AccessType:   smContext.AccessType(),
+				HsmfId:       smContext.HSmfID(),
+				VsmfId:       smContext.VSmfID(),
+				NsInstance:   smContext.NsInstance(),
+			}
+			*sessionContextList = append(*sessionContextList, pduSessionContext)
+			return true
+		})
 
 		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
 			NgapMessageType: 0,
@@ -261,9 +273,22 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
 
 		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
-		for _, smContext := range ue.SmContextList {
-			*sessionContextList = append(*sessionContextList, *smContext.PduSessionContext)
-		}
+		ue.SmContextList.Range(func(key, value interface{}) bool {
+			smContext := value.(*context.SmContext)
+			snssai := smContext.Snssai()
+			pduSessionContext := models.PduSessionContext{
+				PduSessionId: smContext.PduSessionID(),
+				SmContextRef: smContext.SmContextRef(),
+				SNssai:       &snssai,
+				Dnn:          smContext.Dnn(),
+				AccessType:   smContext.AccessType(),
+				HsmfId:       smContext.HSmfID(),
+				VsmfId:       smContext.VSmfID(),
+				NsInstance:   smContext.NsInstance(),
+			}
+			*sessionContextList = append(*sessionContextList, pduSessionContext)
+			return true
+		})
 
 		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
 			NgapMessageType: 0,
@@ -388,7 +413,6 @@ func HandleAssignEbiDataRequest(request *http_wrapper.Request) *http_wrapper.Res
 
 func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (
 	*models.AssignedEbiData, *models.AssignEbiError, *models.ProblemDetails) {
-
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
@@ -401,10 +425,9 @@ func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiDa
 	}
 
 	// TODO: AssignEbiError not used, check it!
-	if ue.SmContextList[assignEbiData.PduSessionId] != nil {
+	if _, ok := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); ok {
 		var assignedEbiData *models.AssignedEbiData
 		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
-		assignedEbiData.AssignedEbiList = ue.SmContextList[assignEbiData.PduSessionId].PduSessionContext.AllocatedEbiList
 		return assignedEbiData, nil, nil
 	} else {
 		logger.ProducerLog.Errorln("ue.SmContextList is nil")
@@ -429,7 +452,6 @@ func HandleRegistrationStatusUpdateRequest(request *http_wrapper.Request) *http_
 
 func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (
 	*models.UeRegStatusUpdateRspData, *models.ProblemDetails) {
-
 	amfSelf := context.AMF_Self()
 
 	// ueContextID must be a 5g GUTI (TS 29.518 6.1.3.2.4.5.1)
@@ -459,8 +481,11 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 			causeAll := &context.CauseAll{
 				Cause: &cause,
 			}
-			smContextReleaseRequest := consumer.BuildReleaseSmContextRequest(ue, causeAll, "", nil)
-			problem, err := consumer.SendReleaseSmContextRequest(ue, pduSessionId, smContextReleaseRequest)
+			smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionId)
+			if !ok {
+				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
+			}
+			problem, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)
 			} else if err != nil {

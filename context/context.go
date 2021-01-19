@@ -2,9 +2,6 @@ package context
 
 import (
 	"fmt"
-	"free5gc/lib/idgenerator"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"math"
 	"net"
 	"reflect"
@@ -12,12 +9,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/free5gc/amf/factory"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/idgenerator"
+	"github.com/free5gc/openapi/models"
 )
 
-var amfContext = AMFContext{}
-var tmsiGenerator *idgenerator.IDGenerator = nil
-var amfUeNGAPIDGenerator *idgenerator.IDGenerator = nil
-var amfStatusSubscriptionIDGenerator *idgenerator.IDGenerator = nil
+var (
+	amfContext                                                = AMFContext{}
+	tmsiGenerator                    *idgenerator.IDGenerator = nil
+	amfUeNGAPIDGenerator             *idgenerator.IDGenerator = nil
+	amfStatusSubscriptionIDGenerator *idgenerator.IDGenerator = nil
+)
 
 func init() {
 	AMF_Self().LadnPool = make(map[string]*LADN)
@@ -26,7 +30,7 @@ func init() {
 	AMF_Self().UriScheme = models.UriScheme_HTTPS
 	AMF_Self().RelativeCapacity = 0xff
 	AMF_Self().ServedGuamiList = make([]models.Guami, 0, MaxNumOfServedGuamiList)
-	AMF_Self().PlmnSupportList = make([]PlmnSupportItem, 0, MaxNumOfPLMNs)
+	AMF_Self().PlmnSupportList = make([]factory.PlmnSupportItem, 0, MaxNumOfPLMNs)
 	AMF_Self().NfService = make(map[models.ServiceName]models.NfService)
 	AMF_Self().NetworkName.Full = "free5GC"
 	tmsiGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
@@ -43,7 +47,7 @@ type AMFContext struct {
 	LadnPool                        map[string]*LADN // dnn as key
 	SupportTaiLists                 []models.Tai
 	ServedGuamiList                 []models.Guami
-	PlmnSupportList                 []PlmnSupportItem
+	PlmnSupportList                 []factory.PlmnSupportItem
 	RelativeCapacity                int64
 	NfId                            string
 	Name                            string
@@ -58,11 +62,17 @@ type AMFContext struct {
 	AMFStatusSubscriptions          sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                          string
 	SecurityAlgorithm               SecurityAlgorithm
-	NetworkName                     NetworkName
+	NetworkName                     factory.NetworkName
 	NgapIpList                      []string // NGAP Server IP
 	T3502Value                      int      // unit is second
 	T3512Value                      int      // unit is second
 	Non3gppDeregistrationTimerValue int      // unit is second
+	// read-only fields
+	T3513Cfg factory.TimerValue
+	T3522Cfg factory.TimerValue
+	T3550Cfg factory.TimerValue
+	T3560Cfg factory.TimerValue
+	T3565Cfg factory.TimerValue
 }
 
 type AMFContextEventSubscription struct {
@@ -73,22 +83,12 @@ type AMFContextEventSubscription struct {
 	EventSubscription models.AmfEventSubscription
 }
 
-type PlmnSupportItem struct {
-	PlmnId     models.PlmnId   `yaml:"plmnId"`
-	SNssaiList []models.Snssai `yaml:"snssaiList,omitempty"`
-}
-
-type NetworkName struct {
-	Full  string `yaml:"full"`
-	Short string `yaml:"short,omitempty"`
-}
-
 type SecurityAlgorithm struct {
 	IntegrityOrder []uint8 // slice of security.AlgIntegrityXXX
 	CipheringOrder []uint8 // slice of security.AlgCipheringXXX
 }
 
-func NewPlmnSupportItem() (item PlmnSupportItem) {
+func NewPlmnSupportItem() (item factory.PlmnSupportItem) {
 	item.SNssaiList = make([]models.Snssai, 0, MaxNumOfSlice)
 	return
 }
@@ -116,7 +116,6 @@ func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
 }
 
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
-
 	// clear the previous registration area if need
 	if len(ue.RegistrationArea[anType]) > 0 {
 		ue.RegistrationArea[anType] = nil
@@ -174,6 +173,7 @@ func (context *AMFContext) FindEventSubscription(subscriptionID string) (*AMFCon
 		return nil, false
 	}
 }
+
 func (context *AMFContext) DeleteEventSubscription(subscriptionID string) {
 	context.EventSubscriptions.Delete(subscriptionID)
 	if id, err := strconv.ParseInt(subscriptionID, 10, 32); err != nil {
@@ -242,6 +242,7 @@ func (context *AMFContext) NewAmfRan(conn net.Conn) *AmfRan {
 	ran := AmfRan{}
 	ran.SupportedTAList = make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
 	ran.Conn = conn
+	ran.Log = logger.NgapLog.WithField(logger.FieldRanAddr, conn.RemoteAddr().String())
 	context.AmfRanPool.Store(conn, &ran)
 	return &ran
 }
@@ -262,7 +263,6 @@ func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (
 		amfRan := value.(*AmfRan)
 		switch amfRan.RanPresent {
 		case RanPresentGNbId:
-			logger.ContextLog.Infof("aaa: %+v\n", amfRan.RanId.GNbId)
 			if amfRan.RanId.GNbId.GNBValue == ranNodeID.GNbId.GNBValue {
 				ran = amfRan
 				ok = true
@@ -294,6 +294,17 @@ func (context *AMFContext) InSupportDnnList(targetDnn string) bool {
 	for _, dnn := range context.SupportDnnLists {
 		if dnn == targetDnn {
 			return true
+		}
+	}
+	return false
+}
+
+func (context *AMFContext) InPlmnSupportList(snssai models.Snssai) bool {
+	for _, plmnSupportItem := range context.PlmnSupportList {
+		for _, supportSnssai := range plmnSupportItem.SNssaiList {
+			if reflect.DeepEqual(supportSnssai, snssai) {
+				return true
+			}
 		}
 	}
 	return false

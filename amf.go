@@ -1,14 +1,15 @@
 package main
 
 import (
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/service"
-	"free5gc/src/amf/version"
-	"free5gc/src/app"
+	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/service"
+	"github.com/free5gc/version"
 )
 
 var AMF = &service.AMF{}
@@ -28,12 +29,18 @@ func main() {
 	app.Action = action
 	app.Flags = AMF.GetCliCmd()
 	if err := app.Run(os.Args); err != nil {
-		logger.AppLog.Errorf("AMF Run error: %v", err)
+		appLog.Errorf("AMF Run error: %v", err)
+		return
 	}
 }
 
-func action(c *cli.Context) {
-	app.AppInitializeWillInitialize(c.String("free5gccfg"))
-	AMF.Initialize(c)
+func action(c *cli.Context) error {
+	if err := AMF.Initialize(c); err != nil {
+		logger.CfgLog.Errorf("%+v", err)
+		return fmt.Errorf("Failed to initialize !!")
+	}
+
 	AMF.Start()
+
+	return nil
 }

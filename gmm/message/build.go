@@ -3,21 +3,21 @@ package message
 import (
 	"encoding/base64"
 	"encoding/hex"
-	"free5gc/lib/nas"
-	"free5gc/lib/nas/nasConvert"
-	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/nas/nasType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/nas/nas_security"
 
 	"github.com/mitchellh/mapstructure"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/nas/nas_security"
+	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasConvert"
+	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/nas/nasType"
+	"github.com/free5gc/openapi/models"
 )
 
 func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu []byte,
 	pduSessionId uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeDLNASTransport)
@@ -39,7 +39,6 @@ func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu [
 		dLNASTransport.PduSessionID2Value = new(nasType.PduSessionID2Value)
 		dLNASTransport.PduSessionID2Value.SetIei(nasMessage.DLNASTransportPduSessionID2ValueType)
 		dLNASTransport.PduSessionID2Value.SetPduSessionID2Value(pduSessionId)
-
 	}
 	if cause != nil {
 		dLNASTransport.Cause5GMM = new(nasType.Cause5GMM)
@@ -60,7 +59,6 @@ func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu [
 }
 
 func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeNotification)
@@ -71,7 +69,7 @@ func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte,
 	}
 
 	notification := nasMessage.NewNotification(0)
-	notification.SetSecurityHeaderType(nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
+	notification.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	notification.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
 	notification.SetMessageType(nas.MsgTypeNotification)
 	if accessType == models.AccessType__3_GPP_ACCESS {
@@ -86,7 +84,6 @@ func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte,
 }
 
 func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeIdentityRequest)
@@ -104,7 +101,6 @@ func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
 }
 
 func BuildAuthenticationRequest(ue *context.AmfUe) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeAuthenticationRequest)
@@ -164,7 +160,6 @@ func BuildAuthenticationRequest(ue *context.AmfUe) ([]byte, error) {
 
 func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool, errPduSessionId, errCause []uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeServiceAccept)
@@ -176,7 +171,7 @@ func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool,
 
 	serviceAccept := nasMessage.NewServiceAccept(0)
 	serviceAccept.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
-	serviceAccept.SetSecurityHeaderType(nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
+	serviceAccept.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	serviceAccept.SetMessageType(nas.MsgTypeServiceAccept)
 	if pDUSessionStatus != nil {
 		serviceAccept.PDUSessionStatus = new(nasType.PDUSessionStatus)
@@ -204,7 +199,6 @@ func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool,
 }
 
 func BuildAuthenticationReject(ue *context.AmfUe, eapMsg string) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeAuthenticationReject)
@@ -231,7 +225,6 @@ func BuildAuthenticationReject(ue *context.AmfUe, eapMsg string) ([]byte, error)
 }
 
 func BuildAuthenticationResult(ue *context.AmfUe, eapSuccess bool, eapMsg string) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeAuthenticationResult)
@@ -262,7 +255,6 @@ func BuildAuthenticationResult(ue *context.AmfUe, eapSuccess bool, eapMsg string
 
 // T3346 Timer and EAP are not Supported
 func BuildServiceReject(pDUSessionStatus *[16]bool, cause uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeServiceReject)
@@ -286,7 +278,6 @@ func BuildServiceReject(pDUSessionStatus *[16]bool, cause uint8) ([]byte, error)
 
 // T3346 timer are not supported
 func BuildRegistrationReject(ue *context.AmfUe, cause5GMM uint8, eapMessage string) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeRegistrationReject)
@@ -394,13 +385,11 @@ func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage str
 	} else {
 		return payload, nil
 	}
-
 }
 
 // T3346 timer are not supported
 func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrationRequired bool,
 	cause5GMM uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeDeregistrationRequestUETerminatedDeregistration)
@@ -431,15 +420,12 @@ func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrat
 			ProtocolDiscriminator: nasMessage.Epd5GSMobilityManagementMessage,
 			SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
 		}
-		m.GmmMessage.DeregistrationRequestUETerminatedDeregistration.SetSecurityHeaderType(
-			nas.SecurityHeaderTypeIntegrityProtectedAndCiphered)
 		return nas_security.Encode(ue.AmfUe, m)
 	}
 	return m.PlainNasEncode()
 }
 
 func BuildDeregistrationAccept() ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeDeregistrationAcceptUEOriginatingDeregistration)
@@ -461,7 +447,6 @@ func BuildRegistrationAccept(
 	pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool,
 	errPduSessionId, errCause []uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeRegistrationAccept)
@@ -649,7 +634,6 @@ func includeConfiguredNssaiCheck(ue *context.AmfUe) bool {
 }
 
 func BuildStatus5GMM(cause uint8) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeStatus5GMM)
@@ -667,7 +651,6 @@ func BuildStatus5GMM(cause uint8) ([]byte, error) {
 
 func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType,
 	networkSlicingIndication *nasType.NetworkSlicingIndication) ([]byte, error) {
-
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeConfigurationUpdateCommand)
