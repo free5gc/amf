@@ -2,10 +2,11 @@ package common
 
 import (
 	"fmt"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/consumer"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
+
+	"github.com/free5gc/amf/consumer"
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi/models"
 )
 
 func RemoveAmfUe(ue *context.AmfUe) {
