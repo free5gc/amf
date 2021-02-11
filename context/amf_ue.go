@@ -180,6 +180,7 @@ type AmfUe struct {
 	T3502Value                      int // Second
 	T3512Value                      int // default 54 min
 	Non3gppDeregistrationTimerValue int // default 54 min
+	Lock                            sync.Mutex
 
 	// logger
 	NASLog      *logrus.Entry

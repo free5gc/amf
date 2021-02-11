@@ -86,6 +86,9 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 		return nil, "", problemDetails, nil
 	}
 
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	if requestData.N1MessageContainer != nil {
 		switch requestData.N1MessageContainer.N1MessageClass {
 		case models.N1MessageClass_SM:
