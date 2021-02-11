@@ -6,6 +6,7 @@ import (
 
 	"github.com/free5gc/amf/consumer"
 	"github.com/free5gc/amf/context"
+	gmm_common "github.com/free5gc/amf/gmm/common"
 	"github.com/free5gc/amf/logger"
 	"github.com/free5gc/http_wrapper"
 	"github.com/free5gc/openapi/models"
@@ -163,7 +164,7 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 	logger.CommLog.Debugf("Release UE Context NGAP cause: %+v", ueContextRelease.NgapCause)
 
 	if ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID); ok {
-		ue.Remove()
+		gmm_common.RemoveAmfUe(ue)
 	} else {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
@@ -502,7 +503,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 			}
 		}
 
-		ue.Remove()
+		gmm_common.RemoveAmfUe(ue)
 	} else {
 		// NOT_TRANSFERRED
 		logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")
