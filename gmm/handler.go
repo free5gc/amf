@@ -2011,7 +2011,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 
 			var av5gAka models.Av5gAka
 			if err := mapstructure.Decode(ue.AuthenticationCtx.Var5gAuthData, &av5gAka); err != nil {
-				logger.GmmLog.Error("Var5gAuthData Convert Type Error")
+				ue.GmmLog.Error("Var5gAuthData Convert Type Error")
 				return err
 			}
 			resynchronizationInfo.Rand = av5gAka.Rand
