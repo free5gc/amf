@@ -59,6 +59,7 @@ type AMFContext struct {
 	HttpIPv6Address                 string
 	TNLWeightFactor                 int64
 	SupportDnnLists                 []string
+	AMFNetworkFeatureSupport5GS     *AMFNetworkFeatureSupport5GS
 	AMFStatusSubscriptions          sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                          string
 	SecurityAlgorithm               SecurityAlgorithm
@@ -73,6 +74,11 @@ type AMFContext struct {
 	T3550Cfg factory.TimerValue
 	T3560Cfg factory.TimerValue
 	T3565Cfg factory.TimerValue
+}
+
+type AMFNetworkFeatureSupport5GS struct {
+	//TODO add further features
+	ImsVoPs bool
 }
 
 type AMFContextEventSubscription struct {

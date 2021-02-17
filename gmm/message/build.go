@@ -531,7 +531,16 @@ func BuildRegistrationAccept(
 		registrationAccept.ConfiguredNSSAI.SetSNSSAIValue(buf)
 	}
 
-	// TODO: 5gs network feature support
+	if amfSelf.AMFNetworkFeatureSupport5GS != nil {
+		registrationAccept.NetworkFeatureSupport5GS = nasType.NewNetworkFeatureSupport5GS(nasMessage.RegistrationAcceptNetworkFeatureSupport5GSType)
+		registrationAccept.NetworkFeatureSupport5GS.SetLen(uint8(2))
+		if amfSelf.AMFNetworkFeatureSupport5GS.ImsVoPs {
+			registrationAccept.NetworkFeatureSupport5GS.SetIMSVoPS3GPP(uint8(1))
+		} else {
+			registrationAccept.NetworkFeatureSupport5GS.SetIMSVoPS3GPP(uint8(0)) //default
+		}
+		// TODO: add further 5gs network feature support fields
+	}
 
 	if pDUSessionStatus != nil {
 		registrationAccept.PDUSessionStatus = nasType.NewPDUSessionStatus(nasMessage.RegistrationAcceptPDUSessionStatusType)

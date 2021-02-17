@@ -34,25 +34,30 @@ const (
 )
 
 type Configuration struct {
-	AmfName                         string            `yaml:"amfName,omitempty"`
-	NgapIpList                      []string          `yaml:"ngapIpList,omitempty"`
-	Sbi                             *Sbi              `yaml:"sbi,omitempty"`
-	ServiceNameList                 []string          `yaml:"serviceNameList,omitempty"`
-	ServedGumaiList                 []models.Guami    `yaml:"servedGuamiList,omitempty"`
-	SupportTAIList                  []models.Tai      `yaml:"supportTaiList,omitempty"`
-	PlmnSupportList                 []PlmnSupportItem `yaml:"plmnSupportList,omitempty"`
-	SupportDnnList                  []string          `yaml:"supportDnnList,omitempty"`
-	NrfUri                          string            `yaml:"nrfUri,omitempty"`
-	Security                        *Security         `yaml:"security,omitempty"`
-	NetworkName                     NetworkName       `yaml:"networkName,omitempty"`
-	T3502Value                      int               `yaml:"t3502Value,omitempty"`
-	T3512Value                      int               `yaml:"t3512Value,omitempty"`
-	Non3gppDeregistrationTimerValue int               `yaml:"non3gppDeregistrationTimerValue,omitempty"`
-	T3513                           TimerValue        `yaml:"t3513"`
-	T3522                           TimerValue        `yaml:"t3522"`
-	T3550                           TimerValue        `yaml:"t3550"`
-	T3560                           TimerValue        `yaml:"t3560"`
-	T3565                           TimerValue        `yaml:"t3565"`
+	AmfName                         string                       `yaml:"amfName,omitempty"`
+	NgapIpList                      []string                     `yaml:"ngapIpList,omitempty"`
+	Sbi                             *Sbi                         `yaml:"sbi,omitempty"`
+	NetworkFeatureSupport5GS        *AMFNetworkFeatureSupport5GS `yaml:"networkFeatureSupport5GS"`
+	ServiceNameList                 []string                     `yaml:"serviceNameList,omitempty"`
+	ServedGumaiList                 []models.Guami               `yaml:"servedGuamiList,omitempty"`
+	SupportTAIList                  []models.Tai                 `yaml:"supportTaiList,omitempty"`
+	PlmnSupportList                 []PlmnSupportItem            `yaml:"plmnSupportList,omitempty"`
+	SupportDnnList                  []string                     `yaml:"supportDnnList,omitempty"`
+	NrfUri                          string                       `yaml:"nrfUri,omitempty"`
+	Security                        *Security                    `yaml:"security,omitempty"`
+	NetworkName                     NetworkName                  `yaml:"networkName,omitempty"`
+	T3502Value                      int                          `yaml:"t3502Value,omitempty"`
+	T3512Value                      int                          `yaml:"t3512Value,omitempty"`
+	Non3gppDeregistrationTimerValue int                          `yaml:"non3gppDeregistrationTimerValue,omitempty"`
+	T3513                           TimerValue                   `yaml:"t3513"`
+	T3522                           TimerValue                   `yaml:"t3522"`
+	T3550                           TimerValue                   `yaml:"t3550"`
+	T3560                           TimerValue                   `yaml:"t3560"`
+	T3565                           TimerValue                   `yaml:"t3565"`
+}
+
+type AMFNetworkFeatureSupport5GS struct {
+	ImsVoPs bool `yaml:"imsVoPs"`
 }
 
 type Sbi struct {
