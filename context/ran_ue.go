@@ -3,13 +3,15 @@ package context
 import (
 	"encoding/hex"
 	"fmt"
-	"free5gc/lib/ngap/ngapConvert"
-	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"time"
 
 	"github.com/mohae/deepcopy"
+	"github.com/sirupsen/logrus"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/ngap/ngapConvert"
+	"github.com/free5gc/ngap/ngapType"
+	"github.com/free5gc/openapi/models"
 )
 
 type RelAction int
@@ -17,6 +19,7 @@ type RelAction int
 const (
 	RanUeNgapIdUnspecified int64 = 0xffffffff
 )
+
 const (
 	UeContextN2NormalRelease RelAction = iota
 	UeContextReleaseHandover
@@ -61,6 +64,9 @@ type RanUe struct {
 
 	/* send initial context setup request or not*/
 	SentInitialContextSetupRequest bool
+
+	/* logger */
+	Log *logrus.Entry
 }
 
 func (ranUe *RanUe) Remove() error {
@@ -84,6 +90,7 @@ func (ranUe *RanUe) Remove() error {
 	}
 	self := AMF_Self()
 	self.RanUePool.Delete(ranUe.AmfUeNgapId)
+	amfUeNGAPIDGenerator.FreeID(ranUe.AmfUeNgapId)
 	return nil
 }
 
@@ -92,7 +99,6 @@ func (ranUe *RanUe) DetachAmfUe() {
 }
 
 func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
-
 	if ranUe == nil {
 		return fmt.Errorf("ranUe is nil")
 	}
@@ -123,7 +129,6 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 }
 
 func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocationInformation) {
-
 	if userLocationInformation == nil {
 		return
 	}
@@ -234,5 +239,4 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 		}
 	case ngapType.UserLocationInformationPresentNothing:
 	}
-
 }

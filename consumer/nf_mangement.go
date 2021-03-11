@@ -3,15 +3,16 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"free5gc/lib/openapi"
-	"free5gc/lib/openapi/Nnrf_NFManagement"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/util"
 	"net/http"
 	"strings"
 	"time"
+
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/util"
+	"github.com/free5gc/openapi"
+	"github.com/free5gc/openapi/Nnrf_NFManagement"
+	"github.com/free5gc/openapi/models"
 )
 
 func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile, err error) {
@@ -71,7 +72,6 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 
 func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfile) (
 	resouceNrfUri string, retrieveNfInstanceId string, err error) {
-
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
@@ -81,11 +81,16 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 	for {
 		_, res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
 		if err != nil || res == nil {
-			//TODO : add log
+			// TODO : add log
 			fmt.Println(fmt.Errorf("AMF register to NRF Error[%s]", err.Error()))
 			time.Sleep(2 * time.Second)
 			continue
 		}
+		defer func() {
+			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			}
+		}()
 		status := res.StatusCode
 		if status == http.StatusOK {
 			// NFUpdate
@@ -105,7 +110,6 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 }
 
 func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
-
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
 
 	amfSelf := amf_context.AMF_Self()
@@ -120,6 +124,11 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 	if err == nil {
 		return
 	} else if res != nil {
+		defer func() {
+			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			}
+		}()
 		if res.Status != err.Error() {
 			return
 		}

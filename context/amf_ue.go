@@ -4,26 +4,30 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
-	"free5gc/lib/UeauCommon"
-	"free5gc/lib/fsm"
-	"free5gc/lib/idgenerator"
-	"free5gc/lib/nas/nasMessage"
-	"free5gc/lib/nas/nasType"
-	"free5gc/lib/nas/security"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/logger"
 	"reflect"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/free5gc/UeauCommon"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/fsm"
+	"github.com/free5gc/idgenerator"
+	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/nas/nasType"
+	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi/models"
 )
 
 type OnGoingProcedure string
 
 const (
-	OnGoingProcedureNothing    OnGoingProcedure = "Nothing"
-	OnGoingProcedurePaging     OnGoingProcedure = "Paging"
-	OnGoingProcedureN2Handover OnGoingProcedure = "N2Handover"
+	OnGoingProcedureNothing      OnGoingProcedure = "Nothing"
+	OnGoingProcedurePaging       OnGoingProcedure = "Paging"
+	OnGoingProcedureN2Handover   OnGoingProcedure = "N2Handover"
+	OnGoingProcedureRegistration OnGoingProcedure = "Registration"
 )
 
 const (
@@ -47,6 +51,9 @@ const (
 )
 
 type AmfUe struct {
+	/* the AMF which serving this AmfUe now */
+	servingAMF *AMFContext // never nil
+
 	/* Gmm State */
 	State map[models.AccessType]*fsm.State
 	/* Registration procedure related context */
@@ -119,13 +126,12 @@ type AmfUe struct {
 	N1N2MessageSubscribeIDGenerator *idgenerator.IDGenerator
 	// map[int64]models.UeN1N2InfoSubscriptionCreateData; use n1n2MessageSubscriptionID as key
 	N1N2MessageSubscription sync.Map
-	/* Pdu Sesseion */
-	StoredSmContext map[int32]*StoredSmContext // for DUPLICATE PDU Session ID
-	SmContextList   map[int32]*SmContext
+	/* Pdu Sesseion context */
+	SmContextList sync.Map // map[int32]*SmContext, pdu session id as key
 	/* Related Context*/
 	RanUe map[models.AccessType]*RanUe
 	/* other */
-	OnGoing                       map[models.AccessType]*OnGoing
+	onGoing                       map[models.AccessType]*OnGoing
 	UeRadioCapability             string // OCTET string
 	Capability5GMM                nasType.Capability5GMM
 	ConfigurationUpdateIndication nasType.ConfigurationUpdateIndication
@@ -159,26 +165,26 @@ type AmfUe struct {
 	ConfiguredNssai                   []models.ConfiguredSnssai
 	NetworkSlicingSubscriptionChanged bool
 	/* T3513(Paging) */
-	T3513           *time.Timer // for paging
-	T3513RetryTimes int
+	T3513 *Timer // for paging
 	/* T3565(Notification) */
-	T3565           *time.Timer // for NAS Notification
-	T3565RetryTimes int
+	T3565 *Timer // for NAS Notification
 	/* T3560 (for authentication request/security mode command retransmission) */
-	T3560           *time.Timer
-	T3560RetryTimes int
+	T3560 *Timer
 	/* T3550 (for registration accept retransmission) */
-	T3550           *time.Timer
-	T3550RetryTimes int
+	T3550 *Timer
+	/* T3522 (for deregistration request) */
+	T3522 *Timer
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
 	T3502Value                      int // Second
 	T3512Value                      int // default 54 min
 	Non3gppDeregistrationTimerValue int // default 54 min
-	/* T3522 (for deregistration request) */
-	T3522           *time.Timer
-	T3522RetryTimes int
+
+	// logger
+	NASLog      *logrus.Entry
+	GmmLog      *logrus.Entry
+	ProducerLog *logrus.Entry
 }
 
 type AmfUeEventSubscription struct {
@@ -187,29 +193,16 @@ type AmfUeEventSubscription struct {
 	RemainReports     *int32
 	EventSubscription *models.AmfEventSubscription
 }
+
 type N1N2Message struct {
 	Request     models.N1N2MessageTransferRequest
 	Status      models.N1N2MessageTransferCause
 	ResourceUri string
 }
+
 type OnGoing struct {
 	Procedure OnGoingProcedure
-	Ppi       int32 //Paging priority
-}
-
-type SmContext struct {
-	SmfId             string
-	SmfUri            string
-	PlmnId            models.PlmnId
-	UserLocation      models.UserLocation
-	PduSessionContext *models.PduSessionContext
-}
-type StoredSmContext struct {
-	SmfId             string
-	SmfUri            string
-	PduSessionContext *models.PduSessionContext
-	AnType            models.AccessType
-	Payload           []byte
+	Ppi       int32 // Paging priority
 }
 
 type UERadioCapabilityForPaging struct {
@@ -243,24 +236,27 @@ type NGRANCGI struct {
 }
 
 func (ue *AmfUe) init() {
+	ue.servingAMF = AMF_Self()
 	ue.State = make(map[models.AccessType]*fsm.State)
 	ue.State[models.AccessType__3_GPP_ACCESS] = fsm.NewState(Deregistered)
 	ue.State[models.AccessType_NON_3_GPP_ACCESS] = fsm.NewState(Deregistered)
 	ue.UnauthenticatedSupi = true
 	ue.EventSubscriptionsInfo = make(map[string]*AmfUeEventSubscription)
-	ue.SmContextList = make(map[int32]*SmContext)
-	ue.StoredSmContext = make(map[int32]*StoredSmContext)
 	ue.RanUe = make(map[models.AccessType]*RanUe)
 	ue.RegistrationArea = make(map[models.AccessType][]models.Tai)
 	ue.AllowedNssai = make(map[models.AccessType][]models.AllowedSnssai)
 	ue.N1N2MessageIDGenerator = idgenerator.NewGenerator(1, 2147483647)
 	ue.N1N2MessageSubscribeIDGenerator = idgenerator.NewGenerator(1, 2147483647)
-	ue.OnGoing = make(map[models.AccessType]*OnGoing)
-	ue.OnGoing[models.AccessType_NON_3_GPP_ACCESS] = new(OnGoing)
-	ue.OnGoing[models.AccessType_NON_3_GPP_ACCESS].Procedure = OnGoingProcedureNothing
-	ue.OnGoing[models.AccessType__3_GPP_ACCESS] = new(OnGoing)
-	ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure = OnGoingProcedureNothing
+	ue.onGoing = make(map[models.AccessType]*OnGoing)
+	ue.onGoing[models.AccessType_NON_3_GPP_ACCESS] = new(OnGoing)
+	ue.onGoing[models.AccessType_NON_3_GPP_ACCESS].Procedure = OnGoingProcedureNothing
+	ue.onGoing[models.AccessType__3_GPP_ACCESS] = new(OnGoing)
+	ue.onGoing[models.AccessType__3_GPP_ACCESS].Procedure = OnGoingProcedureNothing
 	ue.ReleaseCause = make(map[models.AccessType]*CauseAll)
+}
+
+func (ue *AmfUe) ServingAMF() *AMFContext {
+	return ue.servingAMF
 }
 
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
@@ -324,8 +320,8 @@ func (ue *AmfUe) GetCmInfo() (cmInfos []models.CmInfo) {
 }
 
 func (ue *AmfUe) InAllowedNssai(targetSNssai models.Snssai, anType models.AccessType) bool {
-	for _, sNssai := range ue.AllowedNssai[anType] {
-		if reflect.DeepEqual(sNssai, targetSNssai) {
+	for _, allowedSnssai := range ue.AllowedNssai[anType] {
+		if reflect.DeepEqual(*allowedSnssai.AllowedSnssai, targetSNssai) {
 			return true
 		}
 	}
@@ -379,7 +375,6 @@ func (ue *AmfUe) SecurityContextIsValid() bool {
 
 // Kamf Derivation function defined in TS 33.501 Annex A.7
 func (ue *AmfUe) DerivateKamf() {
-
 	supiRegexp, err := regexp.Compile("(?:imsi|supi)-([0-9]{5,15})")
 	if err != nil {
 		logger.ContextLog.Error(err)
@@ -407,7 +402,6 @@ func (ue *AmfUe) DerivateKamf() {
 
 // Algorithm key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAlgKey() {
-
 	// Security Key
 	P0 := []byte{security.NNASEncAlg}
 	L0 := UeauCommon.KDFLen(P0)
@@ -434,7 +428,6 @@ func (ue *AmfUe) DerivateAlgKey() {
 
 // Access Network key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
-
 	accessType := security.AccessType3GPP // Defalut 3gpp
 	P0 := make([]byte, 4)
 	binary.BigEndian.PutUint32(P0, ue.ULCount.Get())
@@ -461,7 +454,6 @@ func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 
 // NH Derivation function defined in TS 33.501 Annex A.10
 func (ue *AmfUe) DerivateNH(syncInput []byte) {
-
 	P0 := syncInput
 	L0 := UeauCommon.KDFLen(P0)
 
@@ -539,6 +531,18 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.RegistrationAcceptForNon3GPPAccess = nil
 	ue.RanUe[accessType].UeContextRequest = false
 	ue.RetransmissionOfInitialNASMsg = false
+	ue.onGoing[accessType].Procedure = OnGoingProcedureNothing
+}
+
+func (ue *AmfUe) SetOnGoing(anType models.AccessType, onGoing *OnGoing) {
+	prevOnGoing := ue.onGoing[anType]
+	ue.onGoing[anType] = onGoing
+	ue.GmmLog.Debugf("OnGoing[%s]->[%s] PPI[%d]->[%d]", prevOnGoing.Procedure, onGoing.Procedure,
+		prevOnGoing.Ppi, onGoing.Ppi)
+}
+
+func (ue *AmfUe) OnGoing(anType models.AccessType) OnGoing {
+	return *ue.onGoing[anType]
 }
 
 func (ue *AmfUe) RemoveAmPolicyAssociation() {
@@ -656,9 +660,16 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 	if len(ueContext.SessionContextList) > 0 {
 		for _, pduSessionContext := range ueContext.SessionContextList {
 			smContext := SmContext{
-				PduSessionContext: &pduSessionContext,
+				pduSessionID: pduSessionContext.PduSessionId,
+				smContextRef: pduSessionContext.SmContextRef,
+				snssai:       *pduSessionContext.SNssai,
+				dnn:          pduSessionContext.Dnn,
+				accessType:   pduSessionContext.AccessType,
+				hSmfID:       pduSessionContext.HsmfId,
+				vSmfID:       pduSessionContext.VsmfId,
+				nsInstance:   pduSessionContext.NsInstance,
 			}
-			ue.SmContextList[pduSessionContext.PduSessionId] = &smContext
+			ue.StoreSmContext(pduSessionContext.PduSessionId, &smContext)
 		}
 	}
 
@@ -726,5 +737,19 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 	}
 	if ueContext.TraceData != nil {
 		ue.TraceData = ueContext.TraceData
+	}
+}
+
+// SM Context realted function
+
+func (ue *AmfUe) StoreSmContext(pduSessionID int32, smContext *SmContext) {
+	ue.SmContextList.Store(pduSessionID, smContext)
+}
+
+func (ue *AmfUe) SmContextFindByPDUSessionID(pduSessionID int32) (*SmContext, bool) {
+	if value, ok := ue.SmContextList.Load(pduSessionID); ok {
+		return value.(*SmContext), true
+	} else {
+		return nil, false
 	}
 }

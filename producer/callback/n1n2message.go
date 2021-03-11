@@ -2,13 +2,14 @@ package callback
 
 import (
 	"context"
-	"free5gc/lib/openapi/Namf_Communication"
-	"free5gc/lib/openapi/models"
-	amf_context "free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
+
+	amf_context "github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/openapi/Namf_Communication"
+	"github.com/free5gc/openapi/models"
 )
 
 var HttpLog *logrus.Entry
@@ -24,7 +25,6 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.N1N
 	n1n2Message := ue.N1N2Message
 	uri := n1n2Message.Request.JsonData.N1n2FailureTxfNotifURI
 	if n1n2Message.Status == models.N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE && uri != "" {
-
 		configuration := Namf_Communication.NewConfiguration()
 		client := Namf_Communication.NewAPIClient(configuration)
 
@@ -45,7 +45,6 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.N1N
 		} else {
 			ue.N1N2Message = nil
 		}
-
 	}
 }
 
@@ -73,7 +72,6 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 			}
 			httpResponse, err := client.N1MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.
 				N1MessageNotify(context.Background(), subscription.N1NotifyCallbackUri, n1MessageNotify)
-
 			if err != nil {
 				if httpResponse == nil {
 					HttpLog.Errorln(err.Error())
@@ -184,7 +182,6 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.N2InformationClass, 
 
 			httpResponse, err := client.N2InfoNotifyCallbackDocumentApiServiceCallbackDocumentApi.
 				N2InfoNotify(context.Background(), subscription.N2NotifyCallbackUri, n2InformationNotify)
-
 			if err != nil {
 				if httpResponse == nil {
 					HttpLog.Errorln(err.Error())

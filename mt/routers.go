@@ -10,12 +10,13 @@
 package mt
 
 import (
-	"free5gc/lib/logger_util"
-	"free5gc/src/amf/logger"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/logger_util"
 )
 
 // Route is the information for every URI.
