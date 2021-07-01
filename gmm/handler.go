@@ -378,7 +378,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	// the UE has a valid 5G NAS security context and the UE needs to send non-cleartext IEs
 	// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS message
 	// container IE, the UE shall set the security header type of the initial NAS message to "integrity protected"
-	if registrationRequest.NASMessageContainer != nil {
+	if registrationRequest.NASMessageContainer != nil && !ue.MacFailed {
 		contents := registrationRequest.NASMessageContainer.GetNASMessageContainerContents()
 
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
@@ -402,9 +402,9 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			// IE as the initial NAS message that triggered the procedure
 			registrationRequest = m.RegistrationRequest
 		}
-		// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
-		ue.RetransmissionOfInitialNASMsg = ue.MacFailed
 	}
+	// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
+	ue.RetransmissionOfInitialNASMsg = ue.MacFailed
 
 	ue.RegistrationRequest = registrationRequest
 	ue.RegistrationType5GS = registrationRequest.NgksiAndRegistrationType5GS.GetRegistrationType5GS()
