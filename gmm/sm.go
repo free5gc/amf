@@ -38,6 +38,11 @@ func DeRegistered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 					logger.GmmLog.Errorln(err)
 				}
 			}
+		// If UE that considers itself Registared and CM-IDLE throws a ServiceRequest
+		case nas.MsgTypeServiceRequest:
+			if err := HandleServiceRequest(amfUe, accessType, gmmMessage.ServiceRequest); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
 		default:
 			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.GetMessageType(), state.Current())
