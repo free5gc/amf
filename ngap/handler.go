@@ -6,6 +6,7 @@ import (
 
 	"github.com/free5gc/amf/consumer"
 	"github.com/free5gc/amf/context"
+	gmm_common "github.com/free5gc/amf/gmm/common"
 	gmm_message "github.com/free5gc/amf/gmm/message"
 	"github.com/free5gc/amf/logger"
 	"github.com/free5gc/amf/nas"
@@ -532,7 +533,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 	}
 	if amfUe.State[ran.AnType].Is(context.Registered) {
 		ranUe.Log.Info("Rel Ue Context in GMM-Registered")
-		if pDUSessionResourceList != nil {
+		if cause.NgapCause != nil && pDUSessionResourceList != nil {
 			for _, pduSessionReourceItem := range pDUSessionResourceList.List {
 				pduSessionID := int32(pduSessionReourceItem.PDUSessionID.Value)
 				smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
@@ -550,7 +551,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 	}
 
 	// Remove UE N2 Connection
-	amfUe.ReleaseCause[ran.AnType] = nil
+	delete(amfUe.ReleaseCause, ran.AnType)
 	switch ranUe.ReleaseAction {
 	case context.UeContextN2NormalRelease:
 		ran.Log.Infof("Release UE[%s] Context : N2 Connection Release", amfUe.Supi)
@@ -561,11 +562,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 		}
 	case context.UeContextReleaseUeContext:
 		ran.Log.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
-		err := ranUe.Remove()
-		if err != nil {
-			ran.Log.Errorln(err.Error())
-		}
-		amfUe.Remove()
+		gmm_common.RemoveAmfUe(amfUe)
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		// TODO: it's a workaround, need to fix it.

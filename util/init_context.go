@@ -72,9 +72,6 @@ func InitAmfContext(context *context.AMFContext) {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
 		context.SecurityAlgorithm.CipheringOrder = getEncAlgOrder(security.CipheringOrder)
 	}
-
-	context.AMFNetworkFeatureSupport5GS = getAMFNetworkFeatureSupport5GS(configuration.NetworkFeatureSupport5GS)
-
 	context.NetworkName = configuration.NetworkName
 	context.T3502Value = configuration.T3502Value
 	context.T3512Value = configuration.T3512Value
@@ -84,15 +81,6 @@ func InitAmfContext(context *context.AMFContext) {
 	context.T3550Cfg = configuration.T3550
 	context.T3560Cfg = configuration.T3560
 	context.T3565Cfg = configuration.T3565
-}
-
-func getAMFNetworkFeatureSupport5GS(featureConf *factory.AMFNetworkFeatureSupport5GS) *context.AMFNetworkFeatureSupport5GS {
-	if featureConf == nil {
-		return nil
-	}
-	nfs := &context.AMFNetworkFeatureSupport5GS{}
-	nfs.ImsVoPs = featureConf.ImsVoPs
-	return nfs
 }
 
 func getIntAlgOrder(integrityOrder []string) (intOrder []uint8) {

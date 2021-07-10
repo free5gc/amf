@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/factory"
 	"github.com/free5gc/amf/logger"
 	"github.com/free5gc/amf/nas/nas_security"
 	"github.com/free5gc/nas"
@@ -531,15 +532,22 @@ func BuildRegistrationAccept(
 		registrationAccept.ConfiguredNSSAI.SetSNSSAIValue(buf)
 	}
 
-	if amfSelf.AMFNetworkFeatureSupport5GS != nil {
-		registrationAccept.NetworkFeatureSupport5GS = nasType.NewNetworkFeatureSupport5GS(nasMessage.RegistrationAcceptNetworkFeatureSupport5GSType)
-		registrationAccept.NetworkFeatureSupport5GS.SetLen(uint8(2))
-		if amfSelf.AMFNetworkFeatureSupport5GS.ImsVoPs {
-			registrationAccept.NetworkFeatureSupport5GS.SetIMSVoPS3GPP(uint8(1))
+	// 5gs network feature support
+	if factory.AmfConfig.Configuration.Get5gsNwFeatSuppEnable() {
+		registrationAccept.NetworkFeatureSupport5GS =
+			nasType.NewNetworkFeatureSupport5GS(nasMessage.RegistrationAcceptNetworkFeatureSupport5GSType)
+		registrationAccept.NetworkFeatureSupport5GS.SetLen(2)
+		if anType == models.AccessType__3_GPP_ACCESS {
+			registrationAccept.SetIMSVoPS3GPP(factory.AmfConfig.Configuration.Get5gsNwFeatSuppImsVoPS())
 		} else {
-			registrationAccept.NetworkFeatureSupport5GS.SetIMSVoPS3GPP(uint8(0)) //default
+			registrationAccept.SetIMSVoPSN3GPP(factory.AmfConfig.Configuration.Get5gsNwFeatSuppImsVoPS())
 		}
-		// TODO: add further 5gs network feature support fields
+		registrationAccept.SetEMC(factory.AmfConfig.Configuration.Get5gsNwFeatSuppEmc())
+		registrationAccept.SetEMF(factory.AmfConfig.Configuration.Get5gsNwFeatSuppEmf())
+		registrationAccept.SetIWKN26(factory.AmfConfig.Configuration.Get5gsNwFeatSuppIwkN26())
+		registrationAccept.SetMPSI(factory.AmfConfig.Configuration.Get5gsNwFeatSuppMpsi())
+		registrationAccept.SetEMCN(factory.AmfConfig.Configuration.Get5gsNwFeatSuppEmcN3())
+		registrationAccept.SetMCSI(factory.AmfConfig.Configuration.Get5gsNwFeatSuppMcsi())
 	}
 
 	if pDUSessionStatus != nil {
@@ -563,9 +571,9 @@ func BuildRegistrationAccept(
 		registrationAccept.PDUSessionReactivationResultErrorCause.Buffer = buf
 	}
 
-	if len(ue.LadnInfo) > 0 {
+	if ue.LadnInfo != nil {
 		registrationAccept.LADNInformation = nasType.NewLADNInformation(nasMessage.RegistrationAcceptLADNInformationType)
-		var buf []uint8
+		buf := make([]uint8, 0)
 		for _, ladn := range ue.LadnInfo {
 			ladnNas := nasConvert.LadnToNas(ladn.Dnn, ladn.TaiLists)
 			buf = append(buf, ladnNas...)

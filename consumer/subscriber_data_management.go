@@ -113,8 +113,10 @@ func SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		PlmnId:       &ue.PlmnId,
 	}
 
-	_, httpResp, localErr := client.SubscriptionCreationApi.Subscribe(context.Background(), ue.Supi, sdmSubscription)
+	resSubscription, httpResp, localErr := client.SubscriptionCreationApi.Subscribe(
+		context.Background(), ue.Supi, sdmSubscription)
 	if localErr == nil {
+		ue.SdmSubscriptionId = resSubscription.SubscriptionId
 		return
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
@@ -171,4 +173,26 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 		err = openapi.ReportError("server no response")
 	}
 	return problemDetails, err
+}
+
+func SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
+
+	configuration := Nudm_SubscriberDataManagement.NewConfiguration()
+	configuration.SetBasePath(ue.NudmSDMUri)
+	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
+
+	httpResp, localErr := client.SubscriptionDeletionApi.Unsubscribe(context.Background(), ue.Supi, ue.SdmSubscriptionId)
+	if localErr == nil {
+		return
+	} else if httpResp != nil {
+		if httpResp.Status != localErr.Error() {
+			err = localErr
+			return
+		}
+		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
+		problemDetails = &problem
+	} else {
+		err = openapi.ReportError("server no response")
+	}
+	return
 }

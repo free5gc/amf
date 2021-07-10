@@ -164,6 +164,8 @@ type AmfUe struct {
 	AllowedNssai                      map[models.AccessType][]models.AllowedSnssai
 	ConfiguredNssai                   []models.ConfiguredSnssai
 	NetworkSlicingSubscriptionChanged bool
+	SdmSubscriptionId                 string
+	UeCmRegistered                    bool
 	/* T3513(Paging) */
 	T3513 *Timer // for paging
 	/* T3565(Notification) */
@@ -180,6 +182,7 @@ type AmfUe struct {
 	T3502Value                      int // Second
 	T3512Value                      int // default 54 min
 	Non3gppDeregistrationTimerValue int // default 54 min
+	Lock                            sync.Mutex
 
 	// logger
 	NASLog      *logrus.Entry

@@ -209,6 +209,8 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 					gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
 						smMessage, pduSessionID, cause, nil, 0)
 				} else {
+					ue.Lock.Lock()
+					defer ue.Lock.Unlock()
 					_, smContextRef, errResponse, problemDetail, err :=
 						consumer.SendCreateSmContextRequest(ue, newSmContext, nil, smMessage)
 					if err != nil {
@@ -1298,6 +1300,7 @@ func assignLadnInfo(ue *context.AmfUe, accessType models.AccessType) {
 
 	ue.LadnInfo = nil
 	if ue.RegistrationRequest.LADNIndication != nil {
+		ue.LadnInfo = make([]context.LADN, 0)
 		// request for LADN information
 		if ue.RegistrationRequest.LADNIndication.GetLen() == 0 {
 			if ue.HasWildCardSubscribedDNN() {

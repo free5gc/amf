@@ -2,6 +2,7 @@ package message
 
 import (
 	"github.com/free5gc/amf/context"
+	gmm_common "github.com/free5gc/amf/gmm/common"
 	"github.com/free5gc/amf/logger"
 	ngap_message "github.com/free5gc/amf/ngap/message"
 	"github.com/free5gc/amf/producer/callback"
@@ -92,7 +93,7 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		}, func() {
 			amfUe.GmmLog.Warnf("T3560 Expires %d times, abort authentication procedure & ongoing 5GMM procedure",
 				cfg.MaxRetryTimes)
-			amfUe.Remove()
+			gmm_common.RemoveAmfUe(amfUe)
 		})
 	}
 }
@@ -194,7 +195,7 @@ func SendSecurityModeCommand(ue *context.RanUe, eapSuccess bool, eapMessage stri
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3560 Expires %d times, abort security mode control procedure", cfg.MaxRetryTimes)
-			amfUe.Remove()
+			gmm_common.RemoveAmfUe(amfUe)
 		})
 	}
 }

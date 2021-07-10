@@ -13,7 +13,7 @@ func SendToRan(ran *context.AmfRan, packet []byte) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			ngaplog.Warnf("Send error, gNB may have been lost: %+v", err)
+			logger.NgapLog.Warnf("Send error, gNB may have been lost: %+v", err)
 		}
 	}()
 
