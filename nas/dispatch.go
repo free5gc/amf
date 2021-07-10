@@ -2,11 +2,13 @@ package nas
 
 import (
 	"errors"
-	"free5gc/lib/fsm"
-	"free5gc/lib/nas"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/gmm"
+	"fmt"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/gmm"
+	"github.com/free5gc/fsm"
+	"github.com/free5gc/nas"
+	"github.com/free5gc/openapi/models"
 )
 
 func Dispatch(ue *context.AmfUe, accessType models.AccessType, procedureCode int64, msg *nas.Message) error {
@@ -16,6 +18,10 @@ func Dispatch(ue *context.AmfUe, accessType models.AccessType, procedureCode int
 
 	if msg.GsmMessage != nil {
 		return errors.New("GSM Message should include in GMM Message")
+	}
+
+	if ue.State[accessType] == nil {
+		return fmt.Errorf("UE State is empty (accessType=%q). Can't send GSM Message", accessType)
 	}
 
 	return gmm.GmmFSM.SendEvent(ue.State[accessType], gmm.GmmMessageEvent, fsm.ArgsType{

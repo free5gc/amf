@@ -1,87 +1,81 @@
 package message
 
 import (
-	"free5gc/lib/aper"
-	"free5gc/lib/ngap/ngapType"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
-	"free5gc/src/amf/producer/callback"
-	"free5gc/src/amf/util"
-	"time"
-
-	"github.com/sirupsen/logrus"
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/amf/producer/callback"
+	"github.com/free5gc/aper"
+	"github.com/free5gc/ngap/ngapType"
+	"github.com/free5gc/openapi/models"
 )
 
-var ngaplog *logrus.Entry
-
-func init() {
-	ngaplog = logger.NgapLog
-}
-
 func SendToRan(ran *context.AmfRan, packet []byte) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			ngaplog.Warnf("Send error, gNB may have been lost: %+v", err)
+		}
+	}()
 
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
 	if len(packet) == 0 {
-		ngaplog.Error("packet len is 0")
+		ran.Log.Error("packet len is 0")
 		return
 	}
 
 	if ran.Conn == nil {
-		ngaplog.Error("Ran conn is nil")
+		ran.Log.Error("Ran conn is nil")
 		return
 	}
 
 	if ran.Conn.RemoteAddr() == nil {
-		ngaplog.Error("Ran addr is nil")
+		ran.Log.Error("Ran addr is nil")
 		return
 	}
 
-	ngaplog.Debugf("[NGAP] Send To Ran [IP: %s]", ran.Conn.RemoteAddr().String())
+	ran.Log.Debugf("Send NGAP message To Ran")
 
 	if n, err := ran.Conn.Write(packet); err != nil {
-		ngaplog.Errorf("Send error: %+v", err)
+		ran.Log.Errorf("Send error: %+v", err)
 		return
 	} else {
-		ngaplog.Debugf("Write %d bytes", n)
+		ran.Log.Debugf("Write %d bytes", n)
 	}
 }
 
 func SendToRanUe(ue *context.RanUe, packet []byte) {
-
 	var ran *context.AmfRan
 
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
 	if ran = ue.Ran; ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
 	if ue.AmfUe == nil {
-		ngaplog.Warn("AmfUe is nil")
+		ue.Log.Warn("AmfUe is nil")
 	}
 
 	SendToRan(ran, packet)
 }
 
 func NasSendToRan(ue *context.AmfUe, accessType models.AccessType, packet []byte) {
-
 	if ue == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
 
 	ranUe := ue.RanUe[accessType]
 	if ranUe == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
@@ -89,29 +83,27 @@ func NasSendToRan(ue *context.AmfUe, accessType models.AccessType, packet []byte
 }
 
 func SendNGSetupResponse(ran *context.AmfRan) {
-
-	ngaplog.Info("[AMF] Send NG-Setup response")
+	ran.Log.Info("Send NG-Setup response")
 
 	pkt, err := BuildNGSetupResponse()
 	if err != nil {
-		ngaplog.Errorf("Build NGSetupResponse failed : %s", err.Error())
+		ran.Log.Errorf("Build NGSetupResponse failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
 func SendNGSetupFailure(ran *context.AmfRan, cause ngapType.Cause) {
-
-	ngaplog.Info("[AMF] Send NG-Setup failure")
+	ran.Log.Info("Send NG-Setup failure")
 
 	if cause.Present == ngapType.CausePresentNothing {
-		ngaplog.Errorf("Cause present is nil")
+		ran.Log.Errorf("Cause present is nil")
 		return
 	}
 
 	pkt, err := BuildNGSetupFailure(cause)
 	if err != nil {
-		ngaplog.Errorf("Build NGSetupFailure failed : %s", err.Error())
+		ran.Log.Errorf("Build NGSetupFailure failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -120,12 +112,11 @@ func SendNGSetupFailure(ran *context.AmfRan, cause ngapType.Cause) {
 // partOfNGInterface: if reset type is "reset all", set it to nil TS 38.413 9.2.6.11
 func SendNGReset(ran *context.AmfRan, cause ngapType.Cause,
 	partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList) {
-
-	ngaplog.Info("[AMF] Send NG Reset")
+	ran.Log.Info("Send NG Reset")
 
 	pkt, err := BuildNGReset(cause, partOfNGInterface)
 	if err != nil {
-		ngaplog.Errorf("Build NGReset failed : %s", err.Error())
+		ran.Log.Errorf("Build NGReset failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -133,17 +124,16 @@ func SendNGReset(ran *context.AmfRan, cause ngapType.Cause,
 
 func SendNGResetAcknowledge(ran *context.AmfRan, partOfNGInterface *ngapType.UEAssociatedLogicalNGConnectionList,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send NG Reset Acknowledge")
+	ran.Log.Info("Send NG Reset Acknowledge")
 
 	if partOfNGInterface != nil && len(partOfNGInterface.List) == 0 {
-		ngaplog.Error("length of partOfNGInterface is 0")
+		ran.Log.Error("length of partOfNGInterface is 0")
 		return
 	}
 
 	pkt, err := BuildNGResetAcknowledge(partOfNGInterface, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build NGResetAcknowledge failed : %s", err.Error())
+		ran.Log.Errorf("Build NGResetAcknowledge failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -151,21 +141,20 @@ func SendNGResetAcknowledge(ran *context.AmfRan, partOfNGInterface *ngapType.UEA
 
 func SendDownlinkNasTransport(ue *context.RanUe, nasPdu []byte,
 	mobilityRestrictionList *ngapType.MobilityRestrictionList) {
-
-	ngaplog.Info("[AMF] Send Downlink Nas Transport")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Downlink Nas Transport")
+
 	if len(nasPdu) == 0 {
-		ngaplog.Errorf("[Send DownlinkNasTransport] Error: nasPdu is nil")
+		ue.Log.Errorf("Send DownlinkNasTransport Error: nasPdu is nil")
 	}
 
 	pkt, err := BuildDownlinkNasTransport(ue, nasPdu, mobilityRestrictionList)
 	if err != nil {
-		ngaplog.Errorf("Build DownlinkNasTransport failed : %s", err.Error())
+		ue.Log.Errorf("Build DownlinkNasTransport failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -173,34 +162,32 @@ func SendDownlinkNasTransport(ue *context.RanUe, nasPdu []byte,
 
 func SendPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
 	pduSessionResourceReleasedList ngapType.PDUSessionResourceToReleaseListRelCmd) {
-
-	ngaplog.Info("[AMF] Send PDU Session Resource Release Command")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send PDU Session Resource Release Command")
+
 	pkt, err := BuildPDUSessionResourceReleaseCommand(ue, nasPdu, pduSessionResourceReleasedList)
 	if err != nil {
-		ngaplog.Errorf("Build PDUSessionResourceReleaseCommand failed : %s", err.Error())
+		ue.Log.Errorf("Build PDUSessionResourceReleaseCommand failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
 }
 
 func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, causePresent int, cause aper.Enumerated) {
-
-	ngaplog.Info("[AMF] Send UE Context Release Command")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send UE Context Release Command")
+
 	pkt, err := BuildUEContextReleaseCommand(ue, causePresent, cause)
 	if err != nil {
-		ngaplog.Errorf("Build UEContextReleaseCommand failed : %s", err.Error())
+		ue.Log.Errorf("Build UEContextReleaseCommand failed : %s", err.Error())
 		return
 	}
 	ue.ReleaseAction = action
@@ -217,51 +204,48 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 
 func SendErrorIndication(ran *context.AmfRan, amfUeNgapId, ranUeNgapId *int64, cause *ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Error Indication")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Error Indication")
+
 	pkt, err := BuildErrorIndication(amfUeNgapId, ranUeNgapId, cause, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build ErrorIndication failed : %s", err.Error())
+		ran.Log.Errorf("Build ErrorIndication failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
 func SendUERadioCapabilityCheckRequest(ue *context.RanUe) {
-
-	ngaplog.Info("[AMF] Send UE Radio Capability Check Request")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send UE Radio Capability Check Request")
+
 	pkt, err := BuildUERadioCapabilityCheckRequest(ue)
 	if err != nil {
-		ngaplog.Errorf("Build UERadioCapabilityCheckRequest failed : %s", err.Error())
+		ue.Log.Errorf("Build UERadioCapabilityCheckRequest failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
 }
 
 func SendHandoverCancelAcknowledge(ue *context.RanUe, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Handover Cancel Acknowledge")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Handover Cancel Acknowledge")
+
 	pkt, err := BuildHandoverCancelAcknowledge(ue, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build HandoverCancelAcknowledge failed : %s", err.Error())
+		ue.Log.Errorf("Build HandoverCancelAcknowledge failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -271,22 +255,21 @@ func SendHandoverCancelAcknowledge(ue *context.RanUe, criticalityDiagnostics *ng
 // pduSessionResourceSetupRequestList: provided by AMF, and transfer data is from SMF
 func SendPDUSessionResourceSetupRequest(ue *context.RanUe, nasPdu []byte,
 	pduSessionResourceSetupRequestList ngapType.PDUSessionResourceSetupListSUReq) {
-
-	ngaplog.Info("[AMF] Send PDU Session Resource Setup Request")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send PDU Session Resource Setup Request")
+
 	if len(pduSessionResourceSetupRequestList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildPDUSessionResourceSetupRequest(ue, nasPdu, pduSessionResourceSetupRequestList)
 	if err != nil {
-		ngaplog.Errorf("Build PDUSessionResourceSetupRequest failed : %s", err.Error())
+		ue.Log.Errorf("Build PDUSessionResourceSetupRequest failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -299,28 +282,27 @@ func SendPDUSessionResourceModifyConfirm(
 	pduSessionResourceModifyConfirmList ngapType.PDUSessionResourceModifyListModCfm,
 	pduSessionResourceFailedToModifyList ngapType.PDUSessionResourceFailedToModifyListModCfm,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send PDU Session Resource Modify Confirm")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send PDU Session Resource Modify Confirm")
+
 	if len(pduSessionResourceModifyConfirmList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	if len(pduSessionResourceFailedToModifyList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildPDUSessionResourceModifyConfirm(ue, pduSessionResourceModifyConfirmList,
 		pduSessionResourceFailedToModifyList, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build PDUSessionResourceModifyConfirm failed : %s", err.Error())
+		ue.Log.Errorf("Build PDUSessionResourceModifyConfirm failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -329,22 +311,21 @@ func SendPDUSessionResourceModifyConfirm(
 // pduSessionResourceModifyRequestList: from SMF
 func SendPDUSessionResourceModifyRequest(ue *context.RanUe,
 	pduSessionResourceModifyRequestList ngapType.PDUSessionResourceModifyListModReq) {
-
-	ngaplog.Info("[AMF] Send PDU Session Resource Modify Request")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send PDU Session Resource Modify Request")
+
 	if len(pduSessionResourceModifyRequestList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildPDUSessionResourceModifyRequest(ue, pduSessionResourceModifyRequestList)
 	if err != nil {
-		ngaplog.Errorf("Build PDUSessionResourceModifyRequest failed : %s", err.Error())
+		ue.Log.Errorf("Build PDUSessionResourceModifyRequest failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -358,17 +339,16 @@ func SendInitialContextSetupRequest(
 	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	coreNetworkAssistanceInfo *ngapType.CoreNetworkAssistanceInformation,
 	emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator) {
-
-	ngaplog.Info("[AMF] Send Initial Context Setup Request")
-
 	if amfUe == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
 
+	amfUe.RanUe[anType].Log.Info("Send Initial Context Setup Request")
+
 	if pduSessionResourceSetupRequestList != nil {
 		if len(pduSessionResourceSetupRequestList.List) > context.MaxNumOfPDUSessions {
-			ngaplog.Error("Pdu List out of range")
+			amfUe.RanUe[anType].Log.Error("Pdu List out of range")
 			return
 		}
 	}
@@ -376,7 +356,7 @@ func SendInitialContextSetupRequest(
 	pkt, err := BuildInitialContextSetupRequest(amfUe, anType, nasPdu, pduSessionResourceSetupRequestList,
 		rrcInactiveTransitionReportRequest, coreNetworkAssistanceInfo, emergencyFallbackIndicator)
 	if err != nil {
-		ngaplog.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
+		amfUe.RanUe[anType].Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
 		return
 	}
 	amfUe.RanUe[anType].SentInitialContextSetupRequest = true
@@ -391,18 +371,17 @@ func SendUEContextModificationRequest(
 	coreNetworkAssistanceInfo *ngapType.CoreNetworkAssistanceInformation,
 	mobilityRestrictionList *ngapType.MobilityRestrictionList,
 	emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator) {
-
-	ngaplog.Info("[AMF] Send UE Context Modification Request")
-
 	if amfUe == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
+
+	amfUe.RanUe[anType].Log.Info("Send UE Context Modification Request")
 
 	pkt, err := BuildUEContextModificationRequest(amfUe, anType, oldAmfUeNgapID, rrcInactiveTransitionReportRequest,
 		coreNetworkAssistanceInfo, mobilityRestrictionList, emergencyFallbackIndicator)
 	if err != nil {
-		ngaplog.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
+		amfUe.RanUe[anType].Log.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
 		return
 	}
 	NasSendToRan(amfUe, anType, pkt)
@@ -418,28 +397,27 @@ func SendHandoverCommand(
 	pduSessionResourceToReleaseList ngapType.PDUSessionResourceToReleaseListHOCmd,
 	container ngapType.TargetToSourceTransparentContainer,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Handover Command")
-
 	if sourceUe == nil {
-		ngaplog.Error("SourceUe is nil")
+		logger.NgapLog.Error("SourceUe is nil")
 		return
 	}
 
+	sourceUe.Log.Info("Send Handover Command")
+
 	if len(pduSessionResourceHandoverList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		sourceUe.Log.Error("Pdu List out of range")
 		return
 	}
 
 	if len(pduSessionResourceToReleaseList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		sourceUe.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 		container, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build HandoverCommand failed : %s", err.Error())
+		sourceUe.Log.Errorf("Build HandoverCommand failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(sourceUe, pkt)
@@ -450,22 +428,24 @@ func SendHandoverCommand(
 // when received node can't comprehend the IE or missing IE
 func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Handover Preparation Failure")
-
 	if sourceUe == nil {
-		ngaplog.Error("SourceUe is nil")
+		logger.NgapLog.Error("SourceUe is nil")
 		return
 	}
+
+	sourceUe.Log.Info("Send Handover Preparation Failure")
+
 	amfUe := sourceUe.AmfUe
 	if amfUe == nil {
-		ngaplog.Error("amfUe is nil")
+		sourceUe.Log.Error("amfUe is nil")
 		return
 	}
-	amfUe.OnGoing[sourceUe.Ran.AnType].Procedure = context.OnGoingProcedureNothing
+	amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
+		Procedure: context.OnGoingProcedureNothing,
+	})
 	pkt, err := BuildHandoverPreparationFailure(sourceUe, cause, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build HandoverPreparationFailure failed : %s", err.Error())
+		sourceUe.Log.Errorf("Build HandoverPreparationFailure failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(sourceUe, pkt)
@@ -481,53 +461,53 @@ a Nsmf_PDUSession_CreateSMContext Response(N2 SM Information (PDU Session ID, ca
 func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cause ngapType.Cause,
 	pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
 	sourceToTargetTransparentContainer ngapType.SourceToTargetTransparentContainer, nsci bool) {
-
-	ngaplog.Info("[AMF] Send Handover Request")
-
 	if sourceUe == nil {
-		ngaplog.Error("sourceUe is nil")
+		logger.NgapLog.Error("sourceUe is nil")
 		return
 	}
+
+	sourceUe.Log.Info("Send Handover Request")
+
 	amfUe := sourceUe.AmfUe
 	if amfUe == nil {
-		ngaplog.Error("amfUe is nil")
+		sourceUe.Log.Error("amfUe is nil")
 		return
 	}
 	if targetRan == nil {
-		ngaplog.Error("targetRan is nil")
+		sourceUe.Log.Error("targetRan is nil")
 		return
 	}
 
 	if sourceUe.TargetUe != nil {
-		ngaplog.Error("Handover Required Duplicated")
+		sourceUe.Log.Error("Handover Required Duplicated")
 		return
 	}
 
 	if len(pduSessionResourceSetupListHOReq.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		sourceUe.Log.Error("Pdu List out of range")
 		return
 	}
 
 	if len(sourceToTargetTransparentContainer.Value) == 0 {
-		ngaplog.Error("Source To Target TransparentContainer is nil")
+		sourceUe.Log.Error("Source To Target TransparentContainer is nil")
 		return
 	}
 
 	var targetUe *context.RanUe
 	if targetUeTmp, err := targetRan.NewRanUe(context.RanUeNgapIdUnspecified); err != nil {
-		ngaplog.Errorf("Create target UE error: %+v", err)
+		sourceUe.Log.Errorf("Create target UE error: %+v", err)
 	} else {
 		targetUe = targetUeTmp
 	}
 
-	ngaplog.Tracef("Source : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[%d]", sourceUe.AmfUeNgapId, sourceUe.RanUeNgapId)
-	ngaplog.Tracef("Target : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[Unknown]", targetUe.AmfUeNgapId)
+	sourceUe.Log.Tracef("Source : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[%d]", sourceUe.AmfUeNgapId, sourceUe.RanUeNgapId)
+	sourceUe.Log.Tracef("Target : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[Unknown]", targetUe.AmfUeNgapId)
 	context.AttachSourceUeTargetUe(sourceUe, targetUe)
 
 	pkt, err := BuildHandoverRequest(targetUe, cause, pduSessionResourceSetupListHOReq,
 		sourceToTargetTransparentContainer, nsci)
 	if err != nil {
-		ngaplog.Errorf("Build HandoverRequest failed : %s", err.Error())
+		sourceUe.Log.Errorf("Build HandoverRequest failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(targetUe, pkt)
@@ -550,21 +530,20 @@ func SendPathSwitchRequestAcknowledge(
 	coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation,
 	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Path Switch Request Acknowledge")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Path Switch Request Acknowledge")
+
 	if len(pduSessionResourceSwitchedList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	if len(pduSessionResourceReleasedList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
@@ -572,7 +551,7 @@ func SendPathSwitchRequestAcknowledge(
 		newSecurityContextIndicator, coreNetworkAssistanceInformation, rrcInactiveTransitionReportRequest,
 		criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build PathSwitchRequestAcknowledge failed : %s", err.Error())
+		ue.Log.Errorf("Build PathSwitchRequestAcknowledge failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -586,41 +565,39 @@ func SendPathSwitchRequestFailure(
 	ranUeNgapId int64,
 	pduSessionResourceReleasedList *ngapType.PDUSessionResourceReleasedListPSFail,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Path Switch Request Failure")
+	ran.Log.Info("Send Path Switch Request Failure")
 
 	if pduSessionResourceReleasedList != nil && len(pduSessionResourceReleasedList.List) > context.MaxNumOfPDUSessions {
-		ngaplog.Error("Pdu List out of range")
+		ran.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildPathSwitchRequestFailure(amfUeNgapId, ranUeNgapId, pduSessionResourceReleasedList,
 		criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build PathSwitchRequestFailure failed : %s", err.Error())
+		ran.Log.Errorf("Build PathSwitchRequestFailure failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
-//RanStatusTransferTransparentContainer from Uplink Ran Configuration Transfer
+// RanStatusTransferTransparentContainer from Uplink Ran Configuration Transfer
 func SendDownlinkRanStatusTransfer(ue *context.RanUe, container ngapType.RANStatusTransferTransparentContainer) {
-
-	ngaplog.Info("[AMF] Send Downlink Ran Status Transfer")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Downlink Ran Status Transfer")
+
 	if len(container.DRBsSubjectToStatusTransferList.List) > context.MaxNumOfDRBs {
-		ngaplog.Error("Pdu List out of range")
+		ue.Log.Error("Pdu List out of range")
 		return
 	}
 
 	pkt, err := BuildDownlinkRanStatusTransfer(ue, container)
 	if err != nil {
-		ngaplog.Errorf("Build DownlinkRanStatusTransfer failed : %s", err.Error())
+		ue.Log.Errorf("Build DownlinkRanStatusTransfer failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -637,10 +614,9 @@ func SendDownlinkRanStatusTransfer(ue *context.RanUe, container ngapType.RANStat
 // NG-RAN node(s) via 3GPP access.
 // more paging policy with 3gpp/non-3gpp access is described in TS 23.501 5.6.8
 func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
-
 	// var pagingPriority *ngapType.PagingPriority
 	if ue == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
 
@@ -657,8 +633,8 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 		ran := value.(*context.AmfRan)
 		for _, item := range ran.SupportedTAList {
 			if context.InTaiList(item.Tai, taiList) {
-				ngaplog.Infof("[AMF] Send Paging to TAI(%+v, Tac:%+v) for Ue[%s]",
-					item.Tai.PlmnId, item.Tai.Tac, ue.Supi)
+				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)",
+					item.Tai.PlmnId, item.Tai.Tac)
 				SendToRan(ran, ngapBuf)
 				break
 			}
@@ -666,18 +642,10 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 		return true
 	})
 
-	ue.T3513RetryTimes = 0
-	ue.T3513 = time.AfterFunc(context.TimeT3513, func() {
-		ue.T3513RetryTimes++
-		if ue.T3513RetryTimes > context.MaxT3513RetryTimes {
-			logger.GmmLog.Warnf("UE[%s] T3513 expires %d times, abort paging procedure", ue.Supi, ue.T3513RetryTimes)
-			if ue.OnGoing[models.AccessType__3_GPP_ACCESS].Procedure != context.OnGoingProcedureN2Handover {
-				callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
-			}
-			util.StopT3513(ue)
-		} else {
-			logger.NgapLog.Warnf("[NGAP] T3513 expires, retransmit Paging (UE: [%s], retry: %d)",
-				ue.Supi, ue.T3513RetryTimes)
+	if context.AMF_Self().T3513Cfg.Enable {
+		cfg := context.AMF_Self().T3513Cfg
+		ue.T3513 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+			ue.GmmLog.Warnf("T3513 expires, retransmit Paging (retry: %d)", expireTimes)
 			context.AMF_Self().AmfRanPool.Range(func(key, value interface{}) bool {
 				ran := value.(*context.AmfRan)
 				for _, item := range ran.SupportedTAList {
@@ -688,9 +656,14 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 				}
 				return true
 			})
-			ue.T3513.Reset(context.TimeT3513)
-		}
-	})
+		}, func() {
+			ue.GmmLog.Warnf("T3513 expires %d times, abort paging procedure", cfg.MaxRetryTimes)
+			ue.T3513 = nil // clear the timer
+			if ue.OnGoing(models.AccessType__3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
+				callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
+			}
+		})
+	}
 }
 
 // TS 23.502 4.2.2.2.3
@@ -700,22 +673,21 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 // allowedNSSAI: provided by AMF, and AMF get it from NSSF (4.2.2.2.3 step 4b)
 func SendRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNgapID *int64, ngapMessage []byte,
 	allowedNSSAI *ngapType.AllowedNSSAI) {
-
-	ngaplog.Info("[AMF] Send Reroute Nas Request")
-
 	if ue == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
 
+	ue.RanUe[anType].Log.Info("Send Reroute Nas Request")
+
 	if len(ngapMessage) == 0 {
-		ngaplog.Error("Ngap Message is nil")
+		ue.RanUe[anType].Log.Error("Ngap Message is nil")
 		return
 	}
 
 	pkt, err := BuildRerouteNasRequest(ue, anType, amfUeNgapID, ngapMessage, allowedNSSAI)
 	if err != nil {
-		ngaplog.Errorf("Build RerouteNasRequest failed : %s", err.Error())
+		ue.RanUe[anType].Log.Errorf("Build RerouteNasRequest failed : %s", err.Error())
 		return
 	}
 	NasSendToRan(ue, anType, pkt)
@@ -724,17 +696,16 @@ func SendRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNga
 // criticality ->from received node when received node can't comprehend the IE or missing IE
 func SendRanConfigurationUpdateAcknowledge(
 	ran *context.AmfRan, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Ran Configuration Update Acknowledge")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Ran Configuration Update Acknowledge")
+
 	pkt, err := BuildRanConfigurationUpdateAcknowledge(criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build RanConfigurationUpdateAcknowledge failed : %s", err.Error())
+		ran.Log.Errorf("Build RanConfigurationUpdateAcknowledge failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -745,45 +716,43 @@ func SendRanConfigurationUpdateAcknowledge(
 // it shall respond with a RAN CONFIGURATION UPDATE FAILURE message and appropriate cause value.
 func SendRanConfigurationUpdateFailure(ran *context.AmfRan, cause ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-
-	ngaplog.Info("[AMF] Send Ran Configuration Update Failure")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Ran Configuration Update Failure")
+
 	pkt, err := BuildRanConfigurationUpdateFailure(cause, criticalityDiagnostics)
 	if err != nil {
-		ngaplog.Errorf("Build RanConfigurationUpdateFailure failed : %s", err.Error())
+		ran.Log.Errorf("Build RanConfigurationUpdateFailure failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
-//An AMF shall be able to instruct other peer CP NFs, subscribed to receive such a notification,
-//that it will be unavailable on this AMF and its corresponding target AMF(s).
-//If CP NF does not subscribe to receive AMF unavailable notification, the CP NF may attempt
-//forwarding the transaction towards the old AMF and detect that the AMF is unavailable. When
-//it detects unavailable, it marks the AMF and its associated GUAMI(s) as unavailable.
-//Defined in 23.501 5.21.2.2.2
+// An AMF shall be able to instruct other peer CP NFs, subscribed to receive such a notification,
+// that it will be unavailable on this AMF and its corresponding target AMF(s).
+// If CP NF does not subscribe to receive AMF unavailable notification, the CP NF may attempt
+// forwarding the transaction towards the old AMF and detect that the AMF is unavailable. When
+// it detects unavailable, it marks the AMF and its associated GUAMI(s) as unavailable.
+// Defined in 23.501 5.21.2.2.2
 func SendAMFStatusIndication(ran *context.AmfRan, unavailableGUAMIList ngapType.UnavailableGUAMIList) {
-
-	ngaplog.Info("[AMF] Send AMF Status Indication")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send AMF Status Indication")
+
 	if len(unavailableGUAMIList.List) > context.MaxNumOfServedGuamiList {
-		ngaplog.Error("GUAMI List out of range")
+		ran.Log.Error("GUAMI List out of range")
 		return
 	}
 
 	pkt, err := BuildAMFStatusIndication(unavailableGUAMIList)
 	if err != nil {
-		ngaplog.Errorf("Build AMFStatusIndication failed : %s", err.Error())
+		ran.Log.Errorf("Build AMFStatusIndication failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -799,45 +768,43 @@ func SendOverloadStart(
 	amfOverloadResponse *ngapType.OverloadResponse,
 	amfTrafficLoadReductionIndication int64,
 	overloadStartNSSAIList *ngapType.OverloadStartNSSAIList) {
-
-	ngaplog.Info("[AMF] Send Overload Start")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Overload Start")
+
 	if amfTrafficLoadReductionIndication != 0 &&
 		(amfTrafficLoadReductionIndication < 1 || amfTrafficLoadReductionIndication > 99) {
-		ngaplog.Error("AmfTrafficLoadReductionIndication out of range (should be 1 ~ 99)")
+		ran.Log.Error("AmfTrafficLoadReductionIndication out of range (should be 1 ~ 99)")
 		return
 	}
 
 	if overloadStartNSSAIList != nil && len(overloadStartNSSAIList.List) > context.MaxNumOfSlice {
-		ngaplog.Error("NSSAI List out of range")
+		ran.Log.Error("NSSAI List out of range")
 		return
 	}
 
 	pkt, err := BuildOverloadStart(amfOverloadResponse, amfTrafficLoadReductionIndication, overloadStartNSSAIList)
 	if err != nil {
-		ngaplog.Errorf("Build OverloadStart failed : %s", err.Error())
+		ran.Log.Errorf("Build OverloadStart failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
 func SendOverloadStop(ran *context.AmfRan) {
-
-	ngaplog.Info("[AMF] Send Overload Stop")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Overload Stop")
+
 	pkt, err := BuildOverloadStop()
 	if err != nil {
-		ngaplog.Errorf("Build OverloadStop failed : %s", err.Error())
+		ran.Log.Errorf("Build OverloadStop failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
@@ -845,64 +812,61 @@ func SendOverloadStop(ran *context.AmfRan) {
 
 // SONConfigurationTransfer = sONConfigurationTransfer from uplink Ran Configuration Transfer
 func SendDownlinkRanConfigurationTransfer(ran *context.AmfRan, transfer *ngapType.SONConfigurationTransfer) {
-
-	ngaplog.Info("[AMF] Send Downlink Ran Configuration Transfer")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send Downlink Ran Configuration Transfer")
+
 	pkt, err := BuildDownlinkRanConfigurationTransfer(transfer)
 	if err != nil {
-		ngaplog.Errorf("Build DownlinkRanConfigurationTransfer failed : %s", err.Error())
+		ran.Log.Errorf("Build DownlinkRanConfigurationTransfer failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
-//NRPPa PDU is by pass
-//NRPPa PDU is from LMF define in 4.13.5.6
+// NRPPa PDU is by pass
+// NRPPa PDU is from LMF define in 4.13.5.6
 func SendDownlinkNonUEAssociatedNRPPATransport(ue *context.RanUe, nRPPaPDU ngapType.NRPPaPDU) {
-
-	ngaplog.Info("[AMF] Send Downlink Non UE Associated NRPPA Transport")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Downlink Non UE Associated NRPPA Transport")
+
 	if len(nRPPaPDU.Value) == 0 {
-		ngaplog.Error("length of NRPPA-PDU is 0")
+		ue.Log.Error("length of NRPPA-PDU is 0")
 		return
 	}
 
 	pkt, err := BuildDownlinkNonUEAssociatedNRPPATransport(ue, nRPPaPDU)
 	if err != nil {
-		ngaplog.Errorf("Build DownlinkNonUEAssociatedNRPPATransport failed : %s", err.Error())
+		ue.Log.Errorf("Build DownlinkNonUEAssociatedNRPPATransport failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
 }
 
 func SendDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) {
-
-	ngaplog.Info("[AMF] Send Deactivate Trace")
-
 	if amfUe == nil {
-		ngaplog.Error("AmfUe is nil")
+		logger.NgapLog.Error("AmfUe is nil")
 		return
 	}
 
 	ranUe := amfUe.RanUe[anType]
 	if ranUe == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ranUe.Log.Info("Send Deactivate Trace")
+
 	pkt, err := BuildDeactivateTrace(amfUe, anType)
 	if err != nil {
-		ngaplog.Errorf("Build DeactivateTrace failed : %s", err.Error())
+		ranUe.Log.Errorf("Build DeactivateTrace failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ranUe, pkt)
@@ -923,46 +887,44 @@ func SendLocationReportingControl(
 	AOIList *ngapType.AreaOfInterestList,
 	LocationReportingReferenceIDToBeCancelled int64,
 	eventType ngapType.EventType) {
-
-	ngaplog.Info("[AMF] Send Location Reporting Control")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Location Reporting Control")
+
 	if AOIList != nil && len(AOIList.List) > context.MaxNumOfAOI {
-		ngaplog.Error("AOI List out of range")
+		ue.Log.Error("AOI List out of range")
 		return
 	}
 
 	if eventType.Value == ngapType.EventTypePresentStopUePresenceInAreaOfInterest {
 		if LocationReportingReferenceIDToBeCancelled < 1 || LocationReportingReferenceIDToBeCancelled > 64 {
-			ngaplog.Error("LocationReportingReferenceIDToBeCancelled out of range (should be 1 ~ 64)")
+			ue.Log.Error("LocationReportingReferenceIDToBeCancelled out of range (should be 1 ~ 64)")
 			return
 		}
 	}
 
 	pkt, err := BuildLocationReportingControl(ue, AOIList, LocationReportingReferenceIDToBeCancelled, eventType)
 	if err != nil {
-		ngaplog.Errorf("Build LocationReportingControl failed : %s", err.Error())
+		ue.Log.Errorf("Build LocationReportingControl failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
 }
 
 func SendUETNLABindingReleaseRequest(ue *context.RanUe) {
-
-	ngaplog.Info("[AMF] Send UE TNLA Binging Release Request")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send UE TNLA Binging Release Request")
+
 	pkt, err := BuildUETNLABindingReleaseRequest(ue)
 	if err != nil {
-		ngaplog.Errorf("Build UETNLABindingReleaseRequest failed : %s", err.Error())
+		ue.Log.Errorf("Build UETNLABindingReleaseRequest failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)
@@ -971,41 +933,39 @@ func SendUETNLABindingReleaseRequest(ue *context.RanUe) {
 // Weight Factor associated with each of the TNL association within the AMF
 func SendAMFConfigurationUpdate(ran *context.AmfRan, usage ngapType.TNLAssociationUsage,
 	weightfactor ngapType.TNLAddressWeightFactor) {
-
-	ngaplog.Info("[AMF] Send AMF Configuration Update")
-
 	if ran == nil {
-		ngaplog.Error("Ran is nil")
+		logger.NgapLog.Error("Ran is nil")
 		return
 	}
 
+	ran.Log.Info("Send AMF Configuration Update")
+
 	pkt, err := BuildAMFConfigurationUpdate(usage, weightfactor)
 	if err != nil {
-		ngaplog.Errorf("Build AMFConfigurationUpdate failed : %s", err.Error())
+		ran.Log.Errorf("Build AMFConfigurationUpdate failed : %s", err.Error())
 		return
 	}
 	SendToRan(ran, pkt)
 }
 
-//NRPPa PDU is a pdu from LMF to RAN defined in TS 23.502 4.13.5.5 step 3
-//NRPPa PDU is by pass
+// NRPPa PDU is a pdu from LMF to RAN defined in TS 23.502 4.13.5.5 step 3
+// NRPPa PDU is by pass
 func SendDownlinkUEAssociatedNRPPaTransport(ue *context.RanUe, nRPPaPDU ngapType.NRPPaPDU) {
-
-	ngaplog.Info("[AMF] Send Downlink UE Associated NRPPa Transport")
-
 	if ue == nil {
-		ngaplog.Error("RanUe is nil")
+		logger.NgapLog.Error("RanUe is nil")
 		return
 	}
 
+	ue.Log.Info("Send Downlink UE Associated NRPPa Transport")
+
 	if len(nRPPaPDU.Value) == 0 {
-		ngaplog.Error("length of NRPPA-PDU is 0")
+		ue.Log.Error("length of NRPPA-PDU is 0")
 		return
 	}
 
 	pkt, err := BuildDownlinkUEAssociatedNRPPaTransport(ue, nRPPaPDU)
 	if err != nil {
-		ngaplog.Errorf("Build DownlinkUEAssociatedNRPPaTransport failed : %s", err.Error())
+		ue.Log.Errorf("Build DownlinkUEAssociatedNRPPaTransport failed : %s", err.Error())
 		return
 	}
 	SendToRanUe(ue, pkt)

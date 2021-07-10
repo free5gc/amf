@@ -1,16 +1,15 @@
 package util
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/google/uuid"
 
-	"free5gc/lib/nas/security"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/factory"
-	"free5gc/src/amf/logger"
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/amf/factory"
+	"github.com/free5gc/amf/logger"
+	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi/models"
 )
 
 func InitAmfContext(context *context.AMFContext) {
@@ -33,8 +32,8 @@ func InitAmfContext(context *context.AMFContext) {
 		logger.UtilLog.Warnln("SBI Scheme has not been set. Using http as default")
 		context.UriScheme = "http"
 	}
-	context.RegisterIPv4 = "127.0.0.1" // default localhost
-	context.SBIPort = 29518            // default port
+	context.RegisterIPv4 = factory.AMF_DEFAULT_IPV4 // default localhost
+	context.SBIPort = factory.AMF_DEFAULT_PORT_INT  // default port
 	if sbi != nil {
 		if sbi.RegisterIPv4 != "" {
 			context.RegisterIPv4 = sbi.RegisterIPv4
@@ -66,17 +65,34 @@ func InitAmfContext(context *context.AMFContext) {
 		context.NrfUri = configuration.NrfUri
 	} else {
 		logger.UtilLog.Warn("NRF Uri is empty! Using localhost as NRF IPv4 address.")
-		context.NrfUri = fmt.Sprintf("%s://%s:%d", context.UriScheme, "127.0.0.1", 29510)
+		context.NrfUri = factory.AMF_DEFAULT_NRFURI
 	}
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
 		context.SecurityAlgorithm.CipheringOrder = getEncAlgOrder(security.CipheringOrder)
 	}
+
+	context.AMFNetworkFeatureSupport5GS = getAMFNetworkFeatureSupport5GS(configuration.NetworkFeatureSupport5GS)
+
 	context.NetworkName = configuration.NetworkName
-	context.T3502Value = configuration.T3502
-	context.T3512Value = configuration.T3512
-	context.Non3gppDeregistrationTimerValue = configuration.Non3gppDeregistrationTimer
+	context.T3502Value = configuration.T3502Value
+	context.T3512Value = configuration.T3512Value
+	context.Non3gppDeregistrationTimerValue = configuration.Non3gppDeregistrationTimerValue
+	context.T3513Cfg = configuration.T3513
+	context.T3522Cfg = configuration.T3522
+	context.T3550Cfg = configuration.T3550
+	context.T3560Cfg = configuration.T3560
+	context.T3565Cfg = configuration.T3565
+}
+
+func getAMFNetworkFeatureSupport5GS(featureConf *factory.AMFNetworkFeatureSupport5GS) *context.AMFNetworkFeatureSupport5GS {
+	if featureConf == nil {
+		return nil
+	}
+	nfs := &context.AMFNetworkFeatureSupport5GS{}
+	nfs.ImsVoPs = featureConf.ImsVoPs
+	return nfs
 }
 
 func getIntAlgOrder(integrityOrder []string) (intOrder []uint8) {
@@ -96,6 +112,7 @@ func getIntAlgOrder(integrityOrder []string) (intOrder []uint8) {
 	}
 	return
 }
+
 func getEncAlgOrder(cipheringOrder []string) (encOrder []uint8) {
 	for _, encAlg := range cipheringOrder {
 		switch encAlg {

@@ -2,8 +2,9 @@ package util
 
 import (
 	"encoding/json"
-	"free5gc/src/amf/logger"
 	"reflect"
+
+	"github.com/free5gc/amf/logger"
 )
 
 func MarshToJsonString(v interface{}) (result []string) {
@@ -17,13 +18,13 @@ func MarshToJsonString(v interface{}) (result []string) {
 			}
 
 			result = append(result, string(tmp))
-
 		}
 	} else {
 		tmp, err := json.Marshal(v)
 		if err != nil {
 			logger.UtilLog.Errorf("Marshal error: %+v", err)
 		}
+
 		result = append(result, string(tmp))
 	}
 	return

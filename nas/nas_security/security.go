@@ -3,12 +3,12 @@ package nas_security
 import (
 	"encoding/hex"
 	"fmt"
-	"free5gc/lib/nas"
-	"free5gc/lib/nas/security"
-	"free5gc/lib/openapi/models"
-	"free5gc/src/amf/context"
-	"free5gc/src/amf/logger"
 	"reflect"
+
+	"github.com/free5gc/amf/context"
+	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi/models"
 )
 
 func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
@@ -28,12 +28,12 @@ func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
 		needCiphering := false
 		switch msg.SecurityHeader.SecurityHeaderType {
 		case nas.SecurityHeaderTypeIntegrityProtected:
-			logger.NasLog.Debugln("Security header type: Integrity Protected")
+			ue.NASLog.Debugln("Security header type: Integrity Protected")
 		case nas.SecurityHeaderTypeIntegrityProtectedAndCiphered:
-			logger.NasLog.Debugln("Security header type: Integrity Protected And Ciphered")
+			ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered")
 			needCiphering = true
 		case nas.SecurityHeaderTypeIntegrityProtectedWithNew5gNasSecurityContext:
-			logger.NasLog.Debugln("Security header type: Integrity Protected With New 5G Security Context")
+			ue.NASLog.Debugln("Security header type: Integrity Protected With New 5G Security Context")
 			ue.ULCount.Set(0, 0)
 			ue.DLCount.Set(0, 0)
 		default:
@@ -46,12 +46,11 @@ func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
 			return nil, fmt.Errorf("Plain NAS encode error: %+v", err)
 		}
 
-		logger.NasLog.Traceln("ue.CipheringAlg", ue.CipheringAlg)
-		logger.NasLog.Traceln("ue.DLCount()", ue.DLCount.Get())
-		logger.NasLog.Tracef("payload:\n%+v", hex.Dump(payload))
+		ue.NASLog.Tracef("plain payload:\n%+v", hex.Dump(payload))
 
 		if needCiphering {
-			logger.NasLog.Debugln("Perform NAS encryption")
+			ue.NASLog.Debugf("Encrypt NAS message (algorithm: %+v, DLCount: 0x%0x)", ue.CipheringAlg, ue.DLCount.Get())
+			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
 			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(), security.Bearer3GPP,
 				security.DirectionDownlink, payload); err != nil {
 				return nil, fmt.Errorf("Encrypt error: %+v", err)
@@ -61,19 +60,21 @@ func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
 		// add sequece number
 		payload = append([]byte{ue.DLCount.SQN()}, payload[:]...)
 
+		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, DLCount: 0x%0x)", ue.IntegrityAlg, ue.DLCount.Get())
+		ue.NASLog.Tracef("NAS integrity key: %0x", ue.KnasInt)
 		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.DLCount.Get(), security.Bearer3GPP,
 			security.DirectionDownlink, payload)
 		if err != nil {
 			return nil, fmt.Errorf("MAC calcuate error: %+v", err)
 		}
 		// Add mac value
-		logger.NasLog.Traceln("mac32", mac32)
+		ue.NASLog.Tracef("MAC: 0x%08x", mac32)
 		payload = append(mac32, payload[:]...)
 
 		// Add EPD and Security Type
 		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
 		payload = append(msgSecurityHeader, payload[:]...)
-		logger.NasLog.Traceln("Encode payload", payload)
+
 		// Increase DL Count
 		ue.DLCount.AddOne()
 		return payload, nil
@@ -93,12 +94,12 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 	}
 
 	msg := new(nas.Message)
-	msg.SecurityHeaderType = uint8(nas.GetSecurityHeaderType(payload) & 0x0f)
-	logger.NasLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
+	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
+	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 	if msg.SecurityHeaderType == nas.SecurityHeaderTypePlainNas {
 		// RRCEstablishmentCause 0 is for emergency service
 		if ue.SecurityContextAvailable && ue.RanUe[accessType].RRCEstablishmentCause != "0" {
-			logger.NasLog.Warnln("Received Plain NAS message")
+			ue.NASLog.Warnln("Received Plain NAS message")
 			ue.MacFailed = false
 			if err := msg.PlainNasDecode(&payload); err != nil {
 				return nil, err
@@ -136,11 +137,10 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 			return msg, err
 		}
 	} else { // Security protected NAS message
-		logger.NasLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 		securityHeader := payload[0:6]
-		logger.NasLog.Traceln("securityHeader is ", securityHeader)
+		ue.NASLog.Traceln("securityHeader is ", securityHeader)
 		sequenceNumber := payload[6]
-		logger.NasLog.Traceln("sequenceNumber", sequenceNumber)
+		ue.NASLog.Traceln("sequenceNumber", sequenceNumber)
 
 		receivedMac32 := securityHeader[2:]
 		// remove security Header except for sequece Number
@@ -150,12 +150,12 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		ciphered := false
 		switch msg.SecurityHeaderType {
 		case nas.SecurityHeaderTypeIntegrityProtected:
-			logger.NasLog.Debugln("Security header type: Integrity Protected")
+			ue.NASLog.Debugln("Security header type: Integrity Protected")
 		case nas.SecurityHeaderTypeIntegrityProtectedAndCiphered:
-			logger.NasLog.Debugln("Security header type: Integrity Protected And Ciphered")
+			ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered")
 			ciphered = true
 		case nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext:
-			logger.NasLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
+			ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
 			ciphered = true
 			ue.ULCount.Set(0, 0)
 		default:
@@ -163,12 +163,13 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		}
 
 		if ue.ULCount.SQN() > sequenceNumber {
-			logger.NasLog.Debugf("set ULCount overflow")
+			ue.NASLog.Debugf("set ULCount overflow")
 			ue.ULCount.SetOverflow(ue.ULCount.Overflow() + 1)
 		}
 		ue.ULCount.SetSQN(sequenceNumber)
 
-		logger.NasLog.Debugln("Perform NAS mac calculation")
+		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, ULCount: 0x%0x)", ue.IntegrityAlg, ue.ULCount.Get())
+		ue.NASLog.Tracef("NAS integrity key0x: %0x", ue.KnasInt)
 		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), security.Bearer3GPP,
 			security.DirectionUplink, payload)
 		if err != nil {
@@ -176,16 +177,16 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		}
 
 		if !reflect.DeepEqual(mac32, receivedMac32) {
-			logger.NasLog.Warnf("NAS MAC verification failed(received: 0x%08x, expected: 0x%08x)", receivedMac32, mac32)
+			ue.NASLog.Warnf("NAS MAC verification failed(received: 0x%08x, expected: 0x%08x)", receivedMac32, mac32)
 			ue.MacFailed = true
 		} else {
-			logger.NasLog.Tracef("cmac value: 0x%08x", mac32)
+			ue.NASLog.Tracef("cmac value: 0x%08x", mac32)
 			ue.MacFailed = false
 		}
 
 		if ciphered {
-			logger.NasLog.Debugf("Perform NAS decryption")
-			logger.NasLog.Traceln("ue.CipheringAlg", ue.CipheringAlg)
+			ue.NASLog.Debugf("Decrypt NAS message (algorithm: %+v, ULCount: 0x%0x)", ue.CipheringAlg, ue.ULCount.Get())
+			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
 			// decrypt payload without sequence number (payload[1])
 			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), security.Bearer3GPP,
 				security.DirectionUplink, payload[1:]); err != nil {
