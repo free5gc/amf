@@ -509,6 +509,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		err := consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NfType_AMF, models.NfType_AMF, &searchOpt)
 		if err != nil {
 			ue.GmmLog.Errorf("[GMM] %+v", err)
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMUEIdentityCannotBeDerivedByTheNetwork, "")
 			return err
 		}
 
@@ -522,6 +523,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			ue.SecurityContextAvailable = false // need to start authentication procedure later
 		} else if err != nil {
 			ue.GmmLog.Errorf("UE Context Transfer Request Error[%+v]", err)
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMUEIdentityCannotBeDerivedByTheNetwork, "")
 		} else {
 			ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
 		}
