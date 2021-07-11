@@ -1978,6 +1978,15 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 	return nil
 }
 
+func HandleAuthenticationError(ue *context.AmfUe, anType models.AccessType) error {
+	ue.GmmLog.Info("Handle Authentication Error")
+	if ue.RegistrationRequest != nil {
+		gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMTrackingAreaNotAllowed, "")
+	}
+
+	return nil
+}
+
 func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 	authenticationFailure *nasMessage.AuthenticationFailure) error {
 	ue.GmmLog.Info("Handle Authentication Failure")
