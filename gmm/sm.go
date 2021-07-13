@@ -190,6 +190,8 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 	case AuthSuccessEvent:
 		logger.GmmLog.Debugln(event)
 	case AuthErrorEvent:
+		amfUe = args[ArgAmfUe].(*context.AmfUe)
+		accessType := args[ArgAccessType].(models.AccessType)
 		logger.GmmLog.Debugln(event)
 		HandleAuthenticationError(amfUe, accessType)
 	case AuthFailEvent:
