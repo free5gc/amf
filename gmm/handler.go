@@ -2201,7 +2201,7 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	}
 
 	// if Deregistration type is not switch-off, send Deregistration Accept
-	if deregistrationRequest.GetSwitchOff() == 0 {
+	if deregistrationRequest.GetSwitchOff() == 0 && ue.RanUe[anType] != nil {
 		gmm_message.SendDeregistrationAccept(ue.RanUe[anType])
 	}
 
