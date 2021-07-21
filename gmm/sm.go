@@ -193,7 +193,9 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		amfUe = args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
 		logger.GmmLog.Debugln(event)
-		HandleAuthenticationError(amfUe, accessType)
+		if err := HandleAuthenticationError(amfUe, accessType); err != nil {
+			logger.GmmLog.Errorln(err)
+		}
 	case AuthFailEvent:
 		logger.GmmLog.Debugln(event)
 		logger.GmmLog.Warnln("Reject authentication")

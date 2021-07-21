@@ -70,7 +70,6 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 
 func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 	*models.ProblemDetails, error) {
-
 	configuration := Nudm_UEContextManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmUECMUri)
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
