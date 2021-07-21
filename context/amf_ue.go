@@ -290,6 +290,9 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 }
 
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
+	if oldRanUe := ue.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+		oldRanUe.DetachAmfUe()
+	}
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
 }
@@ -532,11 +535,13 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.AuthFailureCauseSynchFailureTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
-	if ue.RanUe[accessType] != nil {
-		ue.RanUe[accessType].UeContextRequest = false
+	if ranUe := ue.RanUe[accessType]; ranUe != nil {
+		ranUe.UeContextRequest = false
 	}
 	ue.RetransmissionOfInitialNASMsg = false
-	ue.onGoing[accessType].Procedure = OnGoingProcedureNothing
+	if onGoing := ue.onGoing[accessType]; onGoing != nil {
+		onGoing.Procedure = OnGoingProcedureNothing
+	}
 }
 
 func (ue *AmfUe) SetOnGoing(anType models.AccessType, onGoing *OnGoing) {
