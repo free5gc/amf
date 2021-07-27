@@ -84,6 +84,9 @@ func SelectSmf(
 	if ue.PlmnId.Mcc != "" {
 		param.TargetPlmnList = optional.NewInterface(util.MarshToJsonString(ue.PlmnId))
 	}
+	if amf_context.AMF_Self().Locality != "" {
+		param.PreferredLocality = optional.NewString(amf_context.AMF_Self().Locality)
+	}
 
 	ue.GmmLog.Debugf("Search SMF from NRF[%s]", nrfUri)
 
