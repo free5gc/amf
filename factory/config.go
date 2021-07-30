@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	AMF_EXPECTED_CONFIG_VERSION = "1.0.1"
+	AMF_EXPECTED_CONFIG_VERSION = "1.0.2"
 )
 
 type Config struct {
