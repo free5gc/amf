@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"reflect"
 	"regexp"
 	"sync"
@@ -291,10 +292,14 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 	if oldRanUe := ue.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
 		oldRanUe.DetachAmfUe()
+		// TODO: stop Implicit Deregistration timer
 	}
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
+	ue.NASLog = logger.NasLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+	ue.GmmLog = logger.GmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
 }
 
 func (ue *AmfUe) GetAnType() models.AccessType {

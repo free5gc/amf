@@ -937,9 +937,7 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 			// 5G-GUTI := <GUAMI><5G-TMSI>
 			tmpReginID, _, _ := ngapConvert.AmfIdToNgap(servedGuami.AmfId)
 			amfID := ngapConvert.AmfIdToModels(tmpReginID, fiveGSTMSI.AMFSetID.Value, fiveGSTMSI.AMFPointer.Value)
-
 			tmsi := hex.EncodeToString(fiveGSTMSI.FiveGTMSI.Value)
-
 			guti := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc + amfID + tmsi
 
 			// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
@@ -950,13 +948,6 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				ranUe.Log.Warnf("Unknown UE [GUTI: %s]", guti)
 			} else {
 				ranUe.Log.Tracef("find AmfUe [GUTI: %s]", guti)
-
-				if amfUe.CmConnect(ran.AnType) {
-					ranUe.Log.Debug("Implicit Deregistration")
-					ranUe.Log.Tracef("RanUeNgapID[%d]", amfUe.RanUe[ran.AnType].RanUeNgapId)
-					amfUe.DetachRanUe(ran.AnType)
-				}
-				// TODO: stop Implicit Deregistration timer
 				ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
 				amfUe.AttachRanUe(ranUe)
 			}
