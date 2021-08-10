@@ -316,7 +316,7 @@ func forward5GSMMessageToSMF(
 		n2SmInfo := response.BinaryDataN2SmInformation
 		if response.BinaryDataN1SmMessage != nil {
 			ue.GmmLog.Debug("Receive N1 SM Message from SMF")
-			n1Msg, err = gmm_message.BuildDLNASTransport(ue, nasMessage.PayloadContainerTypeN1SMInfo,
+			n1Msg, err = gmm_message.BuildDLNASTransport(ue, accessType, nasMessage.PayloadContainerTypeN1SMInfo,
 				response.BinaryDataN1SmMessage, uint8(pduSessionID), nil, nil, 0)
 			if err != nil {
 				return err
@@ -936,7 +936,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *context.AmfUe, anType mod
 				var err error
 				if n1Msg != nil {
 					pduSessionId := uint8(smInfo.PduSessionId)
-					nasPdu, err = gmm_message.BuildDLNASTransport(ue, nasMessage.PayloadContainerTypeN1SMInfo,
+					nasPdu, err = gmm_message.BuildDLNASTransport(ue, anType, nasMessage.PayloadContainerTypeN1SMInfo,
 						n1Msg, pduSessionId, nil, nil, 0)
 					if err != nil {
 						return err
@@ -1753,7 +1753,7 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 				var err error
 				if n1Msg != nil {
 					pduSessionId := uint8(smInfo.PduSessionId)
-					nasPdu, err = gmm_message.BuildDLNASTransport(ue, nasMessage.PayloadContainerTypeN1SMInfo,
+					nasPdu, err = gmm_message.BuildDLNASTransport(ue, anType, nasMessage.PayloadContainerTypeN1SMInfo,
 						n1Msg, pduSessionId, nil, nil, 0)
 					if err != nil {
 						return err
@@ -1829,7 +1829,7 @@ func sendServiceAccept(ue *context.AmfUe, anType models.AccessType, ctxList ngap
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
 
-		nasPdu, err := gmm_message.BuildServiceAccept(ue, pDUSessionStatus, reactivationResult,
+		nasPdu, err := gmm_message.BuildServiceAccept(ue, anType, pDUSessionStatus, reactivationResult,
 			errPduSessionId, errCause)
 		if err != nil {
 			return err
@@ -1840,14 +1840,15 @@ func sendServiceAccept(ue *context.AmfUe, anType models.AccessType, ctxList ngap
 			ngap_message.SendInitialContextSetupRequest(ue, anType, nasPdu, nil, nil, nil, nil)
 		}
 	} else if len(suList.List) != 0 {
-		nasPdu, err := gmm_message.BuildServiceAccept(ue, pDUSessionStatus, reactivationResult,
+		nasPdu, err := gmm_message.BuildServiceAccept(ue, anType, pDUSessionStatus, reactivationResult,
 			errPduSessionId, errCause)
 		if err != nil {
 			return err
 		}
 		ngap_message.SendPDUSessionResourceSetupRequest(ue.RanUe[anType], nasPdu, suList)
 	} else {
-		gmm_message.SendServiceAccept(ue.RanUe[anType], pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
+		gmm_message.SendServiceAccept(ue.RanUe[anType], anType, pDUSessionStatus, reactivationResult,
+			errPduSessionId, errCause)
 	}
 	return nil
 }

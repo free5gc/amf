@@ -11,7 +11,7 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
+func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) ([]byte, error) {
 	if ue == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
@@ -47,12 +47,11 @@ func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
 		}
 
 		ue.NASLog.Tracef("plain payload:\n%+v", hex.Dump(payload))
-
 		if needCiphering {
 			ue.NASLog.Debugf("Encrypt NAS message (algorithm: %+v, DLCount: 0x%0x)", ue.CipheringAlg, ue.DLCount.Get())
 			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
-			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(), security.Bearer3GPP,
-				security.DirectionDownlink, payload); err != nil {
+			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(),
+				GetBearerType(accessType), security.DirectionDownlink, payload); err != nil {
 				return nil, fmt.Errorf("Encrypt error: %+v", err)
 			}
 		}
@@ -62,8 +61,8 @@ func Encode(ue *context.AmfUe, msg *nas.Message) ([]byte, error) {
 
 		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, DLCount: 0x%0x)", ue.IntegrityAlg, ue.DLCount.Get())
 		ue.NASLog.Tracef("NAS integrity key: %0x", ue.KnasInt)
-		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.DLCount.Get(), security.Bearer3GPP,
-			security.DirectionDownlink, payload)
+		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.DLCount.Get(),
+			GetBearerType(accessType), security.DirectionDownlink, payload)
 		if err != nil {
 			return nil, fmt.Errorf("MAC calcuate error: %+v", err)
 		}
@@ -170,8 +169,8 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 
 		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, ULCount: 0x%0x)", ue.IntegrityAlg, ue.ULCount.Get())
 		ue.NASLog.Tracef("NAS integrity key0x: %0x", ue.KnasInt)
-		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(), security.Bearer3GPP,
-			security.DirectionUplink, payload)
+		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(),
+			GetBearerType(accessType), security.DirectionUplink, payload)
 		if err != nil {
 			return nil, fmt.Errorf("MAC calcuate error: %+v", err)
 		}
@@ -188,7 +187,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 			ue.NASLog.Debugf("Decrypt NAS message (algorithm: %+v, ULCount: 0x%0x)", ue.CipheringAlg, ue.ULCount.Get())
 			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
 			// decrypt payload without sequence number (payload[1])
-			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), security.Bearer3GPP,
+			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), GetBearerType(accessType),
 				security.DirectionUplink, payload[1:]); err != nil {
 				return nil, fmt.Errorf("Encrypt error: %+v", err)
 			}
@@ -198,5 +197,15 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		payload = payload[1:]
 		err = msg.PlainNasDecode(&payload)
 		return msg, err
+	}
+}
+
+func GetBearerType(accessType models.AccessType) uint8 {
+	if accessType == models.AccessType__3_GPP_ACCESS {
+		return security.Bearer3GPP
+	} else if accessType == models.AccessType_NON_3_GPP_ACCESS {
+		return security.BearerNon3GPP
+	} else {
+		return security.OnlyOneBearer
 	}
 }
