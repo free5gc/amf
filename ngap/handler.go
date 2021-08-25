@@ -455,7 +455,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
 
@@ -908,7 +908,7 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		procedureCriticality := ngapType.CriticalityPresentIgnore
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality,
 			&iesCriticalityDiagnostics)
-		ngap_message.SendErrorIndication(ran, nil, nil, nil, &criticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, rANUENGAPID, nil, &criticalityDiagnostics)
 	}
 
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
@@ -1529,7 +1529,7 @@ func HandlePDUSessionResourceModifyIndication(ran *context.AmfRan, message *ngap
 		procedureCriticality := ngapType.CriticalityPresentReject
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality,
 			&iesCriticalityDiagnostics)
-		ngap_message.SendErrorIndication(ran, nil, nil, nil, &criticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, nil, &criticalityDiagnostics)
 		return
 	}
 
@@ -1542,7 +1542,7 @@ func HandlePDUSessionResourceModifyIndication(ran *context.AmfRan, message *ngap
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
 
@@ -1888,7 +1888,7 @@ func HandleUEContextReleaseRequest(ran *context.AmfRan, message *ngapType.NGAPPD
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, cause, nil)
 		return
 	}
 
@@ -2265,7 +2265,7 @@ func HandleHandoverNotify(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
 
@@ -2564,7 +2564,7 @@ func HandleHandoverRequestAcknowledge(ran *context.AmfRan, message *ngapType.NGA
 		procedureCriticality := ngapType.CriticalityPresentReject
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage,
 			&procedureCriticality, &iesCriticalityDiagnostics)
-		ngap_message.SendErrorIndication(ran, nil, nil, nil, &criticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, nil, &criticalityDiagnostics)
 	}
 
 	if criticalityDiagnostics != nil {
@@ -2725,7 +2725,7 @@ func HandleHandoverFailure(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, nil, &cause, nil)
 		return
 	}
 
@@ -2860,7 +2860,7 @@ func HandleHandoverRequired(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		procedureCriticality := ngapType.CriticalityPresentReject
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage,
 			&procedureCriticality, &iesCriticalityDiagnostics)
-		ngap_message.SendErrorIndication(ran, nil, nil, nil, &criticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, nil, &criticalityDiagnostics)
 		return
 	}
 
@@ -2873,7 +2873,7 @@ func HandleHandoverRequired(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
 	amfUe := sourceUe.AmfUe
@@ -3016,7 +3016,7 @@ func HandleHandoverCancel(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 			},
 		}
-		ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
 
@@ -3925,7 +3925,7 @@ func HandleCellTrafficTrace(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		procedureCriticality := ngapType.CriticalityPresentIgnore
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality,
 			&iesCriticalityDiagnostics)
-		ngap_message.SendErrorIndication(ran, nil, nil, nil, &criticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, nil, &criticalityDiagnostics)
 		return
 	}
 
@@ -3939,7 +3939,7 @@ func HandleCellTrafficTrace(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 					Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
 				},
 			}
-			ngap_message.SendErrorIndication(ran, nil, nil, &cause, nil)
+			ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 			return
 		}
 	}
