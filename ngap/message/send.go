@@ -202,8 +202,8 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 	SendToRanUe(ue, pkt)
 }
 
-func SendErrorIndication(ran *context.AmfRan, amfUeNgapId *ngapType.AMFUENGAPID, ranUeNgapId *ngapType.RANUENGAPID, cause *ngapType.Cause,
-	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
+func SendErrorIndication(ran *context.AmfRan, amfUeNgapId *ngapType.AMFUENGAPID, ranUeNgapId *ngapType.RANUENGAPID,
+	cause *ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
 	if ran == nil {
 		logger.NgapLog.Error("Ran is nil")
 		return
