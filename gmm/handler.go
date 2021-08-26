@@ -413,8 +413,16 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		ue.GmmLog.Debugf("RegistrationType: Initial Registration")
 	case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
 		ue.GmmLog.Debugf("RegistrationType: Mobility Registration Updating")
+		if ue.State[anType].Is(context.Deregistered) {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMImplicitlyDeregistered, "")
+			return fmt.Errorf("Mobility Registration Updating was sent when the UE state was Deregistered")
+		}
 	case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
 		ue.GmmLog.Debugf("RegistrationType: Periodic Registration Updating")
+		if ue.State[anType].Is(context.Deregistered) {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMImplicitlyDeregistered, "")
+			return fmt.Errorf("Periodic Registration Updating was sent when the UE state was Deregistered")
+		}
 	case nasMessage.RegistrationType5GSEmergencyRegistration:
 		return fmt.Errorf("Not Supportted RegistrationType: Emergency Registration")
 	case nasMessage.RegistrationType5GSReserved:
