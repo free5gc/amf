@@ -1607,35 +1607,43 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 			pduSessionID := key.(int32)
 			smContext := value.(*context.SmContext)
 
-			if pduSessionID != targetPduSessionId {
-				if uplinkDataPsi[pduSessionID] && smContext.AccessType() == models.AccessType__3_GPP_ACCESS {
-					response, errRes, _, err := consumer.SendUpdateSmContextActivateUpCnxState(
-						ue, smContext, models.AccessType__3_GPP_ACCESS)
-					if err != nil {
-						ue.GmmLog.Errorf("SendUpdateSmContextActivateUpCnxState[pduSessionID:%d] Error: %+v",
-							pduSessionID, err)
-					} else if response == nil {
-						reactivationResult[pduSessionID] = true
-						errPduSessionId = append(errPduSessionId, uint8(pduSessionID))
-						cause := nasMessage.Cause5GMMProtocolErrorUnspecified
-						if errRes != nil {
-							switch errRes.JsonData.Error.Cause {
-							case "OUT_OF_LADN_SERVICE_AREA":
-								cause = nasMessage.Cause5GMMLADNNotAvailable
-							case "PRIORITIZED_SERVICES_ONLY":
-								cause = nasMessage.Cause5GMMRestrictedServiceArea
-							case "DNN_CONGESTION", "S-NSSAI_CONGESTION":
-								cause = nasMessage.Cause5GMMInsufficientUserPlaneResourcesForThePDUSession
-							}
+			if pduSessionID == targetPduSessionId && serviceType == nasMessage.ServiceTypeMobileTerminatedServices {
+				// Skipping SendUpdateSmContextActivateUpCnxState for the following reason:
+				//   In Step 4 of 4.2.3.2 UE Triggered Service Request in TS23.502
+				//   > This procedure is triggered by the SMF but the PDU Session(s) identified by the UE
+				//   > correlates to other PDU Session ID(s) than the one triggering the procedure
+				// However, in the case of Mo-data etc., it cannot be skipped because AMF need to know
+				// latest N2SmInformation even if the UE has known the N2Information received at
+				// previous N1N2MessageTransfer.
+				return true
+			}
+			if uplinkDataPsi[pduSessionID] && smContext.AccessType() == models.AccessType__3_GPP_ACCESS {
+				response, errRes, _, err := consumer.SendUpdateSmContextActivateUpCnxState(
+					ue, smContext, models.AccessType__3_GPP_ACCESS)
+				if err != nil {
+					ue.GmmLog.Errorf("SendUpdateSmContextActivateUpCnxState[pduSessionID:%d] Error: %+v",
+						pduSessionID, err)
+				} else if response == nil {
+					reactivationResult[pduSessionID] = true
+					errPduSessionId = append(errPduSessionId, uint8(pduSessionID))
+					cause := nasMessage.Cause5GMMProtocolErrorUnspecified
+					if errRes != nil {
+						switch errRes.JsonData.Error.Cause {
+						case "OUT_OF_LADN_SERVICE_AREA":
+							cause = nasMessage.Cause5GMMLADNNotAvailable
+						case "PRIORITIZED_SERVICES_ONLY":
+							cause = nasMessage.Cause5GMMRestrictedServiceArea
+						case "DNN_CONGESTION", "S-NSSAI_CONGESTION":
+							cause = nasMessage.Cause5GMMInsufficientUserPlaneResourcesForThePDUSession
 						}
-						errCause = append(errCause, cause)
-					} else if ue.RanUe[anType].UeContextRequest {
-						ngap_message.AppendPDUSessionResourceSetupListCxtReq(&ctxList,
-							pduSessionID, smContext.Snssai(), nil, response.BinaryDataN2SmInformation)
-					} else {
-						ngap_message.AppendPDUSessionResourceSetupListSUReq(&suList,
-							pduSessionID, smContext.Snssai(), nil, response.BinaryDataN2SmInformation)
 					}
+					errCause = append(errCause, cause)
+				} else if ue.RanUe[anType].UeContextRequest {
+					ngap_message.AppendPDUSessionResourceSetupListCxtReq(&ctxList,
+						pduSessionID, smContext.Snssai(), nil, response.BinaryDataN2SmInformation)
+				} else {
+					ngap_message.AppendPDUSessionResourceSetupListSUReq(&suList,
+						pduSessionID, smContext.Snssai(), nil, response.BinaryDataN2SmInformation)
 				}
 			}
 			return true
