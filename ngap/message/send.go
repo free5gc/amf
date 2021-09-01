@@ -202,8 +202,8 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 	SendToRanUe(ue, pkt)
 }
 
-func SendErrorIndication(ran *context.AmfRan, amfUeNgapId, ranUeNgapId *int64, cause *ngapType.Cause,
-	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
+func SendErrorIndication(ran *context.AmfRan, amfUeNgapId *ngapType.AMFUENGAPID, ranUeNgapId *ngapType.RANUENGAPID,
+	cause *ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
 	if ran == nil {
 		logger.NgapLog.Error("Ran is nil")
 		return
@@ -211,7 +211,16 @@ func SendErrorIndication(ran *context.AmfRan, amfUeNgapId, ranUeNgapId *int64, c
 
 	ran.Log.Info("Send Error Indication")
 
-	pkt, err := BuildErrorIndication(amfUeNgapId, ranUeNgapId, cause, criticalityDiagnostics)
+	var amfUeNgapIdValue *int64
+	if amfUeNgapId != nil {
+		amfUeNgapIdValue = &amfUeNgapId.Value
+	}
+	var ranUeNgapIdValue *int64
+	if ranUeNgapId != nil {
+		ranUeNgapIdValue = &ranUeNgapId.Value
+	}
+
+	pkt, err := BuildErrorIndication(amfUeNgapIdValue, ranUeNgapIdValue, cause, criticalityDiagnostics)
 	if err != nil {
 		ran.Log.Errorf("Build ErrorIndication failed : %s", err.Error())
 		return
