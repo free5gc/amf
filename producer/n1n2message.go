@@ -176,7 +176,8 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 			err    error
 		)
 		if n1Msg != nil {
-			nasPdu, err = gmm_message.BuildDLNASTransport(ue, n1MsgType, n1Msg, uint8(requestData.PduSessionId), nil, nil, 0)
+			nasPdu, err =
+				gmm_message.BuildDLNASTransport(ue, anType, n1MsgType, n1Msg, uint8(requestData.PduSessionId), nil, nil, 0)
 			if err != nil {
 				ue.ProducerLog.Errorf("Build DL NAS Transport error: %+v", err)
 				problemDetails = &models.ProblemDetails{

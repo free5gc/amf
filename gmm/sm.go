@@ -238,7 +238,7 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			amfUe.SelectSecurityAlg(amfSelf.SecurityAlgorithm.IntegrityOrder, amfSelf.SecurityAlgorithm.CipheringOrder)
 			// Generate KnasEnc, KnasInt
 			amfUe.DerivateAlgKey()
-			gmm_message.SendSecurityModeCommand(amfUe.RanUe[accessType], eapSuccess, eapMessage)
+			gmm_message.SendSecurityModeCommand(amfUe.RanUe[accessType], accessType, eapSuccess, eapMessage)
 		}
 	case GmmMessageEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)

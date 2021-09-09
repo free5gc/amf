@@ -17,7 +17,7 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu []byte,
+func BuildDLNASTransport(ue *context.AmfUe, accessType models.AccessType, payloadContainerType uint8, nasPdu []byte,
 	pduSessionId uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8) ([]byte, error) {
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -56,7 +56,7 @@ func BuildDLNASTransport(ue *context.AmfUe, payloadContainerType uint8, nasPdu [
 
 	m.GmmMessage.DLNASTransport = dLNASTransport
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, accessType)
 }
 
 func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte, error) {
@@ -81,7 +81,7 @@ func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte,
 
 	m.GmmMessage.Notification = notification
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, accessType)
 }
 
 func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
@@ -159,7 +159,7 @@ func BuildAuthenticationRequest(ue *context.AmfUe) ([]byte, error) {
 	return m.PlainNasEncode()
 }
 
-func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool,
+func BuildServiceAccept(ue *context.AmfUe, accessType models.AccessType, pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool, errPduSessionId, errCause []uint8) ([]byte, error) {
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
@@ -196,7 +196,7 @@ func BuildServiceAccept(ue *context.AmfUe, pDUSessionStatus *[16]bool,
 	}
 	m.GmmMessage.ServiceAccept = serviceAccept
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, accessType)
 }
 
 func BuildAuthenticationReject(ue *context.AmfUe, eapMsg string) ([]byte, error) {
@@ -313,7 +313,8 @@ func BuildRegistrationReject(ue *context.AmfUe, cause5GMM uint8, eapMessage stri
 }
 
 // TS 24.501 8.2.25
-func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage string) ([]byte, error) {
+func BuildSecurityModeCommand(ue *context.AmfUe, accessType models.AccessType, eapSuccess bool, eapMessage string) (
+	[]byte, error) {
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeSecurityModeCommand)
@@ -379,7 +380,7 @@ func BuildSecurityModeCommand(ue *context.AmfUe, eapSuccess bool, eapMessage str
 
 	ue.SecurityContextAvailable = true
 	m.GmmMessage.SecurityModeCommand = securityModeCommand
-	payload, err := nas_security.Encode(ue, m)
+	payload, err := nas_security.Encode(ue, m, accessType)
 	if err != nil {
 		ue.SecurityContextAvailable = false
 		return nil, err
@@ -421,7 +422,13 @@ func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrat
 			ProtocolDiscriminator: nasMessage.Epd5GSMobilityManagementMessage,
 			SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
 		}
-		return nas_security.Encode(ue.AmfUe, m)
+		var anType models.AccessType
+		if accessType == 0x01 {
+			anType = models.AccessType__3_GPP_ACCESS
+		} else if accessType == 0x02 {
+			anType = models.AccessType_NON_3_GPP_ACCESS
+		}
+		return nas_security.Encode(ue.AmfUe, m, anType)
 	}
 	return m.PlainNasEncode()
 }
@@ -629,7 +636,7 @@ func BuildRegistrationAccept(
 
 	m.GmmMessage.RegistrationAccept = registrationAccept
 
-	return nas_security.Encode(ue, m)
+	return nas_security.Encode(ue, m, anType)
 }
 
 func includeConfiguredNssaiCheck(ue *context.AmfUe) bool {

@@ -30,7 +30,7 @@ func SendDLNASTransport(ue *context.RanUe, payloadContainerType uint8, nasPdu []
 	if cause != 0 {
 		causePtr = &cause
 	}
-	nasMsg, err := BuildDLNASTransport(amfUe, payloadContainerType, nasPdu,
+	nasMsg, err := BuildDLNASTransport(amfUe, ue.Ran.AnType, payloadContainerType, nasPdu,
 		uint8(pduSessionId), causePtr, backOffTimerUint, backOffTimer)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
@@ -123,8 +123,8 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 	}
 }
 
-func SendServiceAccept(ue *context.RanUe, pDUSessionStatus *[16]bool, reactivationResult *[16]bool,
-	errPduSessionId, errCause []uint8) {
+func SendServiceAccept(ue *context.RanUe, anType models.AccessType, pDUSessionStatus *[16]bool,
+	reactivationResult *[16]bool, errPduSessionId, errCause []uint8) {
 	if ue == nil {
 		logger.GmmLog.Error("SendServiceAccept: RanUe is nil")
 		return
@@ -136,7 +136,8 @@ func SendServiceAccept(ue *context.RanUe, pDUSessionStatus *[16]bool, reactivati
 	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Service Accept")
 
-	nasMsg, err := BuildServiceAccept(amfUe, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
+	nasMsg, err := BuildServiceAccept(amfUe, anType, pDUSessionStatus, reactivationResult,
+		errPduSessionId, errCause)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -249,7 +250,7 @@ func SendRegistrationReject(ue *context.RanUe, cause5GMM uint8, eapMessage strin
 
 // eapSuccess: only used when authType is EAP-AKA', set the value to false if authType is not EAP-AKA'
 // eapMessage: only used when authType is EAP-AKA', set the value to "" if authType is not EAP-AKA'
-func SendSecurityModeCommand(ue *context.RanUe, eapSuccess bool, eapMessage string) {
+func SendSecurityModeCommand(ue *context.RanUe, accessType models.AccessType, eapSuccess bool, eapMessage string) {
 	if ue == nil {
 		logger.GmmLog.Error("SendSecurityModeCommand: RanUe is nil")
 		return
@@ -261,7 +262,7 @@ func SendSecurityModeCommand(ue *context.RanUe, eapSuccess bool, eapMessage stri
 	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Security Mode Command")
 
-	nasMsg, err := BuildSecurityModeCommand(amfUe, eapSuccess, eapMessage)
+	nasMsg, err := BuildSecurityModeCommand(amfUe, accessType, eapSuccess, eapMessage)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
