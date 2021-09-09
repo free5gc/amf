@@ -55,7 +55,7 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error) {
 	var ausfUri string
-	if confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["link"].Href); err != nil {
+	if confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href); err != nil {
 		return nil, nil, err
 	} else {
 		ausfUri = fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
@@ -92,7 +92,7 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 
 func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
 	response *models.EapSession, problemDetails *models.ProblemDetails, err1 error) {
-	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["link"].Href)
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["eap-session"].Href)
 	if err != nil {
 		logger.ConsumerLog.Errorf("url Parse failed: %+v", err)
 	}

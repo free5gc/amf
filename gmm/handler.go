@@ -1985,7 +1985,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		case models.AuthResult_ONGOING:
 			ue.AuthenticationCtx.Var5gAuthData = response.EapPayload
-			if _, exists := response.Links["link"]; exists {
+			if _, exists := response.Links["eap-session"]; exists {
 				ue.AuthenticationCtx.Links = response.Links
 			}
 			gmm_message.SendAuthenticationRequest(ue.RanUe[accessType])
