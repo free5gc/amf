@@ -79,10 +79,10 @@ func SelectSmf(
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NSMF_PDUSESSION}),
 		Dnn:          optional.NewString(dnn),
-		Snssais:      optional.NewInterface(util.MarshToJsonString([]models.Snssai{snssai})),
+		Snssais:      optional.NewInterface(openapi.MarshToJsonString([]models.Snssai{snssai})),
 	}
 	if ue.PlmnId.Mcc != "" {
-		param.TargetPlmnList = optional.NewInterface(util.MarshToJsonString(ue.PlmnId))
+		param.TargetPlmnList = optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId))
 	}
 	if amf_context.AMF_Self().Locality != "" {
 		param.PreferredLocality = optional.NewString(amf_context.AMF_Self().Locality)
