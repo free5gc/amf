@@ -1161,10 +1161,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 			return fmt.Errorf("Decode failed at RequestedNSSAI[%s]", err)
 		}
 
-		ue.GmmLog.Errorf("RequestedNssai: %+v", requestedNssai)
-
 		needSliceSelection := false
 		for _, requestedSnssai := range requestedNssai {
+			ue.GmmLog.Infof("RequestedNssai - ServingSnssai: %+v, HomeSnssai: %+v",
+				requestedSnssai.ServingSnssai, requestedSnssai.HomeSnssai)
 			if ue.InSubscribedNssai(*requestedSnssai.ServingSnssai) {
 				allowedSnssai := models.AllowedSnssai{
 					AllowedSnssai: &models.Snssai{
