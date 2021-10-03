@@ -983,6 +983,9 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *context.AmfUe, anType mod
 	// TODO: T3512/Non3GPP de-registration timer reassignment if need (based on operator policy)
 
 	if ue.RanUe[anType].UeContextRequest {
+		// update Kgnb/Kn3iwf
+		ue.UpdateSecurityContext(anType)
+
 		if anType == models.AccessType__3_GPP_ACCESS {
 			gmm_message.SendRegistrationAccept(ue, anType, pduSessionStatus, reactivationResult,
 				errPduSessionId, errCause, &ctxList)
