@@ -32,7 +32,7 @@ func SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
 	getAmDataParamOpt := Nudm_SubscriberDataManagement.GetAmDataParamOpts{
-		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
+		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 
 	data, httpResp, localErr := client.AccessAndMobilitySubscriptionDataRetrievalApi.GetAmData(
@@ -59,7 +59,7 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
 	paramOpt := Nudm_SubscriberDataManagement.GetSmfSelectDataParamOpts{
-		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
+		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 	data, httpResp, localErr :=
 		client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(context.Background(), ue.Supi, &paramOpt)
@@ -137,7 +137,7 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
 	paramOpt := Nudm_SubscriberDataManagement.GetNssaiParamOpts{
-		PlmnId: optional.NewInterface(ue.PlmnId.Mcc + ue.PlmnId.Mnc),
+		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 	nssai, httpResp, localErr :=
 		client.SliceSelectionSubscriptionDataRetrievalApi.GetNssai(context.Background(), ue.Supi, &paramOpt)
