@@ -84,10 +84,17 @@ func BuildNotification(ue *context.AmfUe, accessType models.AccessType) ([]byte,
 	return nas_security.Encode(ue, m, accessType)
 }
 
-func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
+func BuildIdentityRequest(ue *context.AmfUe, accessType models.AccessType, typeOfIdentity uint8) ([]byte, error) {
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeIdentityRequest)
+
+	if ue.SecurityContextAvailable {
+		m.SecurityHeader = nas.SecurityHeader{
+			ProtocolDiscriminator: nasMessage.Epd5GSMobilityManagementMessage,
+			SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
+		}
+	}
 
 	identityRequest := nasMessage.NewIdentityRequest(0)
 	identityRequest.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
@@ -98,7 +105,7 @@ func BuildIdentityRequest(typeOfIdentity uint8) ([]byte, error) {
 
 	m.GmmMessage.IdentityRequest = identityRequest
 
-	return m.PlainNasEncode()
+	return nas_security.Encode(ue, m, accessType)
 }
 
 func BuildAuthenticationRequest(ue *context.AmfUe) ([]byte, error) {
