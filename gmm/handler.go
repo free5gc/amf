@@ -1908,7 +1908,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 		if hResStar != av5gAka.HxresStar {
 			ue.GmmLog.Errorf("HRES* Validation Failure (received: %s, expected: %s)", hResStar, av5gAka.HxresStar)
 
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && !ue.AuthRestarted {
+				ue.AuthRestarted = true
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
@@ -1941,7 +1942,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				ArgEAPMessage: "",
 			})
 		case models.AuthResult_FAILURE:
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && !ue.AuthRestarted {
+				ue.AuthRestarted = true
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
@@ -1976,7 +1978,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				ArgEAPMessage: response.EapPayload,
 			})
 		case models.AuthResult_FAILURE:
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && !ue.AuthRestarted {
+				ue.AuthRestarted = true
 				gmm_message.SendAuthenticationResult(ue.RanUe[accessType], false, response.EapPayload)
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
