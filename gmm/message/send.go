@@ -66,7 +66,7 @@ func SendNotification(ue *context.RanUe, nasMsg []byte) {
 	}
 }
 
-func SendIdentityRequest(ue *context.RanUe, typeOfIdentity uint8) {
+func SendIdentityRequest(ue *context.RanUe, accessType models.AccessType, typeOfIdentity uint8) {
 	if ue == nil {
 		logger.GmmLog.Error("SendIdentityRequest: RanUe is nil")
 		return
@@ -78,7 +78,7 @@ func SendIdentityRequest(ue *context.RanUe, typeOfIdentity uint8) {
 	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Identity Request")
 
-	nasMsg, err := BuildIdentityRequest(typeOfIdentity)
+	nasMsg, err := BuildIdentityRequest(amfUe, accessType, typeOfIdentity)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
