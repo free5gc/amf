@@ -164,6 +164,12 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				return forward5GSMMessageToSMF(ue, anType, pduSessionID, smContext, smMessage)
 			}
 		} else { // AMF does not have a PDU session routing context for the PDU session ID and the UE
+			if requestType == nil {
+				ue.GmmLog.Warnf("Request type is nil")
+				gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
+					smMessage, pduSessionID, nasMessage.Cause5GMMPayloadWasNotForwarded, nil, 0)
+				return nil
+			}
 			switch requestType.GetRequestTypeValue() {
 			// case iii) if the AMF does not have a PDU session routing context for the PDU session ID and the UE
 			// and the Request type IE is included and is set to "initial request"
