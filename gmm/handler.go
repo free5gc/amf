@@ -1371,7 +1371,6 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 	ue.GmmLog.Info("Handle Identity Response")
 
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
-	ue.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentityContents[0])
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		var plmnId string

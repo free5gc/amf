@@ -8,6 +8,7 @@ import (
 	"github.com/free5gc/amf/logger"
 	"github.com/free5gc/fsm"
 	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasConvert"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi/models"
 )
@@ -167,6 +168,10 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
 				logger.GmmLog.Errorln(err)
 			}
+			// update identity type used for reauthentication
+			mobileIdentityContents := gmmMessage.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
+			amfUe.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentityContents[0])
+
 			err := GmmFSM.SendEvent(state, AuthRestartEvent, fsm.ArgsType{ArgAmfUe: amfUe, ArgAccessType: accessType})
 			if err != nil {
 				logger.GmmLog.Errorln(err)
