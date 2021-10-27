@@ -210,6 +210,7 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		amfUe.GmmLog.Debugln(event)
 		amfUe.AuthenticationCtx = nil
 		amfUe.AuthFailureCauseSynchFailureTimes = 0
+		amfUe.IdentityRequestSendTimes = 0
 	default:
 		logger.GmmLog.Errorf("Unknown event [%+v]", event)
 	}

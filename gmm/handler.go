@@ -1476,6 +1476,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		}
 	} else {
 		// Request UE's SUCI by sending identity request
+		ue.IdentityRequestSendTimes++
 		gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 		return false, nil
 	}
@@ -1914,7 +1915,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 		if hResStar != av5gAka.HxresStar {
 			ue.GmmLog.Errorf("HRES* Validation Failure (received: %s, expected: %s)", hResStar, av5gAka.HxresStar)
 
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && ue.IdentityRequestSendTimes == 0 {
+				ue.IdentityRequestSendTimes++
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
@@ -1947,7 +1949,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				ArgEAPMessage: "",
 			})
 		case models.AuthResult_FAILURE:
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && ue.IdentityRequestSendTimes == 0 {
+				ue.IdentityRequestSendTimes++
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
@@ -1982,7 +1985,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				ArgEAPMessage: response.EapPayload,
 			})
 		case models.AuthResult_FAILURE:
-			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti {
+			if ue.IdentityTypeUsedForRegistration == nasMessage.MobileIdentity5GSType5gGuti && ue.IdentityRequestSendTimes == 0 {
+				ue.IdentityRequestSendTimes++
 				gmm_message.SendAuthenticationResult(ue.RanUe[accessType], false, response.EapPayload)
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
