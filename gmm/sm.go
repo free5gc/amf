@@ -167,14 +167,15 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		case nas.MsgTypeIdentityResponse:
 			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
 				logger.GmmLog.Errorln(err)
-			}
-			// update identity type used for reauthentication
-			mobileIdentityContents := gmmMessage.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
-			amfUe.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentityContents[0])
+			} else {
+				// update identity type used for reauthentication
+				mobileIdentityContents := gmmMessage.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
+				amfUe.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentityContents[0])
 
-			err := GmmFSM.SendEvent(state, AuthRestartEvent, fsm.ArgsType{ArgAmfUe: amfUe, ArgAccessType: accessType})
-			if err != nil {
-				logger.GmmLog.Errorln(err)
+				err := GmmFSM.SendEvent(state, AuthRestartEvent, fsm.ArgsType{ArgAmfUe: amfUe, ArgAccessType: accessType})
+				if err != nil {
+					logger.GmmLog.Errorln(err)
+				}
 			}
 		case nas.MsgTypeAuthenticationResponse:
 			if err := HandleAuthenticationResponse(amfUe, accessType, gmmMessage.AuthenticationResponse); err != nil {
@@ -327,30 +328,31 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		case nas.MsgTypeIdentityResponse:
 			if err := HandleIdentityResponse(amfUe, gmmMessage.IdentityResponse); err != nil {
 				logger.GmmLog.Errorln(err)
-			}
-			switch amfUe.RegistrationType5GS {
-			case nasMessage.RegistrationType5GSInitialRegistration:
-				if err := HandleInitialRegistration(amfUe, accessType); err != nil {
-					logger.GmmLog.Errorln(err)
-					err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
-						ArgAmfUe:      amfUe,
-						ArgAccessType: accessType,
-					})
-					if err != nil {
+			} else {
+				switch amfUe.RegistrationType5GS {
+				case nasMessage.RegistrationType5GSInitialRegistration:
+					if err := HandleInitialRegistration(amfUe, accessType); err != nil {
 						logger.GmmLog.Errorln(err)
+						err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+							ArgAmfUe:      amfUe,
+							ArgAccessType: accessType,
+						})
+						if err != nil {
+							logger.GmmLog.Errorln(err)
+						}
 					}
-				}
-			case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
-				fallthrough
-			case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
-				if err := HandleMobilityAndPeriodicRegistrationUpdating(amfUe, accessType); err != nil {
-					logger.GmmLog.Errorln(err)
-					err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
-						ArgAmfUe:      amfUe,
-						ArgAccessType: accessType,
-					})
-					if err != nil {
+				case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
+					fallthrough
+				case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
+					if err := HandleMobilityAndPeriodicRegistrationUpdating(amfUe, accessType); err != nil {
 						logger.GmmLog.Errorln(err)
+						err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+							ArgAmfUe:      amfUe,
+							ArgAccessType: accessType,
+						})
+						if err != nil {
+							logger.GmmLog.Errorln(err)
+						}
 					}
 				}
 			}

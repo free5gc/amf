@@ -54,6 +54,7 @@ type Configuration struct {
 	T3550                           TimerValue                `yaml:"t3550"`
 	T3560                           TimerValue                `yaml:"t3560"`
 	T3565                           TimerValue                `yaml:"t3565"`
+	T3570                           TimerValue                `yaml:"t3570"`
 	Locality                        string                    `yaml:"locality,omitempty"`
 }
 

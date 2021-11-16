@@ -84,6 +84,20 @@ func SendIdentityRequest(ue *context.RanUe, accessType models.AccessType, typeOf
 		return
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+
+	amfUe.RequestIdentityType = typeOfIdentity
+
+	if context.AMF_Self().T3570Cfg.Enable {
+		cfg := context.AMF_Self().T3570Cfg
+		amfUe.T3570 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+			amfUe.GmmLog.Warnf("T3570 expires, retransmit Identity Request (retry: %d)", expireTimes)
+			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+		}, func() {
+			amfUe.GmmLog.Warnf("T3570 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
+				cfg.MaxRetryTimes)
+			gmm_common.RemoveAmfUe(amfUe)
+		})
+	}
 }
 
 func SendAuthenticationRequest(ue *context.RanUe) {

@@ -1371,6 +1371,15 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 	ue.GmmLog.Info("Handle Identity Response")
 
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
+	if nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) != ue.RequestIdentityType {
+		return fmt.Errorf("Received identity type doesn't match request type")
+	}
+
+	if ue.T3570 != nil {
+		ue.T3570.Stop()
+		ue.T3570 = nil // clear the timer
+	}
+
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		var plmnId string
