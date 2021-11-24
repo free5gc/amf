@@ -1904,6 +1904,7 @@ func HandleUEContextReleaseRequest(ran *context.AmfRan, message *ngapType.NGAPPD
 
 	amfUe := ranUe.AmfUe
 	if amfUe != nil {
+		gmm_common.StopAll5GSMMTimers(amfUe)
 		causeAll := context.CauseAll{
 			NgapCause: &models.NgApCause{
 				Group: int32(causeGroup),
