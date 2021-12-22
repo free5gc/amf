@@ -441,16 +441,29 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
+	ue.GmmLog.Debugf("error mobileIdentity5GSContents length: %d", len(mobileIdentity5GSContents))
+	if registrationRequest.MobileIdentity5GS.GetLen() == 0 { // min len is 1
+		gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+		return fmt.Errorf("mobileIdentity5GS len is empty")
+	}
 	ue.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentity5GSContents[0])
 	switch ue.IdentityTypeUsedForRegistration { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeNoIdentity:
 		ue.GmmLog.Debugf("No Identity")
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		var plmnId string
+		if len(mobileIdentity5GSContents) <= 8 {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+			return fmt.Errorf("mobileIdentity5GS length is incorrect")
+		}
 		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentity5GSContents)
 		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
 		ue.GmmLog.Debugf("SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
+		if len(mobileIdentity5GSContents) <= 7 {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+			return fmt.Errorf("mobileIdentity5GS length is incorrect")
+		}
 		guamiFromUeGutiTmp, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
 		guamiFromUeGuti = guamiFromUeGutiTmp
 		ue.Guti = guti
@@ -464,10 +477,18 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			ue.ServingAmfChanged = true
 		}
 	case nasMessage.MobileIdentity5GSTypeImei:
+		if len(mobileIdentity5GSContents) <= 1 {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+			return fmt.Errorf("mobileIdentity5GS length is incorrect")
+		}
 		imei := nasConvert.PeiToString(mobileIdentity5GSContents)
 		ue.Pei = imei
 		ue.GmmLog.Debugf("PEI: %s", imei)
 	case nasMessage.MobileIdentity5GSTypeImeisv:
+		if len(mobileIdentity5GSContents) <= 1 {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+			return fmt.Errorf("mobileIdentity5GS length is incorrect")
+		}
 		imeisv := nasConvert.PeiToString(mobileIdentity5GSContents)
 		ue.Pei = imeisv
 		ue.GmmLog.Debugf("PEI: %s", imeisv)
@@ -497,7 +518,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		return fmt.Errorf("Registration Reject[Tracking area not allowed]")
 	}
 
-	if registrationRequest.UESecurityCapability != nil {
+	if registrationRequest.UESecurityCapability != nil && registrationRequest.UESecurityCapability.Len != 0 {
 		ue.UESecurityCapability = *registrationRequest.UESecurityCapability
 	} else {
 		gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
