@@ -124,6 +124,9 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 	ranUe.Ran = newRan
 	ranUe.RanUeNgapId = ranUeNgapId
 
+	// update log information
+	ranUe.UpdateLogFields()
+
 	logger.ContextLog.Infof("RanUe[RanUeNgapID: %d] Switch to new Ran[Name: %s]", ranUe.RanUeNgapId, ranUe.Ran.Name)
 	return nil
 }
@@ -239,4 +242,15 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 		}
 	case ngapType.UserLocationInformationPresentNothing:
 	}
+}
+
+func (ranUe *RanUe) UpdateLogFields() {
+	ngapLog := logger.NgapLog
+
+	if ranUe.Ran != nil && ranUe.Ran.Conn != nil {
+		ngapLog = ngapLog.WithField(logger.FieldRanAddr, ranUe.Ran.Conn.RemoteAddr().String())
+		ngapLog = ngapLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+	}
+
+	ranUe.Log = ngapLog
 }
