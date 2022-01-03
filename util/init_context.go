@@ -81,6 +81,7 @@ func InitAmfContext(context *context.AMFContext) {
 	context.T3550Cfg = configuration.T3550
 	context.T3560Cfg = configuration.T3560
 	context.T3565Cfg = configuration.T3565
+	context.T3570Cfg = configuration.T3570
 	context.Locality = configuration.Locality
 }
 

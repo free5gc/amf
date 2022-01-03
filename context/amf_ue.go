@@ -65,6 +65,7 @@ type AmfUe struct {
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
 	RetransmissionOfInitialNASMsg      bool
+	RequestIdentityType                uint8
 	/* Used for AMF relocation */
 	TargetAmfProfile *models.NfProfile
 	TargetAmfUri     string
@@ -178,6 +179,8 @@ type AmfUe struct {
 	T3550 *Timer
 	/* T3522 (for deregistration request) */
 	T3522 *Timer
+	/* T3570 (for identity request) */
+	T3570 *Timer
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
