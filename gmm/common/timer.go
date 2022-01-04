@@ -31,4 +31,8 @@ func StopAll5GSMMTimers(ue *context.AmfUe) {
 		ue.T3565.Stop()
 		ue.T3565 = nil // clear the timer
 	}
+	if ue.T3570 != nil {
+		ue.T3570.Stop()
+		ue.T3570 = nil // clear the timer
+	}
 }
