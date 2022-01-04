@@ -368,6 +368,7 @@ func SendInitialContextSetupRequest(
 		amfUe.RanUe[anType].Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
 		return
 	}
+	amfUe.RanUe[anType].UeContextRequest = false
 	amfUe.RanUe[anType].SentInitialContextSetupRequest = true
 	NasSendToRan(amfUe, anType, pkt)
 }
