@@ -621,6 +621,10 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		Supi: optional.NewString(ue.Supi),
 	}
+	if amfSelf.Locality != "" {
+		param.PreferredLocality = optional.NewString(amfSelf.Locality)
+	}
+
 	for {
 		resp, err := consumer.SendSearchNFInstances(amfSelf.NrfUri, models.NfType_PCF, models.NfType_AMF, &param)
 		if err != nil {
