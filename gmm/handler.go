@@ -1187,7 +1187,9 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 					},
 					MappedHomeSnssai: requestedSnssai.HomeSnssai,
 				}
-				ue.AllowedNssai[anType] = append(ue.AllowedNssai[anType], allowedSnssai)
+				if !ue.InAllowedNssai(*allowedSnssai.AllowedSnssai, anType) {
+					ue.AllowedNssai[anType] = append(ue.AllowedNssai[anType], allowedSnssai)
+				}
 			} else {
 				needSliceSelection = true
 				break
