@@ -3841,7 +3841,7 @@ func HandleErrorIndication(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		}
 	}
 
-	ran.Log.Info("Handle Error Indication: RAN_UE_NGAP_ID:%v AMF_UE_NGAP_ID:%v", rANUENGAPID, aMFUENGAPID)
+	ran.Log.Infof("Handle Error Indication: RAN_UE_NGAP_ID:%v AMF_UE_NGAP_ID:%v", rANUENGAPID, aMFUENGAPID)
 
 	if cause == nil && criticalityDiagnostics == nil {
 		ran.Log.Error("[ErrorIndication] both Cause IE and CriticalityDiagnostics IE are nil, should have at least one")
