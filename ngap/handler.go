@@ -1900,6 +1900,14 @@ func HandleUEContextReleaseRequest(ran *context.AmfRan, message *ngapType.NGAPPD
 
 	amfUe := ranUe.AmfUe
 	if amfUe != nil {
+		if !isLatestAmfUe(amfUe) {
+			amfUe.DetachRanUe(ran.AnType)
+			ranUe.DetachAmfUe()
+			gmm_common.StopAll5GSMMTimers(amfUe)
+			causeValue = ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+			return
+		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
 		causeAll := context.CauseAll{
 			NgapCause: &models.NgApCause{
@@ -4083,4 +4091,13 @@ func buildCriticalityDiagnosticsIEItem(ieCriticality aper.Enumerated, ieID int64
 	}
 
 	return item
+}
+
+func isLatestAmfUe(amfUe *context.AmfUe) bool {
+	if latestAmfUe, ok := context.AMF_Self().AmfUeFindByUeContextID(amfUe.Supi); ok {
+		if amfUe == latestAmfUe {
+			return true
+		}
+	}
+	return false
 }

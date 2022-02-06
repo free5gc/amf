@@ -1,6 +1,7 @@
 package gmm
 
 import (
+	"github.com/free5gc/amf/consumer"
 	"github.com/free5gc/amf/context"
 	gmm_message "github.com/free5gc/amf/gmm/message"
 	"github.com/free5gc/amf/logger"
@@ -300,12 +301,26 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			case nasMessage.RegistrationType5GSInitialRegistration:
 				if err := HandleInitialRegistration(amfUe, accessType); err != nil {
 					logger.GmmLog.Errorln(err)
+					err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+						ArgAmfUe:      amfUe,
+						ArgAccessType: accessType,
+					})
+					if err != nil {
+						logger.GmmLog.Errorln(err)
+					}
 				}
 			case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
 				fallthrough
 			case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
 				if err := HandleMobilityAndPeriodicRegistrationUpdating(amfUe, accessType); err != nil {
 					logger.GmmLog.Errorln(err)
+					err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+						ArgAmfUe:      amfUe,
+						ArgAccessType: accessType,
+					})
+					if err != nil {
+						logger.GmmLog.Errorln(err)
+					}
 				}
 			}
 		case *nasMessage.ServiceRequest:
@@ -368,6 +383,18 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		logger.GmmLog.Debugln(event)
 	case ContextSetupFailEvent:
 		logger.GmmLog.Debugln(event)
+		amfUe := args[ArgAmfUe].(*context.AmfUe)
+		accessType := args[ArgAccessType].(models.AccessType)
+		if amfUe.UeCmRegistered {
+			problemDetails, err := consumer.UeCmDeregistration(amfUe, accessType)
+			if problemDetails != nil {
+				if problemDetails.Cause != "CONTEXT_NOT_FOUND" {
+					amfUe.GmmLog.Errorf("UECM_Registration Failed Problem[%+v]", problemDetails)
+				}
+			} else if err != nil {
+				amfUe.GmmLog.Errorf("UECM_Registration Error[%+v]", err)
+			}
+		}
 	case fsm.ExitEvent:
 		logger.GmmLog.Debugln(event)
 	default:
