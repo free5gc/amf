@@ -292,6 +292,7 @@ func (ue *AmfUe) Remove() {
 
 func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 	delete(ue.RanUe, anType)
+	ue.UpdateLogFields()
 }
 
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
@@ -302,8 +303,27 @@ func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 	}
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
-	ue.NASLog = logger.NasLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
-	ue.GmmLog = logger.GmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+	ue.UpdateLogFields()
+}
+
+func (ue *AmfUe) UpdateLogFields() {
+	nasLog := logger.NasLog
+	gmmLog := logger.GmmLog
+	producerLog := logger.ProducerLog
+
+	if ranUe, ok := ue.RanUe[models.AccessType__3_GPP_ACCESS]; ok {
+		nasLog = nasLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+		gmmLog = gmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+	}
+	if ue.Supi != "" {
+		nasLog = nasLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+		gmmLog = gmmLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+		producerLog = producerLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+	}
+
+	ue.NASLog = nasLog
+	ue.GmmLog = gmmLog
+	ue.ProducerLog = producerLog
 }
 
 func (ue *AmfUe) GetAnType() models.AccessType {

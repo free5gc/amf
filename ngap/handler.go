@@ -173,7 +173,6 @@ func HandleUplinkNasTransport(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		ran.Log.Error("UplinkNasTransport is nil")
 		return
 	}
-	ran.Log.Info("Handle Uplink Nas Transport")
 
 	for i := 0; i < len(uplinkNasTransport.ProtocolIEs.List); i++ {
 		ie := uplinkNasTransport.ProtocolIEs.List[i]
@@ -410,8 +409,6 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 		return
 	}
 
-	ran.Log.Info("Handle UE Context Release Complete")
-
 	for _, ie := range uEContextReleaseComplete.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID:
@@ -458,6 +455,8 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
+
+	ranUe.Log.Info("Handle UE Context Release Complete")
 
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
@@ -556,17 +555,17 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 	delete(amfUe.ReleaseCause, ran.AnType)
 	switch ranUe.ReleaseAction {
 	case context.UeContextN2NormalRelease:
-		ran.Log.Infof("Release UE[%s] Context : N2 Connection Release", amfUe.Supi)
+		ranUe.Log.Infof("Release UE[%s] Context : N2 Connection Release", amfUe.Supi)
 		// amfUe.DetachRanUe(ran.AnType)
 		err := ranUe.Remove()
 		if err != nil {
 			ran.Log.Errorln(err.Error())
 		}
 	case context.UeContextReleaseUeContext:
-		ran.Log.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
+		ranUe.Log.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
 		gmm_common.RemoveAmfUe(amfUe)
 	case context.UeContextReleaseHandover:
-		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
+		ranUe.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		// TODO: it's a workaround, need to fix it.
 		targetRanUe := context.AMF_Self().RanUeFindByAmfUeNgapID(ranUe.TargetUe.AmfUeNgapId)
 
@@ -608,8 +607,6 @@ func HandlePDUSessionResourceReleaseResponse(ran *context.AmfRan, message *ngapT
 		return
 	}
 
-	ran.Log.Info("Handle PDU Session Resource Release Response")
-
 	for _, ie := range pDUSessionResourceReleaseResponse.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID:
@@ -647,6 +644,8 @@ func HandlePDUSessionResourceReleaseResponse(ran *context.AmfRan, message *ngapT
 		ran.Log.Errorf("No UE Context[RanUeNgapID: %d]", rANUENGAPID.Value)
 		return
 	}
+
+	ranUe.Log.Info("Handle PDU Session Resource Release Response")
 
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
@@ -713,7 +712,6 @@ func HandleUERadioCapabilityCheckResponse(ran *context.AmfRan, message *ngapType
 		ran.Log.Error("UERadioCapabilityCheckResponse is nil")
 		return
 	}
-	ran.Log.Info("Handle UE Radio Capability Check Response")
 
 	for i := 0; i < len(uERadioCapabilityCheckResponse.ProtocolIEs.List); i++ {
 		ie := uERadioCapabilityCheckResponse.ProtocolIEs.List[i]
@@ -751,6 +749,8 @@ func HandleUERadioCapabilityCheckResponse(ran *context.AmfRan, message *ngapType
 		return
 	}
 
+	ranUe.Log.Info("Handle UE Radio Capability Check Response")
+
 	// TODO: handle iMSVoiceSupportIndicator
 
 	if criticalityDiagnostics != nil {
@@ -783,8 +783,6 @@ func HandleLocationReportingFailureIndication(ran *context.AmfRan, message *ngap
 		ran.Log.Error("LocationReportingFailureIndication is nil")
 		return
 	}
-
-	ran.Log.Info("Handle Location Reporting Failure Indication")
 
 	for i := 0; i < len(locationReportingFailureIndication.ProtocolIEs.List); i++ {
 		ie := locationReportingFailureIndication.ProtocolIEs.List[i]
@@ -820,6 +818,7 @@ func HandleLocationReportingFailureIndication(ran *context.AmfRan, message *ngap
 		ran.Log.Errorf("No UE Context[RanUeNgapID: %d]", rANUENGAPID.Value)
 		return
 	}
+	ranUe.Log.Info("Handle Location Reporting Failure Indication")
 }
 
 func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
@@ -1022,8 +1021,6 @@ func HandlePDUSessionResourceSetupResponse(ran *context.AmfRan, message *ngapTyp
 		return
 	}
 
-	ran.Log.Info("Handle PDU Session Resource Setup Response")
-
 	for _, ie := range pDUSessionResourceSetupResponse.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // ignore
@@ -1060,6 +1057,7 @@ func HandlePDUSessionResourceSetupResponse(ran *context.AmfRan, message *ngapTyp
 	}
 
 	if ranUe != nil {
+		ranUe.Log.Info("Handle PDU Session Resource Setup Response")
 		ranUe.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 		amfUe := ranUe.AmfUe
 		if amfUe == nil {
@@ -1150,8 +1148,6 @@ func HandlePDUSessionResourceModifyResponse(ran *context.AmfRan, message *ngapTy
 		return
 	}
 
-	ran.Log.Info("Handle PDU Session Resource Modify Response")
-
 	for _, ie := range pDUSessionResourceModifyResponse.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // ignore
@@ -1191,6 +1187,7 @@ func HandlePDUSessionResourceModifyResponse(ran *context.AmfRan, message *ngapTy
 	}
 
 	if ranUe != nil {
+		ranUe.Log.Info("Handle PDU Session Resource Modify Response")
 		ranUe.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 		amfUe := ranUe.AmfUe
 		if amfUe == nil {
@@ -1323,6 +1320,7 @@ func HandlePDUSessionResourceNotify(ran *context.AmfRan, message *ngapType.NGAPP
 		return
 	}
 
+	ranUe.Log.Info("Handle PDU Session Resource Notify")
 	ranUe.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -1489,8 +1487,6 @@ func HandlePDUSessionResourceModifyIndication(ran *context.AmfRan, message *ngap
 		return
 	}
 
-	ran.Log.Info("Handle PDU Session Resource Modify Indication")
-
 	for _, ie := range pDUSessionResourceModifyIndication.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // reject
@@ -1548,6 +1544,7 @@ func HandlePDUSessionResourceModifyIndication(ran *context.AmfRan, message *ngap
 		return
 	}
 
+	ranUe.Log.Info("Handle PDU Session Resource Modify Indication")
 	ran.Log.Tracef("UE Context AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 
 	amfUe := ranUe.AmfUe
@@ -1613,8 +1610,6 @@ func HandleInitialContextSetupResponse(ran *context.AmfRan, message *ngapType.NG
 		return
 	}
 
-	ran.Log.Info("Handle Initial Context Setup Response")
-
 	for _, ie := range initialContextSetupResponse.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID:
@@ -1662,6 +1657,7 @@ func HandleInitialContextSetupResponse(ran *context.AmfRan, message *ngapType.NG
 	}
 
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	ranUe.Log.Info("Handle Initial Context Setup Response")
 
 	if pDUSessionResourceSetupResponseList != nil {
 		ranUe.Log.Trace("Send PDUSessionResourceSetupResponseTransfer to SMF")
@@ -1748,8 +1744,6 @@ func HandleInitialContextSetupFailure(ran *context.AmfRan, message *ngapType.NGA
 		return
 	}
 
-	ran.Log.Info("Handle Initial Context Setup Failure")
-
 	for _, ie := range initialContextSetupFailure.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID:
@@ -1795,9 +1789,12 @@ func HandleInitialContextSetupFailure(ran *context.AmfRan, message *ngapType.NGA
 		ran.Log.Errorf("No UE Context[RanUeNgapID: %d]", rANUENGAPID.Value)
 		return
 	}
+
+	ranUe.Log.Info("Handle Initial Context Setup Failure")
+
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
-		ran.Log.Error("amfUe is nil")
+		ranUe.Log.Error("amfUe is nil")
 		return
 	}
 
@@ -1851,8 +1848,6 @@ func HandleUEContextReleaseRequest(ran *context.AmfRan, message *ngapType.NGAPPD
 		return
 	}
 
-	ran.Log.Info("UE Context Release Request")
-
 	for _, ie := range uEContextReleaseRequest.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID:
@@ -1895,6 +1890,7 @@ func HandleUEContextReleaseRequest(ran *context.AmfRan, message *ngapType.NGAPPD
 	}
 
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	ranUe.Log.Info("Handle UE Context Release Request")
 
 	causeGroup := ngapType.CausePresentRadioNetwork
 	causeValue := ngapType.CauseRadioNetworkPresentUnspecified
@@ -1985,8 +1981,6 @@ func HandleUEContextModificationResponse(ran *context.AmfRan, message *ngapType.
 		return
 	}
 
-	ran.Log.Info("Handle UE Context Modification Response")
-
 	for _, ie := range uEContextModificationResponse.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // ignore
@@ -2030,6 +2024,7 @@ func HandleUEContextModificationResponse(ran *context.AmfRan, message *ngapType.
 
 	if ranUe != nil {
 		ranUe.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
+		ranUe.Log.Info("Handle UE Context Modification Response")
 
 		if rRCState != nil {
 			switch rRCState.Value {
@@ -2077,8 +2072,6 @@ func HandleUEContextModificationFailure(ran *context.AmfRan, message *ngapType.N
 		return
 	}
 
-	ran.Log.Info("Handle UE Context Modification Failure")
-
 	for _, ie := range uEContextModificationFailure.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // ignore
@@ -2121,6 +2114,7 @@ func HandleUEContextModificationFailure(ran *context.AmfRan, message *ngapType.N
 
 	if ranUe != nil {
 		ran.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
+		ranUe.Log.Info("Handle UE Context Modification Failure")
 	}
 
 	if cause != nil {
@@ -2158,7 +2152,6 @@ func HandleRRCInactiveTransitionReport(ran *context.AmfRan, message *ngapType.NG
 		ran.Log.Error("RRCInactiveTransitionReport is nil")
 		return
 	}
-	ran.Log.Info("Handle RRC Inactive Transition Report")
 
 	for i := 0; i < len(rRCInactiveTransitionReport.ProtocolIEs.List); i++ {
 		ie := rRCInactiveTransitionReport.ProtocolIEs.List[i]
@@ -2199,6 +2192,7 @@ func HandleRRCInactiveTransitionReport(ran *context.AmfRan, message *ngapType.NG
 		ran.Log.Warnf("No UE Context[RanUeNgapID: %d]", rANUENGAPID.Value)
 	} else {
 		ran.Log.Tracef("RANUENGAPID[%d] AMFUENGAPID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+		ranUe.Log.Info("Handle RRC Inactive Transition Report")
 
 		if rRCState != nil {
 			switch rRCState.Value {
@@ -2236,8 +2230,6 @@ func HandleHandoverNotify(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		ran.Log.Error("HandoverNotify is nil")
 		return
 	}
-
-	ran.Log.Info("Handle Handover notification")
 
 	for i := 0; i < len(HandoverNotify.ProtocolIEs.List); i++ {
 		ie := HandoverNotify.ProtocolIEs.List[i]
@@ -2280,6 +2272,8 @@ func HandleHandoverNotify(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
+	targetUe.Log.Info("Handle Handover notification")
+
 	if userLocationInformation != nil {
 		targetUe.UpdateLocation(userLocationInformation)
 	}
@@ -2294,7 +2288,7 @@ func HandleHandoverNotify(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		// Desciibed in (23.502 4.9.1.3.3) [conditional] 6a.Namf_Communication_N2InfoNotify.
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
-		ran.Log.Info("Handle Handover notification Finshed ")
+		targetUe.Log.Info("Handle Handover notification Finshed ")
 		for _, pduSessionid := range targetUe.SuccessPduSessionId {
 			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionid)
 			if !ok {
@@ -2344,8 +2338,6 @@ func HandlePathSwitchRequest(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
-	ran.Log.Info("Handle Path Switch Request")
-
 	for _, ie := range pathSwitchRequest.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDRANUENGAPID: // reject
@@ -2393,6 +2385,7 @@ func HandlePathSwitchRequest(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 	}
 
 	ran.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
+	ranUe.Log.Info("Handle Path Switch Request")
 
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -2537,8 +2530,6 @@ func HandleHandoverRequestAcknowledge(ran *context.AmfRan, message *ngapType.NGA
 		return
 	}
 
-	ran.Log.Info("Handle Handover Request Acknowledge")
-
 	for _, ie := range handoverRequestAcknowledge.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // ignore
@@ -2588,8 +2579,11 @@ func HandleHandoverRequestAcknowledge(ran *context.AmfRan, message *ngapType.NGA
 		return
 	}
 
+	targetUe.Log.Info("Handle Handover Request Acknowledge")
+
 	if rANUENGAPID != nil {
 		targetUe.RanUeNgapId = rANUENGAPID.Value
+		targetUe.UpdateLogFields()
 	}
 	ran.Log.Debugf("Target Ue RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
 
@@ -2740,6 +2734,8 @@ func HandleHandoverFailure(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
+	targetUe.Log.Info("Handle Handover Failure")
+
 	sourceUe := targetUe.SourceUe
 	if sourceUe == nil {
 		// TODO: handle N2 Handover between AMF
@@ -2758,7 +2754,7 @@ func HandleHandoverFailure(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				}
 				_, _, _, err := consumer.SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
 				if err != nil {
-					ran.Log.Errorf("Send UpdateSmContextN2HandoverCanceled Error for PduSessionId[%d]", pduSessionID)
+					amfUe.ProducerLog.Errorf("Send UpdateSmContextN2HandoverCanceled Error for PduSessionId[%d]", pduSessionID)
 				}
 				return true
 			})
@@ -2799,7 +2795,6 @@ func HandleHandoverRequired(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
-	ran.Log.Info("Handle HandoverRequired\n")
 	for i := 0; i < len(HandoverRequired.ProtocolIEs.List); i++ {
 		ie := HandoverRequired.ProtocolIEs.List[i]
 		switch ie.Id.Value {
@@ -2887,6 +2882,9 @@ func HandleHandoverRequired(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
+
+	sourceUe.Log.Info("Handle HandoverRequired")
+
 	amfUe := sourceUe.AmfUe
 	if amfUe == nil {
 		ran.Log.Error("Cannot find amfUE from sourceUE")
@@ -2990,7 +2988,6 @@ func HandleHandoverCancel(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
-	ran.Log.Info("Handle Handover Cancel")
 	for i := 0; i < len(HandoverCancel.ProtocolIEs.List); i++ {
 		ie := HandoverCancel.ProtocolIEs.List[i]
 		switch ie.Id.Value {
@@ -3030,6 +3027,8 @@ func HandleHandoverCancel(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, &cause, nil)
 		return
 	}
+
+	sourceUe.Log.Info("Handle Handover Cancel")
 
 	if sourceUe.AmfUeNgapId != aMFUENGAPID.Value {
 		ran.Log.Warnf("Conflict AMF_UE_NGAP_ID : %d != %d", sourceUe.AmfUeNgapId, aMFUENGAPID.Value)
@@ -3096,8 +3095,6 @@ func HandleUplinkRanStatusTransfer(ran *context.AmfRan, message *ngapType.NGAPPD
 		return
 	}
 
-	ran.Log.Info("Handle Uplink Ran Status Transfer")
-
 	for _, ie := range uplinkRanStatusTransfer.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // reject
@@ -3127,7 +3124,8 @@ func HandleUplinkRanStatusTransfer(ran *context.AmfRan, message *ngapType.NGAPPD
 		return
 	}
 
-	ranUe.Log.Tracef("UE Context AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
+	ran.Log.Tracef("UE Context AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
+	ranUe.Log.Info("Handle Uplink Ran Status Transfer")
 
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -3161,8 +3159,6 @@ func HandleNasNonDeliveryIndication(ran *context.AmfRan, message *ngapType.NGAPP
 		ran.Log.Error("NASNonDeliveryIndication is nil")
 		return
 	}
-
-	ran.Log.Info("Handle Nas Non Delivery Indication")
 
 	for _, ie := range nASNonDeliveryIndication.ProtocolIEs.List {
 		switch ie.Id.Value {
@@ -3200,6 +3196,7 @@ func HandleNasNonDeliveryIndication(ran *context.AmfRan, message *ngapType.NGAPP
 	}
 
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	ranUe.Log.Info("Handle Nas Non Delivery Indication")
 
 	printAndGetCause(ran, cause)
 
@@ -3398,8 +3395,6 @@ func HandleUplinkUEAssociatedNRPPATransport(ran *context.AmfRan, message *ngapTy
 		return
 	}
 
-	ran.Log.Info("Handle Uplink UE Associated NRPPA Transpor")
-
 	for _, ie := range uplinkUEAssociatedNRPPaTransport.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // reject
@@ -3440,6 +3435,7 @@ func HandleUplinkUEAssociatedNRPPATransport(ran *context.AmfRan, message *ngapTy
 	}
 
 	ran.Log.Tracef("RanUeNgapId[%d] AmfUeNgapId[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	ranUe.Log.Info("Handle Uplink UE Associated NRPPA Transpor")
 
 	ranUe.RoutingID = hex.EncodeToString(routingID.Value)
 
@@ -3524,7 +3520,6 @@ func HandleLocationReport(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		return
 	}
 
-	ran.Log.Info("Handle Location Report")
 	for _, ie := range locationReport.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFUENGAPID: // reject
@@ -3565,6 +3560,7 @@ func HandleLocationReport(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		ran.Log.Errorf("No UE Context[RanUeNgapID: %d]", rANUENGAPID.Value)
 		return
 	}
+	ranUe.Log.Info("Handle Location Report")
 
 	ranUe.UpdateLocation(userLocationInformation)
 
@@ -3618,22 +3614,23 @@ func HandleUERadioCapabilityInfoIndication(ran *context.AmfRan, message *ngapTyp
 		logger.NgapLog.Error("ran is nil")
 		return
 	}
+
 	if message == nil {
 		ran.Log.Error("NGAP Message is nil")
 		return
 	}
+
 	initiatingMessage := message.InitiatingMessage
 	if initiatingMessage == nil {
 		ran.Log.Error("Initiating Message is nil")
 		return
 	}
+
 	uERadioCapabilityInfoIndication := initiatingMessage.Value.UERadioCapabilityInfoIndication
 	if uERadioCapabilityInfoIndication == nil {
 		ran.Log.Error("UERadioCapabilityInfoIndication is nil")
 		return
 	}
-
-	ran.Log.Info("Handle UE Radio Capability Info Indication")
 
 	for i := 0; i < len(uERadioCapabilityInfoIndication.ProtocolIEs.List); i++ {
 		ie := uERadioCapabilityInfoIndication.ProtocolIEs.List[i]
@@ -3675,15 +3672,18 @@ func HandleUERadioCapabilityInfoIndication(ran *context.AmfRan, message *ngapTyp
 		return
 	}
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
-	amfUe := ranUe.AmfUe
+	ranUe.Log.Info("Handle UE Radio Capability Info Indication")
 
+	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ranUe.Log.Errorln("amfUe is nil")
 		return
 	}
+
 	if uERadioCapability != nil {
 		amfUe.UeRadioCapability = hex.EncodeToString(uERadioCapability.Value)
 	}
+
 	if uERadioCapabilityForPaging != nil {
 		amfUe.UeRadioCapabilityForPaging = &context.UERadioCapabilityForPaging{}
 		if uERadioCapabilityForPaging.UERadioCapabilityForPagingOfNR != nil {
@@ -3848,6 +3848,8 @@ func HandleErrorIndication(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
 		}
 	}
+
+	ran.Log.Infof("Handle Error Indication: RAN_UE_NGAP_ID:%v AMF_UE_NGAP_ID:%v", rANUENGAPID, aMFUENGAPID)
 
 	if cause == nil && criticalityDiagnostics == nil {
 		ran.Log.Error("[ErrorIndication] both Cause IE and CriticalityDiagnostics IE are nil, should have at least one")
