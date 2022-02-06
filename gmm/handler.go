@@ -614,6 +614,7 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 	if ue.ServingAmfChanged || ue.State[models.AccessType_NON_3_GPP_ACCESS].Is(context.Registered) ||
 		!ue.ContextValid {
 		if err := communicateWithUDM(ue, anType); err != nil {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMPLMNNotAllowed, "")
 			return err
 		}
 	}
@@ -766,6 +767,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *context.AmfUe, anType mod
 	if ue.ServingAmfChanged || ue.State[models.AccessType_NON_3_GPP_ACCESS].Is(context.Registered) ||
 		!ue.ContextValid {
 		if err := communicateWithUDM(ue, anType); err != nil {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMPLMNNotAllowed, "")
 			return err
 		}
 	}
@@ -1112,6 +1114,7 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 	problemDetails, err = consumer.SDMGetAmData(ue)
 	if problemDetails != nil {
 		ue.GmmLog.Errorf("SDM_Get AmData Failed Problem[%+v]", problemDetails)
+		return fmt.Errorf(problemDetails.Cause)
 	} else if err != nil {
 		return fmt.Errorf("SDM_Get AmData Error[%+v]", err)
 	}
