@@ -866,7 +866,7 @@ func HandleMobilityAndPeriodicRegistrationUpdating(ue *context.AmfUe, anType mod
 						pduSessionStatus[psi] = false
 					}
 				} else {
-					pduSessionStatus[psi] = false
+					pduSessionStatus[psi] = true
 				}
 			}
 		}
