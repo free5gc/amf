@@ -69,7 +69,9 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 }
 
 func (ran *AmfRan) RemoveAllUeInRan() {
-	for _, ranUe := range ran.RanUeList {
+	saveRanUeList := make([]*RanUe, len(ran.RanUeList))
+	copy(saveRanUeList, ran.RanUeList)
+	for _, ranUe := range saveRanUeList {
 		if err := ranUe.Remove(); err != nil {
 			logger.ContextLog.Errorf("Remove RanUe error: %v", err)
 		}
