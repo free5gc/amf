@@ -104,6 +104,10 @@ func (context *AMFContext) TmsiAllocate() int32 {
 	return int32(tmsi)
 }
 
+func (context *AMFContext) FreeTmsi(tmsi int64) {
+	tmsiGenerator.FreeID(tmsi)
+}
+
 func (context *AMFContext) AllocateAmfUeNgapID() (int64, error) {
 	return amfUeNGAPIDGenerator.Allocate()
 }
