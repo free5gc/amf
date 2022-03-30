@@ -453,15 +453,20 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		guamiFromUeGutiTmp, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
 		guamiFromUeGuti = guamiFromUeGutiTmp
-		ue.Guti = guti
 		ue.GmmLog.Debugf("GUTI: %s", guti)
 
 		servedGuami := amfSelf.ServedGuamiList[0]
 		if reflect.DeepEqual(guamiFromUeGuti, servedGuami) {
 			ue.ServingAmfChanged = false
+			// refresh 5G-GUTI according to 6.12.3 Subscription temporary identifier, TS33.501
+			if ue.SecurityContextAvailable {
+				context.AMF_Self().FreeTmsi(int64(ue.Tmsi))
+				context.AMF_Self().AllocateGutiToUe(ue)
+			}
 		} else {
 			ue.GmmLog.Debugf("Serving AMF has changed")
 			ue.ServingAmfChanged = true
+			ue.Guti = guti
 		}
 	case nasMessage.MobileIdentity5GSTypeImei:
 		imei := nasConvert.PeiToString(mobileIdentity5GSContents)
