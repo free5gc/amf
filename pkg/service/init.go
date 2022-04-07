@@ -93,12 +93,12 @@ func (amf *AMF) Initialize(c *cli.Context) error {
 		return err
 	}
 
-	amf.setLogLevel()
+	amf.SetLogLevel()
 
 	return nil
 }
 
-func (amf *AMF) setLogLevel() {
+func (amf *AMF) SetLogLevel() {
 	if factory.AmfConfig.Logger == nil {
 		logger.InitLog.Warnln("AMF config without log level setting!!!")
 		return
