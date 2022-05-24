@@ -466,6 +466,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		} else {
 			ue.GmmLog.Debugf("Serving AMF has changed")
 			ue.ServingAmfChanged = true
+			context.AMF_Self().FreeTmsi(int64(ue.Tmsi))
 			ue.Guti = guti
 		}
 	case nasMessage.MobileIdentity5GSTypeImei:
@@ -513,41 +514,49 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	// since last registration procedure, new AMF may invoke Namf_Communication_UEContextTransfer
 	// to old AMF, including the complete registration request nas msg, to request UE's SUPI & UE Context
 	if ue.ServingAmfChanged {
-		var transferReason models.TransferReason
-		switch ue.RegistrationType5GS {
-		case nasMessage.RegistrationType5GSInitialRegistration:
-			transferReason = models.TransferReason_INIT_REG
-		case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
-			fallthrough
-		case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
-			transferReason = models.TransferReason_MOBI_REG
-		}
-
-		searchOpt := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
-			Guami: optional.NewInterface(openapi.MarshToJsonString(guamiFromUeGuti)),
-		}
-		err := consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NfType_AMF, models.NfType_AMF, &searchOpt)
-		if err != nil {
-			ue.GmmLog.Errorf("[GMM] %+v", err)
-			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMUEIdentityCannotBeDerivedByTheNetwork, "")
-			return err
-		}
-
-		ueContextTransferRspData, problemDetails, err := consumer.UEContextTransferRequest(ue, anType, transferReason)
-		if problemDetails != nil {
-			if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
-				ue.GmmLog.Warnf("Can not retrieve UE Context from old AMF[Cause: %s]", problemDetails.Cause)
-			} else {
-				ue.GmmLog.Warnf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
-			}
-			ue.SecurityContextAvailable = false // need to start authentication procedure later
-		} else if err != nil {
-			ue.GmmLog.Errorf("UE Context Transfer Request Error[%+v]", err)
-			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMUEIdentityCannotBeDerivedByTheNetwork, "")
-		} else {
-			ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
+		if err := contextTransferFromOldAmf(ue, anType, guamiFromUeGuti); err != nil {
+			ue.GmmLog.Warnf("[GMM] %+v", err)
+			// if failed, give up to retrieve the old context and start a new authentication procedure.
+			ue.ServingAmfChanged = false
+			context.AMF_Self().AllocateGutiToUe(ue) // refresh 5G-GUTI
+			ue.SecurityContextAvailable = false     // need to start authentication procedure later
 		}
 	}
+	return nil
+}
+
+func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldAmfGuami models.Guami) error {
+	ue.GmmLog.Infof("ContextTransfer from old AMF[%s %s]", oldAmfGuami.PlmnId, oldAmfGuami.AmfId)
+
+	amfSelf := context.AMF_Self()
+	searchOpt := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
+		Guami: optional.NewInterface(openapi.MarshToJsonString(oldAmfGuami)),
+	}
+	if err := consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NfType_AMF,
+		models.NfType_AMF, &searchOpt); err != nil {
+		return err
+	}
+
+	var transferReason models.TransferReason
+	switch ue.RegistrationType5GS {
+	case nasMessage.RegistrationType5GSInitialRegistration:
+		transferReason = models.TransferReason_INIT_REG
+	case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
+		fallthrough
+	case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
+		transferReason = models.TransferReason_MOBI_REG
+	}
+	ueContextTransferRspData, problemDetails, err := consumer.UEContextTransferRequest(ue, anType, transferReason)
+	if problemDetails != nil {
+		if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
+			return fmt.Errorf("Can not retrieve UE Context from old AMF[Cause: %s]", problemDetails.Cause)
+		}
+		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
+	} else if err != nil {
+		return fmt.Errorf("UE Context Transfer Request Error[%+v]", err)
+	}
+
+	ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
 	return nil
 }
 
