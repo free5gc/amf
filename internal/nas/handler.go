@@ -2,6 +2,7 @@ package nas
 
 import (
 	"github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 )
@@ -21,7 +22,7 @@ func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte) {
 
 	if ue.AmfUe == nil {
 		ue.AmfUe = amfSelf.NewAmfUe("")
-		ue.AmfUe.AttachRanUe(ue)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ue.AmfUe, ue)
 	}
 
 	msg, err := nas_security.Decode(ue.AmfUe, ue.Ran.AnType, nasPdu)

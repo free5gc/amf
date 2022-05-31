@@ -295,15 +295,12 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 	ue.UpdateLogFields()
 }
 
+// Don't call this function directly. Use gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny().
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
-	if oldRanUe := ue.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
-		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
-		oldRanUe.DetachAmfUe()
-		// TODO: stop Implicit Deregistration timer
-	}
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
 	ue.UpdateLogFields()
+	// TODO: stop Implicit Deregistration timer
 }
 
 func (ue *AmfUe) UpdateLogFields() {

@@ -574,7 +574,7 @@ func HandleUEContextReleaseComplete(ran *context.AmfRan, message *ngapType.NGAPP
 		if err != nil {
 			ran.Log.Errorln(err.Error())
 		}
-		amfUe.AttachRanUe(targetRanUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, targetRanUe)
 		// Todo: remove indirect tunnel
 	default:
 		ran.Log.Errorf("Invalid Release Action[%d]", ranUe.ReleaseAction)
@@ -949,11 +949,11 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 			} else {
 				ranUe.Log.Tracef("find AmfUe [GUTI: %s]", guti)
 				ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-				amfUe.AttachRanUe(ranUe)
+				gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 			}
 		}
 	} else {
-		ranUe.AmfUe.AttachRanUe(ranUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 	}
 
 	if userLocationInformation != nil {
@@ -2299,7 +2299,7 @@ func HandleHandoverNotify(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 				ran.Log.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
 			}
 		}
-		amfUe.AttachRanUe(targetUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, targetUe)
 
 		ngap_message.SendUEContextReleaseCommand(sourceUe, context.UeContextReleaseHandover, ngapType.CausePresentNas,
 			ngapType.CauseNasPresentNormalRelease)
