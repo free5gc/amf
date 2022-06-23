@@ -485,6 +485,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 			smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionId)
 			if !ok {
 				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
+				continue
 			}
 			problem, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
