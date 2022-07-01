@@ -83,7 +83,7 @@ var routes = Routes{
 
 	{
 		"EnableUeReachability",
-		strings.ToUpper("Post"),
+		strings.ToUpper("Put"),
 		"/ue-contexts/:ueContextId/ue-reachind",
 		HTTPEnableUeReachability,
 	},
