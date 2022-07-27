@@ -2,6 +2,7 @@ package gmm
 
 import (
 	"github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
@@ -204,6 +205,15 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 	case AuthFailEvent:
 		logger.GmmLog.Debugln(event)
 		logger.GmmLog.Warnln("Reject authentication")
+		amfUe := args[ArgAmfUe].(*context.AmfUe)
+		accessType := args[ArgAccessType].(models.AccessType)
+		if amfUe.RanUe[accessType] != nil {
+			err := amfUe.RanUe[accessType].Remove()
+			if err != nil {
+				logger.GmmLog.Errorln(err)
+			}
+		}
+		gmm_common.RemoveAmfUe(amfUe)
 	case fsm.ExitEvent:
 		// clear authentication related data at exit
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
