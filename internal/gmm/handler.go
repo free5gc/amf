@@ -127,10 +127,12 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				smContext.SetDuplicatedPduSessionID(true)
 				response, _, _, err := consumer.SendUpdateSmContextRequest(smContext, updateData, nil, nil)
 				if err != nil {
+					smContext.SetDuplicatedPduSessionID(false)
 					return err
 				} else if response == nil {
 					err := fmt.Errorf("PDU Session ID[%d] can't be released in DUPLICATE_SESSION_ID case", pduSessionID)
 					ue.GmmLog.Errorln(err)
+					smContext.SetDuplicatedPduSessionID(false)
 					gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
 						smMessage, pduSessionID, nasMessage.Cause5GMMPayloadWasNotForwarded, nil, 0)
 				} else if response != nil {
