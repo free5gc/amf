@@ -42,7 +42,8 @@ func action(c *cli.Context) error {
 		return err
 	}
 
-	if err := AMF.Initialize(c); err != nil {
+	initCh := make(chan interface{})
+	if err := AMF.Initialize(c, initCh); err != nil {
 		switch err1 := err.(type) {
 		case govalidator.Errors:
 			errs := err1.Errors()
@@ -60,6 +61,7 @@ func action(c *cli.Context) error {
 	logger.AppLog.Infoln(c.App.Name)
 	logger.AppLog.Infoln("AMF version: ", version.GetVersion())
 
+	<-initCh
 	AMF.Start()
 
 	return nil

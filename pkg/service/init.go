@@ -70,26 +70,22 @@ func (*AMF) GetCliCmd() (flags []cli.Flag) {
 	return cliCmd
 }
 
-func (amf *AMF) Initialize(c *cli.Context) error {
+func (amf *AMF) Initialize(c *cli.Context, initCh chan interface{}) error {
 	commands = Commands{
 		config: c.String("config"),
 	}
 
 	if commands.config != "" {
-		if err := factory.InitConfigFactory(commands.config); err != nil {
+		if err := factory.InitConfigFactory(commands.config, initCh); err != nil {
 			return err
 		}
 	} else {
-		if err := factory.InitConfigFactory(util.AmfDefaultConfigPath); err != nil {
+		if err := factory.InitConfigFactory(util.AmfDefaultConfigPath, initCh); err != nil {
 			return err
 		}
 	}
 
 	if err := factory.CheckConfigVersion(); err != nil {
-		return err
-	}
-
-	if _, err := factory.AmfConfig.Validate(); err != nil {
 		return err
 	}
 

@@ -90,7 +90,7 @@ type Configuration struct {
 }
 
 func (c *Configuration) validate() (bool, error) {
-	if c.NgapIpList != nil {
+	if len(c.NgapIpList) != 0 {
 		var errs govalidator.Errors
 		for _, v := range c.NgapIpList {
 			if result := govalidator.IsHost(v); !result {
@@ -237,10 +237,6 @@ func (c *Configuration) validate() (bool, error) {
 
 	if _, err := c.T3570.validate(); err != nil {
 		return false, err
-	}
-
-	if _, err := govalidator.ValidateStruct(c); err != nil {
-		return false, appendInvalid(err)
 	}
 
 	return true, nil
