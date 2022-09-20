@@ -5,7 +5,9 @@ import (
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -23,6 +25,21 @@ func RemoveAmfUe(ue *context.AmfUe) {
 		}
 	}
 	ue.Remove()
+}
+
+func AttachRanUeToAmfUeAndReleaseOldIfAny(ue *context.AmfUe, ranUe *context.RanUe) {
+	if oldRanUe := ue.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
+		oldRanUe.DetachAmfUe()
+		if ue.T3550 != nil {
+			ue.State[ranUe.Ran.AnType].Set(context.Registered)
+		}
+		StopAll5GSMMTimers(ue)
+		causeGroup := ngapType.CausePresentRadioNetwork
+		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
+		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+	}
+	ue.AttachRanUe(ranUe)
 }
 
 func purgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error {

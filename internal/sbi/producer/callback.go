@@ -8,6 +8,7 @@ import (
 	"github.com/mohae/deepcopy"
 
 	"github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas"
@@ -343,7 +344,7 @@ func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.Pr
 			amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
 		}
 
-		amfUe.AttachRanUe(ranUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 
 		nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message)
 	}()
