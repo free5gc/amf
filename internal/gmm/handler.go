@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1557,7 +1558,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
 		var cause uint8
 		switch problemDetails.Status {
-		case 403, 404:
+		case http.StatusForbidden, http.StatusNotFound:
 			cause = nasMessage.Cause5GMMIllegalUE
 		default:
 			cause = nasMessage.Cause5GMMCongestion
