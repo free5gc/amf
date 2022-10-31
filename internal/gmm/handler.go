@@ -2199,18 +2199,25 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 			return err
 		}
 
-		messageType := m.GmmMessage.GmmHeader.GetMessageType()
-		if messageType != nas.MsgTypeRegistrationRequest && messageType != nas.MsgTypeServiceRequest {
+		argsType := fsm.ArgsType{ArgAmfUe: ue, ArgAccessType: anType, ArgProcedureCode: procedureCode}
+		event := SecurityModeSuccessEvent
+		switch m.GmmMessage.GmmHeader.GetMessageType() {
+		case nas.MsgTypeRegistrationRequest:
+			argsType[ArgNASMessage] = m.GmmMessage.RegistrationRequest
+		case nas.MsgTypeServiceRequest:
+			argsType[ArgNASMessage] = m.GmmMessage.ServiceRequest
+			if !ue.State[anType].Is(context.Registered) {
+				gmm_message.SendServiceReject(ue.RanUe[anType], nil, nasMessage.Cause5GMMUEIdentityCannotBeDerivedByTheNetwork)
+				ue.GmmLog.Warnf("Service Request was sent when UE state was not Registered")
+				ngap_message.SendUEContextReleaseCommand(ue.RanUe[anType],
+					context.UeContextN2NormalRelease, ngapType.CausePresentNas, ngapType.CauseNasPresentNormalRelease)
+				event = SecurityModeFailEvent
+			}
+		default:
 			ue.GmmLog.Errorln("nas message container Iei type error")
 			return errors.New("nas message container Iei type error")
-		} else {
-			return GmmFSM.SendEvent(ue.State[anType], SecurityModeSuccessEvent, fsm.ArgsType{
-				ArgAmfUe:         ue,
-				ArgAccessType:    anType,
-				ArgProcedureCode: procedureCode,
-				ArgNASMessage:    m.GmmMessage.RegistrationRequest,
-			})
 		}
+		return GmmFSM.SendEvent(ue.State[anType], event, argsType)
 	}
 	return GmmFSM.SendEvent(ue.State[anType], SecurityModeSuccessEvent, fsm.ArgsType{
 		ArgAmfUe:         ue,
