@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1520,6 +1521,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	resp, err := consumer.SendSearchNFInstances(amfSelf.NrfUri, models.NfType_AUSF, models.NfType_AMF, &param)
 	if err != nil {
 		ue.GmmLog.Error("AMF can not select an AUSF by NRF")
+		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
 		return false, err
 	}
 
@@ -1535,6 +1537,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	if ausfUri == "" {
 		err = fmt.Errorf("AMF can not select an AUSF by NRF")
 		ue.GmmLog.Errorf(err.Error())
+		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
 		return false, err
 	}
 	ue.AusfUri = ausfUri
@@ -1542,10 +1545,23 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	response, problemDetails, err := consumer.SendUEAuthenticationAuthenticateRequest(ue, nil)
 	if err != nil {
 		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error: %+v", err)
-		return false, errors.New("Authentication procedure failed")
+		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
+		err = fmt.Errorf("Authentication procedure failed")
+		ue.GmmLog.Errorf(err.Error())
+		return false, err
 	} else if problemDetails != nil {
-		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
-		return false, nil
+		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
+		var cause uint8
+		switch problemDetails.Status {
+		case http.StatusForbidden, http.StatusNotFound:
+			cause = nasMessage.Cause5GMMIllegalUE
+		default:
+			cause = nasMessage.Cause5GMMCongestion
+		}
+		gmm_message.SendRegistrationReject(ue.RanUe[accessType], cause, "")
+		err = fmt.Errorf("Authentication procedure failed")
+		ue.GmmLog.Warnf(err.Error())
+		return false, err
 	}
 	ue.AuthenticationCtx = response
 	ue.ABBA = []uint8{0x00, 0x00} // set ABBA value as described at TS 33.501 Annex A.7.1
