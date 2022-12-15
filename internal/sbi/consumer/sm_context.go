@@ -181,7 +181,7 @@ func buildCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.S
 	// }
 	smContextCreateData.UeTimeZone = ue.TimeZone
 	smContextCreateData.SmContextStatusUri = context.GetIPv4Uri() + "/namf-callback/v1/smContextStatus/" +
-		ue.Guti + "/" + strconv.Itoa(int(smContext.PduSessionID()))
+		ue.Supi + "/" + strconv.Itoa(int(smContext.PduSessionID()))
 
 	return smContextCreateData
 }
@@ -455,8 +455,13 @@ func SendReleaseSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.S
 	if err1 == nil {
 		ue.SmContextList.Delete(smContext.PduSessionID())
 	} else if response != nil && response.Status == err1.Error() {
-		problem := err1.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		detail = &problem
+		if response.StatusCode == 404 {
+			// assume succeeded to release SmContext
+			ue.SmContextList.Delete(smContext.PduSessionID())
+		} else {
+			problem := err1.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
+			detail = &problem
+		}
 	} else {
 		err = err1
 	}

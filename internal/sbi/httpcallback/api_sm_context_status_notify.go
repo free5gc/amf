@@ -42,7 +42,7 @@ func HTTPSmContextStatusNotify(c *gin.Context) {
 	}
 
 	req := httpwrapper.NewRequest(c.Request, smContextStatusNotification)
-	req.Params["guti"] = c.Params.ByName("guti")
+	req.Params["supi"] = c.Params.ByName("supi")
 	req.Params["pduSessionId"] = c.Params.ByName("pduSessionId")
 
 	rsp := producer.HandleSmContextStatusNotify(req)
