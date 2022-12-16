@@ -25,7 +25,7 @@ import (
 func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 
-	guti := request.Params["guti"]
+	supi := request.Params["supi"]
 	pduSessionIDString := request.Params["pduSessionId"]
 	var pduSessionID int
 	if pduSessionIDTmp, err := strconv.Atoi(pduSessionIDString); err != nil {
@@ -35,7 +35,7 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 	}
 	smContextStatusNotification := request.Body.(models.SmContextStatusNotification)
 
-	problemDetails := SmContextStatusNotifyProcedure(guti, int32(pduSessionID), smContextStatusNotification)
+	problemDetails := SmContextStatusNotifyProcedure(supi, int32(pduSessionID), smContextStatusNotification)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -43,16 +43,16 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 	}
 }
 
-func SmContextStatusNotifyProcedure(guti string, pduSessionID int32,
+func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 	smContextStatusNotification models.SmContextStatusNotification) *models.ProblemDetails {
 	amfSelf := context.AMF_Self()
 
-	ue, ok := amfSelf.AmfUeFindByGuti(guti)
+	ue, ok := amfSelf.AmfUeFindBySupi(supi)
 	if !ok {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
-			Detail: fmt.Sprintf("Guti[%s] Not Found", guti),
+			Detail: fmt.Sprintf("Supi[%s] Not Found", supi),
 		}
 		return problemDetails
 	}

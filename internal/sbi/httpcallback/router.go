@@ -75,7 +75,7 @@ var routes = Routes{
 	{
 		"SmContextStatusNotify",
 		strings.ToUpper("Post"),
-		"/smContextStatus/:guti/:pduSessionId",
+		"/smContextStatus/:supi/:pduSessionId",
 		HTTPSmContextStatusNotify,
 	},
 
