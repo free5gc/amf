@@ -917,24 +917,10 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		if amfUe != nil {
 			// The fact that an amfUe having N2 connection (ranUE) is receiving
 			// an Initial UE Message indicates there is something wrong,
-			// so the amfUe and the ranUe with wrong RAN-UE-NGAP-IP should be cleared.
+			// so the ranUe with wrong RAN-UE-NGAP-IP should be cleared and detached from the amfUe.
 			gmm_common.StopAll5GSMMTimers(amfUe)
 			amfUe.DetachRanUe(ran.AnType)
 			ranUe.DetachAmfUe()
-			amfUe.SmContextList.Range(func(key, value interface{}) bool {
-				smContext := value.(*context.SmContext)
-
-				if smContext.AccessType() == ran.AnType {
-					problemDetail, err := consumer.SendReleaseSmContextRequest(amfUe, smContext, nil, "", nil)
-					if problemDetail != nil {
-						amfUe.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
-					} else if err != nil {
-						amfUe.GmmLog.Errorf("Release SmContext Error[%v]", err.Error())
-					}
-				}
-				return true
-			})
-			gmm_common.RemoveAmfUe(amfUe)
 		}
 		err := ranUe.Remove()
 		if err != nil {
