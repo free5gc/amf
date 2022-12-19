@@ -912,48 +912,53 @@ func HandleInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 	}
 
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
-	if ranUe != nil && ranUe.AmfUe == nil {
+	if ranUe != nil {
+		amfUe := ranUe.AmfUe
+		if amfUe != nil {
+			// The fact that an amfUe having N2 connection (ranUE) is receiving
+			// an Initial UE Message indicates there is something wrong,
+			// so the ranUe with wrong RAN-UE-NGAP-IP should be cleared and detached from the amfUe.
+			gmm_common.StopAll5GSMMTimers(amfUe)
+			amfUe.DetachRanUe(ran.AnType)
+			ranUe.DetachAmfUe()
+		}
 		err := ranUe.Remove()
 		if err != nil {
 			ran.Log.Errorln(err.Error())
 		}
-		ranUe = nil
 	}
-	if ranUe == nil {
-		var err error
-		ranUe, err = ran.NewRanUe(rANUENGAPID.Value)
-		if err != nil {
-			ran.Log.Errorf("NewRanUe Error: %+v", err)
+
+	var err error
+	ranUe, err = ran.NewRanUe(rANUENGAPID.Value)
+	if err != nil {
+		ran.Log.Errorf("NewRanUe Error: %+v", err)
+	}
+	ran.Log.Debugf("New RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+
+	if fiveGSTMSI != nil {
+		ranUe.Log.Debug("Receive 5G-S-TMSI")
+
+		servedGuami := amfSelf.ServedGuamiList[0]
+
+		// <5G-S-TMSI> := <AMF Set ID><AMF Pointer><5G-TMSI>
+		// GUAMI := <MCC><MNC><AMF Region ID><AMF Set ID><AMF Pointer>
+		// 5G-GUTI := <GUAMI><5G-TMSI>
+		tmpReginID, _, _ := ngapConvert.AmfIdToNgap(servedGuami.AmfId)
+		amfID := ngapConvert.AmfIdToModels(tmpReginID, fiveGSTMSI.AMFSetID.Value, fiveGSTMSI.AMFPointer.Value)
+		tmsi := hex.EncodeToString(fiveGSTMSI.FiveGTMSI.Value)
+		guti := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc + amfID + tmsi
+
+		// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
+		// last Registration Request procedure
+		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
+
+		if amfUe, ok := amfSelf.AmfUeFindByGuti(guti); !ok {
+			ranUe.Log.Warnf("Unknown UE [GUTI: %s]", guti)
+		} else {
+			ranUe.Log.Tracef("find AmfUe [GUTI: %s]", guti)
+			ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 		}
-		ran.Log.Debugf("New RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-
-		if fiveGSTMSI != nil {
-			ranUe.Log.Debug("Receive 5G-S-TMSI")
-
-			servedGuami := amfSelf.ServedGuamiList[0]
-
-			// <5G-S-TMSI> := <AMF Set ID><AMF Pointer><5G-TMSI>
-			// GUAMI := <MCC><MNC><AMF Region ID><AMF Set ID><AMF Pointer>
-			// 5G-GUTI := <GUAMI><5G-TMSI>
-			tmpReginID, _, _ := ngapConvert.AmfIdToNgap(servedGuami.AmfId)
-			amfID := ngapConvert.AmfIdToModels(tmpReginID, fiveGSTMSI.AMFSetID.Value, fiveGSTMSI.AMFPointer.Value)
-			tmsi := hex.EncodeToString(fiveGSTMSI.FiveGTMSI.Value)
-			guti := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc + amfID + tmsi
-
-			// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
-			// last Registration Request procedure
-			// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
-
-			if amfUe, ok := amfSelf.AmfUeFindByGuti(guti); !ok {
-				ranUe.Log.Warnf("Unknown UE [GUTI: %s]", guti)
-			} else {
-				ranUe.Log.Tracef("find AmfUe [GUTI: %s]", guti)
-				ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-				gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
-			}
-		}
-	} else {
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 	}
 
 	if userLocationInformation != nil {
