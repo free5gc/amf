@@ -24,7 +24,8 @@ func HandleProvideLocationInfoRequest(request *httpwrapper.Request) *httpwrapper
 }
 
 func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (
-	*models.ProvideLocInfo, *models.ProblemDetails) {
+	*models.ProvideLocInfo, *models.ProblemDetails,
+) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)

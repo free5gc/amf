@@ -65,13 +65,14 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 		NotificationType: models.NotificationType_N1_MESSAGES,
 		N1MessageClass:   models.N1MessageClass__5_GMM,
 	}
-	profile.DefaultNotificationSubscriptions =
-		append(profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
+	profile.DefaultNotificationSubscriptions = append(
+		profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
 	return profile, err
 }
 
 func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfile) (
-	resouceNrfUri string, retrieveNfInstanceId string, err error) {
+	resouceNrfUri string, retrieveNfInstanceId string, err error,
+) {
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
@@ -88,7 +89,7 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 		}
 		defer func() {
 			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+				logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
 			}
 		}()
 		status := res.StatusCode
@@ -126,7 +127,7 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 	} else if res != nil {
 		defer func() {
 			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+				logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
 			}
 		}()
 		if res.Status != err.Error() {

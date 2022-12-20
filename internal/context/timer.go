@@ -19,7 +19,8 @@ type Timer struct {
 // parameter expireTimes to tell the user that the current expireTimes.
 func NewTimer(d time.Duration, maxRetryTimes int,
 	expiredFunc func(expireTimes int32),
-	cancelFunc func()) *Timer {
+	cancelFunc func(),
+) *Timer {
 	t := &Timer{}
 	atomic.StoreInt32(&t.expireTimes, 0)
 	atomic.StoreInt32(&t.maxRetryTimes, int32(maxRetryTimes))

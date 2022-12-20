@@ -13,7 +13,8 @@ import (
 )
 
 func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+) (models.SearchResult, error) {
 	// Set client and set url
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
@@ -25,14 +26,15 @@ func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfT
 	}
 	defer func() {
 		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-			err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
 		}
 	}()
 	return result, err
 }
 
 func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) error {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+) error {
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
 		return localErr
@@ -57,7 +59,8 @@ func SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, re
 }
 
 func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) error {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+) error {
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
 		return localErr
@@ -80,7 +83,8 @@ func SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetN
 }
 
 func SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType,
-	requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (err error) {
+	requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+) (err error) {
 	resp, localErr := SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
 		err = localErr

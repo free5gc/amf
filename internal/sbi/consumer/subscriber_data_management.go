@@ -6,6 +6,7 @@ import (
 	"github.com/antihax/optional"
 
 	amf_context "github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/Nudm_SubscriberDataManagement"
 	"github.com/free5gc/openapi/models"
@@ -22,7 +23,15 @@ func PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
 	upuOpt := Nudm_SubscriberDataManagement.PutUpuAckParamOpts{
 		AcknowledgeInfo: optional.NewInterface(ackInfo),
 	}
-	_, err := client.ProvidingAcknowledgementOfUEParametersUpdateApi.PutUpuAck(context.Background(), ue.Supi, &upuOpt)
+	rsp, err := client.ProvidingAcknowledgementOfUEParametersUpdateApi.PutUpuAck(
+		context.Background(), ue.Supi, &upuOpt)
+	defer func() {
+		if rsp != nil {
+			if bodyCloseErr := rsp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("PutUpuAck' response body cannot close: %v", bodyCloseErr)
+			}
+		}
+	}()
 	return err
 }
 
@@ -41,6 +50,11 @@ func SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		ue.AccessAndMobilitySubscriptionData = &data
 		ue.Gpsi = data.Gpsis[0] // TODO: select GPSI
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("GetAmData' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -61,11 +75,16 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 	paramOpt := Nudm_SubscriberDataManagement.GetSmfSelectDataParamOpts{
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
-	data, httpResp, localErr :=
-		client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(context.Background(), ue.Supi, &paramOpt)
+	data, httpResp, localErr := client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(
+		context.Background(), ue.Supi, &paramOpt)
 	if localErr == nil {
 		ue.SmfSelectionData = &data
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("GetSmfSelectData' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -84,11 +103,16 @@ func SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.Pro
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
-	data, httpResp, localErr :=
-		client.UEContextInSMFDataRetrievalApi.GetUeContextInSmfData(context.Background(), ue.Supi, nil)
+	data, httpResp, localErr := client.UEContextInSMFDataRetrievalApi.GetUeContextInSmfData(
+		context.Background(), ue.Supi, nil)
 	if localErr == nil {
 		ue.UeContextInSmfData = &data
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("GetUeContextInSmfData' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -119,6 +143,11 @@ func SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		ue.SdmSubscriptionId = resSubscription.SubscriptionId
 		return
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("Subscribe' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -128,7 +157,7 @@ func SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 	} else {
 		err = openapi.ReportError("server no response")
 	}
-	return
+	return problemDetails, err
 }
 
 func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
@@ -139,8 +168,8 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 	paramOpt := Nudm_SubscriberDataManagement.GetNssaiParamOpts{
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
-	nssai, httpResp, localErr :=
-		client.SliceSelectionSubscriptionDataRetrievalApi.GetNssai(context.Background(), ue.Supi, &paramOpt)
+	nssai, httpResp, localErr := client.SliceSelectionSubscriptionDataRetrievalApi.GetNssai(
+		context.Background(), ue.Supi, &paramOpt)
 	if localErr == nil {
 		for _, defaultSnssai := range nssai.DefaultSingleNssais {
 			subscribedSnssai := models.SubscribedSnssai{
@@ -163,6 +192,11 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 			ue.SubscribedNssai = append(ue.SubscribedNssai, subscribedSnssai)
 		}
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("GetNssai' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -184,6 +218,11 @@ func SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetail
 	if localErr == nil {
 		return
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("Unsubscribe' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return

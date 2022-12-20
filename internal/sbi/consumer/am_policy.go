@@ -61,6 +61,11 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 		logger.ConsumerLog.Debugf("UE AM Policy Association ID: %s", ue.PolicyAssociationId)
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("PoliciesPost' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			return nil, localErr
 		}
@@ -73,7 +78,8 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 }
 
 func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (
-	problemDetails *models.ProblemDetails, err error) {
+	problemDetails *models.ProblemDetails, err error,
+) {
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
@@ -99,6 +105,11 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 		}
 		return
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("PoliciesPolAssoIdUpdatePost' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -120,6 +131,11 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	if localErr == nil {
 		ue.RemoveAmPolicyAssociation()
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("PoliciesPolAssoIdDelete' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return

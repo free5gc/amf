@@ -15,7 +15,8 @@ import (
 
 func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId,
 	sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation,
-	n2NotifyUri string, ngapCause *models.NgApCause) models.UeContextCreateData {
+	n2NotifyUri string, ngapCause *models.NgApCause,
+) models.UeContextCreateData {
 	var ueContextCreateData models.UeContextCreateData
 
 	ueContext := BuildUeContextModel(ue)
@@ -115,7 +116,8 @@ func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTrig
 }
 
 func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
-	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error) {
+	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error,
+) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -128,6 +130,11 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 		ueContextCreatedData = res.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("CreateUEContext' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -141,7 +148,8 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 }
 
 func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (
-	problemDetails *models.ProblemDetails, err error) {
+	problemDetails *models.ProblemDetails, err error,
+) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -166,6 +174,11 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 	if localErr == nil {
 		return
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("ReleaseUEContext' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -180,7 +193,8 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 
 func UEContextTransferRequest(
 	ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (
-	ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error) {
+	ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error,
+) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
@@ -208,11 +222,17 @@ func UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(
+		context.TODO(), ueContextId, req)
 	if localErr == nil {
 		ueContextTransferRspData = res.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("UEContextTransfer' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -227,17 +247,23 @@ func UEContextTransferRequest(
 
 // This operation is called "RegistrationCompleteNotify" at TS 23.502
 func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (
-	regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error) {
+	regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error,
+) {
 	configuration := Namf_Communication.NewConfiguration()
 	configuration.SetBasePath(ue.TargetAmfUri)
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
-	res, httpResp, localErr :=
-		client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(context.TODO(), ueContextId, request)
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(
+		context.TODO(), ueContextId, request)
 	if localErr == nil {
 		regStatusTransferComplete = res.RegStatusTransferComplete
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("RegistrationStatusUpdate' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return

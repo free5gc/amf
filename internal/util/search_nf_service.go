@@ -7,7 +7,8 @@ import (
 )
 
 func SearchNFServiceUri(nfProfile models.NfProfile, serviceName models.ServiceName,
-	nfServiceStatus models.NfServiceStatus) (nfUri string) {
+	nfServiceStatus models.NfServiceStatus,
+) (nfUri string) {
 	if nfProfile.NfServices != nil {
 		for _, service := range *nfProfile.NfServices {
 			if service.ServiceName == serviceName && service.NfServiceStatus == nfServiceStatus {

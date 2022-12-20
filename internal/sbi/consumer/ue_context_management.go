@@ -4,13 +4,15 @@ import (
 	"context"
 
 	amf_context "github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 	"github.com/free5gc/openapi/models"
 )
 
 func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (
-	*models.ProblemDetails, error) {
+	*models.ProblemDetails, error,
+) {
 	configuration := Nudm_UEContextManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmUECMUri)
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
@@ -34,6 +36,11 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 			ue.UeCmRegistered = true
 			return nil, nil
 		} else if httpResp != nil {
+			defer func() {
+				if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+					logger.ConsumerLog.Errorf("Registration' response body cannot close: %v", bodyCloseErr)
+				}
+			}()
 			if httpResp.Status != localErr.Error() {
 				return nil, localErr
 			}
@@ -49,12 +56,17 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 			RatType:       ue.RatType,
 		}
 
-		_, httpResp, localErr :=
-			client.AMFRegistrationForNon3GPPAccessApi.Register(context.Background(), ue.Supi, registrationData)
+		_, httpResp, localErr := client.AMFRegistrationForNon3GPPAccessApi.Register(
+			context.Background(), ue.Supi, registrationData)
 		if localErr == nil {
 			ue.UeCmRegistered = true
 			return nil, nil
 		} else if httpResp != nil {
+			defer func() {
+				if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+					logger.ConsumerLog.Errorf("Register' response body cannot close: %v", bodyCloseErr)
+				}
+			}()
 			if httpResp.Status != localErr.Error() {
 				return nil, localErr
 			}
@@ -69,7 +81,8 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 }
 
 func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
-	*models.ProblemDetails, error) {
+	*models.ProblemDetails, error,
+) {
 	configuration := Nudm_UEContextManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmUECMUri)
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
@@ -88,6 +101,11 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 		if localErr == nil {
 			return nil, nil
 		} else if httpResp != nil {
+			defer func() {
+				if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+					logger.ConsumerLog.Errorf("Update' response body cannot close: %v", bodyCloseErr)
+				}
+			}()
 			if httpResp.Status != localErr.Error() {
 				return nil, localErr
 			}
@@ -102,12 +120,16 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 			PurgeFlag: true,
 		}
 
-		httpResp, localErr :=
-			client.ParameterUpdateInTheAMFRegistrationForNon3GPPAccessApi.UpdateAmfNon3gppAccess(
-				context.Background(), ue.Supi, modificationData)
+		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationForNon3GPPAccessApi.UpdateAmfNon3gppAccess(
+			context.Background(), ue.Supi, modificationData)
 		if localErr == nil {
 			return nil, nil
 		} else if httpResp != nil {
+			defer func() {
+				if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+					logger.ConsumerLog.Errorf("UpdateAmfNon3gppAccess' response body cannot close: %v", bodyCloseErr)
+				}
+			}()
 			if httpResp.Status != localErr.Error() {
 				return nil, localErr
 			}

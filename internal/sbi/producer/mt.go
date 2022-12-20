@@ -26,7 +26,8 @@ func HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *http
 }
 
 func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string, supportedFeaturesQuery string) (
-	*models.UeContextInfo, *models.ProblemDetails) {
+	*models.UeContextInfo, *models.ProblemDetails,
+) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)

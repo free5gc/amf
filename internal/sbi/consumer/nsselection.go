@@ -14,7 +14,8 @@ import (
 )
 
 func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.MappingOfSnssai) (
-	*models.ProblemDetails, error) {
+	*models.ProblemDetails, error,
+) {
 	configuration := Nnssf_NSSelection.NewConfiguration()
 	configuration.SetBasePath(ue.NssfUri)
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
@@ -48,6 +49,11 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 		}
 		ue.ConfiguredNssai = res.ConfiguredNssai
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("NSSelectionGet' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			err := localErr
 			return nil, err
@@ -62,7 +68,8 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 }
 
 func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
-	*models.AuthorizedNetworkSliceInfo, *models.ProblemDetails, error) {
+	*models.AuthorizedNetworkSliceInfo, *models.ProblemDetails, error,
+) {
 	configuration := Nnssf_NSSelection.NewConfiguration()
 	configuration.SetBasePath(ue.NssfUri)
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
@@ -85,6 +92,11 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 	if localErr == nil {
 		return &res, nil, nil
 	} else if httpResp != nil {
+		defer func() {
+			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
+				logger.ConsumerLog.Errorf("NSSelectionGet' response body cannot close: %v", bodyCloseErr)
+			}
+		}()
 		if httpResp.Status != localErr.Error() {
 			return nil, nil, localErr
 		}

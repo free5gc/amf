@@ -44,7 +44,8 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 }
 
 func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
-	smContextStatusNotification models.SmContextStatusNotification) *models.ProblemDetails {
+	smContextStatusNotification models.SmContextStatusNotification,
+) *models.ProblemDetails {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindBySupi(supi)
@@ -172,7 +173,8 @@ func HandleAmPolicyControlUpdateNotifyUpdate(request *httpwrapper.Request) *http
 }
 
 func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
-	policyUpdate models.PolicyUpdate) *models.ProblemDetails {
+	policyUpdate models.PolicyUpdate,
+) *models.ProblemDetails {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
@@ -252,7 +254,8 @@ func HandleAmPolicyControlUpdateNotifyTerminate(request *httpwrapper.Request) *h
 }
 
 func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
-	terminationNotification models.TerminationNotification) *models.ProblemDetails {
+	terminationNotification models.TerminationNotification,
+) *models.ProblemDetails {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)

@@ -63,7 +63,8 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 	n1n2MessageTransferRequest models.N1N2MessageTransferRequest) (
 	n1n2MessageTransferRspData *models.N1N2MessageTransferRspData,
 	locationHeader string, problemDetails *models.ProblemDetails,
-	transferErr *models.N1N2MessageTransferError) {
+	transferErr *models.N1N2MessageTransferError,
+) {
 	var (
 		requestData *models.N1N2MessageTransferReqData = n1n2MessageTransferRequest.JsonData
 		n2Info      []byte                             = n1n2MessageTransferRequest.BinaryDataN2Information
@@ -129,7 +130,8 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 				}
 			}
 		default:
-			ue.ProducerLog.Warnf("N2 Information type [%s] is not supported", requestData.N2InfoContainer.N2InformationClass)
+			ue.ProducerLog.Warnf("N2 Information type [%s] is not supported",
+				requestData.N2InfoContainer.N2InformationClass)
 			problemDetails = &models.ProblemDetails{
 				Status: http.StatusNotImplemented,
 				Cause:  "NOT_IMPLEMENTED",
@@ -176,8 +178,8 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 			err    error
 		)
 		if n1Msg != nil {
-			nasPdu, err =
-				gmm_message.BuildDLNASTransport(ue, anType, n1MsgType, n1Msg, uint8(requestData.PduSessionId), nil, nil, 0)
+			nasPdu, err = gmm_message.BuildDLNASTransport(
+				ue, anType, n1MsgType, n1Msg, uint8(requestData.PduSessionId), nil, nil, 0)
 			if err != nil {
 				ue.ProducerLog.Errorf("Build DL NAS Transport error: %+v", err)
 				problemDetails = &models.ProblemDetails{
@@ -205,11 +207,13 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Setup Request from SMF")
 				if ue.RanUe[anType].SentInitialContextSetupRequest {
 					list := ngapType.PDUSessionResourceSetupListSUReq{}
-					ngap_message.AppendPDUSessionResourceSetupListSUReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
+					ngap_message.AppendPDUSessionResourceSetupListSUReq(
+						&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
 					ngap_message.SendPDUSessionResourceSetupRequest(ue.RanUe[anType], nil, list)
 				} else {
 					list := ngapType.PDUSessionResourceSetupListCxtReq{}
-					ngap_message.AppendPDUSessionResourceSetupListCxtReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
+					ngap_message.AppendPDUSessionResourceSetupListCxtReq(
+						&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
 					ngap_message.SendInitialContextSetupRequest(ue, anType, nil, &list, nil, nil, nil)
 					ue.RanUe[anType].SentInitialContextSetupRequest = true
 				}
@@ -246,7 +250,8 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 	// UE is CM-IDLE
 
 	// 409: transfer a N2 PDU Session Resource Release Command to a 5G-AN and if the UE is in CM-IDLE
-	if n2Info != nil && requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.NgapIeType_PDU_RES_REL_CMD {
+	if n2Info != nil &&
+		requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.NgapIeType_PDU_RES_REL_CMD {
 		transferErr = new(models.N1N2MessageTransferError)
 		transferErr.Error = &models.ProblemDetails{
 			Status: http.StatusConflict,
@@ -381,7 +386,8 @@ func HandleN1N2MessageTransferStatusRequest(request *httpwrapper.Request) *httpw
 }
 
 func N1N2MessageTransferStatusProcedure(ueContextID string, reqUri string) (models.N1N2MessageTransferCause,
-	*models.ProblemDetails) {
+	*models.ProblemDetails,
+) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
@@ -422,7 +428,8 @@ func HandleN1N2MessageSubscirbeRequest(request *httpwrapper.Request) *httpwrappe
 
 func N1N2MessageSubscribeProcedure(ueContextID string,
 	ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData) (
-	*models.UeN1N2InfoSubscriptionCreatedData, *models.ProblemDetails) {
+	*models.UeN1N2InfoSubscriptionCreatedData, *models.ProblemDetails,
+) {
 	amfSelf := context.AMF_Self()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
