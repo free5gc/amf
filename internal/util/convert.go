@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
@@ -21,9 +22,13 @@ func SnssaiHexToModels(hexString string) (*models.Snssai, error) {
 	return &sNssai, nil
 }
 
-func SnssaiModelsToHex(snssai models.Snssai) string {
-	sst := fmt.Sprintf("%02x", snssai.Sst)
-	return sst + snssai.Sd
+// Convert Snssai form models to key string described in TS29.571
+func SnssaiModelsToTS29571String(snssai models.Snssai) string {
+	sst := fmt.Sprintf("%d", snssai.Sst)
+	if snssai.Sd != "" {
+		return sst + "-" + strings.ToLower(snssai.Sd)
+	}
+	return sst
 }
 
 func SeperateAmfId(amfid string) (regionId, setId, ptrId string, err error) {

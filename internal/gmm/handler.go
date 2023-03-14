@@ -203,7 +203,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 					dnn = ue.ServingAMF().SupportDnnLists[0]
 
 					if ue.SmfSelectionData != nil {
-						snssaiStr := util.SnssaiModelsToHex(snssai)
+						snssaiStr := util.SnssaiModelsToTS29571String(snssai)
 						if snssaiInfo, ok := ue.SmfSelectionData.SubscribedSnssaiInfos[snssaiStr]; ok {
 							for _, dnnInfo := range snssaiInfo.DnnInfos {
 								if dnnInfo.DefaultDnnIndicator {

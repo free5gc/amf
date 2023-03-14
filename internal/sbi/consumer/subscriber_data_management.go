@@ -2,6 +2,8 @@ package consumer
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/antihax/optional"
 
@@ -78,6 +80,19 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 	data, httpResp, localErr := client.SMFSelectionSubscriptionDataRetrievalApi.GetSmfSelectData(
 		context.Background(), ue.Supi, &paramOpt)
 	if localErr == nil {
+		// SubscribedSnssaiInfos in SmfSelectionSubscriptionData requires case-insensitive search,
+		// So keys are converted to lower case, here.
+		if l := len(data.SubscribedSnssaiInfos); l != 0 {
+			newSubscribedSnssaiInfos := make(map[string]models.SnssaiInfo, l)
+			for key, info := range data.SubscribedSnssaiInfos {
+				newKey := strings.ToLower(key)
+				if _, exist := newSubscribedSnssaiInfos[newKey]; exist {
+					return nil, fmt.Errorf("duplicate key %s", newKey)
+				}
+				newSubscribedSnssaiInfos[newKey] = info
+			}
+			data.SubscribedSnssaiInfos = newSubscribedSnssaiInfos
+		}
 		ue.SmfSelectionData = &data
 	} else if httpResp != nil {
 		defer func() {
@@ -95,7 +110,7 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 		err = openapi.ReportError("server no response")
 	}
 
-	return
+	return problemDetails, err
 }
 
 func SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
