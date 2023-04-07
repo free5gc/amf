@@ -89,7 +89,10 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		return nil, fmt.Errorf("amfUe is nil")
 	}
 	if payload == nil {
-		return nil, fmt.Errorf("Nas payload is empty")
+		return nil, fmt.Errorf("NAS payload is empty")
+	}
+	if len(payload) < 2 {
+		return nil, fmt.Errorf("NAS payload is too short")
 	}
 
 	msg := new(nas.Message)
