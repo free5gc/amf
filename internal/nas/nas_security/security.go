@@ -139,6 +139,15 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 			return msg, err
 		}
 	} else { // Security protected NAS message
+		// Extended protocol discriminator	V 1
+		// Security header type				V 1/2
+		// Spare half octet					V 1/2
+		// Message authentication code		V 4
+		// Sequence number					V 1
+		// Plain 5GS NAS message			V 3-n
+		if len(payload) < (1 + 1 + 4 + 1 + 3) {
+			return nil, fmt.Errorf("NAS payload is too short")
+		}
 		securityHeader := payload[0:6]
 		ue.NASLog.Traceln("securityHeader is ", securityHeader)
 		sequenceNumber := payload[6]
