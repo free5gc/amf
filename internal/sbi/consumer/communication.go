@@ -209,7 +209,10 @@ func UEContextTransferRequest(
 	}
 	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
 		var buf bytes.Buffer
-		ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
+		err = ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
+		if err != nil {
+			return nil, nil, fmt.Errorf("re-encoding registration request message is failed: %w", err)
+		}
 		ueContextTransferReqData.RegRequest = &models.N1MessageContainer{
 			N1MessageClass: models.N1MessageClass__5_GMM,
 			N1MessageContent: &models.RefToBinaryData{

@@ -20,6 +20,7 @@ func FuzzNASSecurity(f *testing.F) {
 	f.Fuzz(func(t *testing.T, d []byte) {
 		// No security
 		ue := newFuzzTestAmfUe()
+		//nolint:errcheck // fuzzing code
 		nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d)
 
 		// With security (NIA0/NEA0)
