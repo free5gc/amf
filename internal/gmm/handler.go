@@ -458,6 +458,9 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
+	if len(mobileIdentity5GSContents) < 1 {
+		return errors.New("broken MobileIdentity5GS")
+	}
 	ue.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentity5GSContents[0])
 	switch ue.IdentityTypeUsedForRegistration { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeNoIdentity:
