@@ -2186,6 +2186,9 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 					fsm.ArgsType{ArgAmfUe: ue, ArgAccessType: anType})
 			}
 
+			if authenticationFailure.AuthenticationFailureParameter == nil {
+				return errors.New("AuthenticationFailureParameter is nil")
+			}
 			auts := authenticationFailure.AuthenticationFailureParameter.GetAuthenticationFailureParameter()
 			resynchronizationInfo := &models.ResynchronizationInfo{
 				Auts: hex.EncodeToString(auts[:]),
