@@ -468,6 +468,8 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		if suci, plmnId, err := nasConvert.SuciToStringWithError(mobileIdentity5GSContents); err != nil {
 			return fmt.Errorf("decode SUCI failed: %w", err)
+		} else if plmnId == "" {
+			return errors.New("empty plmnId")
 		} else {
 			ue.Suci = suci
 			ue.PlmnId = util.PlmnIdStringToModels(plmnId)
@@ -1450,6 +1452,8 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 	case nasMessage.MobileIdentity5GSTypeSuci:
 		if suci, plmnId, err := nasConvert.SuciToStringWithError(mobileIdentityContents); err != nil {
 			return fmt.Errorf("decode SUCI failed: %w", err)
+		} else if plmnId == "" {
+			return errors.New("empty plmnId")
 		} else {
 			ue.Suci = suci
 			ue.PlmnId = util.PlmnIdStringToModels(plmnId)
