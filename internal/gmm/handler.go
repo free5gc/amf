@@ -2018,6 +2018,9 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 		if err := mapstructure.Decode(ue.AuthenticationCtx.Var5gAuthData, &av5gAka); err != nil {
 			return fmt.Errorf("Var5gAuthData Convert Type Error")
 		}
+		if authenticationResponse.AuthenticationResponseParameter == nil {
+			return fmt.Errorf("AuthenticationResponseParamete is nil")
+		}
 		resStar := authenticationResponse.AuthenticationResponseParameter.GetRES()
 
 		// Calculate HRES* (TS 33.501 Annex A.5)
