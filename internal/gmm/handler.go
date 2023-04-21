@@ -1439,6 +1439,9 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 	ue.GmmLog.Info("Handle Identity Response")
 
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
+	if len(mobileIdentityContents) < 1 {
+		return errors.New("empty Mobile Identity")
+	}
 	if nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) != ue.RequestIdentityType {
 		return fmt.Errorf("Received identity type doesn't match request type")
 	}
