@@ -7,7 +7,7 @@ import (
 	"github.com/free5gc/amf/internal/nas/nas_security"
 )
 
-func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte) {
+func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
 	amfSelf := context.AMF_Self()
 
 	if ue == nil {
@@ -25,11 +25,12 @@ func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte) {
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ue.AmfUe, ue)
 	}
 
-	msg, err := nas_security.Decode(ue.AmfUe, ue.Ran.AnType, nasPdu)
+	msg, integrityProtected, err := nas_security.Decode(ue.AmfUe, ue.Ran.AnType, nasPdu, initialMessage)
 	if err != nil {
 		ue.AmfUe.NASLog.Errorln(err)
 		return
 	}
+	ue.AmfUe.MacFailed = !integrityProtected
 
 	if err := Dispatch(ue.AmfUe, ue.Ran.AnType, procedureCode, msg); err != nil {
 		ue.AmfUe.NASLog.Errorf("Handle NAS Error: %v", err)

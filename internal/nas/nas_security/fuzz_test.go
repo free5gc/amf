@@ -21,14 +21,14 @@ func FuzzNASSecurity(f *testing.F) {
 		// No security
 		ue := newFuzzTestAmfUe()
 		//nolint:errcheck // fuzzing code
-		nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d)
+		nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d, true)
 
 		// With security (NIA0/NEA0)
 		ue = newFuzzTestAmfUe()
 		ue.SecurityContextAvailable = true
 		ue.IntegrityAlg = security.AlgIntegrity128NIA0
 		ue.CipheringAlg = security.AlgCiphering128NEA0
-		msg0, err0 := nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d)
+		msg0, integrityProtected0, err0 := nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d, true)
 
 		if len(d) >= 7 {
 			ue = newFuzzTestAmfUe()
@@ -37,19 +37,18 @@ func FuzzNASSecurity(f *testing.F) {
 			ue.CipheringAlg = security.AlgCiphering128NEA2
 			if err := security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, uint32(d[6]),
 				security.AccessType3GPP, security.DirectionUplink, d[7:]); err == nil {
-				saveMacFailed := ue.MacFailed
 				if mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, uint32(d[6]),
 					security.AccessType3GPP, security.DirectionUplink, d[6:]); err == nil {
 					copy(d[2:6], mac32)
-					msg2, err2 := nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d)
-					if err0 == nil && !saveMacFailed &&
+					msg2, integrityProtected2, err2 := nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d, true)
+					if err0 == nil && integrityProtected0 &&
 						(d[1]&0x0f == nas.SecurityHeaderTypeIntegrityProtectedAndCiphered ||
 							d[1]&0x0f == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext) {
 						if err2 != nil {
 							panic(fmt.Sprintf("err mismatch: %s", err2))
 						}
-						if ue.MacFailed {
-							panic("MacFailed mismatch")
+						if !integrityProtected2 {
+							panic("integrityProtected mismatch")
 						}
 						if !reflect.DeepEqual(msg0, msg2) {
 							panic("msg mismatch")
