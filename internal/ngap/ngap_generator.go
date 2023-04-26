@@ -377,15 +377,11 @@ syntaxCause = &ngapType.Cause{
 			fmt.Fprintln(fOut, "")
 			for _, ieName := range mInfo.IEorder {
 				ieInfo := mInfo.IEs[ieName]
-				if ieInfo.Presence == ngapType.PresencePresentMandatory {
+				if ieInfo.Presence == ngapType.PresencePresentMandatory && ieInfo.Criticality == ngapType.CriticalityPresentReject {
 					fmt.Fprintf(fOut, "if %s == nil {\n", ieInfo.GoVar)
-					//                         if e['criticality'].lower() == 'reject':
 					fmt.Fprintf(fOut, "ran.Log.Error(\"Missing IE %s\")\n", ieInfo.Type)
 					fmt.Fprintf(fOut, "item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, %s, ngapType.TypeOfErrorPresentMissing)\n", ieInfo.GoID)
 					fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
-					//                         else:
-					//                             print(
-					//                                 'ran.Log.Warn("' + e['type'] + ' is nil")', file=outf)
 					fmt.Fprintln(fOut, "}")
 				}
 			}
@@ -452,8 +448,12 @@ syntaxCause = &ngapType.Cause{
 			ieInfo := mInfo.IEs[ieName]
 			if ieInfo.Presence == ngapType.PresencePresentMandatory {
 				fmt.Fprintf(fOut, "if %s == nil {\n", ieInfo.GoVar)
-				fmt.Fprintf(fOut, "ran.Log.Error(\"Missing IE %s\")\n", ieInfo.Type)
-				fmt.Fprintln(fOut, "return")
+				if ieInfo.Criticality == ngapType.CriticalityPresentReject {
+					fmt.Fprintf(fOut, "ran.Log.Error(\"Missing IE %s\")\n", ieInfo.Type)
+					fmt.Fprintln(fOut, "return")
+				} else {
+					fmt.Fprintf(fOut, "ran.Log.Warn(\"Missing IE %s\")\n", ieInfo.Type)
+				}
 				fmt.Fprintln(fOut, "}")
 			}
 		}
@@ -475,7 +475,7 @@ syntaxCause = &ngapType.Cause{
 				fmt.Fprintf(fOut, "// RAN: %s, %s\n", presence2Str(ranIdIe.Presence), criticality2Str(ranIdIe.Criticality))
 			}
 			fmt.Fprintln(fOut, "var ranUe *context.RanUe")
-			if amfIdIe.Presence != ngapType.PresencePresentMandatory {
+			if !(amfIdIe.Presence == ngapType.PresencePresentMandatory && amfIdIe.Criticality == ngapType.CriticalityPresentReject) {
 				fmt.Fprintf(fOut, "if %s != nil {\n", amfIdIeVar)
 			}
 			fmt.Fprintln(fOut, "var err error")
@@ -489,7 +489,7 @@ syntaxCause = &ngapType.Cause{
 			fmt.Fprintln(fOut, "return")
 			fmt.Fprintln(fOut, "}")
 			fmt.Fprintf(fOut, "ranUe.Log.Infof(\"Handle %s (RAN UE NGAP ID: %%d)\", ranUe.RanUeNgapId)", msgName)
-			if amfIdIe.Presence != ngapType.PresencePresentMandatory {
+			if !(amfIdIe.Presence == ngapType.PresencePresentMandatory && amfIdIe.Criticality == ngapType.CriticalityPresentReject) {
 				fmt.Fprintln(fOut, "}")
 			}
 			fmt.Fprintln(fOut, "")
