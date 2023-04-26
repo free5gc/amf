@@ -294,6 +294,7 @@ func generateHandler() {
 			ranIdIeVar = ranIdIe.GoVar
 		}
 		hasRanUe := false
+		ranUeMayNil := false
 		if msgName == "InitialUEMessage" {
 			mainFuncArgDefs = append(mainFuncArgDefs, "message *ngapType.NGAPPDU")
 			mainFuncArgs = append(mainFuncArgs, "message")
@@ -477,6 +478,7 @@ syntaxCause = &ngapType.Cause{
 			fmt.Fprintln(fOut, "var ranUe *context.RanUe")
 			if !(amfIdIe.Presence == ngapType.PresencePresentMandatory && amfIdIe.Criticality == ngapType.CriticalityPresentReject) {
 				fmt.Fprintf(fOut, "if %s != nil {\n", amfIdIeVar)
+				ranUeMayNil = true
 			}
 			fmt.Fprintln(fOut, "var err error")
 			fmt.Fprintf(fOut, "ranUe, err = ranUeFind(ran, %s, %s, %s, %s)\n", amfIdIeVar, ranIdIeVar, firstReturnedMessage, sendErrorIndication)
@@ -496,14 +498,22 @@ syntaxCause = &ngapType.Cause{
 		}
 
 		if hasRanUe {
+			mayNil := ""
+			if ranUeMayNil {
+				mayNil = " /* may be nil */"
+			}
 			mainFuncArgDefs = append(mainFuncArgDefs, "ranUe *context.RanUe")
-			mainFuncArgs = append(mainFuncArgs, "ranUe")
+			mainFuncArgs = append(mainFuncArgs, "ranUe"+mayNil)
 		}
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
 			if ieInfo.Comprehended && (!hasRanUe || (ieName != "id-AMF-UE-NGAP-ID" && ieName != "id-RAN-UE-NGAP-ID") || (msgName == "HandoverRequestAcknowledge" && ieName == "id-RAN-UE-NGAP-ID")) {
+				mayNil := ""
+				if !(ieInfo.Presence == ngapType.PresencePresentMandatory && ieInfo.Criticality == ngapType.CriticalityPresentReject) {
+					mayNil = " /* may be nil */"
+				}
 				mainFuncArgDefs = append(mainFuncArgDefs, fmt.Sprintf("%s *%s", ieInfo.GoVar, ieInfo.GoType))
-				mainFuncArgs = append(mainFuncArgs, ieInfo.GoVar)
+				mainFuncArgs = append(mainFuncArgs, ieInfo.GoVar+mayNil)
 			}
 		}
 		// Call main code of message handler
