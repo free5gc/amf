@@ -121,7 +121,9 @@ func handleNGResetMain(ran *context.AmfRan,
 	cause *ngapType.Cause,
 	resetType *ngapType.ResetType,
 ) {
-	printAndGetCause(ran, cause)
+	if cause != nil {
+		printAndGetCause(ran, cause)
+	}
 
 	switch resetType.Present {
 	case ngapType.ResetTypePresentNGInterface:
@@ -203,6 +205,11 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	pDUSessionResourceList *ngapType.PDUSessionResourceListCxtRelCpl,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
 	}
@@ -332,6 +339,11 @@ func handlePDUSessionResourceReleaseResponseMain(ran *context.AmfRan,
 	userLocationInformation *ngapType.UserLocationInformation,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
 	}
@@ -387,7 +399,9 @@ func handleLocationReportingFailureIndicationMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
 	cause *ngapType.Cause,
 ) {
-	printAndGetCause(ran, cause)
+	if cause != nil {
+		printAndGetCause(ran, cause)
+	}
 }
 
 func handleInitialUEMessageMain(ran *context.AmfRan,
@@ -494,6 +508,11 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 	pDUSessionResourceFailedToSetupList *ngapType.PDUSessionResourceFailedToSetupListSURes,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
@@ -562,6 +581,11 @@ func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 	userLocationInformation *ngapType.UserLocationInformation,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
@@ -806,6 +830,11 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 	pDUSessionResourceFailedToSetupList *ngapType.PDUSessionResourceFailedToSetupListCxtRes,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ran.Log.Error("amfUe is nil")
@@ -879,10 +908,17 @@ func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 	cause *ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
-	printAndGetCause(ran, cause)
+	if cause != nil {
+		printAndGetCause(ran, cause)
+	}
 
 	if criticalityDiagnostics != nil {
 		printCriticalityDiagnostics(ran, criticalityDiagnostics)
+	}
+
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
 	}
 
 	amfUe := ranUe.AmfUe
@@ -989,6 +1025,11 @@ func handleUEContextModificationResponseMain(ran *context.AmfRan,
 	userLocationInformation *ngapType.UserLocationInformation,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
+	if ranUe == nil {
+		ran.Log.Error("ranUe is nil")
+		return
+	}
+
 	if rRCState != nil {
 		switch rRCState.Value {
 		case ngapType.RRCStatePresentInactive:
@@ -1225,6 +1266,11 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		printCriticalityDiagnostics(ran, criticalityDiagnostics)
 	}
 
+	if targetUe == nil {
+		ran.Log.Errorf("Target Ue is missing")
+		return
+	}
+
 	if rANUENGAPID != nil {
 		targetUe.RanUeNgapId = rANUENGAPID.Value
 		targetUe.UpdateLogFields()
@@ -1326,6 +1372,11 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 
 	if criticalityDiagnostics != nil {
 		printCriticalityDiagnostics(ran, criticalityDiagnostics)
+	}
+
+	if targetUe == nil {
+		ran.Log.Errorf("Target Ue is missing")
+		return
 	}
 
 	targetUe.Log.Info("Handle Handover Failure")
@@ -1449,6 +1500,15 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		}
 		// Update NH
 		amfUe.UpdateNH()
+		if cause == nil {
+			sourceUe.Log.Warnf("Cause is nil")
+			cause = &ngapType.Cause{
+				Present: ngapType.CausePresentMisc,
+				Misc: &ngapType.CauseMisc{
+					Value: ngapType.CauseMiscPresentUnspecified,
+				},
+			}
+		}
 		ngap_message.SendHandoverRequest(sourceUe, targetRan, *cause, pduSessionReqList,
 			*sourceToTargetTransparentContainer, false)
 	}
@@ -1510,9 +1570,13 @@ func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
 	nASPDU *ngapType.NASPDU,
 	cause *ngapType.Cause,
 ) {
-	printAndGetCause(ran, cause)
+	if cause != nil {
+		printAndGetCause(ran, cause)
+	}
 
-	nas.HandleNAS(ranUe, ngapType.ProcedureCodeNASNonDeliveryIndication, nASPDU.Value)
+	if nASPDU != nil {
+		nas.HandleNAS(ranUe, ngapType.ProcedureCodeNASNonDeliveryIndication, nASPDU.Value)
+	}
 }
 
 func handleRANConfigurationUpdateMain(ran *context.AmfRan,
@@ -1632,44 +1696,46 @@ func handleLocationReportMain(ran *context.AmfRan,
 ) {
 	ranUe.UpdateLocation(userLocationInformation)
 
-	ranUe.Log.Tracef("Report Area[%d]", locationReportingRequestType.ReportArea.Value)
+	if locationReportingRequestType != nil {
+		ranUe.Log.Tracef("Report Area[%d]", locationReportingRequestType.ReportArea.Value)
 
-	switch locationReportingRequestType.EventType.Value {
-	case ngapType.EventTypePresentDirect:
-		ranUe.Log.Trace("To report directly")
+		switch locationReportingRequestType.EventType.Value {
+		case ngapType.EventTypePresentDirect:
+			ranUe.Log.Trace("To report directly")
 
-	case ngapType.EventTypePresentChangeOfServeCell:
-		ranUe.Log.Trace("To report upon change of serving cell")
+		case ngapType.EventTypePresentChangeOfServeCell:
+			ranUe.Log.Trace("To report upon change of serving cell")
 
-	case ngapType.EventTypePresentUePresenceInAreaOfInterest:
-		ranUe.Log.Trace("To report UE presence in the area of interest")
-		if uEPresenceInAreaOfInterestList != nil {
-			for _, uEPresenceInAreaOfInterestItem := range uEPresenceInAreaOfInterestList.List {
-				uEPresence := uEPresenceInAreaOfInterestItem.UEPresence.Value
-				referenceID := uEPresenceInAreaOfInterestItem.LocationReportingReferenceID.Value
+		case ngapType.EventTypePresentUePresenceInAreaOfInterest:
+			ranUe.Log.Trace("To report UE presence in the area of interest")
+			if uEPresenceInAreaOfInterestList != nil {
+				for _, uEPresenceInAreaOfInterestItem := range uEPresenceInAreaOfInterestList.List {
+					uEPresence := uEPresenceInAreaOfInterestItem.UEPresence.Value
+					referenceID := uEPresenceInAreaOfInterestItem.LocationReportingReferenceID.Value
 
-				for _, AOIitem := range locationReportingRequestType.AreaOfInterestList.List {
-					if referenceID == AOIitem.LocationReportingReferenceID.Value {
-						ran.Log.Tracef("uEPresence[%d], presence AOI ReferenceID[%d]", uEPresence, referenceID)
+					for _, AOIitem := range locationReportingRequestType.AreaOfInterestList.List {
+						if referenceID == AOIitem.LocationReportingReferenceID.Value {
+							ran.Log.Tracef("uEPresence[%d], presence AOI ReferenceID[%d]", uEPresence, referenceID)
+						}
 					}
 				}
 			}
+
+		case ngapType.EventTypePresentStopChangeOfServeCell:
+			ranUe.Log.Trace("To stop reporting at change of serving cell")
+			ngap_message.SendLocationReportingControl(ranUe, nil, 0, locationReportingRequestType.EventType)
+			// TODO: Clear location report
+
+		case ngapType.EventTypePresentStopUePresenceInAreaOfInterest:
+			ranUe.Log.Trace("To stop reporting UE presence in the area of interest")
+			ranUe.Log.Tracef("ReferenceID To Be Cancelled[%d]",
+				locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value)
+			// TODO: Clear location report
+
+		case ngapType.EventTypePresentCancelLocationReportingForTheUe:
+			ranUe.Log.Trace("To cancel location reporting for the UE")
+			// TODO: Clear location report
 		}
-
-	case ngapType.EventTypePresentStopChangeOfServeCell:
-		ranUe.Log.Trace("To stop reporting at change of serving cell")
-		ngap_message.SendLocationReportingControl(ranUe, nil, 0, locationReportingRequestType.EventType)
-		// TODO: Clear location report
-
-	case ngapType.EventTypePresentStopUePresenceInAreaOfInterest:
-		ranUe.Log.Trace("To stop reporting UE presence in the area of interest")
-		ranUe.Log.Tracef("ReferenceID To Be Cancelled[%d]",
-			locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value)
-		// TODO: Clear location report
-
-	case ngapType.EventTypePresentCancelLocationReportingForTheUe:
-		ranUe.Log.Trace("To cancel location reporting for the UE")
-		// TODO: Clear location report
 	}
 }
 
@@ -1708,7 +1774,9 @@ func handleAMFConfigurationUpdateFailureMain(ran *context.AmfRan,
 	cause *ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
-	printAndGetCause(ran, cause)
+	if cause != nil {
+		printAndGetCause(ran, cause)
+	}
 
 	//	TODO: Time To Wait
 
@@ -1779,27 +1847,33 @@ func handleCellTrafficTraceMain(ran *context.AmfRan,
 	nGRANCGI *ngapType.NGRANCGI,
 	traceCollectionEntityIPAddress *ngapType.TransportLayerAddress,
 ) {
-	ranUe.Trsr = hex.EncodeToString(nGRANTraceID.Value[6:])
+	if nGRANTraceID != nil {
+		ranUe.Trsr = hex.EncodeToString(nGRANTraceID.Value[6:])
 
-	ranUe.Log.Tracef("TRSR[%s]", ranUe.Trsr)
-
-	switch nGRANCGI.Present {
-	case ngapType.NGRANCGIPresentNRCGI:
-		plmnID := ngapConvert.PlmnIdToModels(nGRANCGI.NRCGI.PLMNIdentity)
-		cellID := ngapConvert.BitStringToHex(&nGRANCGI.NRCGI.NRCellIdentity.Value)
-		ranUe.Log.Debugf("NRCGI[plmn: %s, cellID: %s]", plmnID, cellID)
-	case ngapType.NGRANCGIPresentEUTRACGI:
-		plmnID := ngapConvert.PlmnIdToModels(nGRANCGI.EUTRACGI.PLMNIdentity)
-		cellID := ngapConvert.BitStringToHex(&nGRANCGI.EUTRACGI.EUTRACellIdentity.Value)
-		ranUe.Log.Debugf("EUTRACGI[plmn: %s, cellID: %s]", plmnID, cellID)
+		ranUe.Log.Tracef("TRSR[%s]", ranUe.Trsr)
 	}
 
-	tceIpv4, tceIpv6 := ngapConvert.IPAddressToString(*traceCollectionEntityIPAddress)
-	if tceIpv4 != "" {
-		ranUe.Log.Debugf("TCE IP Address[v4: %s]", tceIpv4)
+	if nGRANCGI != nil {
+		switch nGRANCGI.Present {
+		case ngapType.NGRANCGIPresentNRCGI:
+			plmnID := ngapConvert.PlmnIdToModels(nGRANCGI.NRCGI.PLMNIdentity)
+			cellID := ngapConvert.BitStringToHex(&nGRANCGI.NRCGI.NRCellIdentity.Value)
+			ranUe.Log.Debugf("NRCGI[plmn: %s, cellID: %s]", plmnID, cellID)
+		case ngapType.NGRANCGIPresentEUTRACGI:
+			plmnID := ngapConvert.PlmnIdToModels(nGRANCGI.EUTRACGI.PLMNIdentity)
+			cellID := ngapConvert.BitStringToHex(&nGRANCGI.EUTRACGI.EUTRACellIdentity.Value)
+			ranUe.Log.Debugf("EUTRACGI[plmn: %s, cellID: %s]", plmnID, cellID)
+		}
 	}
-	if tceIpv6 != "" {
-		ranUe.Log.Debugf("TCE IP Address[v6: %s]", tceIpv6)
+
+	if traceCollectionEntityIPAddress != nil {
+		tceIpv4, tceIpv6 := ngapConvert.IPAddressToString(*traceCollectionEntityIPAddress)
+		if tceIpv4 != "" {
+			ranUe.Log.Debugf("TCE IP Address[v4: %s]", tceIpv4)
+		}
+		if tceIpv6 != "" {
+			ranUe.Log.Debugf("TCE IP Address[v6: %s]", tceIpv6)
+		}
 	}
 
 	// TODO: TS 32.422 4.2.2.10
