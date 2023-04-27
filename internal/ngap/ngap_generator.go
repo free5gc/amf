@@ -240,7 +240,7 @@ func fixIEs() {
 	MsgTable["AMFConfigurationUpdateFailure"].IEs["id-TimeToWait"].Comprehended = false
 	MsgTable["HandoverRequired"].IEs["id-DirectForwardingPathAvailability"].Comprehended = false
 	MsgTable["InitialUEMessage"].IEs["id-AMFSetID"].Comprehended = false
-	MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Comprehended = false
+	// MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Comprehended = false
 	MsgTable["NGSetupRequest"].IEs["id-UERetentionInformation"].Comprehended = false
 	MsgTable["RANConfigurationUpdate"].IEs["id-RANNodeName"].Comprehended = false
 	MsgTable["RANConfigurationUpdate"].IEs["id-DefaultPagingDRX"].Comprehended = false

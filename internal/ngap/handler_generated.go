@@ -3334,6 +3334,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	var rRCEstablishmentCause *ngapType.RRCEstablishmentCause
 	var fiveGSTMSI *ngapType.FiveGSTMSI
 	var uEContextRequest *ngapType.UEContextRequest
+	var allowedNSSAI *ngapType.AllowedNSSAI
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
@@ -3429,9 +3430,18 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 			uEContextRequest = ie.Value.UEContextRequest
 			ran.Log.Trace("Decode IE UEContextRequest")
 		case ngapType.ProtocolIEIDAllowedNSSAI: // optional, reject
-			ran.Log.Error("Not comprehended IE AllowedNSSAI")
-			item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAllowedNSSAI, ngapType.TypeOfErrorPresentNotUnderstood)
-			iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			if allowedNSSAI != nil {
+				ran.Log.Error("Duplicate IE AllowedNSSAI")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				break
+			}
+			allowedNSSAI = ie.Value.AllowedNSSAI
+			ran.Log.Trace("Decode IE AllowedNSSAI")
 		}
 	}
 
@@ -3488,8 +3498,9 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	//	fiveGSTMSI *ngapType.FiveGSTMSI,
-	//	uEContextRequest *ngapType.UEContextRequest) {
-	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */)
+	//	uEContextRequest *ngapType.UEContextRequest,
+	//	allowedNSSAI *ngapType.AllowedNSSAI) {
+	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */, allowedNSSAI /* may be nil */)
 }
 
 func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {

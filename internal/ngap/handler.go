@@ -412,6 +412,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	fiveGSTMSI *ngapType.FiveGSTMSI,
 	uEContextRequest *ngapType.UEContextRequest,
+	allowedNSSAI *ngapType.AllowedNSSAI,
 ) {
 	amfSelf := context.AMF_Self()
 
