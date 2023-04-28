@@ -177,72 +177,8 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 			// case iii) if the AMF does not have a PDU session routing context for the PDU session ID and the UE
 			// and the Request type IE is included and is set to "initial request"
 			case nasMessage.ULNASTransportRequestTypeInitialRequest:
-				var (
-					snssai models.Snssai
-					dnn    string
-				)
-				// A) AMF shall select an SMF
-
-				// If the S-NSSAI IE is not included and the user's subscription context obtained from UDM. AMF shall
-				// select a default snssai
-				if ulNasTransport.SNSSAI != nil {
-					snssai = nasConvert.SnssaiToModels(ulNasTransport.SNSSAI)
-				} else {
-					if allowedNssai, ok := ue.AllowedNssai[anType]; ok {
-						snssai = *allowedNssai[0].AllowedSnssai
-					} else {
-						return errors.New("Ue doesn't have allowedNssai")
-					}
-				}
-
-				if ulNasTransport.DNN != nil {
-					dnn = ulNasTransport.DNN.GetDNN()
-				} else {
-					// if user's subscription context obtained from UDM does not contain the default DNN for the,
-					// S-NSSAI, the AMF shall use a locally configured DNN as the DNN
-					dnn = ue.ServingAMF().SupportDnnLists[0]
-
-					if ue.SmfSelectionData != nil {
-						snssaiStr := util.SnssaiModelsToHex(snssai)
-						if snssaiInfo, ok := ue.SmfSelectionData.SubscribedSnssaiInfos[snssaiStr]; ok {
-							for _, dnnInfo := range snssaiInfo.DnnInfos {
-								if dnnInfo.DefaultDnnIndicator {
-									dnn = dnnInfo.Dnn
-								}
-							}
-						}
-					}
-				}
-
-				if newSmContext, cause, err := consumer.SelectSmf(ue, anType, pduSessionID, snssai, dnn); err != nil {
-					ue.GmmLog.Errorf("Select SMF failed: %+v", err)
-					gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
-						smMessage, pduSessionID, cause, nil, 0)
-				} else {
-					ue.Lock.Lock()
-					defer ue.Lock.Unlock()
-					_, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(
-						ue, newSmContext, nil, smMessage)
-					if err != nil {
-						ue.GmmLog.Errorf("CreateSmContextRequest Error: %+v", err)
-						return nil
-					} else if problemDetail != nil {
-						// TODO: error handling
-						return fmt.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]",
-							pduSessionID, problemDetail)
-					} else if errResponse != nil {
-						ue.GmmLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]",
-							pduSessionID)
-						gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
-							errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
-					} else {
-						newSmContext.SetSmContextRef(smContextRef)
-						newSmContext.SetUserLocation(deepcopy.Copy(ue.Location).(models.UserLocation))
-						ue.StoreSmContext(pduSessionID, newSmContext)
-						ue.GmmLog.Infof("create smContext[pduSessionID: %d] Success", pduSessionID)
-						// TODO: handle response(response N2SmInfo to RAN if exists)
-					}
-				}
+				_, err := CreatePDUSession(ulNasTransport, ue, anType, pduSessionID, smMessage)
+				return err
 			case nasMessage.ULNASTransportRequestTypeModificationRequest:
 				fallthrough
 			case nasMessage.ULNASTransportRequestTypeExistingPduSession:
@@ -274,6 +210,81 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 		return fmt.Errorf("SSC mode3 operation has not been implemented yet")
 	}
 	return nil
+}
+
+func CreatePDUSession(ulNasTransport *nasMessage.ULNASTransport,
+	ue *context.AmfUe,
+	anType models.AccessType,
+	pduSessionID int32,
+	smMessage []uint8,
+) (setNewSmContext bool, err error) {
+	var (
+		snssai models.Snssai
+		dnn    string
+	)
+	// A) AMF shall select an SMF
+
+	// If the S-NSSAI IE is not included and the user's subscription context obtained from UDM. AMF shall
+	// select a default snssai
+	if ulNasTransport.SNSSAI != nil {
+		snssai = nasConvert.SnssaiToModels(ulNasTransport.SNSSAI)
+	} else {
+		if allowedNssai, ok := ue.AllowedNssai[anType]; ok {
+			snssai = *allowedNssai[0].AllowedSnssai
+		} else {
+			return false, errors.New("Ue doesn't have allowedNssai")
+		}
+	}
+
+	if ulNasTransport.DNN != nil {
+		dnn = ulNasTransport.DNN.GetDNN()
+	} else {
+		// if user's subscription context obtained from UDM does not contain the default DNN for the,
+		// S-NSSAI, the AMF shall use a locally configured DNN as the DNN
+		dnn = ue.ServingAMF().SupportDnnLists[0]
+
+		if ue.SmfSelectionData != nil {
+			snssaiStr := util.SnssaiModelsToHex(snssai)
+			if snssaiInfo, ok := ue.SmfSelectionData.SubscribedSnssaiInfos[snssaiStr]; ok {
+				for _, dnnInfo := range snssaiInfo.DnnInfos {
+					if dnnInfo.DefaultDnnIndicator {
+						dnn = dnnInfo.Dnn
+					}
+				}
+			}
+		}
+	}
+
+	if newSmContext, cause, err := consumer.SelectSmf(ue, anType, pduSessionID, snssai, dnn); err != nil {
+		ue.GmmLog.Errorf("Select SMF failed: %+v", err)
+		gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
+			smMessage, pduSessionID, cause, nil, 0)
+	} else {
+		ue.Lock.Lock()
+		defer ue.Lock.Unlock()
+		_, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(
+			ue, newSmContext, nil, smMessage)
+		if err != nil {
+			ue.GmmLog.Errorf("CreateSmContextRequest Error: %+v", err)
+			return false, nil
+		} else if problemDetail != nil {
+			// TODO: error handling
+			return false, fmt.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]", pduSessionID, problemDetail)
+		} else if errResponse != nil {
+			ue.GmmLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]",
+				pduSessionID)
+			gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
+				errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
+		} else {
+			newSmContext.SetSmContextRef(smContextRef)
+			newSmContext.SetUserLocation(deepcopy.Copy(ue.Location).(models.UserLocation))
+			ue.StoreSmContext(pduSessionID, newSmContext)
+			ue.GmmLog.Infof("create smContext[pduSessionID: %d] Success", pduSessionID)
+			// TODO: handle response(response N2SmInfo to RAN if exists)
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func forward5GSMMessageToSMF(

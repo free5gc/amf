@@ -5,18 +5,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/mohae/deepcopy"
-
 	"github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/gmm"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
-	"github.com/free5gc/amf/internal/util"
-	"github.com/free5gc/nas/nasConvert"
-	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
@@ -76,70 +72,17 @@ func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 			ue.ProducerLog.Debugf("Resume establishing PDU Session[%d]", pduSessionID)
 			smContext.SetDuplicatedPduSessionID(false)
 			go func() {
-				var (
-					snssai    models.Snssai
-					dnn       string
-					smMessage []byte
-				)
-				smMessage = smContext.ULNASTransport().GetPayloadContainerContents()
-
-				if smContext.ULNASTransport().SNSSAI != nil {
-					snssai = nasConvert.SnssaiToModels(smContext.ULNASTransport().SNSSAI)
-				} else {
-					if allowedNssai, ok := ue.AllowedNssai[smContext.AccessType()]; ok {
-						snssai = *allowedNssai[0].AllowedSnssai
-					} else {
-						ue.GmmLog.Error("Ue doesn't have allowedNssai")
-						return
-					}
-				}
-
-				if smContext.ULNASTransport().DNN != nil {
-					dnn = smContext.ULNASTransport().DNN.GetDNN()
-				} else {
-					if ue.SmfSelectionData != nil {
-						snssaiStr := util.SnssaiModelsToHex(snssai)
-						if snssaiInfo, ok := ue.SmfSelectionData.SubscribedSnssaiInfos[snssaiStr]; ok {
-							for _, dnnInfo := range snssaiInfo.DnnInfos {
-								if dnnInfo.DefaultDnnIndicator {
-									dnn = dnnInfo.Dnn
-								}
-							}
-						} else {
-							// user's subscription context obtained from UDM does not contain the default DNN for the,
-							// S-NSSAI, the AMF shall use a locally configured DNN as the DNN
-							dnn = "internet"
-						}
-					}
-				}
-
-				newSmContext, cause, err := consumer.SelectSmf(ue, smContext.AccessType(), pduSessionID, snssai, dnn)
-				if err != nil {
-					logger.CallbackLog.Error(err)
-					gmm_message.SendDLNASTransport(ue.RanUe[smContext.AccessType()],
-						nasMessage.PayloadContainerTypeN1SMInfo,
-						smContext.ULNASTransport().GetPayloadContainerContents(), pduSessionID, cause, nil, 0)
-					return
-				}
-
-				response, smContextRef, errResponse, problemDetail, err := consumer.SendCreateSmContextRequest(
-					ue, newSmContext, nil, smMessage)
-				if response != nil {
-					newSmContext.SetSmContextRef(smContextRef)
-					newSmContext.SetUserLocation(deepcopy.Copy(ue.Location).(models.UserLocation))
-					ue.GmmLog.Infof("create smContext[pduSessionID: %d] Success", pduSessionID)
-					ue.StoreSmContext(pduSessionID, newSmContext)
-					// TODO: handle response(response N2SmInfo to RAN if exists)
-				} else if errResponse != nil {
-					ue.ProducerLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]\n", pduSessionID)
-					gmm_message.SendDLNASTransport(ue.RanUe[smContext.AccessType()],
-						nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
-				} else if err != nil {
-					ue.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%s]\n", pduSessionID, err.Error())
-				} else {
-					ue.ProducerLog.Errorf("Failed to Create smContext[pduSessionID: %d], Error[%v]\n", pduSessionID, problemDetail)
+				ulNasTransport := smContext.ULNASTransport()
+				smMessage := ulNasTransport.PayloadContainer.GetPayloadContainerContents()
+				anType := smContext.AccessType()
+				setNewSmContext, err := gmm.CreatePDUSession(ulNasTransport, ue, anType, pduSessionID, smMessage)
+				if !setNewSmContext {
+					ue.SmContextList.Delete(pduSessionID)
 				}
 				smContext.DeleteULNASTransport()
+				if err != nil {
+					logger.CallbackLog.Errorln(err)
+				}
 			}()
 		} else {
 			ue.SmContextList.Delete(pduSessionID)
