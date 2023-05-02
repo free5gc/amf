@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -537,7 +538,7 @@ func (ue *AmfUe) UpdateNH() {
 	ue.DerivateNH(ue.NH)
 }
 
-func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
+func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) error {
 	ue.CipheringAlg = security.AlgCiphering128NEA0
 	ue.IntegrityAlg = security.AlgIntegrity128NIA0
 
@@ -558,6 +559,9 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
 			break
 		}
 	}
+	if ueSupported != 1 {
+		return errors.New("no matched integrity algorithm")
+	}
 
 	ueSupported = uint8(0)
 	for _, encAlg := range encOrder {
@@ -576,6 +580,11 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) {
 			break
 		}
 	}
+	if ueSupported != 1 {
+		return errors.New("no matched encrypt algorithm")
+	}
+
+	return nil
 }
 
 func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {

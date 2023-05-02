@@ -253,7 +253,19 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			eapMessage := args[ArgEAPMessage].(string)
 			// Select enc/int algorithm based on ue security capability & amf's policy,
 			amfSelf := context.AMF_Self()
-			amfUe.SelectSecurityAlg(amfSelf.SecurityAlgorithm.IntegrityOrder, amfSelf.SecurityAlgorithm.CipheringOrder)
+			if err := amfUe.SelectSecurityAlg(amfSelf.SecurityAlgorithm.IntegrityOrder,
+				amfSelf.SecurityAlgorithm.CipheringOrder); err != nil {
+				amfUe.GmmLog.Errorf("Select security algorithm failed: %s", err)
+				gmm_message.SendRegistrationReject(amfUe.RanUe[accessType], nasMessage.Cause5GMMUESecurityCapabilitiesMismatch, "")
+				err = GmmFSM.SendEvent(state, SecurityModeFailEvent, fsm.ArgsType{
+					ArgAmfUe:      amfUe,
+					ArgAccessType: accessType,
+				})
+				if err != nil {
+					logger.GmmLog.Errorln(err)
+				}
+				return
+			}
 			// Generate KnasEnc, KnasInt
 			amfUe.DerivateAlgKey()
 			gmm_message.SendSecurityModeCommand(amfUe.RanUe[accessType], accessType, eapSuccess, eapMessage)
