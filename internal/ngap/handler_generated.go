@@ -147,7 +147,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 	//	aMFTNLAssociationToAddList *ngapType.AMFTNLAssociationToAddList,
 	//	aMFTNLAssociationToRemoveList *ngapType.AMFTNLAssociationToRemoveList,
 	//	aMFTNLAssociationToUpdateList *ngapType.AMFTNLAssociationToUpdateList) {
-	handleAMFConfigurationUpdateMain(ran, aMFName, servedGUAMIList, relativeAMFCapacity, pLMNSupportList, aMFTNLAssociationToAddList, aMFTNLAssociationToRemoveList, aMFTNLAssociationToUpdateList)
+	handleAMFConfigurationUpdateMain(ran, aMFName /* may be nil */, servedGUAMIList /* may be nil */, relativeAMFCapacity /* may be nil */, pLMNSupportList /* may be nil */, aMFTNLAssociationToAddList /* may be nil */, aMFTNLAssociationToRemoveList /* may be nil */, aMFTNLAssociationToUpdateList /* may be nil */)
 }
 
 func handleAMFConfigurationUpdateMain(ran *context.AmfRan, aMFName *ngapType.AMFName, servedGUAMIList *ngapType.ServedGUAMIList, relativeAMFCapacity *ngapType.RelativeAMFCapacity, pLMNSupportList *ngapType.PLMNSupportList, aMFTNLAssociationToAddList *ngapType.AMFTNLAssociationToAddList, aMFTNLAssociationToRemoveList *ngapType.AMFTNLAssociationToRemoveList, aMFTNLAssociationToUpdateList *ngapType.AMFTNLAssociationToUpdateList) {
@@ -194,7 +194,7 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 
 	// func handleAMFConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleAMFConfigurationUpdateAcknowledgeMain(ran, criticalityDiagnostics)
+	handleAMFConfigurationUpdateAcknowledgeMain(ran, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
@@ -231,14 +231,13 @@ func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 	}
 
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// func handleAMFConfigurationUpdateFailureMain(ran *context.AmfRan,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleAMFConfigurationUpdateFailureMain(ran, cause, criticalityDiagnostics)
+	handleAMFConfigurationUpdateFailureMain(ran, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerAMFStatusIndication(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -416,21 +415,6 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNGRANTraceID, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if nGRANCGI == nil {
-		ran.Log.Error("Missing IE NGRAN-CGI")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNGRANCGI, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if traceCollectionEntityIPAddress == nil {
-		ran.Log.Error("Missing IE TransportLayerAddress")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTraceCollectionEntityIPAddress, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -455,16 +439,13 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 		return
 	}
 	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		return
+		ran.Log.Warn("Missing IE NGRANTraceID")
 	}
 	if nGRANCGI == nil {
-		ran.Log.Error("Missing IE NGRAN-CGI")
-		return
+		ran.Log.Warn("Missing IE NGRAN-CGI")
 	}
 	if traceCollectionEntityIPAddress == nil {
-		ran.Log.Error("Missing IE TransportLayerAddress")
-		return
+		ran.Log.Warn("Missing IE TransportLayerAddress")
 	}
 
 	// AMF: mandatory, reject
@@ -487,7 +468,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 	//	nGRANTraceID *ngapType.NGRANTraceID,
 	//	nGRANCGI *ngapType.NGRANCGI,
 	//	traceCollectionEntityIPAddress *ngapType.TransportLayerAddress) {
-	handleCellTrafficTraceMain(ran, ranUe, nGRANTraceID, nGRANCGI, traceCollectionEntityIPAddress)
+	handleCellTrafficTraceMain(ran, ranUe, nGRANTraceID /* may be nil */, nGRANCGI /* may be nil */, traceCollectionEntityIPAddress /* may be nil */)
 }
 
 func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -560,11 +541,6 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNGRANTraceID, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -589,8 +565,7 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		return
 	}
 	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		return
+		ran.Log.Warn("Missing IE NGRANTraceID")
 	}
 
 	// AMF: mandatory, reject
@@ -611,7 +586,7 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 	// func handleDeactivateTraceMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	nGRANTraceID *ngapType.NGRANTraceID) {
-	handleDeactivateTraceMain(ran, ranUe, nGRANTraceID)
+	handleDeactivateTraceMain(ran, ranUe, nGRANTraceID /* may be nil */)
 }
 
 func handleDeactivateTraceMain(ran *context.AmfRan, ranUe *context.RanUe, nGRANTraceID *ngapType.NGRANTraceID) {
@@ -840,7 +815,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 	//	indexToRFSP *ngapType.IndexToRFSP,
 	//	uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate,
 	//	allowedNSSAI *ngapType.AllowedNSSAI) {
-	handleDownlinkNASTransportMain(ran, ranUe, oldAMF, rANPagingPriority, nASPDU, mobilityRestrictionList, indexToRFSP, uEAggregateMaximumBitRate, allowedNSSAI)
+	handleDownlinkNASTransportMain(ran, ranUe, oldAMF /* may be nil */, rANPagingPriority /* may be nil */, nASPDU, mobilityRestrictionList /* may be nil */, indexToRFSP /* may be nil */, uEAggregateMaximumBitRate /* may be nil */, allowedNSSAI /* may be nil */)
 }
 
 func handleDownlinkNASTransportMain(ran *context.AmfRan, ranUe *context.RanUe, oldAMF *ngapType.AMFName, rANPagingPriority *ngapType.RANPagingPriority, nASPDU *ngapType.NASPDU, mobilityRestrictionList *ngapType.MobilityRestrictionList, indexToRFSP *ngapType.IndexToRFSP, uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate, allowedNSSAI *ngapType.AllowedNSSAI) {
@@ -1022,7 +997,7 @@ func handlerDownlinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMess
 	// func handleDownlinkRANConfigurationTransferMain(ran *context.AmfRan,
 	//	sONConfigurationTransferDL *ngapType.SONConfigurationTransfer,
 	//	eNDCSONConfigurationTransferDL *ngapType.ENDCSONConfigurationTransfer) {
-	handleDownlinkRANConfigurationTransferMain(ran, sONConfigurationTransferDL, eNDCSONConfigurationTransferDL)
+	handleDownlinkRANConfigurationTransferMain(ran, sONConfigurationTransferDL /* may be nil */, eNDCSONConfigurationTransferDL /* may be nil */)
 }
 
 func handleDownlinkRANConfigurationTransferMain(ran *context.AmfRan, sONConfigurationTransferDL *ngapType.SONConfigurationTransfer, eNDCSONConfigurationTransferDL *ngapType.ENDCSONConfigurationTransfer) {
@@ -1394,7 +1369,7 @@ func handlerErrorIndication(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 	//	rANUENGAPID *ngapType.RANUENGAPID,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleErrorIndicationMain(ran, aMFUENGAPID, rANUENGAPID, cause, criticalityDiagnostics)
+	handleErrorIndicationMain(ran, aMFUENGAPID /* may be nil */, rANUENGAPID /* may be nil */, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -1467,11 +1442,6 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -1496,8 +1466,7 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, reject
@@ -1518,7 +1487,7 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	// func handleHandoverCancelMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	cause *ngapType.Cause) {
-	handleHandoverCancelMain(ran, ranUe, cause)
+	handleHandoverCancelMain(ran, ranUe, cause /* may be nil */)
 }
 
 func handlerHandoverCancelAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -1561,33 +1530,33 @@ func handlerHandoverCancelAcknowledge(ran *context.AmfRan, successfulOutcome *ng
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle HandoverCancelAcknowledge: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle HandoverCancelAcknowledge: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle HandoverCancelAcknowledge: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle HandoverCancelAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle HandoverCancelAcknowledge: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle HandoverCancelAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleHandoverCancelAcknowledgeMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleHandoverCancelAcknowledgeMain(ran, ranUe, criticalityDiagnostics)
+	handleHandoverCancelAcknowledgeMain(ran, ranUe /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handleHandoverCancelAcknowledgeMain(ran *context.AmfRan, ranUe *context.RanUe, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -1713,7 +1682,7 @@ func handlerHandoverCommand(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 	//	pDUSessionResourceToReleaseListHOCmd *ngapType.PDUSessionResourceToReleaseListHOCmd,
 	//	targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleHandoverCommandMain(ran, ranUe, handoverType, nASSecurityParametersFromNGRAN, pDUSessionResourceHandoverList, pDUSessionResourceToReleaseListHOCmd, targetToSourceTransparentContainer, criticalityDiagnostics)
+	handleHandoverCommandMain(ran, ranUe, handoverType, nASSecurityParametersFromNGRAN /* may be nil */, pDUSessionResourceHandoverList /* may be nil */, pDUSessionResourceToReleaseListHOCmd /* may be nil */, targetToSourceTransparentContainer, criticalityDiagnostics /* may be nil */)
 }
 
 func handleHandoverCommandMain(ran *context.AmfRan, ranUe *context.RanUe, handoverType *ngapType.HandoverType, nASSecurityParametersFromNGRAN *ngapType.NASSecurityParametersFromNGRAN, pDUSessionResourceHandoverList *ngapType.PDUSessionResourceHandoverList, pDUSessionResourceToReleaseListHOCmd *ngapType.PDUSessionResourceToReleaseListHOCmd, targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -1760,33 +1729,33 @@ func handlerHandoverFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.U
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, nil, true, true)
-	if err != nil {
-		ran.Log.Errorf("Handle HandoverFailure: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, nil, true, true)
+		if err != nil {
+			ran.Log.Errorf("Handle HandoverFailure: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle HandoverFailure: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle HandoverFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle HandoverFailure: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle HandoverFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleHandoverFailureMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleHandoverFailureMain(ran, ranUe, cause, criticalityDiagnostics)
+	handleHandoverFailureMain(ran, ranUe /* may be nil */, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -1859,11 +1828,6 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -1888,8 +1852,7 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		return
 	}
 	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		return
+		ran.Log.Warn("Missing IE UserLocationInformation")
 	}
 
 	// AMF: mandatory, reject
@@ -1910,7 +1873,7 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	// func handleHandoverNotifyMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	userLocationInformation *ngapType.UserLocationInformation) {
-	handleHandoverNotifyMain(ran, ranUe, userLocationInformation)
+	handleHandoverNotifyMain(ran, ranUe, userLocationInformation /* may be nil */)
 }
 
 func handlerHandoverPreparationFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
@@ -1961,38 +1924,37 @@ func handlerHandoverPreparationFailure(ran *context.AmfRan, unsuccessfulOutcome 
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle HandoverPreparationFailure: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle HandoverPreparationFailure: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle HandoverPreparationFailure: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle HandoverPreparationFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle HandoverPreparationFailure: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle HandoverPreparationFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleHandoverPreparationFailureMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleHandoverPreparationFailureMain(ran, ranUe, cause, criticalityDiagnostics)
+	handleHandoverPreparationFailureMain(ran, ranUe /* may be nil */, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handleHandoverPreparationFailureMain(ran *context.AmfRan, ranUe *context.RanUe, cause *ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -2293,11 +2255,6 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 	if uEAggregateMaximumBitRate == nil {
 		ran.Log.Error("Missing IE UEAggregateMaximumBitRate")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUEAggregateMaximumBitRate, ngapType.TypeOfErrorPresentMissing)
@@ -2357,8 +2314,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 	if uEAggregateMaximumBitRate == nil {
 		ran.Log.Error("Missing IE UEAggregateMaximumBitRate")
@@ -2423,7 +2379,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 	//	rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	//	gUAMI *ngapType.GUAMI,
 	//	redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
-	handleHandoverRequestMain(ran, ranUe, handoverType, cause, uEAggregateMaximumBitRate, coreNetworkAssistanceInformation, uESecurityCapabilities, securityContext, newSecurityContextInd, nASC, pDUSessionResourceSetupListHOReq, allowedNSSAI, traceActivation, maskedIMEISV, sourceToTargetTransparentContainer, mobilityRestrictionList, locationReportingRequestType, rRCInactiveTransitionReportRequest, gUAMI, redirectionVoiceFallback)
+	handleHandoverRequestMain(ran, ranUe, handoverType, cause /* may be nil */, uEAggregateMaximumBitRate, coreNetworkAssistanceInformation /* may be nil */, uESecurityCapabilities, securityContext, newSecurityContextInd /* may be nil */, nASC /* may be nil */, pDUSessionResourceSetupListHOReq, allowedNSSAI, traceActivation /* may be nil */, maskedIMEISV /* may be nil */, sourceToTargetTransparentContainer, mobilityRestrictionList /* may be nil */, locationReportingRequestType /* may be nil */, rRCInactiveTransitionReportRequest /* may be nil */, gUAMI, redirectionVoiceFallback /* may be nil */)
 }
 
 func handleHandoverRequestMain(ran *context.AmfRan, ranUe *context.RanUe, handoverType *ngapType.HandoverType, cause *ngapType.Cause, uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate, coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation, uESecurityCapabilities *ngapType.UESecurityCapabilities, securityContext *ngapType.SecurityContext, newSecurityContextInd *ngapType.NewSecurityContextInd, nASC *ngapType.NASPDU, pDUSessionResourceSetupListHOReq *ngapType.PDUSessionResourceSetupListHOReq, allowedNSSAI *ngapType.AllowedNSSAI, traceActivation *ngapType.TraceActivation, maskedIMEISV *ngapType.MaskedIMEISV, sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer, mobilityRestrictionList *ngapType.MobilityRestrictionList, locationReportingRequestType *ngapType.LocationReportingRequestType, rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest, gUAMI *ngapType.GUAMI, redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
@@ -2505,16 +2461,13 @@ func handlerHandoverRequestAcknowledge(ran *context.AmfRan, successfulOutcome *n
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if pDUSessionResourceAdmittedList == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceAdmittedList")
-		return
+		ran.Log.Warn("Missing IE PDUSessionResourceAdmittedList")
 	}
 	if targetToSourceTransparentContainer == nil {
 		ran.Log.Error("Missing IE TargetToSource-TransparentContainer")
@@ -2524,17 +2477,19 @@ func handlerHandoverRequestAcknowledge(ran *context.AmfRan, successfulOutcome *n
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, true, true)
-	if err != nil {
-		ran.Log.Errorf("Handle HandoverRequestAcknowledge: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, true, true)
+		if err != nil {
+			ran.Log.Errorf("Handle HandoverRequestAcknowledge: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle HandoverRequestAcknowledge: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle HandoverRequestAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle HandoverRequestAcknowledge: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle HandoverRequestAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
@@ -2543,7 +2498,7 @@ func handlerHandoverRequestAcknowledge(ran *context.AmfRan, successfulOutcome *n
 	//	pDUSessionResourceFailedToSetupListHOAck *ngapType.PDUSessionResourceFailedToSetupListHOAck,
 	//	targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleHandoverRequestAcknowledgeMain(ran, ranUe, rANUENGAPID, pDUSessionResourceAdmittedList, pDUSessionResourceFailedToSetupListHOAck, targetToSourceTransparentContainer, criticalityDiagnostics)
+	handleHandoverRequestAcknowledgeMain(ran, ranUe /* may be nil */, rANUENGAPID /* may be nil */, pDUSessionResourceAdmittedList /* may be nil */, pDUSessionResourceFailedToSetupListHOAck /* may be nil */, targetToSourceTransparentContainer, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -2679,11 +2634,6 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 	if targetID == nil {
 		ran.Log.Error("Missing IE TargetID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTargetID, ngapType.TypeOfErrorPresentMissing)
@@ -2739,8 +2689,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 	if targetID == nil {
 		ran.Log.Error("Missing IE TargetID")
@@ -2777,7 +2726,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 	//	targetID *ngapType.TargetID,
 	//	pDUSessionResourceListHORqd *ngapType.PDUSessionResourceListHORqd,
 	//	sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer) {
-	handleHandoverRequiredMain(ran, ranUe, handoverType, cause, targetID, pDUSessionResourceListHORqd, sourceToTargetTransparentContainer)
+	handleHandoverRequiredMain(ran, ranUe, handoverType, cause /* may be nil */, targetID, pDUSessionResourceListHORqd, sourceToTargetTransparentContainer)
 }
 
 func handlerInitialContextSetupFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
@@ -2836,39 +2785,38 @@ func handlerInitialContextSetupFailure(ran *context.AmfRan, unsuccessfulOutcome 
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle InitialContextSetupFailure: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle InitialContextSetupFailure: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle InitialContextSetupFailure: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle InitialContextSetupFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle InitialContextSetupFailure: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle InitialContextSetupFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceFailedToSetupListCxtFail *ngapType.PDUSessionResourceFailedToSetupListCxtFail,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleInitialContextSetupFailureMain(ran, ranUe, pDUSessionResourceFailedToSetupListCxtFail, cause, criticalityDiagnostics)
+	handleInitialContextSetupFailureMain(ran, ranUe /* may be nil */, pDUSessionResourceFailedToSetupListCxtFail /* may be nil */, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -3274,7 +3222,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 	//	rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	//	uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging,
 	//	redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
-	handleInitialContextSetupRequestMain(ran, ranUe, oldAMF, uEAggregateMaximumBitRate, coreNetworkAssistanceInformation, gUAMI, pDUSessionResourceSetupListCxtReq, allowedNSSAI, uESecurityCapabilities, securityKey, traceActivation, mobilityRestrictionList, uERadioCapability, indexToRFSP, maskedIMEISV, nASPDU, emergencyFallbackIndicator, rRCInactiveTransitionReportRequest, uERadioCapabilityForPaging, redirectionVoiceFallback)
+	handleInitialContextSetupRequestMain(ran, ranUe, oldAMF /* may be nil */, uEAggregateMaximumBitRate /* may be nil */, coreNetworkAssistanceInformation /* may be nil */, gUAMI, pDUSessionResourceSetupListCxtReq /* may be nil */, allowedNSSAI, uESecurityCapabilities, securityKey, traceActivation /* may be nil */, mobilityRestrictionList /* may be nil */, uERadioCapability /* may be nil */, indexToRFSP /* may be nil */, maskedIMEISV /* may be nil */, nASPDU /* may be nil */, emergencyFallbackIndicator /* may be nil */, rRCInactiveTransitionReportRequest /* may be nil */, uERadioCapabilityForPaging /* may be nil */, redirectionVoiceFallback /* may be nil */)
 }
 
 func handleInitialContextSetupRequestMain(ran *context.AmfRan, ranUe *context.RanUe, oldAMF *ngapType.AMFName, uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate, coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation, gUAMI *ngapType.GUAMI, pDUSessionResourceSetupListCxtReq *ngapType.PDUSessionResourceSetupListCxtReq, allowedNSSAI *ngapType.AllowedNSSAI, uESecurityCapabilities *ngapType.UESecurityCapabilities, securityKey *ngapType.SecurityKey, traceActivation *ngapType.TraceActivation, mobilityRestrictionList *ngapType.MobilityRestrictionList, uERadioCapability *ngapType.UERadioCapability, indexToRFSP *ngapType.IndexToRFSP, maskedIMEISV *ngapType.MaskedIMEISV, nASPDU *ngapType.NASPDU, emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator, rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest, uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging, redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
@@ -3348,35 +3296,35 @@ func handlerInitialContextSetupResponse(ran *context.AmfRan, successfulOutcome *
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle InitialContextSetupResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle InitialContextSetupResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle InitialContextSetupResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle InitialContextSetupResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle InitialContextSetupResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle InitialContextSetupResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceSetupListCxtRes *ngapType.PDUSessionResourceSetupListCxtRes,
 	//	pDUSessionResourceFailedToSetupListCxtRes *ngapType.PDUSessionResourceFailedToSetupListCxtRes,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleInitialContextSetupResponseMain(ran, ranUe, pDUSessionResourceSetupListCxtRes, pDUSessionResourceFailedToSetupListCxtRes, criticalityDiagnostics)
+	handleInitialContextSetupResponseMain(ran, ranUe /* may be nil */, pDUSessionResourceSetupListCxtRes /* may be nil */, pDUSessionResourceFailedToSetupListCxtRes /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, initiatingMessage *ngapType.InitiatingMessage) {
@@ -3386,6 +3334,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	var rRCEstablishmentCause *ngapType.RRCEstablishmentCause
 	var fiveGSTMSI *ngapType.FiveGSTMSI
 	var uEContextRequest *ngapType.UEContextRequest
+	var allowedNSSAI *ngapType.AllowedNSSAI
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
@@ -3481,9 +3430,18 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 			uEContextRequest = ie.Value.UEContextRequest
 			ran.Log.Trace("Decode IE UEContextRequest")
 		case ngapType.ProtocolIEIDAllowedNSSAI: // optional, reject
-			ran.Log.Error("Not comprehended IE AllowedNSSAI")
-			item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAllowedNSSAI, ngapType.TypeOfErrorPresentNotUnderstood)
-			iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			if allowedNSSAI != nil {
+				ran.Log.Error("Duplicate IE AllowedNSSAI")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				break
+			}
+			allowedNSSAI = ie.Value.AllowedNSSAI
+			ran.Log.Trace("Decode IE AllowedNSSAI")
 		}
 	}
 
@@ -3500,11 +3458,6 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	if userLocationInformation == nil {
 		ran.Log.Error("Missing IE UserLocationInformation")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if rRCEstablishmentCause == nil {
-		ran.Log.Error("Missing IE RRCEstablishmentCause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRRCEstablishmentCause, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
 
@@ -3535,8 +3488,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 		return
 	}
 	if rRCEstablishmentCause == nil {
-		ran.Log.Error("Missing IE RRCEstablishmentCause")
-		return
+		ran.Log.Warn("Missing IE RRCEstablishmentCause")
 	}
 
 	// func handleInitialUEMessageMain(ran *context.AmfRan,
@@ -3546,8 +3498,9 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	//	fiveGSTMSI *ngapType.FiveGSTMSI,
-	//	uEContextRequest *ngapType.UEContextRequest) {
-	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause, fiveGSTMSI, uEContextRequest)
+	//	uEContextRequest *ngapType.UEContextRequest,
+	//	allowedNSSAI *ngapType.AllowedNSSAI) {
+	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */, allowedNSSAI /* may be nil */)
 }
 
 func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -3648,16 +3601,6 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if locationReportingRequestType == nil {
-		ran.Log.Error("Missing IE LocationReportingRequestType")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDLocationReportingRequestType, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -3682,12 +3625,10 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		return
 	}
 	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		return
+		ran.Log.Warn("Missing IE UserLocationInformation")
 	}
 	if locationReportingRequestType == nil {
-		ran.Log.Error("Missing IE LocationReportingRequestType")
-		return
+		ran.Log.Warn("Missing IE LocationReportingRequestType")
 	}
 
 	// AMF: mandatory, reject
@@ -3710,7 +3651,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	uEPresenceInAreaOfInterestList *ngapType.UEPresenceInAreaOfInterestList,
 	//	locationReportingRequestType *ngapType.LocationReportingRequestType) {
-	handleLocationReportMain(ran, ranUe, userLocationInformation, uEPresenceInAreaOfInterestList, locationReportingRequestType)
+	handleLocationReportMain(ran, ranUe, userLocationInformation /* may be nil */, uEPresenceInAreaOfInterestList /* may be nil */, locationReportingRequestType /* may be nil */)
 }
 
 func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -3783,11 +3724,6 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if locationReportingRequestType == nil {
-		ran.Log.Error("Missing IE LocationReportingRequestType")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDLocationReportingRequestType, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -3812,8 +3748,7 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 		return
 	}
 	if locationReportingRequestType == nil {
-		ran.Log.Error("Missing IE LocationReportingRequestType")
-		return
+		ran.Log.Warn("Missing IE LocationReportingRequestType")
 	}
 
 	// AMF: mandatory, reject
@@ -3834,7 +3769,7 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 	// func handleLocationReportingControlMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	locationReportingRequestType *ngapType.LocationReportingRequestType) {
-	handleLocationReportingControlMain(ran, ranUe, locationReportingRequestType)
+	handleLocationReportingControlMain(ran, ranUe, locationReportingRequestType /* may be nil */)
 }
 
 func handleLocationReportingControlMain(ran *context.AmfRan, ranUe *context.RanUe, locationReportingRequestType *ngapType.LocationReportingRequestType) {
@@ -3922,11 +3857,6 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -3951,8 +3881,7 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, reject
@@ -3973,7 +3902,7 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 	// func handleLocationReportingFailureIndicationMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	cause *ngapType.Cause) {
-	handleLocationReportingFailureIndicationMain(ran, ranUe, cause)
+	handleLocationReportingFailureIndicationMain(ran, ranUe, cause /* may be nil */)
 }
 
 func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -4060,16 +3989,6 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if nASPDU == nil {
-		ran.Log.Error("Missing IE NAS-PDU")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNASPDU, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -4094,12 +4013,10 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 		return
 	}
 	if nASPDU == nil {
-		ran.Log.Error("Missing IE NAS-PDU")
-		return
+		ran.Log.Warn("Missing IE NAS-PDU")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, reject
@@ -4121,7 +4038,7 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 	//	ranUe *context.RanUe,
 	//	nASPDU *ngapType.NASPDU,
 	//	cause *ngapType.Cause) {
-	handleNASNonDeliveryIndicationMain(ran, ranUe, nASPDU, cause)
+	handleNASNonDeliveryIndicationMain(ran, ranUe, nASPDU /* may be nil */, cause /* may be nil */)
 }
 
 func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -4170,11 +4087,6 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 		}
 	}
 
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 	if resetType == nil {
 		ran.Log.Error("Missing IE ResetType")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDResetType, ngapType.TypeOfErrorPresentMissing)
@@ -4196,8 +4108,7 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 	}
 
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 	if resetType == nil {
 		ran.Log.Error("Missing IE ResetType")
@@ -4207,7 +4118,7 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 	// func handleNGResetMain(ran *context.AmfRan,
 	//	cause *ngapType.Cause,
 	//	resetType *ngapType.ResetType) {
-	handleNGResetMain(ran, cause, resetType)
+	handleNGResetMain(ran, cause /* may be nil */, resetType)
 }
 
 func handlerNGResetAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -4244,7 +4155,7 @@ func handlerNGResetAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.
 	// func handleNGResetAcknowledgeMain(ran *context.AmfRan,
 	//	uEAssociatedLogicalNGConnectionList *ngapType.UEAssociatedLogicalNGConnectionList,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleNGResetAcknowledgeMain(ran, uEAssociatedLogicalNGConnectionList, criticalityDiagnostics)
+	handleNGResetAcknowledgeMain(ran, uEAssociatedLogicalNGConnectionList /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerNGSetupFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
@@ -4287,15 +4198,14 @@ func handlerNGSetupFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.Un
 	}
 
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// func handleNGSetupFailureMain(ran *context.AmfRan,
 	//	cause *ngapType.Cause,
 	//	timeToWait *ngapType.TimeToWait,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleNGSetupFailureMain(ran, cause, timeToWait, criticalityDiagnostics)
+	handleNGSetupFailureMain(ran, cause /* may be nil */, timeToWait /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handleNGSetupFailureMain(ran *context.AmfRan, cause *ngapType.Cause, timeToWait *ngapType.TimeToWait, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -4388,11 +4298,6 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSupportedTAList, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if defaultPagingDRX == nil {
-		ran.Log.Error("Missing IE PagingDRX")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDDefaultPagingDRX, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -4425,8 +4330,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		return
 	}
 	if defaultPagingDRX == nil {
-		ran.Log.Error("Missing IE PagingDRX")
-		return
+		ran.Log.Warn("Missing IE PagingDRX")
 	}
 
 	// func handleNGSetupRequestMain(ran *context.AmfRan,
@@ -4434,7 +4338,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	//	rANNodeName *ngapType.RANNodeName,
 	//	supportedTAList *ngapType.SupportedTAList,
 	//	defaultPagingDRX *ngapType.PagingDRX) {
-	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName, supportedTAList, defaultPagingDRX)
+	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName /* may be nil */, supportedTAList, defaultPagingDRX /* may be nil */)
 }
 
 func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -4509,8 +4413,7 @@ func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 		return
 	}
 	if relativeAMFCapacity == nil {
-		ran.Log.Error("Missing IE RelativeAMFCapacity")
-		return
+		ran.Log.Warn("Missing IE RelativeAMFCapacity")
 	}
 	if pLMNSupportList == nil {
 		ran.Log.Error("Missing IE PLMNSupportList")
@@ -4524,7 +4427,7 @@ func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 	//	pLMNSupportList *ngapType.PLMNSupportList,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 	//	uERetentionInformation *ngapType.UERetentionInformation) {
-	handleNGSetupResponseMain(ran, aMFName, servedGUAMIList, relativeAMFCapacity, pLMNSupportList, criticalityDiagnostics, uERetentionInformation)
+	handleNGSetupResponseMain(ran, aMFName, servedGUAMIList, relativeAMFCapacity /* may be nil */, pLMNSupportList, criticalityDiagnostics /* may be nil */, uERetentionInformation /* may be nil */)
 }
 
 func handleNGSetupResponseMain(ran *context.AmfRan, aMFName *ngapType.AMFName, servedGUAMIList *ngapType.ServedGUAMIList, relativeAMFCapacity *ngapType.RelativeAMFCapacity, pLMNSupportList *ngapType.PLMNSupportList, criticalityDiagnostics *ngapType.CriticalityDiagnostics, uERetentionInformation *ngapType.UERetentionInformation) {
@@ -4609,7 +4512,7 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 	//	aMFOverloadResponse *ngapType.OverloadResponse,
 	//	aMFTrafficLoadReductionIndication *ngapType.TrafficLoadReductionIndication,
 	//	overloadStartNSSAIList *ngapType.OverloadStartNSSAIList) {
-	handleOverloadStartMain(ran, aMFOverloadResponse, aMFTrafficLoadReductionIndication, overloadStartNSSAIList)
+	handleOverloadStartMain(ran, aMFOverloadResponse /* may be nil */, aMFTrafficLoadReductionIndication /* may be nil */, overloadStartNSSAIList /* may be nil */)
 }
 
 func handleOverloadStartMain(ran *context.AmfRan, aMFOverloadResponse *ngapType.OverloadResponse, aMFTrafficLoadReductionIndication *ngapType.TrafficLoadReductionIndication, overloadStartNSSAIList *ngapType.OverloadStartNSSAIList) {
@@ -4734,35 +4637,35 @@ func handlerPDUSessionResourceModifyConfirm(ran *context.AmfRan, successfulOutco
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PDUSessionResourceModifyConfirm: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PDUSessionResourceModifyConfirm: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PDUSessionResourceModifyConfirm: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PDUSessionResourceModifyConfirm (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PDUSessionResourceModifyConfirm: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PDUSessionResourceModifyConfirm (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePDUSessionResourceModifyConfirmMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceModifyListModCfm *ngapType.PDUSessionResourceModifyListModCfm,
 	//	pDUSessionResourceFailedToModifyListModCfm *ngapType.PDUSessionResourceFailedToModifyListModCfm,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePDUSessionResourceModifyConfirmMain(ran, ranUe, pDUSessionResourceModifyListModCfm, pDUSessionResourceFailedToModifyListModCfm, criticalityDiagnostics)
+	handlePDUSessionResourceModifyConfirmMain(ran, ranUe /* may be nil */, pDUSessionResourceModifyListModCfm /* may be nil */, pDUSessionResourceFailedToModifyListModCfm /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlePDUSessionResourceModifyConfirmMain(ran *context.AmfRan, ranUe *context.RanUe, pDUSessionResourceModifyListModCfm *ngapType.PDUSessionResourceModifyListModCfm, pDUSessionResourceFailedToModifyListModCfm *ngapType.PDUSessionResourceFailedToModifyListModCfm, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -5029,7 +4932,7 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 	//	ranUe *context.RanUe,
 	//	rANPagingPriority *ngapType.RANPagingPriority,
 	//	pDUSessionResourceModifyListModReq *ngapType.PDUSessionResourceModifyListModReq) {
-	handlePDUSessionResourceModifyRequestMain(ran, ranUe, rANPagingPriority, pDUSessionResourceModifyListModReq)
+	handlePDUSessionResourceModifyRequestMain(ran, ranUe, rANPagingPriority /* may be nil */, pDUSessionResourceModifyListModReq)
 }
 
 func handlePDUSessionResourceModifyRequestMain(ran *context.AmfRan, ranUe *context.RanUe, rANPagingPriority *ngapType.RANPagingPriority, pDUSessionResourceModifyListModReq *ngapType.PDUSessionResourceModifyListModReq) {
@@ -5111,28 +5014,28 @@ func handlerPDUSessionResourceModifyResponse(ran *context.AmfRan, successfulOutc
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PDUSessionResourceModifyResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PDUSessionResourceModifyResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PDUSessionResourceModifyResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PDUSessionResourceModifyResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PDUSessionResourceModifyResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PDUSessionResourceModifyResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
@@ -5140,7 +5043,7 @@ func handlerPDUSessionResourceModifyResponse(ran *context.AmfRan, successfulOutc
 	//	pDUSessionResourceFailedToModifyListModRes *ngapType.PDUSessionResourceFailedToModifyListModRes,
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePDUSessionResourceModifyResponseMain(ran, ranUe, pDUSessionResourceModifyListModRes, pDUSessionResourceFailedToModifyListModRes, userLocationInformation, criticalityDiagnostics)
+	handlePDUSessionResourceModifyResponseMain(ran, ranUe /* may be nil */, pDUSessionResourceModifyListModRes /* may be nil */, pDUSessionResourceFailedToModifyListModRes /* may be nil */, userLocationInformation /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -5285,7 +5188,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 	//	pDUSessionResourceNotifyList *ngapType.PDUSessionResourceNotifyList,
 	//	pDUSessionResourceReleasedListNot *ngapType.PDUSessionResourceReleasedListNot,
 	//	userLocationInformation *ngapType.UserLocationInformation) {
-	handlePDUSessionResourceNotifyMain(ran, ranUe, pDUSessionResourceNotifyList, pDUSessionResourceReleasedListNot, userLocationInformation)
+	handlePDUSessionResourceNotifyMain(ran, ranUe, pDUSessionResourceNotifyList /* may be nil */, pDUSessionResourceReleasedListNot /* may be nil */, userLocationInformation /* may be nil */)
 }
 
 func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -5439,7 +5342,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 	//	rANPagingPriority *ngapType.RANPagingPriority,
 	//	nASPDU *ngapType.NASPDU,
 	//	pDUSessionResourceToReleaseListRelCmd *ngapType.PDUSessionResourceToReleaseListRelCmd) {
-	handlePDUSessionResourceReleaseCommandMain(ran, ranUe, rANPagingPriority, nASPDU, pDUSessionResourceToReleaseListRelCmd)
+	handlePDUSessionResourceReleaseCommandMain(ran, ranUe, rANPagingPriority /* may be nil */, nASPDU /* may be nil */, pDUSessionResourceToReleaseListRelCmd)
 }
 
 func handlePDUSessionResourceReleaseCommandMain(ran *context.AmfRan, ranUe *context.RanUe, rANPagingPriority *ngapType.RANPagingPriority, nASPDU *ngapType.NASPDU, pDUSessionResourceToReleaseListRelCmd *ngapType.PDUSessionResourceToReleaseListRelCmd) {
@@ -5513,39 +5416,38 @@ func handlerPDUSessionResourceReleaseResponse(ran *context.AmfRan, successfulOut
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if pDUSessionResourceReleasedListRelRes == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceReleasedListRelRes")
-		return
+		ran.Log.Warn("Missing IE PDUSessionResourceReleasedListRelRes")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PDUSessionResourceReleaseResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PDUSessionResourceReleaseResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PDUSessionResourceReleaseResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PDUSessionResourceReleaseResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PDUSessionResourceReleaseResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PDUSessionResourceReleaseResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePDUSessionResourceReleaseResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceReleasedListRelRes *ngapType.PDUSessionResourceReleasedListRelRes,
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePDUSessionResourceReleaseResponseMain(ran, ranUe, pDUSessionResourceReleasedListRelRes, userLocationInformation, criticalityDiagnostics)
+	handlePDUSessionResourceReleaseResponseMain(ran, ranUe /* may be nil */, pDUSessionResourceReleasedListRelRes /* may be nil */, userLocationInformation /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -5714,7 +5616,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 	//	nASPDU *ngapType.NASPDU,
 	//	pDUSessionResourceSetupListSUReq *ngapType.PDUSessionResourceSetupListSUReq,
 	//	uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate) {
-	handlePDUSessionResourceSetupRequestMain(ran, ranUe, rANPagingPriority, nASPDU, pDUSessionResourceSetupListSUReq, uEAggregateMaximumBitRate)
+	handlePDUSessionResourceSetupRequestMain(ran, ranUe, rANPagingPriority /* may be nil */, nASPDU /* may be nil */, pDUSessionResourceSetupListSUReq, uEAggregateMaximumBitRate /* may be nil */)
 }
 
 func handlePDUSessionResourceSetupRequestMain(ran *context.AmfRan, ranUe *context.RanUe, rANPagingPriority *ngapType.RANPagingPriority, nASPDU *ngapType.NASPDU, pDUSessionResourceSetupListSUReq *ngapType.PDUSessionResourceSetupListSUReq, uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate) {
@@ -5788,35 +5690,35 @@ func handlerPDUSessionResourceSetupResponse(ran *context.AmfRan, successfulOutco
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PDUSessionResourceSetupResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PDUSessionResourceSetupResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PDUSessionResourceSetupResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PDUSessionResourceSetupResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PDUSessionResourceSetupResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PDUSessionResourceSetupResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceSetupListSURes *ngapType.PDUSessionResourceSetupListSURes,
 	//	pDUSessionResourceFailedToSetupListSURes *ngapType.PDUSessionResourceFailedToSetupListSURes,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePDUSessionResourceSetupResponseMain(ran, ranUe, pDUSessionResourceSetupListSURes, pDUSessionResourceFailedToSetupListSURes, criticalityDiagnostics)
+	handlePDUSessionResourceSetupResponseMain(ran, ranUe /* may be nil */, pDUSessionResourceSetupListSURes /* may be nil */, pDUSessionResourceFailedToSetupListSURes /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -5932,7 +5834,7 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 	//	serialNumber *ngapType.SerialNumber,
 	//	warningAreaList *ngapType.WarningAreaList,
 	//	cancelAllWarningMessages *ngapType.CancelAllWarningMessages) {
-	handlePWSCancelRequestMain(ran, messageIdentifier, serialNumber, warningAreaList, cancelAllWarningMessages)
+	handlePWSCancelRequestMain(ran, messageIdentifier, serialNumber, warningAreaList /* may be nil */, cancelAllWarningMessages /* may be nil */)
 }
 
 func handlePWSCancelRequestMain(ran *context.AmfRan, messageIdentifier *ngapType.MessageIdentifier, serialNumber *ngapType.SerialNumber, warningAreaList *ngapType.WarningAreaList, cancelAllWarningMessages *ngapType.CancelAllWarningMessages) {
@@ -6011,7 +5913,7 @@ func handlerPWSCancelResponse(ran *context.AmfRan, successfulOutcome *ngapType.S
 	//	serialNumber *ngapType.SerialNumber,
 	//	broadcastCancelledAreaList *ngapType.BroadcastCancelledAreaList,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePWSCancelResponseMain(ran, messageIdentifier, serialNumber, broadcastCancelledAreaList, criticalityDiagnostics)
+	handlePWSCancelResponseMain(ran, messageIdentifier, serialNumber, broadcastCancelledAreaList /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlePWSCancelResponseMain(ran *context.AmfRan, messageIdentifier *ngapType.MessageIdentifier, serialNumber *ngapType.SerialNumber, broadcastCancelledAreaList *ngapType.BroadcastCancelledAreaList, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -6241,7 +6143,7 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 	//	globalRANNodeID *ngapType.GlobalRANNodeID,
 	//	tAIListForRestart *ngapType.TAIListForRestart,
 	//	emergencyAreaIDListForRestart *ngapType.EmergencyAreaIDListForRestart) {
-	handlePWSRestartIndicationMain(ran, cellIDListForRestart, globalRANNodeID, tAIListForRestart, emergencyAreaIDListForRestart)
+	handlePWSRestartIndicationMain(ran, cellIDListForRestart, globalRANNodeID, tAIListForRestart, emergencyAreaIDListForRestart /* may be nil */)
 }
 
 func handlePWSRestartIndicationMain(ran *context.AmfRan, cellIDListForRestart *ngapType.CellIDListForRestart, globalRANNodeID *ngapType.GlobalRANNodeID, tAIListForRestart *ngapType.TAIListForRestart, emergencyAreaIDListForRestart *ngapType.EmergencyAreaIDListForRestart) {
@@ -6375,17 +6277,6 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 		}
 	}
 
-	if uEPagingIdentity == nil {
-		ran.Log.Error("Missing IE UEPagingIdentity")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUEPagingIdentity, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if tAIListForPaging == nil {
-		ran.Log.Error("Missing IE TAIListForPaging")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTAIListForPaging, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
 		procedureCode := ngapType.ProcedureCodePaging
@@ -6401,12 +6292,10 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 	}
 
 	if uEPagingIdentity == nil {
-		ran.Log.Error("Missing IE UEPagingIdentity")
-		return
+		ran.Log.Warn("Missing IE UEPagingIdentity")
 	}
 	if tAIListForPaging == nil {
-		ran.Log.Error("Missing IE TAIListForPaging")
-		return
+		ran.Log.Warn("Missing IE TAIListForPaging")
 	}
 
 	// func handlePagingMain(ran *context.AmfRan,
@@ -6417,7 +6306,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 	//	uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging,
 	//	pagingOrigin *ngapType.PagingOrigin,
 	//	assistanceDataForPaging *ngapType.AssistanceDataForPaging) {
-	handlePagingMain(ran, uEPagingIdentity, pagingDRX, tAIListForPaging, pagingPriority, uERadioCapabilityForPaging, pagingOrigin, assistanceDataForPaging)
+	handlePagingMain(ran, uEPagingIdentity /* may be nil */, pagingDRX /* may be nil */, tAIListForPaging /* may be nil */, pagingPriority /* may be nil */, uERadioCapabilityForPaging /* may be nil */, pagingOrigin /* may be nil */, assistanceDataForPaging /* may be nil */)
 }
 
 func handlePagingMain(ran *context.AmfRan, uEPagingIdentity *ngapType.UEPagingIdentity, pagingDRX *ngapType.PagingDRX, tAIListForPaging *ngapType.TAIListForPaging, pagingPriority *ngapType.PagingPriority, uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging, pagingOrigin *ngapType.PagingOrigin, assistanceDataForPaging *ngapType.AssistanceDataForPaging) {
@@ -6547,16 +6436,6 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSourceAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if uESecurityCapabilities == nil {
-		ran.Log.Error("Missing IE UESecurityCapabilities")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUESecurityCapabilities, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 	if pDUSessionResourceToBeSwitchedDLList == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceToBeSwitchedDLList")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceToBeSwitchedDLList, ngapType.TypeOfErrorPresentMissing)
@@ -6586,12 +6465,10 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		return
 	}
 	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		return
+		ran.Log.Warn("Missing IE UserLocationInformation")
 	}
 	if uESecurityCapabilities == nil {
-		ran.Log.Error("Missing IE UESecurityCapabilities")
-		return
+		ran.Log.Warn("Missing IE UESecurityCapabilities")
 	}
 	if pDUSessionResourceToBeSwitchedDLList == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceToBeSwitchedDLList")
@@ -6605,7 +6482,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 	//	uESecurityCapabilities *ngapType.UESecurityCapabilities,
 	//	pDUSessionResourceToBeSwitchedDLList *ngapType.PDUSessionResourceToBeSwitchedDLList,
 	//	pDUSessionResourceFailedToSetupListPSReq *ngapType.PDUSessionResourceFailedToSetupListPSReq) {
-	handlePathSwitchRequestMain(ran, rANUENGAPID, sourceAMFUENGAPID, userLocationInformation, uESecurityCapabilities, pDUSessionResourceToBeSwitchedDLList, pDUSessionResourceFailedToSetupListPSReq)
+	handlePathSwitchRequestMain(ran, rANUENGAPID, sourceAMFUENGAPID, userLocationInformation /* may be nil */, uESecurityCapabilities /* may be nil */, pDUSessionResourceToBeSwitchedDLList, pDUSessionResourceFailedToSetupListPSReq /* may be nil */)
 }
 
 func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -6720,20 +6597,17 @@ func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome 
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if securityContext == nil {
 		ran.Log.Error("Missing IE SecurityContext")
 		return
 	}
 	if pDUSessionResourceSwitchedList == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceSwitchedList")
-		return
+		ran.Log.Warn("Missing IE PDUSessionResourceSwitchedList")
 	}
 	if allowedNSSAI == nil {
 		ran.Log.Error("Missing IE AllowedNSSAI")
@@ -6743,17 +6617,19 @@ func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PathSwitchRequestAcknowledge: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PathSwitchRequestAcknowledge: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PathSwitchRequestAcknowledge: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PathSwitchRequestAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PathSwitchRequestAcknowledge: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PathSwitchRequestAcknowledge (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePathSwitchRequestAcknowledgeMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
@@ -6767,7 +6643,7 @@ func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome 
 	//	rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 	//	redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
-	handlePathSwitchRequestAcknowledgeMain(ran, ranUe, uESecurityCapabilities, securityContext, newSecurityContextInd, pDUSessionResourceSwitchedList, pDUSessionResourceReleasedListPSAck, allowedNSSAI, coreNetworkAssistanceInformation, rRCInactiveTransitionReportRequest, criticalityDiagnostics, redirectionVoiceFallback)
+	handlePathSwitchRequestAcknowledgeMain(ran, ranUe /* may be nil */, uESecurityCapabilities /* may be nil */, securityContext, newSecurityContextInd /* may be nil */, pDUSessionResourceSwitchedList /* may be nil */, pDUSessionResourceReleasedListPSAck /* may be nil */, allowedNSSAI, coreNetworkAssistanceInformation /* may be nil */, rRCInactiveTransitionReportRequest /* may be nil */, criticalityDiagnostics /* may be nil */, redirectionVoiceFallback /* may be nil */)
 }
 
 func handlePathSwitchRequestAcknowledgeMain(ran *context.AmfRan, ranUe *context.RanUe, uESecurityCapabilities *ngapType.UESecurityCapabilities, securityContext *ngapType.SecurityContext, newSecurityContextInd *ngapType.NewSecurityContextInd, pDUSessionResourceSwitchedList *ngapType.PDUSessionResourceSwitchedList, pDUSessionResourceReleasedListPSAck *ngapType.PDUSessionResourceReleasedListPSAck, allowedNSSAI *ngapType.AllowedNSSAI, coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation, rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest, criticalityDiagnostics *ngapType.CriticalityDiagnostics, redirectionVoiceFallback *ngapType.RedirectionVoiceFallback) {
@@ -6822,38 +6698,37 @@ func handlerPathSwitchRequestFailure(ran *context.AmfRan, unsuccessfulOutcome *n
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if pDUSessionResourceReleasedListPSFail == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceReleasedListPSFail")
-		return
+		ran.Log.Warn("Missing IE PDUSessionResourceReleasedListPSFail")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle PathSwitchRequestFailure: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle PathSwitchRequestFailure: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle PathSwitchRequestFailure: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle PathSwitchRequestFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle PathSwitchRequestFailure: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle PathSwitchRequestFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handlePathSwitchRequestFailureMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceReleasedListPSFail *ngapType.PDUSessionResourceReleasedListPSFail,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handlePathSwitchRequestFailureMain(ran, ranUe, pDUSessionResourceReleasedListPSFail, criticalityDiagnostics)
+	handlePathSwitchRequestFailureMain(ran, ranUe /* may be nil */, pDUSessionResourceReleasedListPSFail /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlePathSwitchRequestFailureMain(ran *context.AmfRan, ranUe *context.RanUe, pDUSessionResourceReleasedListPSFail *ngapType.PDUSessionResourceReleasedListPSFail, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -6922,7 +6797,7 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 
 	// func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 	//	supportedTAList *ngapType.SupportedTAList) {
-	handleRANConfigurationUpdateMain(ran, supportedTAList)
+	handleRANConfigurationUpdateMain(ran, supportedTAList /* may be nil */)
 }
 
 func handlerRANConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -6950,7 +6825,7 @@ func handlerRANConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 
 	// func handleRANConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleRANConfigurationUpdateAcknowledgeMain(ran, criticalityDiagnostics)
+	handleRANConfigurationUpdateAcknowledgeMain(ran, criticalityDiagnostics /* may be nil */)
 }
 
 func handleRANConfigurationUpdateAcknowledgeMain(ran *context.AmfRan, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -6997,15 +6872,14 @@ func handlerRANConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 	}
 
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// func handleRANConfigurationUpdateFailureMain(ran *context.AmfRan,
 	//	cause *ngapType.Cause,
 	//	timeToWait *ngapType.TimeToWait,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleRANConfigurationUpdateFailureMain(ran, cause, timeToWait, criticalityDiagnostics)
+	handleRANConfigurationUpdateFailureMain(ran, cause /* may be nil */, timeToWait /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handleRANConfigurationUpdateFailureMain(ran *context.AmfRan, cause *ngapType.Cause, timeToWait *ngapType.TimeToWait, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
@@ -7096,16 +6970,6 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if rRCState == nil {
-		ran.Log.Error("Missing IE RRCState")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRRCState, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -7130,12 +6994,10 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 		return
 	}
 	if rRCState == nil {
-		ran.Log.Error("Missing IE RRCState")
-		return
+		ran.Log.Warn("Missing IE RRCState")
 	}
 	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		return
+		ran.Log.Warn("Missing IE UserLocationInformation")
 	}
 
 	// AMF: mandatory, reject
@@ -7157,7 +7019,7 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 	//	ranUe *context.RanUe,
 	//	rRCState *ngapType.RRCState,
 	//	userLocationInformation *ngapType.UserLocationInformation) {
-	handleRRCInactiveTransitionReportMain(ran, ranUe, rRCState, userLocationInformation)
+	handleRRCInactiveTransitionReportMain(ran, ranUe, rRCState /* may be nil */, userLocationInformation /* may be nil */)
 }
 
 func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -7289,7 +7151,7 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 	//	ranUe *context.RanUe,
 	//	aMFSetID *ngapType.AMFSetID,
 	//	allowedNSSAI *ngapType.AllowedNSSAI) {
-	handleRerouteNASRequestMain(ran, ranUe, aMFSetID, allowedNSSAI)
+	handleRerouteNASRequestMain(ran, ranUe /* may be nil */, aMFSetID, allowedNSSAI /* may be nil */)
 }
 
 func handleRerouteNASRequestMain(ran *context.AmfRan, ranUe *context.RanUe, aMFSetID *ngapType.AMFSetID, allowedNSSAI *ngapType.AllowedNSSAI) {
@@ -7381,22 +7243,6 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 		}
 	}
 
-	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if pDUSessionResourceSecondaryRATUsageList == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceSecondaryRATUsageList")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceSecondaryRATUsageList, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
 		procedureCode := ngapType.ProcedureCodeSecondaryRATDataUsageReport
@@ -7412,38 +7258,37 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if pDUSessionResourceSecondaryRATUsageList == nil {
-		ran.Log.Error("Missing IE PDUSessionResourceSecondaryRATUsageList")
-		return
+		ran.Log.Warn("Missing IE PDUSessionResourceSecondaryRATUsageList")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle SecondaryRATDataUsageReport: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle SecondaryRATDataUsageReport: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle SecondaryRATDataUsageReport: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle SecondaryRATDataUsageReport (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle SecondaryRATDataUsageReport: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle SecondaryRATDataUsageReport (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleSecondaryRATDataUsageReportMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceSecondaryRATUsageList *ngapType.PDUSessionResourceSecondaryRATUsageList,
 	//	handoverFlag *ngapType.HandoverFlag) {
-	handleSecondaryRATDataUsageReportMain(ran, ranUe, pDUSessionResourceSecondaryRATUsageList, handoverFlag)
+	handleSecondaryRATDataUsageReportMain(ran, ranUe /* may be nil */, pDUSessionResourceSecondaryRATUsageList /* may be nil */, handoverFlag /* may be nil */)
 }
 
 func handleSecondaryRATDataUsageReportMain(ran *context.AmfRan, ranUe *context.RanUe, pDUSessionResourceSecondaryRATUsageList *ngapType.PDUSessionResourceSecondaryRATUsageList, handoverFlag *ngapType.HandoverFlag) {
@@ -7545,16 +7390,6 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNGRANTraceID, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -7579,12 +7414,10 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 		return
 	}
 	if nGRANTraceID == nil {
-		ran.Log.Error("Missing IE NGRANTraceID")
-		return
+		ran.Log.Warn("Missing IE NGRANTraceID")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, reject
@@ -7606,7 +7439,7 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 	//	ranUe *context.RanUe,
 	//	nGRANTraceID *ngapType.NGRANTraceID,
 	//	cause *ngapType.Cause) {
-	handleTraceFailureIndicationMain(ran, ranUe, nGRANTraceID, cause)
+	handleTraceFailureIndicationMain(ran, ranUe, nGRANTraceID /* may be nil */, cause /* may be nil */)
 }
 
 func handleTraceFailureIndicationMain(ran *context.AmfRan, ranUe *context.RanUe, nGRANTraceID *ngapType.NGRANTraceID, cause *ngapType.Cause) {
@@ -7694,11 +7527,6 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if traceActivation == nil {
-		ran.Log.Error("Missing IE TraceActivation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTraceActivation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -7723,8 +7551,7 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 		return
 	}
 	if traceActivation == nil {
-		ran.Log.Error("Missing IE TraceActivation")
-		return
+		ran.Log.Warn("Missing IE TraceActivation")
 	}
 
 	// AMF: mandatory, reject
@@ -7745,7 +7572,7 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 	// func handleTraceStartMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	traceActivation *ngapType.TraceActivation) {
-	handleTraceStartMain(ran, ranUe, traceActivation)
+	handleTraceStartMain(ran, ranUe, traceActivation /* may be nil */)
 }
 
 func handleTraceStartMain(ran *context.AmfRan, ranUe *context.RanUe, traceActivation *ngapType.TraceActivation) {
@@ -7811,38 +7638,37 @@ func handlerUEContextModificationFailure(ran *context.AmfRan, unsuccessfulOutcom
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle UEContextModificationFailure: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle UEContextModificationFailure: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle UEContextModificationFailure: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle UEContextModificationFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle UEContextModificationFailure: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle UEContextModificationFailure (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUEContextModificationFailureMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	cause *ngapType.Cause,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUEContextModificationFailureMain(ran, ranUe, cause, criticalityDiagnostics)
+	handleUEContextModificationFailureMain(ran, ranUe /* may be nil */, cause /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8077,7 +7903,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 	//	emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator,
 	//	newAMFUENGAPID *ngapType.AMFUENGAPID,
 	//	rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest) {
-	handleUEContextModificationRequestMain(ran, ranUe, rANPagingPriority, securityKey, indexToRFSP, uEAggregateMaximumBitRate, uESecurityCapabilities, coreNetworkAssistanceInformation, emergencyFallbackIndicator, newAMFUENGAPID, rRCInactiveTransitionReportRequest)
+	handleUEContextModificationRequestMain(ran, ranUe, rANPagingPriority /* may be nil */, securityKey /* may be nil */, indexToRFSP /* may be nil */, uEAggregateMaximumBitRate /* may be nil */, uESecurityCapabilities /* may be nil */, coreNetworkAssistanceInformation /* may be nil */, emergencyFallbackIndicator /* may be nil */, newAMFUENGAPID /* may be nil */, rRCInactiveTransitionReportRequest /* may be nil */)
 }
 
 func handleUEContextModificationRequestMain(ran *context.AmfRan, ranUe *context.RanUe, rANPagingPriority *ngapType.RANPagingPriority, securityKey *ngapType.SecurityKey, indexToRFSP *ngapType.IndexToRFSP, uEAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate, uESecurityCapabilities *ngapType.UESecurityCapabilities, coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation, emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator, newAMFUENGAPID *ngapType.AMFUENGAPID, rRCInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest) {
@@ -8151,35 +7977,35 @@ func handlerUEContextModificationResponse(ran *context.AmfRan, successfulOutcome
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle UEContextModificationResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle UEContextModificationResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle UEContextModificationResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle UEContextModificationResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle UEContextModificationResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle UEContextModificationResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUEContextModificationResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	rRCState *ngapType.RRCState,
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUEContextModificationResponseMain(ran, ranUe, rRCState, userLocationInformation, criticalityDiagnostics)
+	handleUEContextModificationResponseMain(ran, ranUe /* may be nil */, rRCState /* may be nil */, userLocationInformation /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8233,11 +8059,6 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUENGAPIDs, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -8258,14 +8079,13 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// func handleUEContextReleaseCommandMain(ran *context.AmfRan,
 	//	uENGAPIDs *ngapType.UENGAPIDs,
 	//	cause *ngapType.Cause) {
-	handleUEContextReleaseCommandMain(ran, uENGAPIDs, cause)
+	handleUEContextReleaseCommandMain(ran, uENGAPIDs, cause /* may be nil */)
 }
 
 func handleUEContextReleaseCommandMain(ran *context.AmfRan, uENGAPIDs *ngapType.UENGAPIDs, cause *ngapType.Cause) {
@@ -8347,28 +8167,28 @@ func handlerUEContextReleaseComplete(ran *context.AmfRan, successfulOutcome *nga
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, false)
-	if err != nil {
-		ran.Log.Errorf("Handle UEContextReleaseComplete: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, false)
+		if err != nil {
+			ran.Log.Errorf("Handle UEContextReleaseComplete: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle UEContextReleaseComplete: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle UEContextReleaseComplete (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle UEContextReleaseComplete: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle UEContextReleaseComplete (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
@@ -8376,7 +8196,7 @@ func handlerUEContextReleaseComplete(ran *context.AmfRan, successfulOutcome *nga
 	//	infoOnRecommendedCellsAndRANNodesForPaging *ngapType.InfoOnRecommendedCellsAndRANNodesForPaging,
 	//	pDUSessionResourceListCxtRelCpl *ngapType.PDUSessionResourceListCxtRelCpl,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUEContextReleaseCompleteMain(ran, ranUe, userLocationInformation, infoOnRecommendedCellsAndRANNodesForPaging, pDUSessionResourceListCxtRelCpl, criticalityDiagnostics)
+	handleUEContextReleaseCompleteMain(ran, ranUe /* may be nil */, userLocationInformation /* may be nil */, infoOnRecommendedCellsAndRANNodesForPaging /* may be nil */, pDUSessionResourceListCxtRelCpl /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8463,11 +8283,6 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCause, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -8492,8 +8307,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 		return
 	}
 	if cause == nil {
-		ran.Log.Error("Missing IE Cause")
-		return
+		ran.Log.Warn("Missing IE Cause")
 	}
 
 	// AMF: mandatory, reject
@@ -8515,7 +8329,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 	//	ranUe *context.RanUe,
 	//	pDUSessionResourceListCxtRelReq *ngapType.PDUSessionResourceListCxtRelReq,
 	//	cause *ngapType.Cause) {
-	handleUEContextReleaseRequestMain(ran, ranUe, pDUSessionResourceListCxtRelReq, cause)
+	handleUEContextReleaseRequestMain(ran, ranUe, pDUSessionResourceListCxtRelReq /* may be nil */, cause /* may be nil */)
 }
 
 func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8630,7 +8444,7 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 	// func handleUERadioCapabilityCheckRequestMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	uERadioCapability *ngapType.UERadioCapability) {
-	handleUERadioCapabilityCheckRequestMain(ran, ranUe, uERadioCapability)
+	handleUERadioCapabilityCheckRequestMain(ran, ranUe, uERadioCapability /* may be nil */)
 }
 
 func handleUERadioCapabilityCheckRequestMain(ran *context.AmfRan, ranUe *context.RanUe, uERadioCapability *ngapType.UERadioCapability) {
@@ -8696,12 +8510,10 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 	}
 
 	if aMFUENGAPID == nil {
-		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE AMF-UE-NGAP-ID")
 	}
 	if rANUENGAPID == nil {
-		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
-		return
+		ran.Log.Warn("Missing IE RAN-UE-NGAP-ID")
 	}
 	if iMSVoiceSupportIndicator == nil {
 		ran.Log.Error("Missing IE IMSVoiceSupportIndicator")
@@ -8711,23 +8523,25 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
 	var ranUe *context.RanUe
-	var err error
-	ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
-	if err != nil {
-		ran.Log.Errorf("Handle UERadioCapabilityCheckResponse: %s", err)
-		return
+	if aMFUENGAPID != nil {
+		var err error
+		ranUe, err = ranUeFind(ran, aMFUENGAPID, rANUENGAPID, false, true)
+		if err != nil {
+			ran.Log.Errorf("Handle UERadioCapabilityCheckResponse: %s", err)
+			return
+		}
+		if ranUe == nil {
+			ran.Log.Error("Handle UERadioCapabilityCheckResponse: No UE Context")
+			return
+		}
+		ranUe.Log.Infof("Handle UERadioCapabilityCheckResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 	}
-	if ranUe == nil {
-		ran.Log.Error("Handle UERadioCapabilityCheckResponse: No UE Context")
-		return
-	}
-	ranUe.Log.Infof("Handle UERadioCapabilityCheckResponse (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUERadioCapabilityCheckResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
 	//	iMSVoiceSupportIndicator *ngapType.IMSVoiceSupportIndicator,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUERadioCapabilityCheckResponseMain(ran, ranUe, iMSVoiceSupportIndicator, criticalityDiagnostics)
+	handleUERadioCapabilityCheckResponseMain(ran, ranUe /* may be nil */, iMSVoiceSupportIndicator, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8814,11 +8628,6 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if uERadioCapability == nil {
-		ran.Log.Error("Missing IE UERadioCapability")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUERadioCapability, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -8843,8 +8652,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 		return
 	}
 	if uERadioCapability == nil {
-		ran.Log.Error("Missing IE UERadioCapability")
-		return
+		ran.Log.Warn("Missing IE UERadioCapability")
 	}
 
 	// AMF: mandatory, reject
@@ -8866,7 +8674,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 	//	ranUe *context.RanUe,
 	//	uERadioCapability *ngapType.UERadioCapability,
 	//	uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging) {
-	handleUERadioCapabilityInfoIndicationMain(ran, ranUe, uERadioCapability, uERadioCapabilityForPaging)
+	handleUERadioCapabilityInfoIndicationMain(ran, ranUe, uERadioCapability /* may be nil */, uERadioCapabilityForPaging /* may be nil */)
 }
 
 func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -9073,11 +8881,6 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNASPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 	}
-	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
-		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
-	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
 		ran.Log.Trace("Has IE error")
@@ -9106,8 +8909,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 		return
 	}
 	if userLocationInformation == nil {
-		ran.Log.Error("Missing IE UserLocationInformation")
-		return
+		ran.Log.Warn("Missing IE UserLocationInformation")
 	}
 
 	// AMF: mandatory, reject
@@ -9129,7 +8931,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 	//	ranUe *context.RanUe,
 	//	nASPDU *ngapType.NASPDU,
 	//	userLocationInformation *ngapType.UserLocationInformation) {
-	handleUplinkNASTransportMain(ran, ranUe, nASPDU, userLocationInformation)
+	handleUplinkNASTransportMain(ran, ranUe, nASPDU, userLocationInformation /* may be nil */)
 }
 
 func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -9268,7 +9070,7 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 
 	// func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 	//	sONConfigurationTransferUL *ngapType.SONConfigurationTransfer) {
-	handleUplinkRANConfigurationTransferMain(ran, sONConfigurationTransferUL)
+	handleUplinkRANConfigurationTransferMain(ran, sONConfigurationTransferUL /* may be nil */)
 }
 
 func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -9779,7 +9581,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 	//	warningMessageContents *ngapType.WarningMessageContents,
 	//	concurrentWarningMessageInd *ngapType.ConcurrentWarningMessageInd,
 	//	warningAreaCoordinates *ngapType.WarningAreaCoordinates) {
-	handleWriteReplaceWarningRequestMain(ran, messageIdentifier, serialNumber, warningAreaList, repetitionPeriod, numberOfBroadcastsRequested, warningType, warningSecurityInfo, dataCodingScheme, warningMessageContents, concurrentWarningMessageInd, warningAreaCoordinates)
+	handleWriteReplaceWarningRequestMain(ran, messageIdentifier, serialNumber, warningAreaList /* may be nil */, repetitionPeriod, numberOfBroadcastsRequested, warningType /* may be nil */, warningSecurityInfo /* may be nil */, dataCodingScheme /* may be nil */, warningMessageContents /* may be nil */, concurrentWarningMessageInd /* may be nil */, warningAreaCoordinates /* may be nil */)
 }
 
 func handleWriteReplaceWarningRequestMain(ran *context.AmfRan, messageIdentifier *ngapType.MessageIdentifier, serialNumber *ngapType.SerialNumber, warningAreaList *ngapType.WarningAreaList, repetitionPeriod *ngapType.RepetitionPeriod, numberOfBroadcastsRequested *ngapType.NumberOfBroadcastsRequested, warningType *ngapType.WarningType, warningSecurityInfo *ngapType.WarningSecurityInfo, dataCodingScheme *ngapType.DataCodingScheme, warningMessageContents *ngapType.WarningMessageContents, concurrentWarningMessageInd *ngapType.ConcurrentWarningMessageInd, warningAreaCoordinates *ngapType.WarningAreaCoordinates) {
@@ -9858,7 +9660,7 @@ func handlerWriteReplaceWarningResponse(ran *context.AmfRan, successfulOutcome *
 	//	serialNumber *ngapType.SerialNumber,
 	//	broadcastCompletedAreaList *ngapType.BroadcastCompletedAreaList,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleWriteReplaceWarningResponseMain(ran, messageIdentifier, serialNumber, broadcastCompletedAreaList, criticalityDiagnostics)
+	handleWriteReplaceWarningResponseMain(ran, messageIdentifier, serialNumber, broadcastCompletedAreaList /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handleWriteReplaceWarningResponseMain(ran *context.AmfRan, messageIdentifier *ngapType.MessageIdentifier, serialNumber *ngapType.SerialNumber, broadcastCompletedAreaList *ngapType.BroadcastCompletedAreaList, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
