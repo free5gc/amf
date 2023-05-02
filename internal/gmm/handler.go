@@ -1321,7 +1321,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				}
 
 				var n1Message bytes.Buffer
-				ue.RegistrationRequest.EncodeRegistrationRequest(&n1Message)
+				err = ue.RegistrationRequest.EncodeRegistrationRequest(&n1Message)
+				if err != nil {
+					return fmt.Errorf("re-encoding registration request message is failed: %w", err)
+				}
 				callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
 			} else {
 				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
