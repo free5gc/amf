@@ -292,7 +292,7 @@ func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.Pr
 
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 
-		nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message)
+		nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
 	}()
 	return nil
 }

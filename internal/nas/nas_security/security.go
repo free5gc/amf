@@ -7,21 +7,44 @@ import (
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/nas"
+	"github.com/free5gc/nas/nasConvert"
+	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
 )
 
 func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) ([]byte, error) {
-	if ue == nil {
-		return nil, fmt.Errorf("amfUe is nil")
-	}
 	if msg == nil {
-		return nil, fmt.Errorf("Nas Message is empty")
+		return nil, fmt.Errorf("NAS Message is nil")
 	}
 
 	// Plain NAS message
-	if !ue.SecurityContextAvailable {
-		return msg.PlainNasEncode()
+	if ue == nil || !ue.SecurityContextAvailable {
+		if msg.GmmMessage == nil {
+			return nil, fmt.Errorf("msg.GmmMessage is nil")
+		}
+		switch msgType := msg.GmmHeader.GetMessageType(); msgType {
+		case nas.MsgTypeIdentityRequest:
+			if msg.GmmMessage.IdentityRequest == nil {
+				return nil,
+					fmt.Errorf("identity Request (type unknown) is requierd security, but security context is not available")
+			}
+			if identityType := msg.GmmMessage.IdentityRequest.SpareHalfOctetAndIdentityType.GetTypeOfIdentity(); identityType !=
+				nasMessage.MobileIdentity5GSTypeSuci {
+				return nil,
+					fmt.Errorf("identity Request (%d) is requierd security, but security context is not available", identityType)
+			}
+		case nas.MsgTypeAuthenticationRequest:
+		case nas.MsgTypeAuthenticationResult:
+		case nas.MsgTypeAuthenticationReject:
+		case nas.MsgTypeRegistrationReject:
+		case nas.MsgTypeDeregistrationAcceptUEOriginatingDeregistration:
+		case nas.MsgTypeServiceReject:
+		default:
+			return nil, fmt.Errorf("NAS message type %d is requierd security, but security context is not available", msgType)
+		}
+		pdu, err := msg.PlainNasEncode()
+		return pdu, err
 	} else {
 		// Security protected NAS Message
 		// a security protected NAS message must be integrity protected, and ciphering is optional
@@ -37,13 +60,13 @@ func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) (
 			ue.ULCount.Set(0, 0)
 			ue.DLCount.Set(0, 0)
 		default:
-			return nil, fmt.Errorf("Wrong security header type: 0x%0x", msg.SecurityHeader.SecurityHeaderType)
+			return nil, fmt.Errorf("wrong security header type: 0x%0x", msg.SecurityHeader.SecurityHeaderType)
 		}
 
 		// encode plain nas first
 		payload, err := msg.PlainNasEncode()
 		if err != nil {
-			return nil, fmt.Errorf("Plain NAS encode error: %+v", err)
+			return nil, fmt.Errorf("plain NAS encode error: %+v", err)
 		}
 
 		ue.NASLog.Tracef("plain payload:\n%+v", hex.Dump(payload))
@@ -52,7 +75,7 @@ func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) (
 			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
 			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.DLCount.Get(),
 				GetBearerType(accessType), security.DirectionDownlink, payload); err != nil {
-				return nil, fmt.Errorf("Encrypt error: %+v", err)
+				return nil, fmt.Errorf("encrypt error: %+v", err)
 			}
 		}
 
@@ -84,61 +107,25 @@ func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) (
 payload either a security protected 5GS NAS message or a plain 5GS NAS message which
 format is followed TS 24.501 9.1.1
 */
-func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*nas.Message, error) {
+func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
+	initialMessage bool,
+) (msg *nas.Message, integrityProtected bool, err error) {
 	if ue == nil {
-		return nil, fmt.Errorf("amfUe is nil")
+		return nil, false, fmt.Errorf("amfUe is nil")
 	}
 	if payload == nil {
-		return nil, fmt.Errorf("NAS payload is empty")
+		return nil, false, fmt.Errorf("NAS payload is empty")
 	}
 	if len(payload) < 2 {
-		return nil, fmt.Errorf("NAS payload is too short")
+		return nil, false, fmt.Errorf("NAS payload is too short")
 	}
 
-	msg := new(nas.Message)
+	ulCountNew := ue.ULCount
+
+	msg = new(nas.Message)
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
-	if msg.SecurityHeaderType == nas.SecurityHeaderTypePlainNas {
-		// RRCEstablishmentCause 0 is for emergency service
-		if ue.SecurityContextAvailable && ue.RanUe[accessType].RRCEstablishmentCause != "0" {
-			ue.NASLog.Warnln("Received Plain NAS message")
-			ue.MacFailed = false
-			if err := msg.PlainNasDecode(&payload); err != nil {
-				return nil, err
-			}
-
-			if msg.GmmMessage == nil {
-				return nil, fmt.Errorf("Gmm Message is nil")
-			}
-
-			// TS 24.501 4.4.4.3: Except the messages listed below, no NAS signalling messages shall be processed
-			// by the receiving 5GMM entity in the AMF or forwarded to the 5GSM entity, unless the secure exchange
-			// of NAS messages has been established for the NAS signalling connection
-			switch msg.GmmHeader.GetMessageType() {
-			case nas.MsgTypeRegistrationRequest:
-				return msg, nil
-			case nas.MsgTypeIdentityResponse:
-				return msg, nil
-			case nas.MsgTypeAuthenticationResponse:
-				return msg, nil
-			case nas.MsgTypeAuthenticationFailure:
-				return msg, nil
-			case nas.MsgTypeSecurityModeReject:
-				return msg, nil
-			case nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration:
-				return msg, nil
-			case nas.MsgTypeDeregistrationAcceptUETerminatedDeregistration:
-				return msg, nil
-			default:
-				return nil, fmt.Errorf(
-					"UE can not send plain nas for non-emergency service when there is a valid security context")
-			}
-		} else {
-			ue.MacFailed = false
-			err := msg.PlainNasDecode(&payload)
-			return msg, err
-		}
-	} else { // Security protected NAS message
+	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas { // Security protected NAS message
 		// Extended protocol discriminator	V 1
 		// Security header type				V 1/2
 		// Spare half octet					V 1/2
@@ -146,7 +133,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		// Sequence number					V 1
 		// Plain 5GS NAS message			V 3-n
 		if len(payload) < (1 + 1 + 4 + 1 + 3) {
-			return nil, fmt.Errorf("NAS payload is too short")
+			return nil, false, fmt.Errorf("NAS payload is too short")
 		}
 		securityHeader := payload[0:6]
 		ue.NASLog.Traceln("securityHeader is ", securityHeader)
@@ -168,48 +155,189 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte) (*n
 		case nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext:
 			ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
 			ciphered = true
-			ue.ULCount.Set(0, 0)
+			ulCountNew.Set(0, 0)
 		default:
-			return nil, fmt.Errorf("Wrong security header type: 0x%0x", msg.SecurityHeader.SecurityHeaderType)
+			return nil, false, fmt.Errorf("wrong security header type: 0x%0x", msg.SecurityHeader.SecurityHeaderType)
 		}
 
-		if ue.ULCount.SQN() > sequenceNumber {
-			ue.NASLog.Debugf("set ULCount overflow")
-			ue.ULCount.SetOverflow(ue.ULCount.Overflow() + 1)
-		}
-		ue.ULCount.SetSQN(sequenceNumber)
-
-		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, ULCount: 0x%0x)", ue.IntegrityAlg, ue.ULCount.Get())
-		ue.NASLog.Tracef("NAS integrity key0x: %0x", ue.KnasInt)
-		mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ue.ULCount.Get(),
-			GetBearerType(accessType), security.DirectionUplink, payload)
-		if err != nil {
-			return nil, fmt.Errorf("MAC calcuate error: %+v", err)
+		if ciphered && !ue.SecurityContextAvailable {
+			return nil, false, fmt.Errorf("NAS message is ciphered, but UE Security Context is not Available")
 		}
 
-		if !reflect.DeepEqual(mac32, receivedMac32) {
-			ue.NASLog.Warnf("NAS MAC verification failed(received: 0x%08x, expected: 0x%08x)", receivedMac32, mac32)
-			ue.MacFailed = true
+		if ue.SecurityContextAvailable {
+			if ulCountNew.SQN() > sequenceNumber {
+				ue.NASLog.Debugf("set ULCount overflow")
+				ulCountNew.SetOverflow(ulCountNew.Overflow() + 1)
+			}
+			ulCountNew.SetSQN(sequenceNumber)
+
+			ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, ULCount: 0x%0x)", ue.IntegrityAlg, ulCountNew.Get())
+			ue.NASLog.Tracef("NAS integrity key0x: %0x", ue.KnasInt)
+			var mac32 []byte
+			mac32, err = security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, ulCountNew.Get(),
+				GetBearerType(accessType), security.DirectionUplink, payload)
+			if err != nil {
+				return nil, false, fmt.Errorf("MAC calcuate error: %+v", err)
+			}
+
+			if !reflect.DeepEqual(mac32, receivedMac32) {
+				ue.NASLog.Warnf("NAS MAC verification failed(received: 0x%08x, expected: 0x%08x)", receivedMac32, mac32)
+			} else {
+				ue.NASLog.Tracef("cmac value: 0x%08x", mac32)
+				integrityProtected = true
+			}
 		} else {
-			ue.NASLog.Tracef("cmac value: 0x%08x", mac32)
-			ue.MacFailed = false
+			ue.NASLog.Debugln("UE Security Context is not Available, so skip MAC verify")
 		}
 
 		if ciphered {
-			ue.NASLog.Debugf("Decrypt NAS message (algorithm: %+v, ULCount: 0x%0x)", ue.CipheringAlg, ue.ULCount.Get())
+			if !integrityProtected {
+				return nil, false, fmt.Errorf("NAS message is ciphered, but MAC verification failed")
+			}
+			ue.NASLog.Debugf("Decrypt NAS message (algorithm: %+v, ULCount: 0x%0x)", ue.CipheringAlg, ulCountNew.Get())
 			ue.NASLog.Tracef("NAS ciphering key: %0x", ue.KnasEnc)
 			// decrypt payload without sequence number (payload[1])
-			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ue.ULCount.Get(), GetBearerType(accessType),
+			if err = security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, ulCountNew.Get(), GetBearerType(accessType),
 				security.DirectionUplink, payload[1:]); err != nil {
-				return nil, fmt.Errorf("Encrypt error: %+v", err)
+				return nil, false, fmt.Errorf("decrypt error: %+v", err)
 			}
 		}
 
 		// remove sequece Number
 		payload = payload[1:]
-		err = msg.PlainNasDecode(&payload)
-		return msg, err
 	}
+
+	err = msg.PlainNasDecode(&payload)
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	msgTypeText := func() string {
+		if msg.GmmMessage == nil {
+			return "Non GMM message"
+		} else {
+			return fmt.Sprintf(" message type %d", msg.GmmHeader.GetMessageType())
+		}
+	}
+	errNoSecurityContext := func() error {
+		return fmt.Errorf("UE Security Context is not Available, %s", msgTypeText())
+	}
+	errWrongSecurityHeader := func() error {
+		return fmt.Errorf("wrong security header type: 0x%0x, %s", msg.SecurityHeader.SecurityHeaderType, msgTypeText())
+	}
+	errMacVerificationFailed := func() error {
+		return fmt.Errorf("MAC verification failed, %s", msgTypeText())
+	}
+
+	if msg.GmmMessage == nil {
+		if !ue.SecurityContextAvailable {
+			return nil, false, errNoSecurityContext()
+		}
+		if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+			return nil, false, errWrongSecurityHeader()
+		}
+		if !integrityProtected {
+			return nil, false, errMacVerificationFailed()
+		}
+	} else {
+		switch msg.GmmHeader.GetMessageType() {
+		case nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration, nas.MsgTypeRegistrationRequest:
+			if initialMessage {
+				if msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCiphered ||
+					msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
+					return nil, false, errWrongSecurityHeader()
+				}
+			} else {
+				if ue.SecurityContextAvailable {
+					if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+						return nil, false, errWrongSecurityHeader()
+					}
+					if !integrityProtected {
+						return nil, false, errMacVerificationFailed()
+					}
+				}
+			}
+		case nas.MsgTypeServiceRequest:
+			if initialMessage {
+				if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtected {
+					return nil, false, errWrongSecurityHeader()
+				}
+			} else {
+				if !ue.SecurityContextAvailable {
+					return nil, false, errNoSecurityContext()
+				}
+				if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+					return nil, false, errWrongSecurityHeader()
+				}
+				if !integrityProtected {
+					return nil, false, errMacVerificationFailed()
+				}
+			}
+		case nas.MsgTypeIdentityResponse:
+			mobileIdentityContents := msg.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
+			if len(mobileIdentityContents) >= 1 &&
+				nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) == nasMessage.MobileIdentity5GSTypeSuci {
+				// Identity is SUSI
+				if ue.SecurityContextAvailable {
+					if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+						return nil, false, errWrongSecurityHeader()
+					}
+					if !integrityProtected {
+						return nil, false, errMacVerificationFailed()
+					}
+				}
+			} else {
+				// Identity is not SUSI
+				if !ue.SecurityContextAvailable {
+					return nil, false, errNoSecurityContext()
+				}
+				if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+					return nil, false, errWrongSecurityHeader()
+				}
+				if !integrityProtected {
+					return nil, false, errMacVerificationFailed()
+				}
+			}
+		case nas.MsgTypeAuthenticationResponse,
+			nas.MsgTypeAuthenticationFailure,
+			nas.MsgTypeSecurityModeReject,
+			nas.MsgTypeDeregistrationAcceptUETerminatedDeregistration:
+			if ue.SecurityContextAvailable {
+				if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+					return nil, false, errWrongSecurityHeader()
+				}
+				if !integrityProtected {
+					return nil, false, errMacVerificationFailed()
+				}
+			}
+		case nas.MsgTypeSecurityModeComplete:
+			if !ue.SecurityContextAvailable {
+				return nil, false, errNoSecurityContext()
+			}
+			if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
+				return nil, false, errWrongSecurityHeader()
+			}
+			if !integrityProtected {
+				return nil, false, errMacVerificationFailed()
+			}
+		default:
+			if !ue.SecurityContextAvailable {
+				return nil, false, errNoSecurityContext()
+			}
+			if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
+				return nil, false, errWrongSecurityHeader()
+			}
+			if !integrityProtected {
+				return nil, false, errMacVerificationFailed()
+			}
+		}
+	}
+
+	if integrityProtected {
+		ue.ULCount = ulCountNew
+	}
+	return msg, integrityProtected, nil
 }
 
 func GetBearerType(accessType models.AccessType) uint8 {
