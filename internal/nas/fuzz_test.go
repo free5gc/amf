@@ -3,6 +3,8 @@ package nas_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
@@ -11,7 +13,6 @@ import (
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
-	"github.com/stretchr/testify/require"
 )
 
 func FuzzHandleNAS(f *testing.F) {
@@ -58,8 +59,9 @@ func FuzzHandleNAS(f *testing.F) {
 	msg = nas.NewMessage()
 	msg.GmmMessage = nas.NewGmmMessage()
 	msg.GmmMessage.GmmHeader.SetMessageType(nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration)
-	msg.GmmMessage.DeregistrationRequestUEOriginatingDeregistration = nasMessage.NewDeregistrationRequestUEOriginatingDeregistration(nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration)
-	deReg := msg.GmmMessage.DeregistrationRequestUEOriginatingDeregistration
+	deReg := nasMessage.NewDeregistrationRequestUEOriginatingDeregistration(
+		nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration)
+	msg.GmmMessage.DeregistrationRequestUEOriginatingDeregistration = deReg
 	deReg.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
 	deReg.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	deReg.DeregistrationRequestMessageIdentity.SetMessageType(nas.MsgTypeDeregistrationRequestUEOriginatingDeregistration)
@@ -90,7 +92,8 @@ func FuzzHandleNAS(f *testing.F) {
 	buf = append([]uint8{
 		nasMessage.Epd5GSMobilityManagementMessage,
 		nas.SecurityHeaderTypeIntegrityProtected,
-		0, 0, 0, 0, 0},
+		0, 0, 0, 0, 0,
+	},
 		buf...)
 	f.Add(buf)
 
@@ -167,7 +170,8 @@ func FuzzHandleNAS2(f *testing.F) {
 	ar.ExtendedProtocolDiscriminator.SetExtendedProtocolDiscriminator(nasMessage.Epd5GSMobilityManagementMessage)
 	ar.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	ar.AuthenticationResponseMessageIdentity.SetMessageType(nas.MsgTypeAuthenticationResponse)
-	ar.AuthenticationResponseParameter = nasType.NewAuthenticationResponseParameter(nasMessage.AuthenticationResponseAuthenticationResponseParameterType)
+	ar.AuthenticationResponseParameter = nasType.NewAuthenticationResponseParameter(
+		nasMessage.AuthenticationResponseAuthenticationResponseParameterType)
 	ar.AuthenticationResponseParameter.SetLen(16)
 	buf, err = msg.PlainNasEncode()
 	require.NoError(f, err)
@@ -182,7 +186,8 @@ func FuzzHandleNAS2(f *testing.F) {
 	af.SpareHalfOctetAndSecurityHeaderType.SetSecurityHeaderType(nas.SecurityHeaderTypePlainNas)
 	af.AuthenticationFailureMessageIdentity.SetMessageType(nas.MsgTypeAuthenticationFailure)
 	af.Cause5GMM.SetCauseValue(nasMessage.Cause5GMMSynchFailure)
-	af.AuthenticationFailureParameter = nasType.NewAuthenticationFailureParameter(nasMessage.AuthenticationFailureAuthenticationFailureParameterType)
+	af.AuthenticationFailureParameter = nasType.NewAuthenticationFailureParameter(
+		nasMessage.AuthenticationFailureAuthenticationFailureParameterType)
 	af.AuthenticationFailureParameter.SetLen(14)
 	buf, err = msg.PlainNasEncode()
 	require.NoError(f, err)
