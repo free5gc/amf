@@ -3,6 +3,7 @@ package message
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -500,7 +501,10 @@ func BuildRegistrationAccept(
 	// TODO: set smsAllowed value of RegistrationResult5GS if need
 
 	if ue.Guti != "" {
-		gutiNas := nasConvert.GutiToNas(ue.Guti)
+		gutiNas, err := nasConvert.GutiToNasWithError(ue.Guti)
+		if err != nil {
+			return nil, fmt.Errorf("encode GUTI failed: %w", err)
+		}
 		registrationAccept.GUTI5G = &gutiNas
 		registrationAccept.GUTI5G.SetIei(nasMessage.RegistrationAcceptGUTI5GType)
 	}
@@ -720,7 +724,10 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 	}
 
 	if ue.Guti != "" {
-		gutiNas := nasConvert.GutiToNas(ue.Guti)
+		gutiNas, err := nasConvert.GutiToNasWithError(ue.Guti)
+		if err != nil {
+			return nil, fmt.Errorf("encode GUTI failed: %w", err)
+		}
 		configurationUpdateCommand.GUTI5G = &gutiNas
 		configurationUpdateCommand.GUTI5G.SetIei(nasMessage.ConfigurationUpdateCommandGUTI5GType)
 	}

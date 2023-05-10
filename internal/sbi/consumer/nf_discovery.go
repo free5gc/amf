@@ -24,6 +24,9 @@ func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfT
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
 		err = fmt.Errorf("Temporary Redirect For Non NRF Consumer")
 	}
+	if res == nil || res.Body == nil {
+		return result, err
+	}
 	defer func() {
 		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
 			logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)

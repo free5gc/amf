@@ -458,17 +458,28 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	mobileIdentity5GSContents := registrationRequest.MobileIdentity5GS.GetMobileIdentity5GSContents()
+	if len(mobileIdentity5GSContents) < 1 {
+		return errors.New("broken MobileIdentity5GS")
+	}
 	ue.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentity5GSContents[0])
 	switch ue.IdentityTypeUsedForRegistration { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeNoIdentity:
 		ue.GmmLog.Debugf("No Identity")
 	case nasMessage.MobileIdentity5GSTypeSuci:
-		var plmnId string
-		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentity5GSContents)
-		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
+		if suci, plmnId, err := nasConvert.SuciToStringWithError(mobileIdentity5GSContents); err != nil {
+			return fmt.Errorf("decode SUCI failed: %w", err)
+		} else if plmnId == "" {
+			return errors.New("empty plmnId")
+		} else {
+			ue.Suci = suci
+			ue.PlmnId = util.PlmnIdStringToModels(plmnId)
+		}
 		ue.GmmLog.Debugf("SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
-		guamiFromUeGutiTmp, guti := nasConvert.GutiToString(mobileIdentity5GSContents)
+		guamiFromUeGutiTmp, guti, err := nasConvert.GutiToStringWithError(mobileIdentity5GSContents)
+		if err != nil {
+			return fmt.Errorf("decode GUTI failed: %w", err)
+		}
 		guamiFromUeGuti = guamiFromUeGutiTmp
 		ue.GmmLog.Debugf("GUTI: %s", guti)
 
@@ -487,11 +498,17 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			ue.Guti = guti
 		}
 	case nasMessage.MobileIdentity5GSTypeImei:
-		imei := nasConvert.PeiToString(mobileIdentity5GSContents)
+		imei, err := nasConvert.PeiToStringWithError(mobileIdentity5GSContents)
+		if err != nil {
+			return fmt.Errorf("decode PEI failed: %w", err)
+		}
 		ue.Pei = imei
 		ue.GmmLog.Debugf("PEI: %s", imei)
 	case nasMessage.MobileIdentity5GSTypeImeisv:
-		imeisv := nasConvert.PeiToString(mobileIdentity5GSContents)
+		imeisv, err := nasConvert.PeiToStringWithError(mobileIdentity5GSContents)
+		if err != nil {
+			return fmt.Errorf("decode PEI failed: %w", err)
+		}
 		ue.Pei = imeisv
 		ue.GmmLog.Debugf("PEI: %s", imeisv)
 	}
@@ -1422,6 +1439,9 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 	ue.GmmLog.Info("Handle Identity Response")
 
 	mobileIdentityContents := identityResponse.MobileIdentity.GetMobileIdentityContents()
+	if len(mobileIdentityContents) < 1 {
+		return errors.New("empty Mobile Identity")
+	}
 	if nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) != ue.RequestIdentityType {
 		return fmt.Errorf("Received identity type doesn't match request type")
 	}
@@ -1433,15 +1453,23 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 
 	switch nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) { // get type of identity
 	case nasMessage.MobileIdentity5GSTypeSuci:
-		var plmnId string
-		ue.Suci, plmnId = nasConvert.SuciToString(mobileIdentityContents)
-		ue.PlmnId = util.PlmnIdStringToModels(plmnId)
+		if suci, plmnId, err := nasConvert.SuciToStringWithError(mobileIdentityContents); err != nil {
+			return fmt.Errorf("decode SUCI failed: %w", err)
+		} else if plmnId == "" {
+			return errors.New("empty plmnId")
+		} else {
+			ue.Suci = suci
+			ue.PlmnId = util.PlmnIdStringToModels(plmnId)
+		}
 		ue.GmmLog.Debugf("get SUCI: %s", ue.Suci)
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		_, guti := nasConvert.GutiToString(mobileIdentityContents)
+		_, guti, err := nasConvert.GutiToStringWithError(mobileIdentityContents)
+		if err != nil {
+			return fmt.Errorf("decode GUTI failed: %w", err)
+		}
 		ue.Guti = guti
 		ue.GmmLog.Debugf("get GUTI: %s", guti)
 	case nasMessage.MobileIdentity5GSType5gSTmsi:
@@ -1459,14 +1487,20 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nasMessage.Iden
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imei := nasConvert.PeiToString(mobileIdentityContents)
+		imei, err := nasConvert.PeiToStringWithError(mobileIdentityContents)
+		if err != nil {
+			return fmt.Errorf("decode PEI failed: %w", err)
+		}
 		ue.Pei = imei
 		ue.GmmLog.Debugf("get PEI: %s", imei)
 	case nasMessage.MobileIdentity5GSTypeImeisv:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imeisv := nasConvert.PeiToString(mobileIdentityContents)
+		imeisv, err := nasConvert.PeiToStringWithError(mobileIdentityContents)
+		if err != nil {
+			return fmt.Errorf("decode PEI failed: %w", err)
+		}
 		ue.Pei = imeisv
 		ue.GmmLog.Debugf("get PEI: %s", imeisv)
 	}
@@ -1987,6 +2021,9 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 		if err := mapstructure.Decode(ue.AuthenticationCtx.Var5gAuthData, &av5gAka); err != nil {
 			return fmt.Errorf("Var5gAuthData Convert Type Error")
 		}
+		if authenticationResponse.AuthenticationResponseParameter == nil {
+			return fmt.Errorf("AuthenticationResponseParamete is nil")
+		}
 		resStar := authenticationResponse.AuthenticationResponseParameter.GetRES()
 
 		// Calculate HRES* (TS 33.501 Annex A.5)
@@ -2152,6 +2189,9 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 					fsm.ArgsType{ArgAmfUe: ue, ArgAccessType: anType})
 			}
 
+			if authenticationFailure.AuthenticationFailureParameter == nil {
+				return errors.New("AuthenticationFailureParameter is nil")
+			}
 			auts := authenticationFailure.AuthenticationFailureParameter.GetAuthenticationFailureParameter()
 			resynchronizationInfo := &models.ResynchronizationInfo{
 				Auts: hex.EncodeToString(auts[:]),
@@ -2246,7 +2286,12 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 
 	if securityModeComplete.IMEISV != nil {
 		ue.GmmLog.Debugln("receieve IMEISV")
-		ue.Pei = nasConvert.PeiToString(securityModeComplete.IMEISV.Octet[:])
+		if pei, err := nasConvert.PeiToStringWithError(securityModeComplete.IMEISV.Octet[:]); err != nil {
+			gmm_message.SendRegistrationReject(ue.RanUe[anType], nasMessage.Cause5GMMProtocolErrorUnspecified, "")
+			return fmt.Errorf("decode PEI failed: %w", err)
+		} else {
+			ue.Pei = pei
+		}
 	}
 
 	// TODO: AMF shall set the NAS COUNTs to zero if horizontal derivation of KAMF is performed
