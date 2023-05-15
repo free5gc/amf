@@ -3,6 +3,7 @@ package ngap
 
 import (
 	"github.com/free5gc/amf/internal/context"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/ngap/ngapType"
 )
 
@@ -120,7 +121,24 @@ func dispatchMain(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		case ngapType.ProcedureCodeWriteReplaceWarning:
 			handlerWriteReplaceWarningRequest(ran, initiatingMessage)
 		default:
-			ran.Log.Warnf("Not implemented(choice:%d, procedureCode:%d)", message.Present, initiatingMessage.ProcedureCode.Value)
+			cause := ngapType.Cause{
+				Present:  ngapType.CausePresentProtocol,
+				Protocol: &ngapType.CauseProtocol{},
+			}
+			switch initiatingMessage.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended procedure code of InitiatingMessage (criticality: reject, procedureCode:0x%02x)", initiatingMessage.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorReject
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended procedure code of InitiatingMessage (criticality: ignore, procedureCode:0x%02x)", initiatingMessage.ProcedureCode.Value)
+				return
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended procedure code of InitiatingMessage (criticality: notify, procedureCode:0x%02x)", initiatingMessage.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorIgnoreAndNotify
+			}
+			triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+			criticalityDiagnostics := buildCriticalityDiagnostics(&initiatingMessage.ProcedureCode.Value, &triggeringMessage, &initiatingMessage.Criticality.Value, nil)
+			ngap_message.SendErrorIndication(ran, nil, nil, &cause, &criticalityDiagnostics)
 		}
 	case ngapType.NGAPPDUPresentSuccessfulOutcome:
 		successfulOutcome := message.SuccessfulOutcome
@@ -166,7 +184,24 @@ func dispatchMain(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		case ngapType.ProcedureCodeWriteReplaceWarning:
 			handlerWriteReplaceWarningResponse(ran, successfulOutcome)
 		default:
-			ran.Log.Warnf("Not implemented(choice:%d, procedureCode:%d)", message.Present, successfulOutcome.ProcedureCode.Value)
+			cause := ngapType.Cause{
+				Present:  ngapType.CausePresentProtocol,
+				Protocol: &ngapType.CauseProtocol{},
+			}
+			switch successfulOutcome.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended procedure code of SuccessfulOutcome (criticality: reject, procedureCode:0x%02x)", successfulOutcome.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorReject
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended procedure code of SuccessfulOutcome (criticality: ignore, procedureCode:0x%02x)", successfulOutcome.ProcedureCode.Value)
+				return
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended procedure code of SuccessfulOutcome (criticality: notify, procedureCode:0x%02x)", successfulOutcome.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorIgnoreAndNotify
+			}
+			triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+			criticalityDiagnostics := buildCriticalityDiagnostics(&successfulOutcome.ProcedureCode.Value, &triggeringMessage, &successfulOutcome.Criticality.Value, nil)
+			ngap_message.SendErrorIndication(ran, nil, nil, &cause, &criticalityDiagnostics)
 		}
 	case ngapType.NGAPPDUPresentUnsuccessfulOutcome:
 		unsuccessfulOutcome := message.UnsuccessfulOutcome
@@ -192,7 +227,24 @@ func dispatchMain(ran *context.AmfRan, message *ngapType.NGAPPDU) {
 		case ngapType.ProcedureCodeUEContextModification:
 			handlerUEContextModificationFailure(ran, unsuccessfulOutcome)
 		default:
-			ran.Log.Warnf("Not implemented(choice:%d, procedureCode:%d)", message.Present, unsuccessfulOutcome.ProcedureCode.Value)
+			cause := ngapType.Cause{
+				Present:  ngapType.CausePresentProtocol,
+				Protocol: &ngapType.CauseProtocol{},
+			}
+			switch unsuccessfulOutcome.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended procedure code of UnsuccessfulOutcome (criticality: reject, procedureCode:0x%02x)", unsuccessfulOutcome.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorReject
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended procedure code of UnsuccessfulOutcome (criticality: ignore, procedureCode:0x%02x)", unsuccessfulOutcome.ProcedureCode.Value)
+				return
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended procedure code of UnsuccessfulOutcome (criticality: notify, procedureCode:0x%02x)", unsuccessfulOutcome.ProcedureCode.Value)
+				cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorIgnoreAndNotify
+			}
+			triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+			criticalityDiagnostics := buildCriticalityDiagnostics(&unsuccessfulOutcome.ProcedureCode.Value, &triggeringMessage, &unsuccessfulOutcome.Criticality.Value, nil)
+			ngap_message.SendErrorIndication(ran, nil, nil, &cause, &criticalityDiagnostics)
 		}
 	}
 }

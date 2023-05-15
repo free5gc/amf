@@ -576,6 +576,7 @@ func generateDispatcher() {
 		"ngap",
 		[]string{
 			"\"github.com/free5gc/amf/internal/context\"",
+			"ngap_message \"github.com/free5gc/amf/internal/ngap/message\"",
 			"\"github.com/free5gc/ngap/ngapType\"",
 		})
 
@@ -589,12 +590,13 @@ func generateDispatcher() {
 		"UnsuccessfulOutcome",
 	} {
 		fmt.Fprintf(fOut, "case ngapType.NGAPPDUPresent%s:\n", present)
-		fmt.Fprintf(fOut, "%s := message.%s\n", convGoLocalName(present), present)
-		fmt.Fprintf(fOut, "if %s == nil {\n", convGoLocalName(present))
+		presentVar := convGoLocalName(present)
+		fmt.Fprintf(fOut, "%s := message.%s\n", presentVar, present)
+		fmt.Fprintf(fOut, "if %s == nil {\n", presentVar)
 		fmt.Fprintf(fOut, "ran.Log.Errorln(\"%s is nil\")\n", present)
 		fmt.Fprintln(fOut, "return")
 		fmt.Fprintln(fOut, "}")
-		fmt.Fprintf(fOut, "switch %s.ProcedureCode.Value {\n", convGoLocalName(present))
+		fmt.Fprintf(fOut, "switch %s.ProcedureCode.Value {\n", presentVar)
 		for _, msgName := range msgNames {
 			mInfo := MsgTable[msgName]
 			if mInfo.GoField == present {
@@ -603,11 +605,28 @@ func generateDispatcher() {
 				if msgName == "InitialUEMessage" {
 					messageAppend = ", message"
 				}
-				fmt.Fprintf(fOut, "handler%s(ran%s, %s)\n", msgName, messageAppend, convGoLocalName(present))
+				fmt.Fprintf(fOut, "handler%s(ran%s, %s)\n", msgName, messageAppend, presentVar)
 			}
 		}
 		fmt.Fprintln(fOut, "default:")
-		fmt.Fprintf(fOut, "ran.Log.Warnf(\"Not implemented(choice:%%d, procedureCode:%%d)\", message.Present, %s.ProcedureCode.Value)\n", convGoLocalName(present))
+		fmt.Fprintln(fOut, "cause := ngapType.Cause{")
+		fmt.Fprintln(fOut, "Present:  ngapType.CausePresentProtocol,")
+		fmt.Fprintln(fOut, "Protocol: &ngapType.CauseProtocol{},")
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintf(fOut, "switch %s.Criticality.Value {\n", presentVar)
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentReject:")
+		fmt.Fprintf(fOut, "ran.Log.Errorf(\"Not comprehended procedure code of %s (criticality: reject, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorReject")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentIgnore:")
+		fmt.Fprintf(fOut, "ran.Log.Infof(\"Not comprehended procedure code of %s (criticality: ignore, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "return")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentNotify:")
+		fmt.Fprintf(fOut, "ran.Log.Warnf(\"Not comprehended procedure code of %s (criticality: notify, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorIgnoreAndNotify")
+		fmt.Fprintln(fOut, "}")
+		genTriggeringMessage(fOut, present)
+		fmt.Fprintf(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&%s.ProcedureCode.Value, &triggeringMessage, &%s.Criticality.Value, nil)\n", presentVar, presentVar)
+		fmt.Fprintln(fOut, "ngap_message.SendErrorIndication(ran, nil, nil, &cause, &criticalityDiagnostics)")
 		fmt.Fprintln(fOut, "}")
 	}
 	fmt.Fprintln(fOut, "}")
@@ -764,11 +783,7 @@ func (o *outputFile) Close() {
 
 func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 	fmt.Fprintf(f, "procedureCode := ngapType.ProcedureCode%s\n", mInfo.ProcCode)
-	if mInfo.GoField == "UnsuccessfulOutcome" {
-		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome\n")
-	} else {
-		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresent%s\n", mInfo.GoField)
-	}
+	genTriggeringMessage(f, mInfo.GoField)
 	switch mInfo.Criticality {
 	case ngapType.CriticalityPresentReject:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentReject")
@@ -776,6 +791,14 @@ func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentIgnore")
 	case ngapType.CriticalityPresentNotify:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentNotify")
+	}
+}
+
+func genTriggeringMessage(f io.Writer, present string) {
+	if present == "UnsuccessfulOutcome" {
+		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome\n")
+	} else {
+		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresent%s\n", present)
 	}
 }
 
