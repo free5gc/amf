@@ -309,10 +309,9 @@ func generateHandler() {
 			}
 		}
 		fmt.Fprintln(fOut, "")
-		if isRequest {
-			fmt.Fprintln(fOut, "var syntaxCause *ngapType.Cause")
-			fmt.Fprintln(fOut, "var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList")
-		}
+		fmt.Fprintln(fOut, "var syntaxCause *ngapType.Cause")
+		fmt.Fprintln(fOut, "var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList")
+		fmt.Fprintln(fOut, "abort := false")
 
 		// generate extract IEs code
 		fmt.Fprintln(fOut, "")
@@ -344,10 +343,9 @@ syntaxCause = &ngapType.Cause{
 	},
 }
 `[1:])
-					fmt.Fprintf(fOut, "break\n")
-				} else {
-					fmt.Fprintln(fOut, "return")
 				}
+				fmt.Fprintln(fOut, "abort = true")
+				fmt.Fprintln(fOut, "break")
 				fmt.Fprintf(fOut, "}\n")
 
 				fmt.Fprintf(fOut, "%s = ie.%s\n", ieInfo.GoVar, ieInfo.GoField)
@@ -370,6 +368,28 @@ syntaxCause = &ngapType.Cause{
 				}
 			}
 		}
+		fmt.Fprintln(fOut, "default:")
+		fmt.Fprintln(fOut, "switch ie.Criticality.Value {")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentReject:")
+		fmt.Fprintln(fOut, "ran.Log.Errorf(\"Not comprehended IE ID 0x%04x (criticality: reject)\", ie.Id.Value)")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentIgnore:")
+		fmt.Fprintln(fOut, "ran.Log.Infof(\"Not comprehended IE ID 0x%04x (criticality: ignore)\", ie.Id.Value)")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentNotify:")
+		fmt.Fprintln(fOut, "ran.Log.Warnf(\"Not comprehended IE ID 0x%04x (criticality: notify)\", ie.Id.Value)")
+		if !isRequest {
+			fmt.Fprintln(fOut, "item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)")
+			fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+		}
+		fmt.Fprintln(fOut, "}")
+		if isRequest {
+			fmt.Fprintln(fOut, "if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {")
+			fmt.Fprintln(fOut, "item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)")
+			fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+			fmt.Fprintln(fOut, "if ie.Criticality.Value == ngapType.CriticalityPresentReject {")
+			fmt.Fprintln(fOut, "abort = true")
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "}")
+		}
 		fmt.Fprintln(fOut, "}")
 		fmt.Fprintln(fOut, "}")
 
@@ -383,65 +403,68 @@ syntaxCause = &ngapType.Cause{
 					fmt.Fprintf(fOut, "ran.Log.Error(\"Missing IE %s\")\n", ieInfo.Type)
 					fmt.Fprintf(fOut, "item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, %s, ngapType.TypeOfErrorPresentMissing)\n", ieInfo.GoID)
 					fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+					fmt.Fprintln(fOut, "abort = true")
 					fmt.Fprintln(fOut, "}")
 				}
 			}
-
-			// Generate Error Indication
-			fmt.Fprintln(fOut, "")
-			fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
-			fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
-			genErrorIndicationCommon(fOut, mInfo)
-			fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
-			fmt.Fprintln(fOut, "if len(iesCriticalityDiagnostics.List) > 0 {")
-			fmt.Fprintln(fOut, "pIesCriticalityDiagnostics = &iesCriticalityDiagnostics")
-			fmt.Fprintln(fOut, "}")
-			fmt.Fprintln(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)")
-			// Must report error by other message than ErrorIndication by these messages
-			switch msgName {
-			// AMF to RAN message
-			// case "AMFConfigurationUpdate":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendAMFConfigurationUpdateFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "HandoverRequired":
-				fmt.Fprintf(fOut, "if %s != nil && %s != nil {\n", amfIdIeVar, ranIdIeVar)
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendHandoverPreparationFailure(ran, *%s, *%s, *syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-				fmt.Fprintln(fOut, "} else {")
-				fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-				fmt.Fprintln(fOut, "}")
-
-			// AMF to RAN message
-			// case "HandoverRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendHandoverFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			// AMF to RAN message
-			// case "InitialContextSetupRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendInitialContextSetupFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "NGSetupRequest":
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
-
-			// Cannot fill mandatory IEs
-			// case "PathSwitchRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendPathSwitchRequestFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "RANConfigurationUpdate":
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
-
-			// AMF to RAN message
-			// case "UEContextModificationRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendUEContextModificationFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			default:
-				fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-			}
-			fmt.Fprintln(fOut, "return")
-			fmt.Fprintln(fOut, "}")
-			// }
 		}
+
+		// Generate Error Indication
+		fmt.Fprintln(fOut, "")
+		fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
+		fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
+		genErrorIndicationCommon(fOut, mInfo)
+		fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
+		fmt.Fprintln(fOut, "if len(iesCriticalityDiagnostics.List) > 0 {")
+		fmt.Fprintln(fOut, "pIesCriticalityDiagnostics = &iesCriticalityDiagnostics")
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintln(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)")
+		// Must report error by other message than ErrorIndication by these messages
+		switch msgName {
+		// AMF to RAN message
+		// case "AMFConfigurationUpdate":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendAMFConfigurationUpdateFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "HandoverRequired":
+			fmt.Fprintf(fOut, "if %s != nil && %s != nil {\n", amfIdIeVar, ranIdIeVar)
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendHandoverPreparationFailure(ran, *%s, *%s, *syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+			fmt.Fprintln(fOut, "} else {")
+			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+			fmt.Fprintln(fOut, "}")
+
+		// AMF to RAN message
+		// case "HandoverRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendHandoverFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		// AMF to RAN message
+		// case "InitialContextSetupRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendInitialContextSetupFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "NGSetupRequest":
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
+
+		// Cannot fill mandatory IEs
+		// case "PathSwitchRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendPathSwitchRequestFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "RANConfigurationUpdate":
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
+
+		// AMF to RAN message
+		// case "UEContextModificationRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendUEContextModificationFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		default:
+			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+		}
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintln(fOut, "")
+		fmt.Fprintln(fOut, "if abort {")
+		fmt.Fprintln(fOut, "return")
+		fmt.Fprintln(fOut, "}")
 
 		// To avoid Coverity's false positive, generate this check for Request messages too
 		fmt.Fprintln(fOut, "")
