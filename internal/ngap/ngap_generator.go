@@ -28,14 +28,14 @@ const (
 
 // NGAP IE definition
 type IEInfo struct {
-	Criticality  aper.Enumerated
-	Type         string
-	Presence     aper.Enumerated
-	GoID         string
-	GoField      string
-	GoVar        string
-	GoType       string
-	Comprehended bool
+	Criticality   aper.Enumerated
+	Type          string
+	Presence      aper.Enumerated
+	GoID          string
+	GoField       string
+	GoVar         string
+	GoType        string
+	Unimplemented bool
 }
 
 // NGAP message definition
@@ -154,7 +154,6 @@ func readASN1() {
 					ie.GoField = "Value." + convGoName(ieId[3:])
 					ie.GoVar = convGoLocalName(ieId[3:])
 					ie.GoType = "ngapType." + convGoName(ieType)
-					ie.Comprehended = true
 					// fmt.Printf("%+v\n", *ie)
 				}
 			}
@@ -234,23 +233,23 @@ func readASN1() {
 }
 
 func fixIEs() {
-	// Uncomprehended (not implemented) IEs
-	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationSetupList"].Comprehended = false
-	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationFailedToSetupList"].Comprehended = false
-	MsgTable["AMFConfigurationUpdateFailure"].IEs["id-TimeToWait"].Comprehended = false
-	MsgTable["HandoverRequired"].IEs["id-DirectForwardingPathAvailability"].Comprehended = false
-	MsgTable["InitialUEMessage"].IEs["id-AMFSetID"].Comprehended = false
-	// MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Comprehended = false
-	MsgTable["NGSetupRequest"].IEs["id-UERetentionInformation"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-RANNodeName"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-DefaultPagingDRX"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-GlobalRANNodeID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-AMF-UE-NGAP-ID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Comprehended = false
-	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Comprehended = false
-	// MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Comprehended = false
-	// MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Comprehended = false
+	// Not implemented IEs
+	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationSetupList"].Unimplemented = true
+	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationFailedToSetupList"].Unimplemented = true
+	MsgTable["AMFConfigurationUpdateFailure"].IEs["id-TimeToWait"].Unimplemented = true
+	MsgTable["HandoverRequired"].IEs["id-DirectForwardingPathAvailability"].Unimplemented = true
+	MsgTable["InitialUEMessage"].IEs["id-AMFSetID"].Unimplemented = true
+	MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Unimplemented = true
+	MsgTable["NGSetupRequest"].IEs["id-UERetentionInformation"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-RANNodeName"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-DefaultPagingDRX"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-GlobalRANNodeID"].Unimplemented = true
+	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-AMF-UE-NGAP-ID"].Unimplemented = true
+	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Unimplemented = true
+	MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Unimplemented = true
+	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Unimplemented = true
+	MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Unimplemented = true
+	MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Unimplemented = true
 }
 
 // generate NGAP handler file
@@ -304,9 +303,7 @@ func generateHandler() {
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
 			// fmt.Fprintf(fOut, "// %s\n", ieName)
-			if ieInfo.Comprehended {
-				fmt.Fprintf(fOut, "var %s *%s\n", ieInfo.GoVar, ieInfo.GoType)
-			}
+			fmt.Fprintf(fOut, "var %s *%s\n", ieInfo.GoVar, ieInfo.GoType)
 		}
 		fmt.Fprintln(fOut, "")
 		fmt.Fprintln(fOut, "var syntaxCause *ngapType.Cause")
@@ -328,14 +325,13 @@ func generateHandler() {
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
 			fmt.Fprintf(fOut, "case %s: // %s, %s\n", ieInfo.GoID, presence2Str(ieInfo.Presence), criticality2Str(ieInfo.Criticality))
-			if ieInfo.Comprehended {
-				// supported IE
+			// supported IE
 
-				// duplicate check code
-				fmt.Fprintf(fOut, "if %s !=nil {\n", ieInfo.GoVar)
-				fmt.Fprintf(fOut, "ran.Log.Error(\"Duplicate IE %s\")\n", ieInfo.Type)
-				if isRequest {
-					fmt.Fprint(fOut, `
+			// duplicate check code
+			fmt.Fprintf(fOut, "if %s !=nil {\n", ieInfo.GoVar)
+			fmt.Fprintf(fOut, "ran.Log.Error(\"Duplicate IE %s\")\n", ieInfo.Type)
+			if isRequest {
+				fmt.Fprint(fOut, `
 syntaxCause = &ngapType.Cause{
 	Present: ngapType.CausePresentProtocol,
 	Protocol: &ngapType.CauseProtocol{
@@ -343,30 +339,13 @@ syntaxCause = &ngapType.Cause{
 	},
 }
 `[1:])
-				}
-				fmt.Fprintln(fOut, "abort = true")
-				fmt.Fprintln(fOut, "break")
-				fmt.Fprintf(fOut, "}\n")
-
-				fmt.Fprintf(fOut, "%s = ie.%s\n", ieInfo.GoVar, ieInfo.GoField)
-				fmt.Fprintf(fOut, "ran.Log.Trace(\"Decode IE %s\")\n", ieInfo.Type)
-			} else {
-				// not supported IE
-				switch ieInfo.Criticality {
-				case ngapType.CriticalityPresentReject:
-					fmt.Fprintf(fOut, "ran.Log.Error(\"Not comprehended IE %s\")\n", ieInfo.Type)
-					if isRequest {
-						fmt.Fprintf(fOut, "item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, %s, ngapType.TypeOfErrorPresentNotUnderstood)\n", ieInfo.GoID)
-						fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
-					} else {
-						fmt.Fprintln(fOut, "return")
-					}
-				case ngapType.CriticalityPresentIgnore:
-					fmt.Fprintf(fOut, "ran.Log.Info(\"Not comprehended IE %s\")\n", ieInfo.Type)
-				case ngapType.CriticalityPresentNotify:
-					panic("not yet")
-				}
 			}
+			fmt.Fprintln(fOut, "abort = true")
+			fmt.Fprintln(fOut, "break")
+			fmt.Fprintf(fOut, "}\n")
+
+			fmt.Fprintf(fOut, "%s = ie.%s\n", ieInfo.GoVar, ieInfo.GoField)
+			fmt.Fprintf(fOut, "ran.Log.Trace(\"Decode IE %s\")\n", ieInfo.Type)
 		}
 		fmt.Fprintln(fOut, "default:")
 		fmt.Fprintln(fOut, "switch ie.Criticality.Value {")
@@ -480,6 +459,11 @@ syntaxCause = &ngapType.Cause{
 				}
 				fmt.Fprintln(fOut, "}")
 			}
+			if ieInfo.Unimplemented {
+				fmt.Fprintf(fOut, "if %s != nil {\n", ieInfo.GoVar)
+				fmt.Fprintf(fOut, "ran.Log.Info(\"IE %s is not implemented\")\n", ieInfo.Type)
+				fmt.Fprintln(fOut, "}")
+			}
 		}
 
 		// generate UE ID handling codes
@@ -530,7 +514,7 @@ syntaxCause = &ngapType.Cause{
 		}
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
-			if ieInfo.Comprehended && (!hasRanUe || (ieName != "id-AMF-UE-NGAP-ID" && ieName != "id-RAN-UE-NGAP-ID") || (msgName == "HandoverRequestAcknowledge" && ieName == "id-RAN-UE-NGAP-ID")) {
+			if !ieInfo.Unimplemented && (!hasRanUe || (ieName != "id-AMF-UE-NGAP-ID" && ieName != "id-RAN-UE-NGAP-ID") || (msgName == "HandoverRequestAcknowledge" && ieName == "id-RAN-UE-NGAP-ID")) {
 				mayNil := ""
 				if !(ieInfo.Presence == ngapType.PresencePresentMandatory && ieInfo.Criticality == ngapType.CriticalityPresentReject) {
 					mayNil = " /* may be nil */"

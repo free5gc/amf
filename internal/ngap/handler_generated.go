@@ -193,6 +193,8 @@ func handleAMFConfigurationUpdateMain(ran *context.AmfRan, aMFName *ngapType.AMF
 }
 
 func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
+	var aMFTNLAssociationSetupList *ngapType.AMFTNLAssociationSetupList
+	var aMFTNLAssociationFailedToSetupList *ngapType.TNLAssociationList
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
 	var syntaxCause *ngapType.Cause
@@ -210,9 +212,21 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 	for _, ie := range aMFConfigurationUpdateAcknowledge.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFTNLAssociationSetupList: // optional, ignore
-			ran.Log.Info("Not comprehended IE AMF-TNLAssociationSetupList")
+			if aMFTNLAssociationSetupList != nil {
+				ran.Log.Error("Duplicate IE AMF-TNLAssociationSetupList")
+				abort = true
+				break
+			}
+			aMFTNLAssociationSetupList = ie.Value.AMFTNLAssociationSetupList
+			ran.Log.Trace("Decode IE AMF-TNLAssociationSetupList")
 		case ngapType.ProtocolIEIDAMFTNLAssociationFailedToSetupList: // optional, ignore
-			ran.Log.Info("Not comprehended IE TNLAssociationList")
+			if aMFTNLAssociationFailedToSetupList != nil {
+				ran.Log.Error("Duplicate IE TNLAssociationList")
+				abort = true
+				break
+			}
+			aMFTNLAssociationFailedToSetupList = ie.Value.AMFTNLAssociationFailedToSetupList
+			ran.Log.Trace("Decode IE TNLAssociationList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
@@ -252,6 +266,13 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 		return
 	}
 
+	if aMFTNLAssociationSetupList != nil {
+		ran.Log.Info("IE AMF-TNLAssociationSetupList is not implemented")
+	}
+	if aMFTNLAssociationFailedToSetupList != nil {
+		ran.Log.Info("IE TNLAssociationList is not implemented")
+	}
+
 	// func handleAMFConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
 	handleAMFConfigurationUpdateAcknowledgeMain(ran, criticalityDiagnostics /* may be nil */)
@@ -259,6 +280,7 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 
 func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
 	var cause *ngapType.Cause
+	var timeToWait *ngapType.TimeToWait
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
 	var syntaxCause *ngapType.Cause
@@ -284,7 +306,13 @@ func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDTimeToWait: // optional, ignore
-			ran.Log.Info("Not comprehended IE TimeToWait")
+			if timeToWait != nil {
+				ran.Log.Error("Duplicate IE TimeToWait")
+				abort = true
+				break
+			}
+			timeToWait = ie.Value.TimeToWait
+			ran.Log.Trace("Decode IE TimeToWait")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
@@ -326,6 +354,9 @@ func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 
 	if cause == nil {
 		ran.Log.Warn("Missing IE Cause")
+	}
+	if timeToWait != nil {
+		ran.Log.Info("IE TimeToWait is not implemented")
 	}
 
 	// func handleAMFConfigurationUpdateFailureMain(ran *context.AmfRan,
@@ -3125,6 +3156,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 	var handoverType *ngapType.HandoverType
 	var cause *ngapType.Cause
 	var targetID *ngapType.TargetID
+	var directForwardingPathAvailability *ngapType.DirectForwardingPathAvailability
 	var pDUSessionResourceListHORqd *ngapType.PDUSessionResourceListHORqd
 	var sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer
 
@@ -3213,7 +3245,19 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 			targetID = ie.Value.TargetID
 			ran.Log.Trace("Decode IE TargetID")
 		case ngapType.ProtocolIEIDDirectForwardingPathAvailability: // optional, ignore
-			ran.Log.Info("Not comprehended IE DirectForwardingPathAvailability")
+			if directForwardingPathAvailability != nil {
+				ran.Log.Error("Duplicate IE DirectForwardingPathAvailability")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			directForwardingPathAvailability = ie.Value.DirectForwardingPathAvailability
+			ran.Log.Trace("Decode IE DirectForwardingPathAvailability")
 		case ngapType.ProtocolIEIDPDUSessionResourceListHORqd: // mandatory, reject
 			if pDUSessionResourceListHORqd != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceListHORqd")
@@ -3345,6 +3389,9 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 	if targetID == nil {
 		ran.Log.Error("Missing IE TargetID")
 		return
+	}
+	if directForwardingPathAvailability != nil {
+		ran.Log.Info("IE DirectForwardingPathAvailability is not implemented")
 	}
 	if pDUSessionResourceListHORqd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceListHORqd")
@@ -4104,6 +4151,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	var userLocationInformation *ngapType.UserLocationInformation
 	var rRCEstablishmentCause *ngapType.RRCEstablishmentCause
 	var fiveGSTMSI *ngapType.FiveGSTMSI
+	var aMFSetID *ngapType.AMFSetID
 	var uEContextRequest *ngapType.UEContextRequest
 	var allowedNSSAI *ngapType.AllowedNSSAI
 
@@ -4192,7 +4240,19 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 			fiveGSTMSI = ie.Value.FiveGSTMSI
 			ran.Log.Trace("Decode IE FiveG-S-TMSI")
 		case ngapType.ProtocolIEIDAMFSetID: // optional, ignore
-			ran.Log.Info("Not comprehended IE AMFSetID")
+			if aMFSetID != nil {
+				ran.Log.Error("Duplicate IE AMFSetID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			aMFSetID = ie.Value.AMFSetID
+			ran.Log.Trace("Decode IE AMFSetID")
 		case ngapType.ProtocolIEIDUEContextRequest: // optional, ignore
 			if uEContextRequest != nil {
 				ran.Log.Error("Duplicate IE UEContextRequest")
@@ -4291,6 +4351,12 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	if rRCEstablishmentCause == nil {
 		ran.Log.Warn("Missing IE RRCEstablishmentCause")
 	}
+	if aMFSetID != nil {
+		ran.Log.Info("IE AMFSetID is not implemented")
+	}
+	if allowedNSSAI != nil {
+		ran.Log.Info("IE AllowedNSSAI is not implemented")
+	}
 
 	// func handleInitialUEMessageMain(ran *context.AmfRan,
 	//	message *ngapType.NGAPPDU,
@@ -4299,9 +4365,8 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	//	fiveGSTMSI *ngapType.FiveGSTMSI,
-	//	uEContextRequest *ngapType.UEContextRequest,
-	//	allowedNSSAI *ngapType.AllowedNSSAI) {
-	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */, allowedNSSAI /* may be nil */)
+	//	uEContextRequest *ngapType.UEContextRequest) {
+	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */)
 }
 
 func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -5213,6 +5278,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	var rANNodeName *ngapType.RANNodeName
 	var supportedTAList *ngapType.SupportedTAList
 	var defaultPagingDRX *ngapType.PagingDRX
+	var uERetentionInformation *ngapType.UERetentionInformation
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
@@ -5285,7 +5351,19 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 			defaultPagingDRX = ie.Value.DefaultPagingDRX
 			ran.Log.Trace("Decode IE PagingDRX")
 		case ngapType.ProtocolIEIDUERetentionInformation: // optional, ignore
-			ran.Log.Info("Not comprehended IE UERetentionInformation")
+			if uERetentionInformation != nil {
+				ran.Log.Error("Duplicate IE UERetentionInformation")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			uERetentionInformation = ie.Value.UERetentionInformation
+			ran.Log.Trace("Decode IE UERetentionInformation")
 		default:
 			switch ie.Criticality.Value {
 			case ngapType.CriticalityPresentReject:
@@ -5353,6 +5431,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	}
 	if defaultPagingDRX == nil {
 		ran.Log.Warn("Missing IE PagingDRX")
+	}
+	if uERetentionInformation != nil {
+		ran.Log.Info("IE UERetentionInformation is not implemented")
 	}
 
 	// func handleNGSetupRequestMain(ran *context.AmfRan,
@@ -8374,7 +8455,10 @@ func handlePathSwitchRequestFailureMain(ran *context.AmfRan, ranUe *context.RanU
 }
 
 func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
+	var rANNodeName *ngapType.RANNodeName
 	var supportedTAList *ngapType.SupportedTAList
+	var defaultPagingDRX *ngapType.PagingDRX
+	var globalRANNodeID *ngapType.GlobalRANNodeID
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
@@ -8391,7 +8475,19 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 	for _, ie := range rANConfigurationUpdate.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDRANNodeName: // optional, ignore
-			ran.Log.Info("Not comprehended IE RANNodeName")
+			if rANNodeName != nil {
+				ran.Log.Error("Duplicate IE RANNodeName")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			rANNodeName = ie.Value.RANNodeName
+			ran.Log.Trace("Decode IE RANNodeName")
 		case ngapType.ProtocolIEIDSupportedTAList: // optional, reject
 			if supportedTAList != nil {
 				ran.Log.Error("Duplicate IE SupportedTAList")
@@ -8407,9 +8503,33 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 			supportedTAList = ie.Value.SupportedTAList
 			ran.Log.Trace("Decode IE SupportedTAList")
 		case ngapType.ProtocolIEIDDefaultPagingDRX: // optional, ignore
-			ran.Log.Info("Not comprehended IE PagingDRX")
+			if defaultPagingDRX != nil {
+				ran.Log.Error("Duplicate IE PagingDRX")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			defaultPagingDRX = ie.Value.DefaultPagingDRX
+			ran.Log.Trace("Decode IE PagingDRX")
 		case ngapType.ProtocolIEIDGlobalRANNodeID: // optional, ignore
-			ran.Log.Info("Not comprehended IE GlobalRANNodeID")
+			if globalRANNodeID != nil {
+				ran.Log.Error("Duplicate IE GlobalRANNodeID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			globalRANNodeID = ie.Value.GlobalRANNodeID
+			ran.Log.Trace("Decode IE GlobalRANNodeID")
 		default:
 			switch ie.Criticality.Value {
 			case ngapType.CriticalityPresentReject:
@@ -8452,6 +8572,16 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 
 	if abort {
 		return
+	}
+
+	if rANNodeName != nil {
+		ran.Log.Info("IE RANNodeName is not implemented")
+	}
+	if defaultPagingDRX != nil {
+		ran.Log.Info("IE PagingDRX is not implemented")
+	}
+	if globalRANNodeID != nil {
+		ran.Log.Info("IE GlobalRANNodeID is not implemented")
 	}
 
 	// func handleRANConfigurationUpdateMain(ran *context.AmfRan,
@@ -10627,6 +10757,9 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 		ran.Log.Error("Missing IE IMSVoiceSupportIndicator")
 		return
 	}
+	if iMSVoiceSupportIndicator != nil {
+		ran.Log.Info("IE IMSVoiceSupportIndicator is not implemented")
+	}
 
 	// AMF: mandatory, ignore
 	// RAN: mandatory, ignore
@@ -10647,9 +10780,8 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 
 	// func handleUERadioCapabilityCheckResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
-	//	iMSVoiceSupportIndicator *ngapType.IMSVoiceSupportIndicator,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUERadioCapabilityCheckResponseMain(ran, ranUe /* may be nil */, iMSVoiceSupportIndicator, criticalityDiagnostics /* may be nil */)
+	handleUERadioCapabilityCheckResponseMain(ran, ranUe /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -11231,6 +11363,7 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 
 func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
 	var sONConfigurationTransferUL *ngapType.SONConfigurationTransfer
+	var eNDCSONConfigurationTransferUL *ngapType.ENDCSONConfigurationTransfer
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
@@ -11261,7 +11394,19 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 			sONConfigurationTransferUL = ie.Value.SONConfigurationTransferUL
 			ran.Log.Trace("Decode IE SONConfigurationTransfer")
 		case ngapType.ProtocolIEIDENDCSONConfigurationTransferUL: // optional, ignore
-			ran.Log.Info("Not comprehended IE EN-DCSONConfigurationTransfer")
+			if eNDCSONConfigurationTransferUL != nil {
+				ran.Log.Error("Duplicate IE EN-DCSONConfigurationTransfer")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			eNDCSONConfigurationTransferUL = ie.Value.ENDCSONConfigurationTransferUL
+			ran.Log.Trace("Decode IE EN-DCSONConfigurationTransfer")
 		default:
 			switch ie.Criticality.Value {
 			case ngapType.CriticalityPresentReject:
@@ -11296,6 +11441,10 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 
 	if abort {
 		return
+	}
+
+	if eNDCSONConfigurationTransferUL != nil {
+		ran.Log.Info("IE EN-DCSONConfigurationTransfer is not implemented")
 	}
 
 	// func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
@@ -11431,6 +11580,9 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 		ran.Log.Error("Missing IE RANStatusTransfer-TransparentContainer")
 		return
 	}
+	if rANStatusTransferTransparentContainer != nil {
+		ran.Log.Info("IE RANStatusTransfer-TransparentContainer is not implemented")
+	}
 
 	// AMF: mandatory, reject
 	// RAN: mandatory, reject
@@ -11448,9 +11600,8 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 	ranUe.Log.Infof("Handle UplinkRANStatusTransfer (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
-	//	ranUe *context.RanUe,
-	//	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer) {
-	handleUplinkRANStatusTransferMain(ran, ranUe, rANStatusTransferTransparentContainer)
+	//	ranUe *context.RanUe) {
+	handleUplinkRANStatusTransferMain(ran, ranUe)
 }
 
 func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -11606,6 +11757,9 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		return
 	}
+	if nRPPaPDU != nil {
+		ran.Log.Info("IE NRPPa-PDU is not implemented")
+	}
 
 	// AMF: mandatory, reject
 	// RAN: mandatory, reject
@@ -11624,9 +11778,8 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 
 	// func handleUplinkUEAssociatedNRPPaTransportMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
-	//	routingID *ngapType.RoutingID,
-	//	nRPPaPDU *ngapType.NRPPaPDU) {
-	handleUplinkUEAssociatedNRPPaTransportMain(ran, ranUe, routingID, nRPPaPDU)
+	//	routingID *ngapType.RoutingID) {
+	handleUplinkUEAssociatedNRPPaTransportMain(ran, ranUe, routingID)
 }
 
 func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
