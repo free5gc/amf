@@ -20,7 +20,7 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 	configuration.SetBasePath(ue.NssfUri)
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	sliceInfo := models.SliceInfoForRegistration{
 		SubscribedNssai: ue.SubscribedNssai,
 	}
@@ -42,6 +42,14 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 	}
 	res, httpResp, localErr := client.NetworkSliceInformationDocumentApi.NSSelectionGet(context.Background(),
 		models.NfType_AMF, amfSelf.NfId, &paramOpt)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("NSSelectionGet response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		ue.NetworkSliceInfo = &res
 		for _, allowedNssai := range res.AllowedNssaiList {
@@ -49,11 +57,6 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 		}
 		ue.ConfiguredNssai = res.ConfiguredNssai
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("NSSelectionGet' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			err := localErr
 			return nil, err
@@ -74,7 +77,7 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 	configuration.SetBasePath(ue.NssfUri)
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	sliceInfoForPduSession := models.SliceInfoForPduSession{
 		SNssai:            &snssai,
 		RoamingIndication: models.RoamingIndication_NON_ROAMING, // not support roaming
@@ -89,14 +92,17 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 	}
 	res, httpResp, localErr := client.NetworkSliceInformationDocumentApi.NSSelectionGet(context.Background(),
 		models.NfType_AMF, amfSelf.NfId, &paramOpt)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("NSSelectionGet response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		return &res, nil, nil
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("NSSelectionGet' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			return nil, nil, localErr
 		}

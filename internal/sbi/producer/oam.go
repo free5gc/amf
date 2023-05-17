@@ -49,10 +49,11 @@ func HandleOAMRegisteredUEContext(request *httpwrapper.Request) *httpwrapper.Res
 
 func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDetails) {
 	var ueContexts UEContexts
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	if supi != "" {
 		if ue, ok := amfSelf.AmfUeFindBySupi(supi); ok {
+			ue.Lock.Lock()
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
@@ -61,6 +62,7 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
+			ue.Lock.Unlock()
 		} else {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusNotFound,
@@ -71,6 +73,7 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 	} else {
 		amfSelf.UePool.Range(func(key, value interface{}) bool {
 			ue := value.(*context.AmfUe)
+			ue.Lock.Lock()
 			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
@@ -79,6 +82,7 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
+			ue.Lock.Unlock()
 			return true
 		})
 	}

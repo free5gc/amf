@@ -1,6 +1,8 @@
 package message
 
 import (
+	"fmt"
+
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
@@ -52,17 +54,18 @@ func SendNotification(ue *context.RanUe, nasMsg []byte) {
 	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Notification")
 
-	if context.AMF_Self().T3565Cfg.Enable {
-		cfg := context.AMF_Self().T3565Cfg
+	if context.GetSelf().T3565Cfg.Enable {
+		cfg := context.GetSelf().T3565Cfg
+		amfUe.GmmLog.Infof("Start T3565 timer")
 		amfUe.T3565 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3565 expires, retransmit Notification (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3565 Expires %d times, abort notification procedure", cfg.MaxRetryTimes)
+			amfUe.T3565 = nil // clear the timer
 			if amfUe.OnGoing(models.AccessType__3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
 				callback.SendN1N2TransferFailureNotification(amfUe, models.N1N2MessageTransferCause_UE_NOT_RESPONDING)
 			}
-			amfUe.T3565 = nil // clear the timer
 		})
 	}
 }
@@ -88,15 +91,15 @@ func SendIdentityRequest(ue *context.RanUe, accessType models.AccessType, typeOf
 
 	amfUe.RequestIdentityType = typeOfIdentity
 
-	if context.AMF_Self().T3570Cfg.Enable {
-		cfg := context.AMF_Self().T3570Cfg
+	if context.GetSelf().T3570Cfg.Enable {
+		cfg := context.GetSelf().T3570Cfg
 		amfUe.T3570 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3570 expires, retransmit Identity Request (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3570 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
 				cfg.MaxRetryTimes)
-			gmm_common.RemoveAmfUe(amfUe)
+			gmm_common.RemoveAmfUe(amfUe, false)
 		})
 	}
 }
@@ -125,40 +128,50 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	if context.AMF_Self().T3560Cfg.Enable {
-		cfg := context.AMF_Self().T3560Cfg
+	if context.GetSelf().T3560Cfg.Enable {
+		cfg := context.GetSelf().T3560Cfg
+		amfUe.GmmLog.Infof("Start T3560 timer")
 		amfUe.T3560 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Authentication Request (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
+			amfUe.Lock.Lock()
+			defer amfUe.Lock.Unlock()
+
 			amfUe.GmmLog.Warnf("T3560 Expires %d times, abort authentication procedure & ongoing 5GMM procedure",
 				cfg.MaxRetryTimes)
-			gmm_common.RemoveAmfUe(amfUe)
+			amfUe.T3560 = nil
+			gmm_common.RemoveAmfUe(amfUe, false)
 		})
 	}
 }
 
-func SendServiceAccept(ue *context.RanUe, anType models.AccessType, pDUSessionStatus *[16]bool,
+func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
+	cxtList ngapType.PDUSessionResourceSetupListCxtReq, pDUSessionStatus *[16]bool,
 	reactivationResult *[16]bool, errPduSessionId, errCause []uint8,
-) {
-	if ue == nil {
-		logger.GmmLog.Error("SendServiceAccept: RanUe is nil")
-		return
+) error {
+	if amfUe == nil {
+		return fmt.Errorf("SendServiceAccept: AmfUe is nil")
 	}
-	if ue.AmfUe == nil {
-		logger.GmmLog.Error("SendServiceAccept: AmfUe is nil")
-		return
+	if amfUe.RanUe[anType] == nil {
+		return fmt.Errorf("SendServiceAccept: RanUe is nil")
 	}
-	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Service Accept")
 
 	nasMsg, err := BuildServiceAccept(amfUe, anType, pDUSessionStatus, reactivationResult,
 		errPduSessionId, errCause)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
-		return
+		return err
 	}
-	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+
+	if amfUe.RanUe[anType].UeContextRequest ||
+		(!amfUe.RanUe[anType].InitialContextSetup && len(cxtList.List) > 0) {
+		// update Kgnb/Kn3iwf
+		amfUe.UpdateSecurityContext(anType)
+	}
+	ngap_message.SendN2Message(amfUe, anType, nasMsg, &cxtList, nil, nil, nil, nil)
+	return nil
 }
 
 func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType,
@@ -229,15 +242,18 @@ func SendServiceReject(ue *context.RanUe, pDUSessionStatus *[16]bool, cause uint
 		return
 	}
 	if ue.AmfUe == nil {
-		logger.GmmLog.Error("SendServiceReject: AmfUe is nil")
-		return
+		ue.Log.Info("Send Service Reject")
+	} else {
+		ue.AmfUe.GmmLog.Info("Send Service Reject")
 	}
-	amfUe := ue.AmfUe
-	amfUe.GmmLog.Info("Send Service Reject")
 
 	nasMsg, err := BuildServiceReject(pDUSessionStatus, cause)
 	if err != nil {
-		amfUe.GmmLog.Error(err.Error())
+		if ue.AmfUe == nil {
+			ue.Log.Error(err.Error())
+		} else {
+			ue.AmfUe.GmmLog.Error(err.Error())
+		}
 		return
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
@@ -251,15 +267,18 @@ func SendRegistrationReject(ue *context.RanUe, cause5GMM uint8, eapMessage strin
 		return
 	}
 	if ue.AmfUe == nil {
-		logger.GmmLog.Error("SendRegistrationReject: AmfUe is nil")
-		return
+		ue.Log.Info("Send Registration Reject")
+	} else {
+		ue.AmfUe.GmmLog.Info("Send Registration Reject")
 	}
-	amfUe := ue.AmfUe
-	amfUe.GmmLog.Info("Send Registration Reject")
 
-	nasMsg, err := BuildRegistrationReject(amfUe, cause5GMM, eapMessage)
+	nasMsg, err := BuildRegistrationReject(ue.AmfUe, cause5GMM, eapMessage)
 	if err != nil {
-		amfUe.GmmLog.Error(err.Error())
+		if ue.AmfUe == nil {
+			ue.Log.Error(err.Error())
+		} else {
+			ue.AmfUe.GmmLog.Error(err.Error())
+		}
 		return
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
@@ -286,14 +305,19 @@ func SendSecurityModeCommand(ue *context.RanUe, accessType models.AccessType, ea
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	if context.AMF_Self().T3560Cfg.Enable {
-		cfg := context.AMF_Self().T3560Cfg
+	if context.GetSelf().T3560Cfg.Enable {
+		cfg := context.GetSelf().T3560Cfg
+		amfUe.GmmLog.Infof("Start T3560 timer")
 		amfUe.T3560 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Security Mode Command (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
+			amfUe.Lock.Lock()
+			defer amfUe.Lock.Unlock()
+
 			amfUe.GmmLog.Warnf("T3560 Expires %d times, abort security mode control procedure", cfg.MaxRetryTimes)
-			gmm_common.RemoveAmfUe(amfUe)
+			amfUe.T3560 = nil
+			gmm_common.RemoveAmfUe(amfUe, false)
 		})
 	}
 }
@@ -317,8 +341,9 @@ func SendDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrati
 	}
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
-	if context.AMF_Self().T3522Cfg.Enable {
-		cfg := context.AMF_Self().T3522Cfg
+	if context.GetSelf().T3522Cfg.Enable {
+		cfg := context.GetSelf().T3522Cfg
+		amfUe.GmmLog.Infof("Start T3522 timer")
 		amfUe.T3522 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3522 expires, retransmit Deregistration Request (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
@@ -362,12 +387,10 @@ func SendDeregistrationAccept(ue *context.RanUe) {
 }
 
 func SendRegistrationAccept(
-	amfUe *context.AmfUe,
-	anType models.AccessType,
-	pDUSessionStatus *[16]bool,
-	reactivationResult *[16]bool,
+	amfUe *context.AmfUe, anType models.AccessType,
+	pDUSessionStatus *[16]bool, reactivationResult *[16]bool,
 	errPduSessionId, errCause []uint8,
-	pduSessionResourceSetupList *ngapType.PDUSessionResourceSetupListCxtReq,
+	cxtList *ngapType.PDUSessionResourceSetupListCxtReq,
 ) {
 	if amfUe == nil {
 		logger.GmmLog.Error("SendRegistrationAccept: AmfUe is nil")
@@ -385,21 +408,26 @@ func SendRegistrationAccept(
 		return
 	}
 
-	if amfUe.RanUe[anType].UeContextRequest {
-		ngap_message.SendInitialContextSetupRequest(amfUe, anType, nasMsg, pduSessionResourceSetupList, nil, nil, nil)
+	if anType == models.AccessType_NON_3_GPP_ACCESS {
+		// TS 23.502 4.12.2.2 10a ~ 13: if non-3gpp, AMF should send initial context setup request to N3IWF first,
+		// and send registration accept after receiving initial context setup response
+		amfUe.RegistrationAcceptForNon3GPPAccess = nasMsg
+		ngap_message.SendInitialContextSetupRequest(amfUe, anType, nil, cxtList, nil, nil, nil)
 	} else {
-		ngap_message.SendDownlinkNasTransport(amfUe.RanUe[models.AccessType__3_GPP_ACCESS], nasMsg, nil)
+		// anType is 3GPP_ACCESS
+		ngap_message.SendN2Message(amfUe, anType, nasMsg, cxtList, nil, nil, nil, nil)
 	}
 
-	if context.AMF_Self().T3550Cfg.Enable {
-		cfg := context.AMF_Self().T3550Cfg
+	if context.GetSelf().T3550Cfg.Enable {
+		cfg := context.GetSelf().T3550Cfg
+		amfUe.GmmLog.Infof("Start T3550 timer")
 		amfUe.T3550 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			if amfUe.RanUe[anType] == nil {
 				amfUe.GmmLog.Warnf("[NAS] UE Context released, abort retransmission of Registration Accept")
 				amfUe.T3550 = nil
 			} else {
 				amfUe.GmmLog.Warnf("T3550 expires, retransmit Registration Accept (retry: %d)", expireTimes)
-				ngap_message.SendDownlinkNasTransport(amfUe.RanUe[anType], nasMsg, nil)
+				ngap_message.SendN2Message(amfUe, anType, nasMsg, cxtList, nil, nil, nil, nil)
 			}
 		}, func() {
 			amfUe.GmmLog.Warnf("T3550 Expires %d times, abort retransmission of Registration Accept", cfg.MaxRetryTimes)

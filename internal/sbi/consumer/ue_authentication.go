@@ -25,7 +25,7 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 
 	client := Nausf_UEAuthentication.NewAPIClient(configuration)
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	servedGuami := amfSelf.ServedGuamiList[0]
 
 	var authInfo models.AuthenticationInfo
@@ -40,14 +40,17 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 	}
 
 	ueAuthenticationCtx, httpResponse, err := client.DefaultApi.UeAuthenticationsPost(context.Background(), authInfo)
+	defer func() {
+		if httpResponse != nil {
+			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("UeAuthenticationsPost response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if err == nil {
 		return &ueAuthenticationCtx, nil, nil
 	} else if httpResponse != nil {
-		defer func() {
-			if bodyCloseErr := httpResponse.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("UeAuthenticationsPost' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResponse.Status != err.Error() {
 			return nil, nil, err
 		}
@@ -80,15 +83,17 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 
 	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
 		context.Background(), ue.Suci, confirmData)
+	defer func() {
+		if httpResponse != nil {
+			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("UeAuthenticationsAuthCtxId5gAkaConfirmationPut response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if err == nil {
 		return &confirmResult, nil, nil
 	} else if httpResponse != nil {
-		defer func() {
-			if bodyCloseErr := httpResponse.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf(
-					"UeAuthenticationsAuthCtxId5gAkaConfirmationPut' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResponse.Status != err.Error() {
 			return nil, nil, err
 		}
@@ -123,14 +128,17 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 	}
 
 	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(context.Background(), ue.Suci, eapSessionReq)
+	defer func() {
+		if httpResponse != nil {
+			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("EapAuthMethod response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if err == nil {
 		response = &eapSession
 	} else if httpResponse != nil {
-		defer func() {
-			if bodyCloseErr := httpResponse.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("EapAuthMethod' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResponse.Status != err.Error() {
 			err1 = err
 			return

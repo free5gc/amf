@@ -1,14 +1,17 @@
 package nas
 
 import (
-	"github.com/free5gc/amf/internal/context"
+	"fmt"
+
+	amf_context "github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
+	"github.com/free5gc/nas"
 )
 
-func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
-	amfSelf := context.AMF_Self()
+func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
+	amfSelf := amf_context.GetSelf()
 
 	if ue == nil {
 		logger.NasLog.Error("RanUe is nil")
@@ -35,4 +38,21 @@ func HandleNAS(ue *context.RanUe, procedureCode int64, nasPdu []byte, initialMes
 	if err := Dispatch(ue.AmfUe, ue.Ran.AnType, procedureCode, msg); err != nil {
 		ue.AmfUe.NASLog.Errorf("Handle NAS Error: %v", err)
 	}
+}
+
+// Get5GSMobileIdentityFromNASPDU is used to find MobileIdentity from plain nas
+// return value is: mobileId, mobileIdType, err
+func GetNas5GSMobileIdentity(gmmMessage *nas.GmmMessage) (string, string, error) {
+	var err error
+	var mobileId, mobileIdType string
+
+	if gmmMessage.GmmHeader.GetMessageType() == nas.MsgTypeRegistrationRequest {
+		mobileId, mobileIdType, err = gmmMessage.RegistrationRequest.MobileIdentity5GS.GetMobileIdentity()
+	} else if gmmMessage.GmmHeader.GetMessageType() == nas.MsgTypeServiceRequest {
+		mobileId, mobileIdType, err = gmmMessage.ServiceRequest.TMSI5GS.Get5GSTMSI()
+	} else {
+		err = fmt.Errorf("gmmMessageType: [%d] is not RegistrationRequest or ServiceRequest",
+			gmmMessage.GmmHeader.GetMessageType())
+	}
+	return mobileId, mobileIdType, err
 }

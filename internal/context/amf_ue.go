@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/nas/security"
@@ -160,7 +161,7 @@ type AmfUe struct {
 	IntegrityAlg             uint8
 	/* Registration Area */
 	RegistrationArea map[models.AccessType][]models.Tai
-	LadnInfo         []LADN
+	LadnInfo         []factory.Ladn
 	/* Network Slicing related context and Nssf */
 	NssfId                            string
 	NssfUri                           string
@@ -169,7 +170,7 @@ type AmfUe struct {
 	ConfiguredNssai                   []models.ConfiguredSnssai
 	NetworkSlicingSubscriptionChanged bool
 	SdmSubscriptionId                 string
-	UeCmRegistered                    bool
+	UeCmRegistered                    map[models.AccessType]bool
 	/* T3513(Paging) */
 	T3513 *Timer // for paging
 	/* T3565(Notification) */
@@ -185,10 +186,10 @@ type AmfUe struct {
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
-	T3502Value                      int // Second
-	T3512Value                      int // default 54 min
-	Non3gppDeregistrationTimerValue int // default 54 min
-	Lock                            sync.Mutex
+	T3502Value             int        // Second
+	T3512Value             int        // default 54 min
+	Non3gppDeregTimerValue int        // default 54 min
+	Lock                   sync.Mutex // Update context to prevent race condition
 
 	// logger
 	NASLog      *logrus.Entry
@@ -245,7 +246,7 @@ type NGRANCGI struct {
 }
 
 func (ue *AmfUe) init() {
-	ue.servingAMF = AMF_Self()
+	ue.servingAMF = GetSelf()
 	ue.State = make(map[models.AccessType]*fsm.State)
 	ue.State[models.AccessType__3_GPP_ACCESS] = fsm.NewState(Deregistered)
 	ue.State[models.AccessType_NON_3_GPP_ACCESS] = fsm.NewState(Deregistered)
@@ -262,6 +263,10 @@ func (ue *AmfUe) init() {
 	ue.onGoing[models.AccessType__3_GPP_ACCESS] = new(OnGoing)
 	ue.onGoing[models.AccessType__3_GPP_ACCESS].Procedure = OnGoingProcedureNothing
 	ue.ReleaseCause = make(map[models.AccessType]*CauseAll)
+	ue.UeCmRegistered = make(map[models.AccessType]bool)
+	ue.GmmLog = logger.GmmLog
+	ue.NASLog = logger.GmmLog
+	ue.ProducerLog = logger.ProducerLog
 }
 
 func (ue *AmfUe) ServingAMF() *AMFContext {
@@ -280,48 +285,60 @@ func (ue *AmfUe) CmIdle(anType models.AccessType) bool {
 }
 
 func (ue *AmfUe) Remove() {
+	ue.StopT3513()
+	ue.StopT3565()
+	ue.StopT3560()
+	ue.StopT3550()
+	ue.StopT3522()
+
 	for _, ranUe := range ue.RanUe {
 		if err := ranUe.Remove(); err != nil {
-			logger.ContextLog.Errorf("Remove RanUe error: %v", err)
+			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
 	}
 	tmsiGenerator.FreeID(int64(ue.Tmsi))
 	if len(ue.Supi) > 0 {
-		AMF_Self().UePool.Delete(ue.Supi)
+		GetSelf().UePool.Delete(ue.Supi)
 	}
+	logger.CtxLog.Infof("AmfUe[%s] is removed", ue.Supi)
 }
 
 func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
+	if ue == nil {
+		return
+	}
 	delete(ue.RanUe, anType)
-	ue.UpdateLogFields()
+	ue.UpdateLogFields(anType)
 }
 
 // Don't call this function directly. Use gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny().
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
-	ue.UpdateLogFields()
-	// TODO: stop Implicit Deregistration timer
+	ue.UpdateLogFields(ranUe.Ran.AnType)
 }
 
-func (ue *AmfUe) UpdateLogFields() {
-	nasLog := logger.NasLog
-	gmmLog := logger.GmmLog
-	producerLog := logger.ProducerLog
-
-	if ranUe, ok := ue.RanUe[models.AccessType__3_GPP_ACCESS]; ok {
-		nasLog = nasLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
-		gmmLog = gmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("AMF_UE_NGAP_ID:%d", ranUe.AmfUeNgapId))
+func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
+	anTypeStr := ""
+	if accessType == models.AccessType__3_GPP_ACCESS {
+		anTypeStr = "3GPP"
+	} else if accessType == models.AccessType_NON_3_GPP_ACCESS {
+		anTypeStr = "Non3GPP"
 	}
-	if ue.Supi != "" {
-		nasLog = nasLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
-		gmmLog = gmmLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
-		producerLog = producerLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+	if ranUe, ok := ue.RanUe[accessType]; ok {
+		ue.NASLog = ue.NASLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:%d,AU:%d(%s)",
+			ranUe.RanUeNgapId, ranUe.AmfUeNgapId, anTypeStr))
+		ue.GmmLog = ue.GmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:%d,AU:%d(%s)",
+			ranUe.RanUeNgapId, ranUe.AmfUeNgapId, anTypeStr))
+	} else {
+		ue.NASLog = ue.NASLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:,AU:(%s)", anTypeStr))
+		ue.GmmLog = ue.GmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:,AU:(%s)", anTypeStr))
 	}
 
-	ue.NASLog = nasLog
-	ue.GmmLog = gmmLog
-	ue.ProducerLog = producerLog
+	// will log "[SUPI:]" if ue.SUPI==""
+	ue.NASLog = ue.NASLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+	ue.GmmLog = ue.GmmLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
+	ue.ProducerLog = ue.ProducerLog.WithField(logger.FieldSupi, fmt.Sprintf("SUPI:%s", ue.Supi))
 }
 
 func (ue *AmfUe) GetAnType() models.AccessType {
@@ -410,7 +427,7 @@ func (ue *AmfUe) SecurityContextIsValid() bool {
 func (ue *AmfUe) DerivateKamf() {
 	supiRegexp, err := regexp.Compile("(?:imsi|supi)-([0-9]{5,15})")
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	groups := supiRegexp.FindStringSubmatch(ue.Supi)
@@ -426,12 +443,12 @@ func (ue *AmfUe) DerivateKamf() {
 
 	KseafDecode, err := hex.DecodeString(ue.Kseaf)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	KamfBytes, err := ueauth.GetKDFValue(KseafDecode, ueauth.FC_FOR_KAMF_DERIVATION, P0, L0, P1, L1)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	ue.Kamf = hex.EncodeToString(KamfBytes)
@@ -447,12 +464,12 @@ func (ue *AmfUe) DerivateAlgKey() {
 
 	KamfBytes, err := hex.DecodeString(ue.Kamf)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	kenc, err := ueauth.GetKDFValue(KamfBytes, ueauth.FC_FOR_ALGORITHM_KEY_DERIVATION, P0, L0, P1, L1)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	copy(ue.KnasEnc[:], kenc[16:32])
@@ -465,7 +482,7 @@ func (ue *AmfUe) DerivateAlgKey() {
 
 	kint, err := ueauth.GetKDFValue(KamfBytes, ueauth.FC_FOR_ALGORITHM_KEY_DERIVATION, P0, L0, P1, L1)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	copy(ue.KnasInt[:], kint[16:32])
@@ -485,12 +502,12 @@ func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 
 	KamfBytes, err := hex.DecodeString(ue.Kamf)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	key, err := ueauth.GetKDFValue(KamfBytes, ueauth.FC_FOR_KGNB_KN3IWF_DERIVATION, P0, L0, P1, L1)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	switch accessType {
@@ -508,12 +525,12 @@ func (ue *AmfUe) DerivateNH(syncInput []byte) {
 
 	KamfBytes, err := hex.DecodeString(ue.Kamf)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 	ue.NH, err = ueauth.GetKDFValue(KamfBytes, ueauth.FC_FOR_NH_DERIVATION, P0, L0)
 	if err != nil {
-		logger.ContextLog.Error(err)
+		logger.CtxLog.Error(err)
 		return
 	}
 }
@@ -596,7 +613,7 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
 	if ranUe := ue.RanUe[accessType]; ranUe != nil {
-		ranUe.UeContextRequest = false
+		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
 	ue.RetransmissionOfInitialNASMsg = false
 	if onGoing := ue.onGoing[accessType]; onGoing != nil {
@@ -693,7 +710,7 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 			}
 		}
 		if nh, err := hex.DecodeString(seafData.Nh); err != nil {
-			logger.ContextLog.Error(err)
+			logger.CtxLog.Error(err)
 			return
 		} else {
 			ue.NH = nh
@@ -786,7 +803,7 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 						// ue.SecurityCapabilities
 						buf, err := base64.StdEncoding.DecodeString(mmContext.UeSecurityCapability)
 						if err != nil {
-							logger.ContextLog.Error(err)
+							logger.CtxLog.Error(err)
 							return
 						}
 						ue.UESecurityCapability.Buffer = buf
@@ -819,7 +836,56 @@ func (ue *AmfUe) StoreSmContext(pduSessionID int32, smContext *SmContext) {
 func (ue *AmfUe) SmContextFindByPDUSessionID(pduSessionID int32) (*SmContext, bool) {
 	if value, ok := ue.SmContextList.Load(pduSessionID); ok {
 		return value.(*SmContext), true
-	} else {
-		return nil, false
 	}
+	return nil, false
+}
+
+func (ue *AmfUe) StopT3513() {
+	if ue.T3513 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3513 timer")
+	ue.T3513.Stop()
+	ue.T3513 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3565() {
+	if ue.T3565 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3565 timer")
+	ue.T3565.Stop()
+	ue.T3565 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3560() {
+	if ue.T3560 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3560 timer")
+	ue.T3560.Stop()
+	ue.T3560 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3550() {
+	if ue.T3550 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3550 timer")
+	ue.T3550.Stop()
+	ue.T3550 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3522() {
+	if ue.T3522 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3522 timer")
+	ue.T3522.Stop()
+	ue.T3522 = nil // clear the timer
 }

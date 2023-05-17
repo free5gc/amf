@@ -1,11 +1,15 @@
 package message_test
 
 import (
-	"encoding/hex"
 	"github.com/free5gc/CommonConsumerTestData/AMF/TestAmf"
 	"github.com/free5gc/CommonConsumerTestData/AMF/TestComm"
+	"github.com/free5gc/amf/handler"
+	"github.com/free5gc/amf/internal/context"
+	gmm_message "github.com/free5gc/amf/internal/gmm/message"
+	"github.com/free5gc/amf/internal/logger"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/aper"
-	"github.com/free5gc/http2_util"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasTestpacket"
 	"github.com/free5gc/nas/nasType"
@@ -13,12 +17,8 @@ import (
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/amf/internal/context"
-	gmm_message "github.com/free5gc/amf/internal/gmm/message"
-	"github.com/free5gc/amf/handler"
-	"github.com/free5gc/amf/internal/logger"
-	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/internal/util"
+	"github.com/free5gc/util/httpwrapper"
+	"encoding/hex"
 	smf_handler "free5gc/src/smf/handler"
 	"free5gc/src/smf/pdusession"
 	"free5gc/src/test/ngapTestpacket"
@@ -35,9 +35,9 @@ func init() {
 	go smf_handler.Handle()
 	go func() {
 		router := pdusession.NewRouter()
-		server, err := http2_util.NewServer(":29502", TestAmf.AmfLogPath, router)
+		server, err := httpwrapper.NewHttp2Server(":29502", TestAmf.AmfLogPath, router)
 		if err == nil && server != nil {
-			err = server.ListenAndServeTLS(TestAmf.AmfPemPath, TestAmf.AmfKeyPath)
+			err = server.ListenAndServeTLS(TestAmf.AmfDefaultPemPath, TestAmf.AmfDefaultKeyPath)
 		}
 		if err != nil {
 			logger.NgapLog.Error(err.Error())
@@ -777,7 +777,7 @@ func TestSendAMFConfigurationUpdate(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 	amfSelf.RegisterIPv4 = "127.0.0.1"
 	amfSelf.HttpIPv6Address = "2001:0db8:85a3:08d3:1319:8a2e:0370:7344"
 	amfSelf.TNLWeightFactor = 123

@@ -19,7 +19,7 @@ import (
 )
 
 func FuzzHandleNAS(f *testing.F) {
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	amfSelf.ServedGuamiList = []models.Guami{{
 		PlmnId: &models.PlmnId{
 			Mcc: "208",
@@ -107,12 +107,13 @@ func FuzzHandleNAS(f *testing.F) {
 		ue.Ran.Log = logger.NgapLog
 		ue.Log = logger.NgapLog
 		ue.Tai = tai
+		ue.AmfUe = amfSelf.NewAmfUe("")
 		amf_nas.HandleNAS(ue, ngapType.ProcedureCodeInitialUEMessage, d, true)
 	})
 }
 
 func FuzzHandleNAS2(f *testing.F) {
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	amfSelf.ServedGuamiList = []models.Guami{{
 		PlmnId: &models.PlmnId{
 			Mcc: "208",
@@ -216,6 +217,7 @@ func FuzzHandleNAS2(f *testing.F) {
 		ue.Ran.Log = logger.NgapLog
 		ue.Log = logger.NgapLog
 		ue.Tai = tai
+		ue.AmfUe = amfSelf.NewAmfUe("")
 		amf_nas.HandleNAS(ue, ngapType.ProcedureCodeInitialUEMessage, regPkt, true)
 		amfUe := ue.AmfUe
 		amfUe.State[models.AccessType__3_GPP_ACCESS].Set(amf_context.Authentication)

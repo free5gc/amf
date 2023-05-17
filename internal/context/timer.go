@@ -1,8 +1,11 @@
 package context
 
 import (
+	"runtime/debug"
 	"sync/atomic"
 	"time"
+
+	"github.com/free5gc/amf/internal/logger"
 )
 
 // Timer can be used for retransmission, it will manage retry times automatically
@@ -28,6 +31,13 @@ func NewTimer(d time.Duration, maxRetryTimes int,
 	t.ticker = time.NewTicker(d)
 
 	go func(ticker *time.Ticker) {
+		defer func() {
+			if p := recover(); p != nil {
+				// Print stack for panic to log. Fatalf() will let program exit.
+				logger.CtxLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
+			}
+		}()
+
 		defer ticker.Stop()
 
 		for {

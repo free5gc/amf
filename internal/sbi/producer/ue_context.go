@@ -30,7 +30,7 @@ func HandleCreateUEContextRequest(request *httpwrapper.Request) *httpwrapper.Res
 func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
 	*models.CreateUeContextResponse, *models.UeContextCreateError,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 	ueContextCreateData := createUeContextRequest.JsonData
 
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
@@ -46,6 +46,9 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 	}
 	// create the UE context in target amf
 	ue := amfSelf.NewAmfUe(ueContextID)
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	// amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
 	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
 	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
@@ -142,7 +145,7 @@ func HandleReleaseUEContextRequest(request *httpwrapper.Request) *httpwrapper.Re
 }
 
 func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeContextRelease) *models.ProblemDetails {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	// TODO: UE is emergency registered and the SUPI is not authenticated
 	if ueContextRelease.Supi != "" {
@@ -164,15 +167,26 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 
 	logger.CommLog.Debugf("Release UE Context NGAP cause: %+v", ueContextRelease.NgapCause)
 
-	if ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID); ok {
-		gmm_common.RemoveAmfUe(ue)
-	} else {
+	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !ok {
+		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
 		return problemDetails
 	}
+
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
+	// TODO: TS 23.502 4.11.1.2.3.4
+	// If the target CN node is AMF, the AMF invokes the
+	// "Nsmf_PDUSession_UpdateSMContext request (SUPI, Relocation Cancel Indication) toward the SMF. Based
+	// on the Relocation Cancel Indication, the target CN node deletes the session resources established during
+	// handover preparation phase in SMF and UPF.
+
+	gmm_common.RemoveAmfUe(ue, false)
 
 	return nil
 }
@@ -195,7 +209,7 @@ func HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.R
 func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest models.UeContextTransferRequest) (
 	*models.UeContextTransferResponse, *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	if ueContextTransferRequest.JsonData == nil {
 		problemDetails := &models.ProblemDetails{
@@ -217,12 +231,16 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
+		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
 		return nil, problemDetails
 	}
+
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
 
 	var ueContextTransferResponse *models.UeContextTransferResponse
 	ueContextTransferResponse.JsonData = new(models.UeContextTransferRspData)
@@ -417,10 +435,11 @@ func HandleAssignEbiDataRequest(request *httpwrapper.Request) *httpwrapper.Respo
 func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (
 	*models.AssignedEbiData, *models.AssignEbiError, *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
+		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
@@ -428,15 +447,17 @@ func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiDa
 		return nil, nil, problemDetails
 	}
 
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	// TODO: AssignEbiError not used, check it!
 	if _, ok := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); ok {
 		var assignedEbiData *models.AssignedEbiData
 		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
 		return assignedEbiData, nil, nil
-	} else {
-		logger.ProducerLog.Errorln("ue.SmContextList is nil")
-		return nil, nil, nil
 	}
+	logger.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", assignEbiData.PduSessionId)
+	return nil, nil, nil
 }
 
 // TS 29.518 5.2.2.2.2
@@ -457,7 +478,7 @@ func HandleRegistrationStatusUpdateRequest(request *httpwrapper.Request) *httpwr
 func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (
 	*models.UeRegStatusUpdateRspData, *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	// ueContextID must be a 5g GUTI (TS 29.518 6.1.3.2.4.5.1)
 	if !strings.HasPrefix(ueContextID, "5g-guti") {
@@ -470,12 +491,16 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
+		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
 		return nil, problemDetails
 	}
+
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
 
 	ueRegStatusUpdateRspData := new(models.UeRegStatusUpdateRspData)
 
@@ -508,7 +533,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 			}
 		}
 
-		gmm_common.RemoveAmfUe(ue)
+		gmm_common.RemoveAmfUe(ue, false)
 	} else {
 		// NOT_TRANSFERRED
 		logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")

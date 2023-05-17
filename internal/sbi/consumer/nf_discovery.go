@@ -28,8 +28,10 @@ func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfT
 		return result, err
 	}
 	defer func() {
-		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-			logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
+		if res != nil {
+			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			}
 		}
 	}()
 	return result, err

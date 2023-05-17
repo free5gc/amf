@@ -12,7 +12,7 @@ import (
 
 func Dispatch(conn net.Conn, msg []byte) {
 	var ran *context.AmfRan
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ran, ok := amfSelf.AmfRanFindByConn(conn)
 	if !ok {
@@ -46,7 +46,7 @@ func Dispatch(conn net.Conn, msg []byte) {
 }
 
 func HandleSCTPNotification(conn net.Conn, notification sctp.Notification) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	logger.NgapLog.Infof("Handle SCTP Notification[addr: %+v]", conn.RemoteAddr())
 
@@ -76,4 +76,17 @@ func HandleSCTPNotification(conn net.Conn, notification sctp.Notification) {
 	default:
 		ran.Log.Warnf("Non handled notification type: 0x%x", notification.Type())
 	}
+}
+
+func HandleSCTPConnError(conn net.Conn) {
+	amfSelf := context.GetSelf()
+
+	logger.NgapLog.Infof("Handle SCTP Connection Error[addr: %+v] - remove RAN", conn.RemoteAddr())
+
+	ran, ok := amfSelf.AmfRanFindByConn(conn)
+	if !ok {
+		logger.NgapLog.Warnf("RAN context has been removed[addr: %+v]", conn.RemoteAddr())
+		return
+	}
+	ran.Remove()
 }
