@@ -11,6 +11,8 @@ import (
 
 func SendToRan(ran *context.AmfRan, packet []byte) {
 	defer func() {
+		// This is workaround.
+		// TODO: Handle ran.Conn close event correctly
 		err := recover()
 		if err != nil {
 			logger.NgapLog.Warnf("Send error, gNB may have been lost: %+v", err)
@@ -203,6 +205,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 			},
 		}
 	}
+	ue.InitialContextSetup = false
 	SendToRanUe(ue, pkt)
 }
 
@@ -268,7 +271,7 @@ func SendHandoverCancelAcknowledge(ue *context.RanUe, criticalityDiagnostics *ng
 // nasPDU: from nas layer
 // pduSessionResourceSetupRequestList: provided by AMF, and transfer data is from SMF
 func SendPDUSessionResourceSetupRequest(ue *context.RanUe, nasPdu []byte,
-	pduSessionResourceSetupRequestList ngapType.PDUSessionResourceSetupListSUReq,
+	pduSessionResourceSetupRequestList *ngapType.PDUSessionResourceSetupListSUReq,
 ) {
 	if ue == nil {
 		logger.NgapLog.Error("RanUe is nil")
@@ -377,8 +380,7 @@ func SendInitialContextSetupRequest(
 		amfUe.RanUe[anType].Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
 		return
 	}
-	amfUe.RanUe[anType].UeContextRequest = false
-	amfUe.RanUe[anType].SentInitialContextSetupRequest = true
+
 	NasSendToRan(amfUe, anType, pkt)
 }
 
@@ -654,7 +656,7 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 	// 	ngaplog.Errorf("Build Paging failed : %s", err.Error())
 	// }
 	taiList := ue.RegistrationArea[models.AccessType__3_GPP_ACCESS]
-	context.AMF_Self().AmfRanPool.Range(func(key, value interface{}) bool {
+	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
 		ran := value.(*context.AmfRan)
 		for _, item := range ran.SupportedTAList {
 			if context.InTaiList(item.Tai, taiList) {
@@ -667,11 +669,12 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 		return true
 	})
 
-	if context.AMF_Self().T3513Cfg.Enable {
-		cfg := context.AMF_Self().T3513Cfg
+	if context.GetSelf().T3513Cfg.Enable {
+		cfg := context.GetSelf().T3513Cfg
+		ue.GmmLog.Infof("Start T3513 timer")
 		ue.T3513 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			ue.GmmLog.Warnf("T3513 expires, retransmit Paging (retry: %d)", expireTimes)
-			context.AMF_Self().AmfRanPool.Range(func(key, value interface{}) bool {
+			context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
 				ran := value.(*context.AmfRan)
 				for _, item := range ran.SupportedTAList {
 					if context.InTaiList(item.Tai, taiList) {
@@ -1000,4 +1003,38 @@ func SendDownlinkUEAssociatedNRPPaTransport(ue *context.RanUe, nRPPaPDU ngapType
 		return
 	}
 	SendToRanUe(ue, pkt)
+}
+
+func SendN2Message(
+	amfUe *context.AmfUe,
+	anType models.AccessType,
+	nasPdu []byte,
+	pduSessionResourceSetupRequestList *ngapType.PDUSessionResourceSetupListCxtReq,
+	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
+	coreNetworkAssistanceInfo *ngapType.CoreNetworkAssistanceInformation,
+	emergencyFallbackIndicator *ngapType.EmergencyFallbackIndicator,
+	mobilityRestrictionList *ngapType.MobilityRestrictionList,
+) {
+	if amfUe == nil {
+		logger.NgapLog.Error("AmfUe is nil")
+		return
+	}
+
+	ranUe := amfUe.RanUe[anType]
+	if ranUe == nil {
+		logger.NgapLog.Error("RanUe is nil")
+		return
+	}
+
+	if !ranUe.InitialContextSetup && (ranUe.UeContextRequest ||
+		(pduSessionResourceSetupRequestList != nil && len(pduSessionResourceSetupRequestList.List) > 0)) {
+		SendInitialContextSetupRequest(amfUe, anType, nasPdu, pduSessionResourceSetupRequestList,
+			rrcInactiveTransitionReportRequest, coreNetworkAssistanceInfo, emergencyFallbackIndicator)
+	} else if ranUe.InitialContextSetup &&
+		(pduSessionResourceSetupRequestList != nil && len(pduSessionResourceSetupRequestList.List) > 0) {
+		suList := ConvertPDUSessionResourceSetupListCxtReqToSUReq(pduSessionResourceSetupRequestList)
+		SendPDUSessionResourceSetupRequest(ranUe, nasPdu, suList)
+	} else {
+		SendDownlinkNasTransport(ranUe, nasPdu, mobilityRestrictionList)
+	}
 }

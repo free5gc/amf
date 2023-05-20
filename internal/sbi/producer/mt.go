@@ -28,16 +28,20 @@ func HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *http
 func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string, supportedFeaturesQuery string) (
 	*models.UeContextInfo, *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
 	if !ok {
+		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
 		}
 		return nil, problemDetails
 	}
+
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
 
 	ueContextInfo := new(models.UeContextInfo)
 

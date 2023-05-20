@@ -126,15 +126,18 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 		JsonData: &ueContextCreateData,
 	}
 	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(context.TODO(), ue.Guti, req)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("CreateUEContext response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		ueContextCreatedData = res.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("CreateUEContext' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -144,7 +147,7 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 	} else {
 		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
-	return
+	return ueContextCreatedData, problemDetails, err
 }
 
 func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (
@@ -171,14 +174,17 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 
 	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(
 		context.TODO(), ueContextId, ueContextRelease)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("ReleaseUEContext response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		return
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("ReleaseUEContext' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -225,17 +231,19 @@ func UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(
-		context.TODO(), ueContextId, req)
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("UEContextTransfer response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		ueContextTransferRspData = res.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("UEContextTransfer' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -257,16 +265,19 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusU
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.RegistrationStatusUpdate(
-		context.TODO(), ueContextId, request)
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.
+		RegistrationStatusUpdate(context.TODO(), ueContextId, request)
+	defer func() {
+		if httpResp != nil {
+			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
+				logger.ConsumerLog.Errorf("RegistrationStatusUpdate response body cannot close: %+v",
+					rspCloseErr)
+			}
+		}
+	}()
 	if localErr == nil {
 		regStatusTransferComplete = res.RegStatusTransferComplete
 	} else if httpResp != nil {
-		defer func() {
-			if bodyCloseErr := httpResp.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("RegistrationStatusUpdate' response body cannot close: %v", bodyCloseErr)
-			}
-		}()
 		if httpResp.Status != localErr.Error() {
 			err = localErr
 			return
@@ -276,5 +287,5 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusU
 	} else {
 		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
-	return
+	return regStatusTransferComplete, problemDetails, err
 }

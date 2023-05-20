@@ -30,7 +30,7 @@ func HandleAMFStatusChangeSubscribeRequest(request *httpwrapper.Request) *httpwr
 func AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (
 	subscriptionDataRsp models.SubscriptionData, locationHeader string, problemDetails *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	for _, guami := range subscriptionDataReq.GuamiList {
 		for _, servedGumi := range amfSelf.ServedGuamiList {
@@ -70,7 +70,7 @@ func HandleAMFStatusChangeUnSubscribeRequest(request *httpwrapper.Request) *http
 }
 
 func AMFStatusChangeUnSubscribeProcedure(subscriptionID string) (problemDetails *models.ProblemDetails) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	if _, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
 		problemDetails = &models.ProblemDetails{
@@ -103,7 +103,7 @@ func HandleAMFStatusChangeSubscribeModify(request *httpwrapper.Request) *httpwra
 func AMFStatusChangeSubscribeModifyProcedure(subscriptionID string, subscriptionData models.SubscriptionData) (
 	*models.SubscriptionData, *models.ProblemDetails,
 ) {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	if currentSubscriptionData, ok := amfSelf.FindAMFStatusSubscription(subscriptionID); !ok {
 		problemDetails := &models.ProblemDetails{

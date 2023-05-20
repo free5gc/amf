@@ -3,14 +3,14 @@ package producer
 import (
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/free5gc/amf/internal/context"
-	"github.com/free5gc/amf/internal/gmm"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
-	"github.com/free5gc/amf/internal/nas"
+	amf_nas "github.com/free5gc/amf/internal/nas"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/ngap/ngapType"
@@ -42,7 +42,7 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 	smContextStatusNotification models.SmContextStatusNotification,
 ) *models.ProblemDetails {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindBySupi(supi)
 	if !ok {
@@ -54,8 +54,12 @@ func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 		return problemDetails
 	}
 
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionID)
 	if !ok {
+		ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
@@ -65,28 +69,14 @@ func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 	}
 
 	if smContextStatusNotification.StatusInfo.ResourceStatus == models.ResourceStatus_RELEASED {
-		ue.ProducerLog.Debugf("Release PDU Session[%d] (Cause: %s)", pduSessionID,
-			smContextStatusNotification.StatusInfo.Cause)
-
 		if smContext.PduSessionIDDuplicated() {
-			ue.ProducerLog.Debugf("Resume establishing PDU Session[%d]", pduSessionID)
+			ue.ProducerLog.Infof("Local release duplicated SmContext[%d]", pduSessionID)
 			smContext.SetDuplicatedPduSessionID(false)
-			go func() {
-				ulNasTransport := smContext.ULNASTransport()
-				smMessage := ulNasTransport.PayloadContainer.GetPayloadContainerContents()
-				anType := smContext.AccessType()
-				setNewSmContext, err := gmm.CreatePDUSession(ulNasTransport, ue, anType, pduSessionID, smMessage)
-				if !setNewSmContext {
-					ue.SmContextList.Delete(pduSessionID)
-				}
-				smContext.DeleteULNASTransport()
-				if err != nil {
-					logger.CallbackLog.Errorln(err)
-				}
-			}()
 		} else {
-			ue.SmContextList.Delete(pduSessionID)
+			ue.ProducerLog.Infof("Release SmContext[%d] (Cause: %s)", pduSessionID,
+				smContextStatusNotification.StatusInfo.Cause)
 		}
+		ue.SmContextList.Delete(pduSessionID)
 	} else {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
@@ -118,7 +108,7 @@ func HandleAmPolicyControlUpdateNotifyUpdate(request *httpwrapper.Request) *http
 func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 	policyUpdate models.PolicyUpdate,
 ) *models.ProblemDetails {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
 	if !ok {
@@ -129,6 +119,9 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 		}
 		return problemDetails
 	}
+
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
 
 	ue.AmPolicyAssociation.Triggers = policyUpdate.Triggers
 	ue.RequestTriggerLocationChange = false
@@ -153,6 +146,13 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 	if ue != nil {
 		// use go routine to write response first to ensure the order of the procedure
 		go func() {
+			defer func() {
+				if p := recover(); p != nil {
+					// Print stack for panic to log. Fatalf() will let program exit.
+					logger.CallbackLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
+				}
+			}()
+
 			// UE is CM-Connected State
 			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
 				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
@@ -199,7 +199,7 @@ func HandleAmPolicyControlUpdateNotifyTerminate(request *httpwrapper.Request) *h
 func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 	terminationNotification models.TerminationNotification,
 ) *models.ProblemDetails {
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindByPolicyAssociationID(polAssoID)
 	if !ok {
@@ -211,10 +211,20 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 		return problemDetails
 	}
 
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
 	logger.CallbackLog.Infof("Cause of AM Policy termination[%+v]", terminationNotification.Cause)
 
 	// use go routine to write response first to ensure the order of the procedure
 	go func() {
+		defer func() {
+			if p := recover(); p != nil {
+				// Print stack for panic to log. Fatalf() will let program exit.
+				logger.CallbackLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
+			}
+		}()
+
 		problem, err := consumer.AMPolicyControlDelete(ue)
 		if problem != nil {
 			logger.ProducerLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
@@ -242,7 +252,7 @@ func HandleN1MessageNotify(request *httpwrapper.Request) *httpwrapper.Response {
 func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.ProblemDetails {
 	logger.ProducerLog.Debugf("n1MessageNotify: %+v", n1MessageNotify)
 
-	amfSelf := context.AMF_Self()
+	amfSelf := context.GetSelf()
 
 	registrationCtxtContainer := n1MessageNotify.JsonData.RegistrationCtxtContainer
 	if registrationCtxtContainer.UeContext == nil {
@@ -265,6 +275,13 @@ func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.Pr
 	}
 
 	go func() {
+		defer func() {
+			if p := recover(); p != nil {
+				// Print stack for panic to log. Fatalf() will let program exit.
+				logger.CallbackLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
+			}
+		}()
+
 		var amfUe *context.AmfUe
 		ueContext := registrationCtxtContainer.UeContext
 		if ueContext.Supi != "" {
@@ -272,6 +289,10 @@ func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.Pr
 		} else {
 			amfUe = amfSelf.NewAmfUe("")
 		}
+
+		amfUe.Lock.Lock()
+		defer amfUe.Lock.Unlock()
+
 		amfUe.CopyDataFromUeContextModel(*ueContext)
 
 		ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
@@ -292,7 +313,7 @@ func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.Pr
 
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 
-		nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
+		amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
 	}()
 	return nil
 }

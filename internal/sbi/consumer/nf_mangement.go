@@ -10,6 +10,7 @@ import (
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/util"
+	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/Nnrf_NFManagement"
 	"github.com/free5gc/openapi/models"
@@ -61,12 +62,12 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 	}
 
 	defaultNotificationSubscription := models.DefaultNotificationSubscription{
-		CallbackUri:      fmt.Sprintf("%s/namf-callback/v1/n1-message-notify", context.GetIPv4Uri()),
+		CallbackUri:      fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/n1-message-notify", context.GetIPv4Uri()),
 		NotificationType: models.NotificationType_N1_MESSAGES,
 		N1MessageClass:   models.N1MessageClass__5_GMM,
 	}
-	profile.DefaultNotificationSubscriptions = append(
-		profile.DefaultNotificationSubscriptions, defaultNotificationSubscription)
+	profile.DefaultNotificationSubscriptions = append(profile.DefaultNotificationSubscriptions,
+		defaultNotificationSubscription)
 	return profile, err
 }
 
@@ -88,8 +89,10 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 			continue
 		}
 		defer func() {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
+			if res != nil {
+				if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+					err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+				}
 			}
 		}()
 		status := res.StatusCode
@@ -113,7 +116,7 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
 
-	amfSelf := amf_context.AMF_Self()
+	amfSelf := amf_context.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(amfSelf.NrfUri)
@@ -127,7 +130,7 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 	} else if res != nil {
 		defer func() {
 			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				logger.ConsumerLog.Errorf("SearchNFInstances' response body cannot close: %v", bodyCloseErr)
+				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
 			}
 		}()
 		if res.Status != err.Error() {

@@ -340,6 +340,32 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	return msg, integrityProtected, nil
 }
 
+// DecodePlainNas is used to decode plain nas.
+// If nas pdu is ciphered, this function will return error message.
+// return value is: *nas.Message
+func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
+	const SecurityHeaderTypeMask uint8 = 0x0f
+
+	if payload == nil {
+		return nil, fmt.Errorf("nas payload is empty")
+	}
+
+	msg := new(nas.Message)
+	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & SecurityHeaderTypeMask
+	if msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCiphered ||
+		msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
+		return nil, fmt.Errorf("nas payload is ciphered")
+	}
+
+	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas {
+		// remove security Header
+		payload = payload[7:]
+	}
+
+	err := msg.PlainNasDecode(&payload)
+	return msg, err
+}
+
 func GetBearerType(accessType models.AccessType) uint8 {
 	if accessType == models.AccessType__3_GPP_ACCESS {
 		return security.Bearer3GPP

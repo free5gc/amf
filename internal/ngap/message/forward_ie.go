@@ -48,6 +48,24 @@ func AppendPDUSessionResourceSetupListCxtReq(list *ngapType.PDUSessionResourceSe
 	list.List = append(list.List, item)
 }
 
+func ConvertPDUSessionResourceSetupListCxtReqToSUReq(
+	listCxtReq *ngapType.PDUSessionResourceSetupListCxtReq,
+) *ngapType.PDUSessionResourceSetupListSUReq {
+	if listCxtReq == nil {
+		return nil
+	}
+	listSUReq := ngapType.PDUSessionResourceSetupListSUReq{}
+	for _, itemCxt := range listCxtReq.List {
+		var itemSU ngapType.PDUSessionResourceSetupItemSUReq
+		itemSU.PDUSessionID = itemCxt.PDUSessionID
+		itemSU.PDUSessionNASPDU = itemCxt.NASPDU
+		itemSU.SNSSAI = itemCxt.SNSSAI
+		itemSU.PDUSessionResourceSetupRequestTransfer = itemCxt.PDUSessionResourceSetupRequestTransfer
+		listSUReq.List = append(listSUReq.List, itemSU)
+	}
+	return &listSUReq
+}
+
 func AppendPDUSessionResourceModifyListModReq(list *ngapType.PDUSessionResourceModifyListModReq,
 	pduSessionId int32, nasPDU []byte, transfer []byte,
 ) {
