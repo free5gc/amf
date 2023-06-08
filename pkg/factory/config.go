@@ -27,10 +27,10 @@ const (
 	AmfSbiDefaultPort         = 8000
 	AmfSbiDefaultScheme       = "https"
 	AmfDefaultNrfUri          = "https://127.0.0.10:8000"
-	sctpDefaultNumOstreams    = 3
-	sctpDefaultMaxInstreams   = 5
-	sctpDefaultMaxAttempts    = 2
-	sctpDefaultMaxInitTimeout = 2
+	sctpDefaultNumOstreams    = 6 //3
+	sctpDefaultMaxInstreams   = 10 //5
+	sctpDefaultMaxAttempts    = 4 //2
+	sctpDefaultMaxInitTimeout = 4 //2
 	ngapDefaultPort           = 38412
 	AmfCallbackResUriPrefix   = "/namf-callback/v1"
 	AmfCommResUriPrefix       = "/namf-comm/v1"
