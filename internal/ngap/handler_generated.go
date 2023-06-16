@@ -267,10 +267,10 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 	}
 
 	if aMFTNLAssociationSetupList != nil {
-		ran.Log.Info("IE AMF-TNLAssociationSetupList is not implemented")
+		ran.Log.Warn("IE AMF-TNLAssociationSetupList is not implemented")
 	}
 	if aMFTNLAssociationFailedToSetupList != nil {
-		ran.Log.Info("IE TNLAssociationList is not implemented")
+		ran.Log.Warn("IE TNLAssociationList is not implemented")
 	}
 
 	// func handleAMFConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
@@ -356,7 +356,7 @@ func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 		ran.Log.Warn("Missing IE Cause")
 	}
 	if timeToWait != nil {
-		ran.Log.Info("IE TimeToWait is not implemented")
+		ran.Log.Warn("IE TimeToWait is not implemented")
 	}
 
 	// func handleAMFConfigurationUpdateFailureMain(ran *context.AmfRan,
@@ -3391,7 +3391,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 		return
 	}
 	if directForwardingPathAvailability != nil {
-		ran.Log.Info("IE DirectForwardingPathAvailability is not implemented")
+		ran.Log.Warn("IE DirectForwardingPathAvailability is not implemented")
 	}
 	if pDUSessionResourceListHORqd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceListHORqd")
@@ -4352,10 +4352,10 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 		ran.Log.Warn("Missing IE RRCEstablishmentCause")
 	}
 	if aMFSetID != nil {
-		ran.Log.Info("IE AMFSetID is not implemented")
+		ran.Log.Warn("IE AMFSetID is not implemented")
 	}
 	if allowedNSSAI != nil {
-		ran.Log.Info("IE AllowedNSSAI is not implemented")
+		ran.Log.Warn("IE AllowedNSSAI is not implemented")
 	}
 
 	// func handleInitialUEMessageMain(ran *context.AmfRan,
@@ -5433,7 +5433,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		ran.Log.Warn("Missing IE PagingDRX")
 	}
 	if uERetentionInformation != nil {
-		ran.Log.Info("IE UERetentionInformation is not implemented")
+		ran.Log.Warn("IE UERetentionInformation is not implemented")
 	}
 
 	// func handleNGSetupRequestMain(ran *context.AmfRan,
@@ -8575,13 +8575,13 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 	}
 
 	if rANNodeName != nil {
-		ran.Log.Info("IE RANNodeName is not implemented")
+		ran.Log.Warn("IE RANNodeName is not implemented")
 	}
 	if defaultPagingDRX != nil {
-		ran.Log.Info("IE PagingDRX is not implemented")
+		ran.Log.Warn("IE PagingDRX is not implemented")
 	}
 	if globalRANNodeID != nil {
-		ran.Log.Info("IE GlobalRANNodeID is not implemented")
+		ran.Log.Warn("IE GlobalRANNodeID is not implemented")
 	}
 
 	// func handleRANConfigurationUpdateMain(ran *context.AmfRan,
@@ -10758,7 +10758,7 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 		return
 	}
 	if iMSVoiceSupportIndicator != nil {
-		ran.Log.Info("IE IMSVoiceSupportIndicator is not implemented")
+		ran.Log.Warn("IE IMSVoiceSupportIndicator is not implemented")
 	}
 
 	// AMF: mandatory, ignore
@@ -11444,7 +11444,7 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 	}
 
 	if eNDCSONConfigurationTransferUL != nil {
-		ran.Log.Info("IE EN-DCSONConfigurationTransfer is not implemented")
+		ran.Log.Warn("IE EN-DCSONConfigurationTransfer is not implemented")
 	}
 
 	// func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
@@ -11581,7 +11581,7 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 		return
 	}
 	if rANStatusTransferTransparentContainer != nil {
-		ran.Log.Info("IE RANStatusTransfer-TransparentContainer is not implemented")
+		ran.Log.Warn("IE RANStatusTransfer-TransparentContainer is not implemented")
 	}
 
 	// AMF: mandatory, reject
@@ -11758,7 +11758,7 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 		return
 	}
 	if nRPPaPDU != nil {
-		ran.Log.Info("IE NRPPa-PDU is not implemented")
+		ran.Log.Warn("IE NRPPa-PDU is not implemented")
 	}
 
 	// AMF: mandatory, reject

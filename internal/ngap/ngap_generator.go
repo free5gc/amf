@@ -461,7 +461,7 @@ syntaxCause = &ngapType.Cause{
 			}
 			if ieInfo.Unimplemented {
 				fmt.Fprintf(fOut, "if %s != nil {\n", ieInfo.GoVar)
-				fmt.Fprintf(fOut, "ran.Log.Info(\"IE %s is not implemented\")\n", ieInfo.Type)
+				fmt.Fprintf(fOut, "ran.Log.Warn(\"IE %s is not implemented\")\n", ieInfo.Type)
 				fmt.Fprintln(fOut, "}")
 			}
 		}
