@@ -390,7 +390,6 @@ func handlePDUSessionResourceReleaseResponseMain(ran *context.AmfRan,
 
 func handleUERadioCapabilityCheckResponseMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
-	iMSVoiceSupportIndicator *ngapType.IMSVoiceSupportIndicator,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
 	// TODO: handle iMSVoiceSupportIndicator
@@ -417,7 +416,6 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	fiveGSTMSI *ngapType.FiveGSTMSI,
 	uEContextRequest *ngapType.UEContextRequest,
-	allowedNSSAI *ngapType.AllowedNSSAI,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
 	if ranUe != nil {
@@ -1685,7 +1683,6 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 
 func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
-	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer,
 ) {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -1801,7 +1798,6 @@ func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 func handleUplinkUEAssociatedNRPPaTransportMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
 	routingID *ngapType.RoutingID,
-	nRPPaPDU *ngapType.NRPPaPDU,
 ) {
 	ranUe.RoutingID = hex.EncodeToString(routingID.Value)
 

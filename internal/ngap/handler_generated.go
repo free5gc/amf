@@ -20,6 +20,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	aMFConfigurationUpdate := initiatingMessage.Value.AMFConfigurationUpdate
 	if aMFConfigurationUpdate == nil {
@@ -40,6 +41,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFName = ie.Value.AMFName
@@ -53,6 +55,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			servedGUAMIList = ie.Value.ServedGUAMIList
@@ -66,6 +69,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			relativeAMFCapacity = ie.Value.RelativeAMFCapacity
@@ -79,6 +83,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pLMNSupportList = ie.Value.PLMNSupportList
@@ -92,6 +97,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFTNLAssociationToAddList = ie.Value.AMFTNLAssociationToAddList
@@ -105,6 +111,7 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFTNLAssociationToRemoveList = ie.Value.AMFTNLAssociationToRemoveList
@@ -118,10 +125,27 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFTNLAssociationToUpdateList = ie.Value.AMFTNLAssociationToUpdateList
 			ran.Log.Trace("Decode IE AMF-TNLAssociationToUpdateList")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -136,6 +160,9 @@ func handlerAMFConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -166,7 +193,13 @@ func handleAMFConfigurationUpdateMain(ran *context.AmfRan, aMFName *ngapType.AMF
 }
 
 func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
+	var aMFTNLAssociationSetupList *ngapType.AMFTNLAssociationSetupList
+	var aMFTNLAssociationFailedToSetupList *ngapType.TNLAssociationList
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
+
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	aMFConfigurationUpdateAcknowledge := successfulOutcome.Value.AMFConfigurationUpdateAcknowledge
 	if aMFConfigurationUpdateAcknowledge == nil {
@@ -179,17 +212,65 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 	for _, ie := range aMFConfigurationUpdateAcknowledge.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDAMFTNLAssociationSetupList: // optional, ignore
-			ran.Log.Info("Not comprehended IE AMF-TNLAssociationSetupList")
+			if aMFTNLAssociationSetupList != nil {
+				ran.Log.Error("Duplicate IE AMF-TNLAssociationSetupList")
+				abort = true
+				break
+			}
+			aMFTNLAssociationSetupList = ie.Value.AMFTNLAssociationSetupList
+			ran.Log.Trace("Decode IE AMF-TNLAssociationSetupList")
 		case ngapType.ProtocolIEIDAMFTNLAssociationFailedToSetupList: // optional, ignore
-			ran.Log.Info("Not comprehended IE TNLAssociationList")
+			if aMFTNLAssociationFailedToSetupList != nil {
+				ran.Log.Error("Duplicate IE TNLAssociationList")
+				abort = true
+				break
+			}
+			aMFTNLAssociationFailedToSetupList = ie.Value.AMFTNLAssociationFailedToSetupList
+			ran.Log.Trace("Decode IE TNLAssociationList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeAMFConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
+	}
+
+	if aMFTNLAssociationSetupList != nil {
+		ran.Log.Warn("IE AMF-TNLAssociationSetupList is not implemented")
+	}
+	if aMFTNLAssociationFailedToSetupList != nil {
+		ran.Log.Warn("IE TNLAssociationList is not implemented")
 	}
 
 	// func handleAMFConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
@@ -199,7 +280,12 @@ func handlerAMFConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 
 func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.UnsuccessfulOutcome) {
 	var cause *ngapType.Cause
+	var timeToWait *ngapType.TimeToWait
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
+
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	aMFConfigurationUpdateFailure := unsuccessfulOutcome.Value.AMFConfigurationUpdateFailure
 	if aMFConfigurationUpdateFailure == nil {
@@ -214,24 +300,63 @@ func handlerAMFConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDTimeToWait: // optional, ignore
-			ran.Log.Info("Not comprehended IE TimeToWait")
+			if timeToWait != nil {
+				ran.Log.Error("Duplicate IE TimeToWait")
+				abort = true
+				break
+			}
+			timeToWait = ie.Value.TimeToWait
+			ran.Log.Trace("Decode IE TimeToWait")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeAMFConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if cause == nil {
 		ran.Log.Warn("Missing IE Cause")
+	}
+	if timeToWait != nil {
+		ran.Log.Warn("IE TimeToWait is not implemented")
 	}
 
 	// func handleAMFConfigurationUpdateFailureMain(ran *context.AmfRan,
@@ -245,6 +370,7 @@ func handlerAMFStatusIndication(ran *context.AmfRan, initiatingMessage *ngapType
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	aMFStatusIndication := initiatingMessage.Value.AMFStatusIndication
 	if aMFStatusIndication == nil {
@@ -265,10 +391,27 @@ func handlerAMFStatusIndication(ran *context.AmfRan, initiatingMessage *ngapType
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			unavailableGUAMIList = ie.Value.UnavailableGUAMIList
 			ran.Log.Trace("Decode IE UnavailableGUAMIList")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -276,6 +419,7 @@ func handlerAMFStatusIndication(ran *context.AmfRan, initiatingMessage *ngapType
 		ran.Log.Error("Missing IE UnavailableGUAMIList")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUnavailableGUAMIList, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -289,6 +433,9 @@ func handlerAMFStatusIndication(ran *context.AmfRan, initiatingMessage *ngapType
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -326,6 +473,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	cellTrafficTrace := initiatingMessage.Value.CellTrafficTrace
 	if cellTrafficTrace == nil {
@@ -346,6 +494,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -359,6 +508,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -372,6 +522,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nGRANTraceID = ie.Value.NGRANTraceID
@@ -385,6 +536,7 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nGRANCGI = ie.Value.NGRANCGI
@@ -398,10 +550,27 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			traceCollectionEntityIPAddress = ie.Value.TraceCollectionEntityIPAddress
 			ran.Log.Trace("Decode IE TransportLayerAddress")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -409,11 +578,13 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -427,6 +598,9 @@ func handlerCellTrafficTrace(ran *context.AmfRan, initiatingMessage *ngapType.In
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -478,6 +652,7 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	deactivateTrace := initiatingMessage.Value.DeactivateTrace
 	if deactivateTrace == nil {
@@ -498,6 +673,7 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -511,6 +687,7 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -524,10 +701,27 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nGRANTraceID = ie.Value.NGRANTraceID
 			ran.Log.Trace("Decode IE NGRANTraceID")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -535,11 +729,13 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -553,6 +749,9 @@ func handlerDeactivateTrace(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -617,6 +816,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	downlinkNASTransport := initiatingMessage.Value.DownlinkNASTransport
 	if downlinkNASTransport == nil {
@@ -637,6 +837,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -650,6 +851,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -663,6 +865,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			oldAMF = ie.Value.OldAMF
@@ -676,6 +879,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANPagingPriority = ie.Value.RANPagingPriority
@@ -689,6 +893,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -702,6 +907,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			mobilityRestrictionList = ie.Value.MobilityRestrictionList
@@ -715,6 +921,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			indexToRFSP = ie.Value.IndexToRFSP
@@ -728,6 +935,7 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
@@ -741,10 +949,27 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
 			ran.Log.Trace("Decode IE AllowedNSSAI")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -752,16 +977,19 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nASPDU == nil {
 		ran.Log.Error("Missing IE NAS-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNASPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -775,6 +1003,9 @@ func handlerDownlinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapTyp
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -839,6 +1070,7 @@ func handlerDownlinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatin
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	downlinkNonUEAssociatedNRPPaTransport := initiatingMessage.Value.DownlinkNonUEAssociatedNRPPaTransport
 	if downlinkNonUEAssociatedNRPPaTransport == nil {
@@ -859,6 +1091,7 @@ func handlerDownlinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatin
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			routingID = ie.Value.RoutingID
@@ -872,10 +1105,27 @@ func handlerDownlinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatin
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nRPPaPDU = ie.Value.NRPPaPDU
 			ran.Log.Trace("Decode IE NRPPa-PDU")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -883,11 +1133,13 @@ func handlerDownlinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatin
 		ran.Log.Error("Missing IE RoutingID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRoutingID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nRPPaPDU == nil {
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNRPPaPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -901,6 +1153,9 @@ func handlerDownlinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatin
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -940,6 +1195,7 @@ func handlerDownlinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMess
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	downlinkRANConfigurationTransfer := initiatingMessage.Value.DownlinkRANConfigurationTransfer
 	if downlinkRANConfigurationTransfer == nil {
@@ -960,6 +1216,7 @@ func handlerDownlinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			sONConfigurationTransferDL = ie.Value.SONConfigurationTransferDL
@@ -973,10 +1230,27 @@ func handlerDownlinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			eNDCSONConfigurationTransferDL = ie.Value.ENDCSONConfigurationTransferDL
 			ran.Log.Trace("Decode IE EN-DCSONConfigurationTransfer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -991,6 +1265,9 @@ func handlerDownlinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMess
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -1022,6 +1299,7 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	downlinkRANStatusTransfer := initiatingMessage.Value.DownlinkRANStatusTransfer
 	if downlinkRANStatusTransfer == nil {
@@ -1042,6 +1320,7 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -1055,6 +1334,7 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -1068,10 +1348,27 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANStatusTransferTransparentContainer = ie.Value.RANStatusTransferTransparentContainer
 			ran.Log.Trace("Decode IE RANStatusTransfer-TransparentContainer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -1079,16 +1376,19 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANStatusTransferTransparentContainer == nil {
 		ran.Log.Error("Missing IE RANStatusTransfer-TransparentContainer")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANStatusTransferTransparentContainer, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -1102,6 +1402,9 @@ func handlerDownlinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ng
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -1162,6 +1465,7 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	downlinkUEAssociatedNRPPaTransport := initiatingMessage.Value.DownlinkUEAssociatedNRPPaTransport
 	if downlinkUEAssociatedNRPPaTransport == nil {
@@ -1182,6 +1486,7 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -1195,6 +1500,7 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -1208,6 +1514,7 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			routingID = ie.Value.RoutingID
@@ -1221,10 +1528,27 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nRPPaPDU = ie.Value.NRPPaPDU
 			ran.Log.Trace("Decode IE NRPPa-PDU")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -1232,21 +1556,25 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if routingID == nil {
 		ran.Log.Error("Missing IE RoutingID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRoutingID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nRPPaPDU == nil {
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNRPPaPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -1260,6 +1588,9 @@ func handlerDownlinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMe
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -1323,6 +1654,10 @@ func handlerErrorIndication(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 	var cause *ngapType.Cause
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	errorIndication := initiatingMessage.Value.ErrorIndication
 	if errorIndication == nil {
 		ran.Log.Error("ErrorIndication is nil")
@@ -1336,32 +1671,64 @@ func handlerErrorIndication(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		case ngapType.ProtocolIEIDAMFUENGAPID: // optional, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // optional, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDCause: // optional, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeErrorIndication
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentIgnore
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	// func handleErrorIndicationMain(ran *context.AmfRan,
@@ -1379,6 +1746,7 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	handoverCancel := initiatingMessage.Value.HandoverCancel
 	if handoverCancel == nil {
@@ -1399,6 +1767,7 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -1412,6 +1781,7 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -1425,10 +1795,27 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -1436,11 +1823,13 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -1454,6 +1843,9 @@ func handlerHandoverCancel(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -1495,6 +1887,10 @@ func handlerHandoverCancelAcknowledge(ran *context.AmfRan, successfulOutcome *ng
 	var rANUENGAPID *ngapType.RANUENGAPID
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	handoverCancelAcknowledge := successfulOutcome.Value.HandoverCancelAcknowledge
 	if handoverCancelAcknowledge == nil {
 		ran.Log.Error("HandoverCancelAcknowledge is nil")
@@ -1508,25 +1904,56 @@ func handlerHandoverCancelAcknowledge(ran *context.AmfRan, successfulOutcome *ng
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeHandoverCancel
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -1573,6 +2000,10 @@ func handlerHandoverCommand(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 	var targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	handoverCommand := successfulOutcome.Value.HandoverCommand
 	if handoverCommand == nil {
 		ran.Log.Error("HandoverCommand is nil")
@@ -1586,60 +2017,96 @@ func handlerHandoverCommand(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, reject
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, reject
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDHandoverType: // mandatory, reject
 			if handoverType != nil {
 				ran.Log.Error("Duplicate IE HandoverType")
-				return
+				abort = true
+				break
 			}
 			handoverType = ie.Value.HandoverType
 			ran.Log.Trace("Decode IE HandoverType")
 		case ngapType.ProtocolIEIDNASSecurityParametersFromNGRAN: // conditional, reject
 			if nASSecurityParametersFromNGRAN != nil {
 				ran.Log.Error("Duplicate IE NASSecurityParametersFromNGRAN")
-				return
+				abort = true
+				break
 			}
 			nASSecurityParametersFromNGRAN = ie.Value.NASSecurityParametersFromNGRAN
 			ran.Log.Trace("Decode IE NASSecurityParametersFromNGRAN")
 		case ngapType.ProtocolIEIDPDUSessionResourceHandoverList: // optional, ignore
 			if pDUSessionResourceHandoverList != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceHandoverList")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceHandoverList = ie.Value.PDUSessionResourceHandoverList
 			ran.Log.Trace("Decode IE PDUSessionResourceHandoverList")
 		case ngapType.ProtocolIEIDPDUSessionResourceToReleaseListHOCmd: // optional, ignore
 			if pDUSessionResourceToReleaseListHOCmd != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceToReleaseListHOCmd")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceToReleaseListHOCmd = ie.Value.PDUSessionResourceToReleaseListHOCmd
 			ran.Log.Trace("Decode IE PDUSessionResourceToReleaseListHOCmd")
 		case ngapType.ProtocolIEIDTargetToSourceTransparentContainer: // mandatory, reject
 			if targetToSourceTransparentContainer != nil {
 				ran.Log.Error("Duplicate IE TargetToSource-TransparentContainer")
-				return
+				abort = true
+				break
 			}
 			targetToSourceTransparentContainer = ie.Value.TargetToSourceTransparentContainer
 			ran.Log.Trace("Decode IE TargetToSource-TransparentContainer")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeHandoverPreparation
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -1694,6 +2161,10 @@ func handlerHandoverFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.U
 	var cause *ngapType.Cause
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	handoverFailure := unsuccessfulOutcome.Value.HandoverFailure
 	if handoverFailure == nil {
 		ran.Log.Error("HandoverFailure is nil")
@@ -1707,25 +2178,56 @@ func handlerHandoverFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.U
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeHandoverResourceAllocation
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -1765,6 +2267,7 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	handoverNotify := initiatingMessage.Value.HandoverNotify
 	if handoverNotify == nil {
@@ -1785,6 +2288,7 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -1798,6 +2302,7 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -1811,10 +2316,27 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -1822,11 +2344,13 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -1840,6 +2364,9 @@ func handlerHandoverNotify(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -1882,6 +2409,10 @@ func handlerHandoverPreparationFailure(ran *context.AmfRan, unsuccessfulOutcome 
 	var cause *ngapType.Cause
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	handoverPreparationFailure := unsuccessfulOutcome.Value.HandoverPreparationFailure
 	if handoverPreparationFailure == nil {
 		ran.Log.Error("HandoverPreparationFailure is nil")
@@ -1895,32 +2426,64 @@ func handlerHandoverPreparationFailure(ran *context.AmfRan, unsuccessfulOutcome 
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeHandoverPreparation
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -1984,6 +2547,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	handoverRequest := initiatingMessage.Value.HandoverRequest
 	if handoverRequest == nil {
@@ -2004,6 +2568,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -2017,6 +2582,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			handoverType = ie.Value.HandoverType
@@ -2030,6 +2596,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
@@ -2043,6 +2610,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
@@ -2056,6 +2624,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			coreNetworkAssistanceInformation = ie.Value.CoreNetworkAssistanceInformation
@@ -2069,6 +2638,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uESecurityCapabilities = ie.Value.UESecurityCapabilities
@@ -2082,6 +2652,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			securityContext = ie.Value.SecurityContext
@@ -2095,6 +2666,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			newSecurityContextInd = ie.Value.NewSecurityContextInd
@@ -2108,6 +2680,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASC = ie.Value.NASC
@@ -2121,6 +2694,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceSetupListHOReq = ie.Value.PDUSessionResourceSetupListHOReq
@@ -2134,6 +2708,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
@@ -2147,6 +2722,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			traceActivation = ie.Value.TraceActivation
@@ -2160,6 +2736,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			maskedIMEISV = ie.Value.MaskedIMEISV
@@ -2173,6 +2750,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			sourceToTargetTransparentContainer = ie.Value.SourceToTargetTransparentContainer
@@ -2186,6 +2764,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			mobilityRestrictionList = ie.Value.MobilityRestrictionList
@@ -2199,6 +2778,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			locationReportingRequestType = ie.Value.LocationReportingRequestType
@@ -2212,6 +2792,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rRCInactiveTransitionReportRequest = ie.Value.RRCInactiveTransitionReportRequest
@@ -2225,6 +2806,7 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			gUAMI = ie.Value.GUAMI
@@ -2238,10 +2820,27 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			redirectionVoiceFallback = ie.Value.RedirectionVoiceFallback
 			ran.Log.Trace("Decode IE RedirectionVoiceFallback")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -2249,46 +2848,55 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if handoverType == nil {
 		ran.Log.Error("Missing IE HandoverType")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if uEAggregateMaximumBitRate == nil {
 		ran.Log.Error("Missing IE UEAggregateMaximumBitRate")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUEAggregateMaximumBitRate, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if uESecurityCapabilities == nil {
 		ran.Log.Error("Missing IE UESecurityCapabilities")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUESecurityCapabilities, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if securityContext == nil {
 		ran.Log.Error("Missing IE SecurityContext")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSecurityContext, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceSetupListHOReq == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceSetupListHOReq")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceSetupListHOReq, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if allowedNSSAI == nil {
 		ran.Log.Error("Missing IE AllowedNSSAI")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAllowedNSSAI, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if sourceToTargetTransparentContainer == nil {
 		ran.Log.Error("Missing IE SourceToTarget-TransparentContainer")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSourceToTargetTransparentContainer, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if gUAMI == nil {
 		ran.Log.Error("Missing IE GUAMI")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDGUAMI, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -2302,6 +2910,9 @@ func handlerHandoverRequest(ran *context.AmfRan, initiatingMessage *ngapType.Ini
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -2405,6 +3016,10 @@ func handlerHandoverRequestAcknowledge(ran *context.AmfRan, successfulOutcome *n
 	var targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	handoverRequestAcknowledge := successfulOutcome.Value.HandoverRequestAcknowledge
 	if handoverRequestAcknowledge == nil {
 		ran.Log.Error("HandoverRequestAcknowledge is nil")
@@ -2418,46 +3033,80 @@ func handlerHandoverRequestAcknowledge(ran *context.AmfRan, successfulOutcome *n
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceAdmittedList: // mandatory, ignore
 			if pDUSessionResourceAdmittedList != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceAdmittedList")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceAdmittedList = ie.Value.PDUSessionResourceAdmittedList
 			ran.Log.Trace("Decode IE PDUSessionResourceAdmittedList")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToSetupListHOAck: // optional, ignore
 			if pDUSessionResourceFailedToSetupListHOAck != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToSetupListHOAck")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToSetupListHOAck = ie.Value.PDUSessionResourceFailedToSetupListHOAck
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToSetupListHOAck")
 		case ngapType.ProtocolIEIDTargetToSourceTransparentContainer: // mandatory, reject
 			if targetToSourceTransparentContainer != nil {
 				ran.Log.Error("Duplicate IE TargetToSource-TransparentContainer")
-				return
+				abort = true
+				break
 			}
 			targetToSourceTransparentContainer = ie.Value.TargetToSourceTransparentContainer
 			ran.Log.Trace("Decode IE TargetToSource-TransparentContainer")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeHandoverResourceAllocation
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -2507,11 +3156,13 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 	var handoverType *ngapType.HandoverType
 	var cause *ngapType.Cause
 	var targetID *ngapType.TargetID
+	var directForwardingPathAvailability *ngapType.DirectForwardingPathAvailability
 	var pDUSessionResourceListHORqd *ngapType.PDUSessionResourceListHORqd
 	var sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	handoverRequired := initiatingMessage.Value.HandoverRequired
 	if handoverRequired == nil {
@@ -2532,6 +3183,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -2545,6 +3197,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -2558,6 +3211,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			handoverType = ie.Value.HandoverType
@@ -2571,6 +3225,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
@@ -2584,12 +3239,25 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			targetID = ie.Value.TargetID
 			ran.Log.Trace("Decode IE TargetID")
 		case ngapType.ProtocolIEIDDirectForwardingPathAvailability: // optional, ignore
-			ran.Log.Info("Not comprehended IE DirectForwardingPathAvailability")
+			if directForwardingPathAvailability != nil {
+				ran.Log.Error("Duplicate IE DirectForwardingPathAvailability")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			directForwardingPathAvailability = ie.Value.DirectForwardingPathAvailability
+			ran.Log.Trace("Decode IE DirectForwardingPathAvailability")
 		case ngapType.ProtocolIEIDPDUSessionResourceListHORqd: // mandatory, reject
 			if pDUSessionResourceListHORqd != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceListHORqd")
@@ -2599,6 +3267,7 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceListHORqd = ie.Value.PDUSessionResourceListHORqd
@@ -2612,10 +3281,27 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			sourceToTargetTransparentContainer = ie.Value.SourceToTargetTransparentContainer
 			ran.Log.Trace("Decode IE SourceToTarget-TransparentContainer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -2623,31 +3309,37 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if handoverType == nil {
 		ran.Log.Error("Missing IE HandoverType")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if targetID == nil {
 		ran.Log.Error("Missing IE TargetID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTargetID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceListHORqd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceListHORqd")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceListHORqd, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if sourceToTargetTransparentContainer == nil {
 		ran.Log.Error("Missing IE SourceToTarget-TransparentContainer")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSourceToTargetTransparentContainer, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -2673,6 +3365,9 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 		} else {
 			ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
 		}
+	}
+
+	if abort {
 		return
 	}
 
@@ -2694,6 +3389,9 @@ func handlerHandoverRequired(ran *context.AmfRan, initiatingMessage *ngapType.In
 	if targetID == nil {
 		ran.Log.Error("Missing IE TargetID")
 		return
+	}
+	if directForwardingPathAvailability != nil {
+		ran.Log.Warn("IE DirectForwardingPathAvailability is not implemented")
 	}
 	if pDUSessionResourceListHORqd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceListHORqd")
@@ -2736,6 +3434,10 @@ func handlerInitialContextSetupFailure(ran *context.AmfRan, unsuccessfulOutcome 
 	var cause *ngapType.Cause
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	initialContextSetupFailure := unsuccessfulOutcome.Value.InitialContextSetupFailure
 	if initialContextSetupFailure == nil {
 		ran.Log.Error("InitialContextSetupFailure is nil")
@@ -2749,39 +3451,72 @@ func handlerInitialContextSetupFailure(ran *context.AmfRan, unsuccessfulOutcome 
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToSetupListCxtFail: // optional, ignore
 			if pDUSessionResourceFailedToSetupListCxtFail != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToSetupListCxtFail")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToSetupListCxtFail = ie.Value.PDUSessionResourceFailedToSetupListCxtFail
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToSetupListCxtFail")
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeInitialContextSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -2843,6 +3578,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	initialContextSetupRequest := initiatingMessage.Value.InitialContextSetupRequest
 	if initialContextSetupRequest == nil {
@@ -2863,6 +3599,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -2876,6 +3613,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -2889,6 +3627,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			oldAMF = ie.Value.OldAMF
@@ -2902,6 +3641,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
@@ -2915,6 +3655,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			coreNetworkAssistanceInformation = ie.Value.CoreNetworkAssistanceInformation
@@ -2928,6 +3669,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			gUAMI = ie.Value.GUAMI
@@ -2941,6 +3683,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceSetupListCxtReq = ie.Value.PDUSessionResourceSetupListCxtReq
@@ -2954,6 +3697,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
@@ -2967,6 +3711,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uESecurityCapabilities = ie.Value.UESecurityCapabilities
@@ -2980,6 +3725,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			securityKey = ie.Value.SecurityKey
@@ -2993,6 +3739,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			traceActivation = ie.Value.TraceActivation
@@ -3006,6 +3753,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			mobilityRestrictionList = ie.Value.MobilityRestrictionList
@@ -3019,6 +3767,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapability = ie.Value.UERadioCapability
@@ -3032,6 +3781,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			indexToRFSP = ie.Value.IndexToRFSP
@@ -3045,6 +3795,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			maskedIMEISV = ie.Value.MaskedIMEISV
@@ -3058,6 +3809,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -3071,6 +3823,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			emergencyFallbackIndicator = ie.Value.EmergencyFallbackIndicator
@@ -3084,6 +3837,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rRCInactiveTransitionReportRequest = ie.Value.RRCInactiveTransitionReportRequest
@@ -3097,6 +3851,7 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapabilityForPaging = ie.Value.UERadioCapabilityForPaging
@@ -3110,10 +3865,27 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			redirectionVoiceFallback = ie.Value.RedirectionVoiceFallback
 			ran.Log.Trace("Decode IE RedirectionVoiceFallback")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3121,31 +3893,37 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if gUAMI == nil {
 		ran.Log.Error("Missing IE GUAMI")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDGUAMI, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if allowedNSSAI == nil {
 		ran.Log.Error("Missing IE AllowedNSSAI")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAllowedNSSAI, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if uESecurityCapabilities == nil {
 		ran.Log.Error("Missing IE UESecurityCapabilities")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUESecurityCapabilities, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if securityKey == nil {
 		ran.Log.Error("Missing IE SecurityKey")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSecurityKey, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -3159,6 +3937,9 @@ func handlerInitialContextSetupRequest(ran *context.AmfRan, initiatingMessage *n
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -3247,6 +4028,10 @@ func handlerInitialContextSetupResponse(ran *context.AmfRan, successfulOutcome *
 	var pDUSessionResourceFailedToSetupListCxtRes *ngapType.PDUSessionResourceFailedToSetupListCxtRes
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	initialContextSetupResponse := successfulOutcome.Value.InitialContextSetupResponse
 	if initialContextSetupResponse == nil {
 		ran.Log.Error("InitialContextSetupResponse is nil")
@@ -3260,39 +4045,72 @@ func handlerInitialContextSetupResponse(ran *context.AmfRan, successfulOutcome *
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceSetupListCxtRes: // optional, ignore
 			if pDUSessionResourceSetupListCxtRes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceSetupListCxtRes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceSetupListCxtRes = ie.Value.PDUSessionResourceSetupListCxtRes
 			ran.Log.Trace("Decode IE PDUSessionResourceSetupListCxtRes")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToSetupListCxtRes: // optional, ignore
 			if pDUSessionResourceFailedToSetupListCxtRes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToSetupListCxtRes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToSetupListCxtRes = ie.Value.PDUSessionResourceFailedToSetupListCxtRes
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToSetupListCxtRes")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeInitialContextSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -3333,11 +4151,13 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	var userLocationInformation *ngapType.UserLocationInformation
 	var rRCEstablishmentCause *ngapType.RRCEstablishmentCause
 	var fiveGSTMSI *ngapType.FiveGSTMSI
+	var aMFSetID *ngapType.AMFSetID
 	var uEContextRequest *ngapType.UEContextRequest
 	var allowedNSSAI *ngapType.AllowedNSSAI
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	initialUEMessage := initiatingMessage.Value.InitialUEMessage
 	if initialUEMessage == nil {
@@ -3358,6 +4178,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -3371,6 +4192,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -3384,6 +4206,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
@@ -3397,6 +4220,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rRCEstablishmentCause = ie.Value.RRCEstablishmentCause
@@ -3410,12 +4234,25 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			fiveGSTMSI = ie.Value.FiveGSTMSI
 			ran.Log.Trace("Decode IE FiveG-S-TMSI")
 		case ngapType.ProtocolIEIDAMFSetID: // optional, ignore
-			ran.Log.Info("Not comprehended IE AMFSetID")
+			if aMFSetID != nil {
+				ran.Log.Error("Duplicate IE AMFSetID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			aMFSetID = ie.Value.AMFSetID
+			ran.Log.Trace("Decode IE AMFSetID")
 		case ngapType.ProtocolIEIDUEContextRequest: // optional, ignore
 			if uEContextRequest != nil {
 				ran.Log.Error("Duplicate IE UEContextRequest")
@@ -3425,6 +4262,7 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEContextRequest = ie.Value.UEContextRequest
@@ -3438,10 +4276,27 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
 			ran.Log.Trace("Decode IE AllowedNSSAI")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3449,16 +4304,19 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nASPDU == nil {
 		ran.Log.Error("Missing IE NAS-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNASPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if userLocationInformation == nil {
 		ran.Log.Error("Missing IE UserLocationInformation")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUserLocationInformation, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -3472,6 +4330,9 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -3490,6 +4351,12 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	if rRCEstablishmentCause == nil {
 		ran.Log.Warn("Missing IE RRCEstablishmentCause")
 	}
+	if aMFSetID != nil {
+		ran.Log.Warn("IE AMFSetID is not implemented")
+	}
+	if allowedNSSAI != nil {
+		ran.Log.Warn("IE AllowedNSSAI is not implemented")
+	}
 
 	// func handleInitialUEMessageMain(ran *context.AmfRan,
 	//	message *ngapType.NGAPPDU,
@@ -3498,9 +4365,8 @@ func handlerInitialUEMessage(ran *context.AmfRan, message *ngapType.NGAPPDU, ini
 	//	userLocationInformation *ngapType.UserLocationInformation,
 	//	rRCEstablishmentCause *ngapType.RRCEstablishmentCause,
 	//	fiveGSTMSI *ngapType.FiveGSTMSI,
-	//	uEContextRequest *ngapType.UEContextRequest,
-	//	allowedNSSAI *ngapType.AllowedNSSAI) {
-	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */, allowedNSSAI /* may be nil */)
+	//	uEContextRequest *ngapType.UEContextRequest) {
+	handleInitialUEMessageMain(ran, message, rANUENGAPID, nASPDU, userLocationInformation, rRCEstablishmentCause /* may be nil */, fiveGSTMSI /* may be nil */, uEContextRequest /* may be nil */)
 }
 
 func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -3512,6 +4378,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	locationReport := initiatingMessage.Value.LocationReport
 	if locationReport == nil {
@@ -3532,6 +4399,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -3545,6 +4413,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -3558,6 +4427,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
@@ -3571,6 +4441,7 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEPresenceInAreaOfInterestList = ie.Value.UEPresenceInAreaOfInterestList
@@ -3584,10 +4455,27 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			locationReportingRequestType = ie.Value.LocationReportingRequestType
 			ran.Log.Trace("Decode IE LocationReportingRequestType")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3595,11 +4483,13 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -3613,6 +4503,9 @@ func handlerLocationReport(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -3661,6 +4554,7 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	locationReportingControl := initiatingMessage.Value.LocationReportingControl
 	if locationReportingControl == nil {
@@ -3681,6 +4575,7 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -3694,6 +4589,7 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -3707,10 +4603,27 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			locationReportingRequestType = ie.Value.LocationReportingRequestType
 			ran.Log.Trace("Decode IE LocationReportingRequestType")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3718,11 +4631,13 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -3736,6 +4651,9 @@ func handlerLocationReportingControl(ran *context.AmfRan, initiatingMessage *nga
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -3794,6 +4712,7 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	locationReportingFailureIndication := initiatingMessage.Value.LocationReportingFailureIndication
 	if locationReportingFailureIndication == nil {
@@ -3814,6 +4733,7 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -3827,6 +4747,7 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -3840,10 +4761,27 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3851,11 +4789,13 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -3869,6 +4809,9 @@ func handlerLocationReportingFailureIndication(ran *context.AmfRan, initiatingMe
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -3913,6 +4856,7 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	nASNonDeliveryIndication := initiatingMessage.Value.NASNonDeliveryIndication
 	if nASNonDeliveryIndication == nil {
@@ -3933,6 +4877,7 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -3946,6 +4891,7 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -3959,6 +4905,7 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -3972,10 +4919,27 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -3983,11 +4947,13 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -4001,6 +4967,9 @@ func handlerNASNonDeliveryIndication(ran *context.AmfRan, initiatingMessage *nga
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4047,6 +5016,7 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	nGReset := initiatingMessage.Value.NGReset
 	if nGReset == nil {
@@ -4067,6 +5037,7 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
@@ -4080,10 +5051,27 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			resetType = ie.Value.ResetType
 			ran.Log.Trace("Decode IE ResetType")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4091,6 +5079,7 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 		ran.Log.Error("Missing IE ResetType")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDResetType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -4104,6 +5093,9 @@ func handlerNGReset(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingM
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4125,6 +5117,10 @@ func handlerNGResetAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.
 	var uEAssociatedLogicalNGConnectionList *ngapType.UEAssociatedLogicalNGConnectionList
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	nGResetAcknowledge := successfulOutcome.Value.NGResetAcknowledge
 	if nGResetAcknowledge == nil {
 		ran.Log.Error("NGResetAcknowledge is nil")
@@ -4138,18 +5134,48 @@ func handlerNGResetAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.
 		case ngapType.ProtocolIEIDUEAssociatedLogicalNGConnectionList: // optional, ignore
 			if uEAssociatedLogicalNGConnectionList != nil {
 				ran.Log.Error("Duplicate IE UE-associatedLogicalNG-connectionList")
-				return
+				abort = true
+				break
 			}
 			uEAssociatedLogicalNGConnectionList = ie.Value.UEAssociatedLogicalNGConnectionList
 			ran.Log.Trace("Decode IE UE-associatedLogicalNG-connectionList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeNGReset
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	// func handleNGResetAcknowledgeMain(ran *context.AmfRan,
@@ -4162,6 +5188,10 @@ func handlerNGSetupFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.Un
 	var cause *ngapType.Cause
 	var timeToWait *ngapType.TimeToWait
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
+
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	nGSetupFailure := unsuccessfulOutcome.Value.NGSetupFailure
 	if nGSetupFailure == nil {
@@ -4176,25 +5206,56 @@ func handlerNGSetupFailure(ran *context.AmfRan, unsuccessfulOutcome *ngapType.Un
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDTimeToWait: // optional, ignore
 			if timeToWait != nil {
 				ran.Log.Error("Duplicate IE TimeToWait")
-				return
+				abort = true
+				break
 			}
 			timeToWait = ie.Value.TimeToWait
 			ran.Log.Trace("Decode IE TimeToWait")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if cause == nil {
@@ -4217,9 +5278,11 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	var rANNodeName *ngapType.RANNodeName
 	var supportedTAList *ngapType.SupportedTAList
 	var defaultPagingDRX *ngapType.PagingDRX
+	var uERetentionInformation *ngapType.UERetentionInformation
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	nGSetupRequest := initiatingMessage.Value.NGSetupRequest
 	if nGSetupRequest == nil {
@@ -4240,6 +5303,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			globalRANNodeID = ie.Value.GlobalRANNodeID
@@ -4253,6 +5317,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANNodeName = ie.Value.RANNodeName
@@ -4266,6 +5331,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			supportedTAList = ie.Value.SupportedTAList
@@ -4279,12 +5345,41 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			defaultPagingDRX = ie.Value.DefaultPagingDRX
 			ran.Log.Trace("Decode IE PagingDRX")
 		case ngapType.ProtocolIEIDUERetentionInformation: // optional, ignore
-			ran.Log.Info("Not comprehended IE UERetentionInformation")
+			if uERetentionInformation != nil {
+				ran.Log.Error("Duplicate IE UERetentionInformation")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			uERetentionInformation = ie.Value.UERetentionInformation
+			ran.Log.Trace("Decode IE UERetentionInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4292,11 +5387,13 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		ran.Log.Error("Missing IE GlobalRANNodeID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDGlobalRANNodeID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if supportedTAList == nil {
 		ran.Log.Error("Missing IE SupportedTAList")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSupportedTAList, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -4318,6 +5415,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 			}
 		}
 		rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4331,6 +5431,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	}
 	if defaultPagingDRX == nil {
 		ran.Log.Warn("Missing IE PagingDRX")
+	}
+	if uERetentionInformation != nil {
+		ran.Log.Warn("IE UERetentionInformation is not implemented")
 	}
 
 	// func handleNGSetupRequestMain(ran *context.AmfRan,
@@ -4349,6 +5452,10 @@ func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 	var uERetentionInformation *ngapType.UERetentionInformation
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	nGSetupResponse := successfulOutcome.Value.NGSetupResponse
 	if nGSetupResponse == nil {
 		ran.Log.Error("NGSetupResponse is nil")
@@ -4362,46 +5469,80 @@ func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.Suc
 		case ngapType.ProtocolIEIDAMFName: // mandatory, reject
 			if aMFName != nil {
 				ran.Log.Error("Duplicate IE AMFName")
-				return
+				abort = true
+				break
 			}
 			aMFName = ie.Value.AMFName
 			ran.Log.Trace("Decode IE AMFName")
 		case ngapType.ProtocolIEIDServedGUAMIList: // mandatory, reject
 			if servedGUAMIList != nil {
 				ran.Log.Error("Duplicate IE ServedGUAMIList")
-				return
+				abort = true
+				break
 			}
 			servedGUAMIList = ie.Value.ServedGUAMIList
 			ran.Log.Trace("Decode IE ServedGUAMIList")
 		case ngapType.ProtocolIEIDRelativeAMFCapacity: // mandatory, ignore
 			if relativeAMFCapacity != nil {
 				ran.Log.Error("Duplicate IE RelativeAMFCapacity")
-				return
+				abort = true
+				break
 			}
 			relativeAMFCapacity = ie.Value.RelativeAMFCapacity
 			ran.Log.Trace("Decode IE RelativeAMFCapacity")
 		case ngapType.ProtocolIEIDPLMNSupportList: // mandatory, reject
 			if pLMNSupportList != nil {
 				ran.Log.Error("Duplicate IE PLMNSupportList")
-				return
+				abort = true
+				break
 			}
 			pLMNSupportList = ie.Value.PLMNSupportList
 			ran.Log.Trace("Decode IE PLMNSupportList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
 		case ngapType.ProtocolIEIDUERetentionInformation: // optional, ignore
 			if uERetentionInformation != nil {
 				ran.Log.Error("Duplicate IE UERetentionInformation")
-				return
+				abort = true
+				break
 			}
 			uERetentionInformation = ie.Value.UERetentionInformation
 			ran.Log.Trace("Decode IE UERetentionInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFName == nil {
@@ -4441,6 +5582,7 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	overloadStart := initiatingMessage.Value.OverloadStart
 	if overloadStart == nil {
@@ -4461,6 +5603,7 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFOverloadResponse = ie.Value.AMFOverloadResponse
@@ -4474,6 +5617,7 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFTrafficLoadReductionIndication = ie.Value.AMFTrafficLoadReductionIndication
@@ -4487,10 +5631,27 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			overloadStartNSSAIList = ie.Value.OverloadStartNSSAIList
 			ran.Log.Trace("Decode IE OverloadStartNSSAIList")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4505,6 +5666,9 @@ func handlerOverloadStart(ran *context.AmfRan, initiatingMessage *ngapType.Initi
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4534,6 +5698,7 @@ func handlerOverloadStop(ran *context.AmfRan, initiatingMessage *ngapType.Initia
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	overloadStop := initiatingMessage.Value.OverloadStop
 	if overloadStop == nil {
@@ -4545,6 +5710,22 @@ func handlerOverloadStop(ran *context.AmfRan, initiatingMessage *ngapType.Initia
 
 	for _, ie := range overloadStop.ProtocolIEs.List {
 		switch ie.Id.Value {
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4559,6 +5740,9 @@ func handlerOverloadStop(ran *context.AmfRan, initiatingMessage *ngapType.Initia
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4588,6 +5772,10 @@ func handlerPDUSessionResourceModifyConfirm(ran *context.AmfRan, successfulOutco
 	var pDUSessionResourceFailedToModifyListModCfm *ngapType.PDUSessionResourceFailedToModifyListModCfm
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pDUSessionResourceModifyConfirm := successfulOutcome.Value.PDUSessionResourceModifyConfirm
 	if pDUSessionResourceModifyConfirm == nil {
 		ran.Log.Error("PDUSessionResourceModifyConfirm is nil")
@@ -4601,39 +5789,72 @@ func handlerPDUSessionResourceModifyConfirm(ran *context.AmfRan, successfulOutco
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceModifyListModCfm: // optional, ignore
 			if pDUSessionResourceModifyListModCfm != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceModifyListModCfm")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceModifyListModCfm = ie.Value.PDUSessionResourceModifyListModCfm
 			ran.Log.Trace("Decode IE PDUSessionResourceModifyListModCfm")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToModifyListModCfm: // optional, ignore
 			if pDUSessionResourceFailedToModifyListModCfm != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToModifyListModCfm")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToModifyListModCfm = ie.Value.PDUSessionResourceFailedToModifyListModCfm
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToModifyListModCfm")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePDUSessionResourceModifyIndication
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -4679,6 +5900,7 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pDUSessionResourceModifyIndication := initiatingMessage.Value.PDUSessionResourceModifyIndication
 	if pDUSessionResourceModifyIndication == nil {
@@ -4699,6 +5921,7 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -4712,6 +5935,7 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -4725,10 +5949,27 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceModifyListModInd = ie.Value.PDUSessionResourceModifyListModInd
 			ran.Log.Trace("Decode IE PDUSessionResourceModifyListModInd")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4736,16 +5977,19 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceModifyListModInd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceModifyListModInd")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceModifyListModInd, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -4759,6 +6003,9 @@ func handlerPDUSessionResourceModifyIndication(ran *context.AmfRan, initiatingMe
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4804,6 +6051,7 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pDUSessionResourceModifyRequest := initiatingMessage.Value.PDUSessionResourceModifyRequest
 	if pDUSessionResourceModifyRequest == nil {
@@ -4824,6 +6072,7 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -4837,6 +6086,7 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -4850,6 +6100,7 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANPagingPriority = ie.Value.RANPagingPriority
@@ -4863,10 +6114,27 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceModifyListModReq = ie.Value.PDUSessionResourceModifyListModReq
 			ran.Log.Trace("Decode IE PDUSessionResourceModifyListModReq")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -4874,16 +6142,19 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceModifyListModReq == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceModifyListModReq")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceModifyListModReq, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -4897,6 +6168,9 @@ func handlerPDUSessionResourceModifyRequest(ran *context.AmfRan, initiatingMessa
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -4958,6 +6232,10 @@ func handlerPDUSessionResourceModifyResponse(ran *context.AmfRan, successfulOutc
 	var userLocationInformation *ngapType.UserLocationInformation
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pDUSessionResourceModifyResponse := successfulOutcome.Value.PDUSessionResourceModifyResponse
 	if pDUSessionResourceModifyResponse == nil {
 		ran.Log.Error("PDUSessionResourceModifyResponse is nil")
@@ -4971,46 +6249,80 @@ func handlerPDUSessionResourceModifyResponse(ran *context.AmfRan, successfulOutc
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceModifyListModRes: // optional, ignore
 			if pDUSessionResourceModifyListModRes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceModifyListModRes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceModifyListModRes = ie.Value.PDUSessionResourceModifyListModRes
 			ran.Log.Trace("Decode IE PDUSessionResourceModifyListModRes")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToModifyListModRes: // optional, ignore
 			if pDUSessionResourceFailedToModifyListModRes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToModifyListModRes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToModifyListModRes = ie.Value.PDUSessionResourceFailedToModifyListModRes
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToModifyListModRes")
 		case ngapType.ProtocolIEIDUserLocationInformation: // optional, ignore
 			if userLocationInformation != nil {
 				ran.Log.Error("Duplicate IE UserLocationInformation")
-				return
+				abort = true
+				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePDUSessionResourceModify
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -5055,6 +6367,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pDUSessionResourceNotify := initiatingMessage.Value.PDUSessionResourceNotify
 	if pDUSessionResourceNotify == nil {
@@ -5075,6 +6388,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -5088,6 +6402,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -5101,6 +6416,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceNotifyList = ie.Value.PDUSessionResourceNotifyList
@@ -5114,6 +6430,7 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceReleasedListNot = ie.Value.PDUSessionResourceReleasedListNot
@@ -5127,10 +6444,27 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -5138,11 +6472,13 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -5156,6 +6492,9 @@ func handlerPDUSessionResourceNotify(ran *context.AmfRan, initiatingMessage *nga
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -5200,6 +6539,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pDUSessionResourceReleaseCommand := initiatingMessage.Value.PDUSessionResourceReleaseCommand
 	if pDUSessionResourceReleaseCommand == nil {
@@ -5220,6 +6560,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -5233,6 +6574,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -5246,6 +6588,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANPagingPriority = ie.Value.RANPagingPriority
@@ -5259,6 +6602,7 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -5272,10 +6616,27 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceToReleaseListRelCmd = ie.Value.PDUSessionResourceToReleaseListRelCmd
 			ran.Log.Trace("Decode IE PDUSessionResourceToReleaseListRelCmd")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -5283,16 +6644,19 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceToReleaseListRelCmd == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceToReleaseListRelCmd")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceToReleaseListRelCmd, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -5306,6 +6670,9 @@ func handlerPDUSessionResourceReleaseCommand(ran *context.AmfRan, initiatingMess
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -5367,6 +6734,10 @@ func handlerPDUSessionResourceReleaseResponse(ran *context.AmfRan, successfulOut
 	var userLocationInformation *ngapType.UserLocationInformation
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pDUSessionResourceReleaseResponse := successfulOutcome.Value.PDUSessionResourceReleaseResponse
 	if pDUSessionResourceReleaseResponse == nil {
 		ran.Log.Error("PDUSessionResourceReleaseResponse is nil")
@@ -5380,39 +6751,72 @@ func handlerPDUSessionResourceReleaseResponse(ran *context.AmfRan, successfulOut
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceReleasedListRelRes: // mandatory, ignore
 			if pDUSessionResourceReleasedListRelRes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceReleasedListRelRes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceReleasedListRelRes = ie.Value.PDUSessionResourceReleasedListRelRes
 			ran.Log.Trace("Decode IE PDUSessionResourceReleasedListRelRes")
 		case ngapType.ProtocolIEIDUserLocationInformation: // optional, ignore
 			if userLocationInformation != nil {
 				ran.Log.Error("Duplicate IE UserLocationInformation")
-				return
+				abort = true
+				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePDUSessionResourceRelease
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -5460,6 +6864,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pDUSessionResourceSetupRequest := initiatingMessage.Value.PDUSessionResourceSetupRequest
 	if pDUSessionResourceSetupRequest == nil {
@@ -5480,6 +6885,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -5493,6 +6899,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -5506,6 +6913,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANPagingPriority = ie.Value.RANPagingPriority
@@ -5519,6 +6927,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -5532,6 +6941,7 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceSetupListSUReq = ie.Value.PDUSessionResourceSetupListSUReq
@@ -5545,10 +6955,27 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
 			ran.Log.Trace("Decode IE UEAggregateMaximumBitRate")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -5556,16 +6983,19 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceSetupListSUReq == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceSetupListSUReq")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceSetupListSUReq, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -5579,6 +7009,9 @@ func handlerPDUSessionResourceSetupRequest(ran *context.AmfRan, initiatingMessag
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -5641,6 +7074,10 @@ func handlerPDUSessionResourceSetupResponse(ran *context.AmfRan, successfulOutco
 	var pDUSessionResourceFailedToSetupListSURes *ngapType.PDUSessionResourceFailedToSetupListSURes
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pDUSessionResourceSetupResponse := successfulOutcome.Value.PDUSessionResourceSetupResponse
 	if pDUSessionResourceSetupResponse == nil {
 		ran.Log.Error("PDUSessionResourceSetupResponse is nil")
@@ -5654,39 +7091,72 @@ func handlerPDUSessionResourceSetupResponse(ran *context.AmfRan, successfulOutco
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceSetupListSURes: // optional, ignore
 			if pDUSessionResourceSetupListSURes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceSetupListSURes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceSetupListSURes = ie.Value.PDUSessionResourceSetupListSURes
 			ran.Log.Trace("Decode IE PDUSessionResourceSetupListSURes")
 		case ngapType.ProtocolIEIDPDUSessionResourceFailedToSetupListSURes: // optional, ignore
 			if pDUSessionResourceFailedToSetupListSURes != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceFailedToSetupListSURes")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceFailedToSetupListSURes = ie.Value.PDUSessionResourceFailedToSetupListSURes
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToSetupListSURes")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePDUSessionResourceSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -5729,6 +7199,7 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pWSCancelRequest := initiatingMessage.Value.PWSCancelRequest
 	if pWSCancelRequest == nil {
@@ -5749,6 +7220,7 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			messageIdentifier = ie.Value.MessageIdentifier
@@ -5762,6 +7234,7 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			serialNumber = ie.Value.SerialNumber
@@ -5775,6 +7248,7 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningAreaList = ie.Value.WarningAreaList
@@ -5788,10 +7262,27 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cancelAllWarningMessages = ie.Value.CancelAllWarningMessages
 			ran.Log.Trace("Decode IE CancelAllWarningMessages")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -5799,11 +7290,13 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 		ran.Log.Error("Missing IE MessageIdentifier")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDMessageIdentifier, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if serialNumber == nil {
 		ran.Log.Error("Missing IE SerialNumber")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSerialNumber, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -5817,6 +7310,9 @@ func handlerPWSCancelRequest(ran *context.AmfRan, initiatingMessage *ngapType.In
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -5858,6 +7354,10 @@ func handlerPWSCancelResponse(ran *context.AmfRan, successfulOutcome *ngapType.S
 	var broadcastCancelledAreaList *ngapType.BroadcastCancelledAreaList
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pWSCancelResponse := successfulOutcome.Value.PWSCancelResponse
 	if pWSCancelResponse == nil {
 		ran.Log.Error("PWSCancelResponse is nil")
@@ -5871,32 +7371,64 @@ func handlerPWSCancelResponse(ran *context.AmfRan, successfulOutcome *ngapType.S
 		case ngapType.ProtocolIEIDMessageIdentifier: // mandatory, reject
 			if messageIdentifier != nil {
 				ran.Log.Error("Duplicate IE MessageIdentifier")
-				return
+				abort = true
+				break
 			}
 			messageIdentifier = ie.Value.MessageIdentifier
 			ran.Log.Trace("Decode IE MessageIdentifier")
 		case ngapType.ProtocolIEIDSerialNumber: // mandatory, reject
 			if serialNumber != nil {
 				ran.Log.Error("Duplicate IE SerialNumber")
-				return
+				abort = true
+				break
 			}
 			serialNumber = ie.Value.SerialNumber
 			ran.Log.Trace("Decode IE SerialNumber")
 		case ngapType.ProtocolIEIDBroadcastCancelledAreaList: // optional, ignore
 			if broadcastCancelledAreaList != nil {
 				ran.Log.Error("Duplicate IE BroadcastCancelledAreaList")
-				return
+				abort = true
+				break
 			}
 			broadcastCancelledAreaList = ie.Value.BroadcastCancelledAreaList
 			ran.Log.Trace("Decode IE BroadcastCancelledAreaList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePWSCancel
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if messageIdentifier == nil {
@@ -5926,6 +7458,7 @@ func handlerPWSFailureIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pWSFailureIndication := initiatingMessage.Value.PWSFailureIndication
 	if pWSFailureIndication == nil {
@@ -5946,6 +7479,7 @@ func handlerPWSFailureIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pWSFailedCellIDList = ie.Value.PWSFailedCellIDList
@@ -5959,10 +7493,27 @@ func handlerPWSFailureIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			globalRANNodeID = ie.Value.GlobalRANNodeID
 			ran.Log.Trace("Decode IE GlobalRANNodeID")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -5970,11 +7521,13 @@ func handlerPWSFailureIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 		ran.Log.Error("Missing IE PWSFailedCellIDList")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPWSFailedCellIDList, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if globalRANNodeID == nil {
 		ran.Log.Error("Missing IE GlobalRANNodeID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDGlobalRANNodeID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -5988,6 +7541,9 @@ func handlerPWSFailureIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -6029,6 +7585,7 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pWSRestartIndication := initiatingMessage.Value.PWSRestartIndication
 	if pWSRestartIndication == nil {
@@ -6049,6 +7606,7 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cellIDListForRestart = ie.Value.CellIDListForRestart
@@ -6062,6 +7620,7 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			globalRANNodeID = ie.Value.GlobalRANNodeID
@@ -6075,6 +7634,7 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			tAIListForRestart = ie.Value.TAIListForRestart
@@ -6088,10 +7648,27 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			emergencyAreaIDListForRestart = ie.Value.EmergencyAreaIDListForRestart
 			ran.Log.Trace("Decode IE EmergencyAreaIDListForRestart")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -6099,16 +7676,19 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 		ran.Log.Error("Missing IE CellIDListForRestart")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDCellIDListForRestart, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if globalRANNodeID == nil {
 		ran.Log.Error("Missing IE GlobalRANNodeID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDGlobalRANNodeID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if tAIListForRestart == nil {
 		ran.Log.Error("Missing IE TAIListForRestart")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTAIListForRestart, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -6122,6 +7702,9 @@ func handlerPWSRestartIndication(ran *context.AmfRan, initiatingMessage *ngapTyp
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -6172,6 +7755,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	paging := initiatingMessage.Value.Paging
 	if paging == nil {
@@ -6192,6 +7776,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEPagingIdentity = ie.Value.UEPagingIdentity
@@ -6205,6 +7790,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pagingDRX = ie.Value.PagingDRX
@@ -6218,6 +7804,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			tAIListForPaging = ie.Value.TAIListForPaging
@@ -6231,6 +7818,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pagingPriority = ie.Value.PagingPriority
@@ -6244,6 +7832,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapabilityForPaging = ie.Value.UERadioCapabilityForPaging
@@ -6257,6 +7846,7 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pagingOrigin = ie.Value.PagingOrigin
@@ -6270,10 +7860,27 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			assistanceDataForPaging = ie.Value.AssistanceDataForPaging
 			ran.Log.Trace("Decode IE AssistanceDataForPaging")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -6288,6 +7895,9 @@ func handlerPaging(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMe
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -6334,6 +7944,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	pathSwitchRequest := initiatingMessage.Value.PathSwitchRequest
 	if pathSwitchRequest == nil {
@@ -6354,6 +7965,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -6367,6 +7979,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			sourceAMFUENGAPID = ie.Value.SourceAMFUENGAPID
@@ -6380,6 +7993,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
@@ -6393,6 +8007,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uESecurityCapabilities = ie.Value.UESecurityCapabilities
@@ -6406,6 +8021,7 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceToBeSwitchedDLList = ie.Value.PDUSessionResourceToBeSwitchedDLList
@@ -6419,10 +8035,27 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceFailedToSetupListPSReq = ie.Value.PDUSessionResourceFailedToSetupListPSReq
 			ran.Log.Trace("Decode IE PDUSessionResourceFailedToSetupListPSReq")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -6430,16 +8063,19 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if sourceAMFUENGAPID == nil {
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSourceAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if pDUSessionResourceToBeSwitchedDLList == nil {
 		ran.Log.Error("Missing IE PDUSessionResourceToBeSwitchedDLList")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceToBeSwitchedDLList, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -6453,6 +8089,9 @@ func handlerPathSwitchRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -6499,6 +8138,10 @@ func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome 
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 	var redirectionVoiceFallback *ngapType.RedirectionVoiceFallback
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pathSwitchRequestAcknowledge := successfulOutcome.Value.PathSwitchRequestAcknowledge
 	if pathSwitchRequestAcknowledge == nil {
 		ran.Log.Error("PathSwitchRequestAcknowledge is nil")
@@ -6512,88 +8155,128 @@ func handlerPathSwitchRequestAcknowledge(ran *context.AmfRan, successfulOutcome 
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDUESecurityCapabilities: // optional, reject
 			if uESecurityCapabilities != nil {
 				ran.Log.Error("Duplicate IE UESecurityCapabilities")
-				return
+				abort = true
+				break
 			}
 			uESecurityCapabilities = ie.Value.UESecurityCapabilities
 			ran.Log.Trace("Decode IE UESecurityCapabilities")
 		case ngapType.ProtocolIEIDSecurityContext: // mandatory, reject
 			if securityContext != nil {
 				ran.Log.Error("Duplicate IE SecurityContext")
-				return
+				abort = true
+				break
 			}
 			securityContext = ie.Value.SecurityContext
 			ran.Log.Trace("Decode IE SecurityContext")
 		case ngapType.ProtocolIEIDNewSecurityContextInd: // optional, reject
 			if newSecurityContextInd != nil {
 				ran.Log.Error("Duplicate IE NewSecurityContextInd")
-				return
+				abort = true
+				break
 			}
 			newSecurityContextInd = ie.Value.NewSecurityContextInd
 			ran.Log.Trace("Decode IE NewSecurityContextInd")
 		case ngapType.ProtocolIEIDPDUSessionResourceSwitchedList: // mandatory, ignore
 			if pDUSessionResourceSwitchedList != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceSwitchedList")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceSwitchedList = ie.Value.PDUSessionResourceSwitchedList
 			ran.Log.Trace("Decode IE PDUSessionResourceSwitchedList")
 		case ngapType.ProtocolIEIDPDUSessionResourceReleasedListPSAck: // optional, ignore
 			if pDUSessionResourceReleasedListPSAck != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceReleasedListPSAck")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceReleasedListPSAck = ie.Value.PDUSessionResourceReleasedListPSAck
 			ran.Log.Trace("Decode IE PDUSessionResourceReleasedListPSAck")
 		case ngapType.ProtocolIEIDAllowedNSSAI: // mandatory, reject
 			if allowedNSSAI != nil {
 				ran.Log.Error("Duplicate IE AllowedNSSAI")
-				return
+				abort = true
+				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
 			ran.Log.Trace("Decode IE AllowedNSSAI")
 		case ngapType.ProtocolIEIDCoreNetworkAssistanceInformation: // optional, ignore
 			if coreNetworkAssistanceInformation != nil {
 				ran.Log.Error("Duplicate IE CoreNetworkAssistanceInformationForInactive")
-				return
+				abort = true
+				break
 			}
 			coreNetworkAssistanceInformation = ie.Value.CoreNetworkAssistanceInformation
 			ran.Log.Trace("Decode IE CoreNetworkAssistanceInformationForInactive")
 		case ngapType.ProtocolIEIDRRCInactiveTransitionReportRequest: // optional, ignore
 			if rRCInactiveTransitionReportRequest != nil {
 				ran.Log.Error("Duplicate IE RRCInactiveTransitionReportRequest")
-				return
+				abort = true
+				break
 			}
 			rRCInactiveTransitionReportRequest = ie.Value.RRCInactiveTransitionReportRequest
 			ran.Log.Trace("Decode IE RRCInactiveTransitionReportRequest")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
 		case ngapType.ProtocolIEIDRedirectionVoiceFallback: // optional, ignore
 			if redirectionVoiceFallback != nil {
 				ran.Log.Error("Duplicate IE RedirectionVoiceFallback")
-				return
+				abort = true
+				break
 			}
 			redirectionVoiceFallback = ie.Value.RedirectionVoiceFallback
 			ran.Log.Trace("Decode IE RedirectionVoiceFallback")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePathSwitchRequest
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -6656,6 +8339,10 @@ func handlerPathSwitchRequestFailure(ran *context.AmfRan, unsuccessfulOutcome *n
 	var pDUSessionResourceReleasedListPSFail *ngapType.PDUSessionResourceReleasedListPSFail
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	pathSwitchRequestFailure := unsuccessfulOutcome.Value.PathSwitchRequestFailure
 	if pathSwitchRequestFailure == nil {
 		ran.Log.Error("PathSwitchRequestFailure is nil")
@@ -6669,32 +8356,64 @@ func handlerPathSwitchRequestFailure(ran *context.AmfRan, unsuccessfulOutcome *n
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDPDUSessionResourceReleasedListPSFail: // mandatory, ignore
 			if pDUSessionResourceReleasedListPSFail != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceReleasedListPSFail")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceReleasedListPSFail = ie.Value.PDUSessionResourceReleasedListPSFail
 			ran.Log.Trace("Decode IE PDUSessionResourceReleasedListPSFail")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodePathSwitchRequest
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -6736,10 +8455,14 @@ func handlePathSwitchRequestFailureMain(ran *context.AmfRan, ranUe *context.RanU
 }
 
 func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
+	var rANNodeName *ngapType.RANNodeName
 	var supportedTAList *ngapType.SupportedTAList
+	var defaultPagingDRX *ngapType.PagingDRX
+	var globalRANNodeID *ngapType.GlobalRANNodeID
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	rANConfigurationUpdate := initiatingMessage.Value.RANConfigurationUpdate
 	if rANConfigurationUpdate == nil {
@@ -6752,7 +8475,19 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 	for _, ie := range rANConfigurationUpdate.ProtocolIEs.List {
 		switch ie.Id.Value {
 		case ngapType.ProtocolIEIDRANNodeName: // optional, ignore
-			ran.Log.Info("Not comprehended IE RANNodeName")
+			if rANNodeName != nil {
+				ran.Log.Error("Duplicate IE RANNodeName")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			rANNodeName = ie.Value.RANNodeName
+			ran.Log.Trace("Decode IE RANNodeName")
 		case ngapType.ProtocolIEIDSupportedTAList: // optional, reject
 			if supportedTAList != nil {
 				ran.Log.Error("Duplicate IE SupportedTAList")
@@ -6762,14 +8497,55 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			supportedTAList = ie.Value.SupportedTAList
 			ran.Log.Trace("Decode IE SupportedTAList")
 		case ngapType.ProtocolIEIDDefaultPagingDRX: // optional, ignore
-			ran.Log.Info("Not comprehended IE PagingDRX")
+			if defaultPagingDRX != nil {
+				ran.Log.Error("Duplicate IE PagingDRX")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			defaultPagingDRX = ie.Value.DefaultPagingDRX
+			ran.Log.Trace("Decode IE PagingDRX")
 		case ngapType.ProtocolIEIDGlobalRANNodeID: // optional, ignore
-			ran.Log.Info("Not comprehended IE GlobalRANNodeID")
+			if globalRANNodeID != nil {
+				ran.Log.Error("Duplicate IE GlobalRANNodeID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			globalRANNodeID = ie.Value.GlobalRANNodeID
+			ran.Log.Trace("Decode IE GlobalRANNodeID")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -6792,7 +8568,20 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 			}
 		}
 		rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
+	}
+
+	if rANNodeName != nil {
+		ran.Log.Warn("IE RANNodeName is not implemented")
+	}
+	if defaultPagingDRX != nil {
+		ran.Log.Warn("IE PagingDRX is not implemented")
+	}
+	if globalRANNodeID != nil {
+		ran.Log.Warn("IE GlobalRANNodeID is not implemented")
 	}
 
 	// func handleRANConfigurationUpdateMain(ran *context.AmfRan,
@@ -6802,6 +8591,10 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 
 func handlerRANConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
+
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	rANConfigurationUpdateAcknowledge := successfulOutcome.Value.RANConfigurationUpdateAcknowledge
 	if rANConfigurationUpdateAcknowledge == nil {
@@ -6816,11 +8609,40 @@ func handlerRANConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOut
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	// func handleRANConfigurationUpdateAcknowledgeMain(ran *context.AmfRan,
@@ -6837,6 +8659,10 @@ func handlerRANConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 	var timeToWait *ngapType.TimeToWait
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	rANConfigurationUpdateFailure := unsuccessfulOutcome.Value.RANConfigurationUpdateFailure
 	if rANConfigurationUpdateFailure == nil {
 		ran.Log.Error("RANConfigurationUpdateFailure is nil")
@@ -6850,25 +8676,56 @@ func handlerRANConfigurationUpdateFailure(ran *context.AmfRan, unsuccessfulOutco
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDTimeToWait: // optional, ignore
 			if timeToWait != nil {
 				ran.Log.Error("Duplicate IE TimeToWait")
-				return
+				abort = true
+				break
 			}
 			timeToWait = ie.Value.TimeToWait
 			ran.Log.Trace("Decode IE TimeToWait")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if cause == nil {
@@ -6894,6 +8751,7 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	rRCInactiveTransitionReport := initiatingMessage.Value.RRCInactiveTransitionReport
 	if rRCInactiveTransitionReport == nil {
@@ -6914,6 +8772,7 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -6927,6 +8786,7 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -6940,6 +8800,7 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rRCState = ie.Value.RRCState
@@ -6953,10 +8814,27 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -6964,11 +8842,13 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -6982,6 +8862,9 @@ func handlerRRCInactiveTransitionReport(ran *context.AmfRan, initiatingMessage *
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7030,6 +8913,7 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	rerouteNASRequest := initiatingMessage.Value.RerouteNASRequest
 	if rerouteNASRequest == nil {
@@ -7050,6 +8934,7 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -7063,6 +8948,7 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -7076,6 +8962,7 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFSetID = ie.Value.AMFSetID
@@ -7089,10 +8976,27 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			allowedNSSAI = ie.Value.AllowedNSSAI
 			ran.Log.Trace("Decode IE AllowedNSSAI")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -7100,11 +9004,13 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if aMFSetID == nil {
 		ran.Log.Error("Missing IE AMFSetID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFSetID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -7118,6 +9024,9 @@ func handlerRerouteNASRequest(ran *context.AmfRan, initiatingMessage *ngapType.I
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7177,6 +9086,7 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	secondaryRATDataUsageReport := initiatingMessage.Value.SecondaryRATDataUsageReport
 	if secondaryRATDataUsageReport == nil {
@@ -7197,6 +9107,7 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -7210,6 +9121,7 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -7223,6 +9135,7 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceSecondaryRATUsageList = ie.Value.PDUSessionResourceSecondaryRATUsageList
@@ -7236,10 +9149,27 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			handoverFlag = ie.Value.HandoverFlag
 			ran.Log.Trace("Decode IE HandoverFlag")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -7254,6 +9184,9 @@ func handlerSecondaryRATDataUsageReport(ran *context.AmfRan, initiatingMessage *
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7314,6 +9247,7 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	traceFailureIndication := initiatingMessage.Value.TraceFailureIndication
 	if traceFailureIndication == nil {
@@ -7334,6 +9268,7 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -7347,6 +9282,7 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -7360,6 +9296,7 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nGRANTraceID = ie.Value.NGRANTraceID
@@ -7373,10 +9310,27 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -7384,11 +9338,13 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -7402,6 +9358,9 @@ func handlerTraceFailureIndication(ran *context.AmfRan, initiatingMessage *ngapT
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7464,6 +9423,7 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	traceStart := initiatingMessage.Value.TraceStart
 	if traceStart == nil {
@@ -7484,6 +9444,7 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -7497,6 +9458,7 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -7510,10 +9472,27 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			traceActivation = ie.Value.TraceActivation
 			ran.Log.Trace("Decode IE TraceActivation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -7521,11 +9500,13 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -7539,6 +9520,9 @@ func handlerTraceStart(ran *context.AmfRan, initiatingMessage *ngapType.Initiati
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7596,6 +9580,10 @@ func handlerUEContextModificationFailure(ran *context.AmfRan, unsuccessfulOutcom
 	var cause *ngapType.Cause
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	uEContextModificationFailure := unsuccessfulOutcome.Value.UEContextModificationFailure
 	if uEContextModificationFailure == nil {
 		ran.Log.Error("UEContextModificationFailure is nil")
@@ -7609,32 +9597,64 @@ func handlerUEContextModificationFailure(ran *context.AmfRan, unsuccessfulOutcom
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDCause: // mandatory, ignore
 			if cause != nil {
 				ran.Log.Error("Duplicate IE Cause")
-				return
+				abort = true
+				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeUEContextModification
+		triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -7686,6 +9706,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uEContextModificationRequest := initiatingMessage.Value.UEContextModificationRequest
 	if uEContextModificationRequest == nil {
@@ -7706,6 +9727,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -7719,6 +9741,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -7732,6 +9755,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANPagingPriority = ie.Value.RANPagingPriority
@@ -7745,6 +9769,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			securityKey = ie.Value.SecurityKey
@@ -7758,6 +9783,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			indexToRFSP = ie.Value.IndexToRFSP
@@ -7771,6 +9797,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uEAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
@@ -7784,6 +9811,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uESecurityCapabilities = ie.Value.UESecurityCapabilities
@@ -7797,6 +9825,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			coreNetworkAssistanceInformation = ie.Value.CoreNetworkAssistanceInformation
@@ -7810,6 +9839,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			emergencyFallbackIndicator = ie.Value.EmergencyFallbackIndicator
@@ -7823,6 +9853,7 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			newAMFUENGAPID = ie.Value.NewAMFUENGAPID
@@ -7836,10 +9867,27 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rRCInactiveTransitionReportRequest = ie.Value.RRCInactiveTransitionReportRequest
 			ran.Log.Trace("Decode IE RRCInactiveTransitionReportRequest")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -7847,11 +9895,13 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -7865,6 +9915,9 @@ func handlerUEContextModificationRequest(ran *context.AmfRan, initiatingMessage 
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -7928,6 +9981,10 @@ func handlerUEContextModificationResponse(ran *context.AmfRan, successfulOutcome
 	var userLocationInformation *ngapType.UserLocationInformation
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	uEContextModificationResponse := successfulOutcome.Value.UEContextModificationResponse
 	if uEContextModificationResponse == nil {
 		ran.Log.Error("UEContextModificationResponse is nil")
@@ -7941,39 +9998,72 @@ func handlerUEContextModificationResponse(ran *context.AmfRan, successfulOutcome
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRRCState: // optional, ignore
 			if rRCState != nil {
 				ran.Log.Error("Duplicate IE RRCState")
-				return
+				abort = true
+				break
 			}
 			rRCState = ie.Value.RRCState
 			ran.Log.Trace("Decode IE RRCState")
 		case ngapType.ProtocolIEIDUserLocationInformation: // optional, ignore
 			if userLocationInformation != nil {
 				ran.Log.Error("Duplicate IE UserLocationInformation")
-				return
+				abort = true
+				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeUEContextModification
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -8014,6 +10104,7 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uEContextReleaseCommand := initiatingMessage.Value.UEContextReleaseCommand
 	if uEContextReleaseCommand == nil {
@@ -8034,6 +10125,7 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uENGAPIDs = ie.Value.UENGAPIDs
@@ -8047,10 +10139,27 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8058,6 +10167,7 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 		ran.Log.Error("Missing IE UE-NGAP-IDs")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDUENGAPIDs, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8071,6 +10181,9 @@ func handlerUEContextReleaseCommand(ran *context.AmfRan, initiatingMessage *ngap
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8111,6 +10224,10 @@ func handlerUEContextReleaseComplete(ran *context.AmfRan, successfulOutcome *nga
 	var pDUSessionResourceListCxtRelCpl *ngapType.PDUSessionResourceListCxtRelCpl
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	uEContextReleaseComplete := successfulOutcome.Value.UEContextReleaseComplete
 	if uEContextReleaseComplete == nil {
 		ran.Log.Error("UEContextReleaseComplete is nil")
@@ -8124,46 +10241,80 @@ func handlerUEContextReleaseComplete(ran *context.AmfRan, successfulOutcome *nga
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDUserLocationInformation: // optional, ignore
 			if userLocationInformation != nil {
 				ran.Log.Error("Duplicate IE UserLocationInformation")
-				return
+				abort = true
+				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
 		case ngapType.ProtocolIEIDInfoOnRecommendedCellsAndRANNodesForPaging: // optional, ignore
 			if infoOnRecommendedCellsAndRANNodesForPaging != nil {
 				ran.Log.Error("Duplicate IE InfoOnRecommendedCellsAndRANNodesForPaging")
-				return
+				abort = true
+				break
 			}
 			infoOnRecommendedCellsAndRANNodesForPaging = ie.Value.InfoOnRecommendedCellsAndRANNodesForPaging
 			ran.Log.Trace("Decode IE InfoOnRecommendedCellsAndRANNodesForPaging")
 		case ngapType.ProtocolIEIDPDUSessionResourceListCxtRelCpl: // optional, reject
 			if pDUSessionResourceListCxtRelCpl != nil {
 				ran.Log.Error("Duplicate IE PDUSessionResourceListCxtRelCpl")
-				return
+				abort = true
+				break
 			}
 			pDUSessionResourceListCxtRelCpl = ie.Value.PDUSessionResourceListCxtRelCpl
 			ran.Log.Trace("Decode IE PDUSessionResourceListCxtRelCpl")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeUEContextRelease
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -8207,6 +10358,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uEContextReleaseRequest := initiatingMessage.Value.UEContextReleaseRequest
 	if uEContextReleaseRequest == nil {
@@ -8227,6 +10379,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -8240,6 +10393,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -8253,6 +10407,7 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			pDUSessionResourceListCxtRelReq = ie.Value.PDUSessionResourceListCxtRelReq
@@ -8266,10 +10421,27 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			cause = ie.Value.Cause
 			ran.Log.Trace("Decode IE Cause")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8277,11 +10449,13 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8295,6 +10469,9 @@ func handlerUEContextReleaseRequest(ran *context.AmfRan, initiatingMessage *ngap
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8339,6 +10516,7 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uERadioCapabilityCheckRequest := initiatingMessage.Value.UERadioCapabilityCheckRequest
 	if uERadioCapabilityCheckRequest == nil {
@@ -8359,6 +10537,7 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -8372,6 +10551,7 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -8385,10 +10565,27 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapability = ie.Value.UERadioCapability
 			ran.Log.Trace("Decode IE UERadioCapability")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8396,11 +10593,13 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8414,6 +10613,9 @@ func handlerUERadioCapabilityCheckRequest(ran *context.AmfRan, initiatingMessage
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8468,6 +10670,10 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 	var iMSVoiceSupportIndicator *ngapType.IMSVoiceSupportIndicator
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	uERadioCapabilityCheckResponse := successfulOutcome.Value.UERadioCapabilityCheckResponse
 	if uERadioCapabilityCheckResponse == nil {
 		ran.Log.Error("UERadioCapabilityCheckResponse is nil")
@@ -8481,32 +10687,64 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, ignore
 			if aMFUENGAPID != nil {
 				ran.Log.Error("Duplicate IE AMF-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
 			ran.Log.Trace("Decode IE AMF-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, ignore
 			if rANUENGAPID != nil {
 				ran.Log.Error("Duplicate IE RAN-UE-NGAP-ID")
-				return
+				abort = true
+				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
 		case ngapType.ProtocolIEIDIMSVoiceSupportIndicator: // mandatory, reject
 			if iMSVoiceSupportIndicator != nil {
 				ran.Log.Error("Duplicate IE IMSVoiceSupportIndicator")
-				return
+				abort = true
+				break
 			}
 			iMSVoiceSupportIndicator = ie.Value.IMSVoiceSupportIndicator
 			ran.Log.Trace("Decode IE IMSVoiceSupportIndicator")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeUERadioCapabilityCheck
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if aMFUENGAPID == nil {
@@ -8518,6 +10756,9 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 	if iMSVoiceSupportIndicator == nil {
 		ran.Log.Error("Missing IE IMSVoiceSupportIndicator")
 		return
+	}
+	if iMSVoiceSupportIndicator != nil {
+		ran.Log.Warn("IE IMSVoiceSupportIndicator is not implemented")
 	}
 
 	// AMF: mandatory, ignore
@@ -8539,9 +10780,8 @@ func handlerUERadioCapabilityCheckResponse(ran *context.AmfRan, successfulOutcom
 
 	// func handleUERadioCapabilityCheckResponseMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
-	//	iMSVoiceSupportIndicator *ngapType.IMSVoiceSupportIndicator,
 	//	criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
-	handleUERadioCapabilityCheckResponseMain(ran, ranUe /* may be nil */, iMSVoiceSupportIndicator, criticalityDiagnostics /* may be nil */)
+	handleUERadioCapabilityCheckResponseMain(ran, ranUe /* may be nil */, criticalityDiagnostics /* may be nil */)
 }
 
 func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -8552,6 +10792,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uERadioCapabilityInfoIndication := initiatingMessage.Value.UERadioCapabilityInfoIndication
 	if uERadioCapabilityInfoIndication == nil {
@@ -8572,6 +10813,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -8585,6 +10827,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -8598,6 +10841,7 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapability = ie.Value.UERadioCapability
@@ -8611,10 +10855,27 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			uERadioCapabilityForPaging = ie.Value.UERadioCapabilityForPaging
 			ran.Log.Trace("Decode IE UERadioCapabilityForPaging")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8622,11 +10883,13 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8640,6 +10903,9 @@ func handlerUERadioCapabilityInfoIndication(ran *context.AmfRan, initiatingMessa
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8683,6 +10949,7 @@ func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uETNLABindingReleaseRequest := initiatingMessage.Value.UETNLABindingReleaseRequest
 	if uETNLABindingReleaseRequest == nil {
@@ -8703,6 +10970,7 @@ func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -8716,10 +10984,27 @@ func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
 			ran.Log.Trace("Decode IE RAN-UE-NGAP-ID")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8727,11 +11012,13 @@ func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8745,6 +11032,9 @@ func handlerUETNLABindingReleaseRequest(ran *context.AmfRan, initiatingMessage *
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8800,6 +11090,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uplinkNASTransport := initiatingMessage.Value.UplinkNASTransport
 	if uplinkNASTransport == nil {
@@ -8820,6 +11111,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -8833,6 +11125,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -8846,6 +11139,7 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nASPDU = ie.Value.NASPDU
@@ -8859,10 +11153,27 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			userLocationInformation = ie.Value.UserLocationInformation
 			ran.Log.Trace("Decode IE UserLocationInformation")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8870,16 +11181,19 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nASPDU == nil {
 		ran.Log.Error("Missing IE NAS-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNASPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -8893,6 +11207,9 @@ func handlerUplinkNASTransport(ran *context.AmfRan, initiatingMessage *ngapType.
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -8940,6 +11257,7 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uplinkNonUEAssociatedNRPPaTransport := initiatingMessage.Value.UplinkNonUEAssociatedNRPPaTransport
 	if uplinkNonUEAssociatedNRPPaTransport == nil {
@@ -8960,6 +11278,7 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			routingID = ie.Value.RoutingID
@@ -8973,10 +11292,27 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nRPPaPDU = ie.Value.NRPPaPDU
 			ran.Log.Trace("Decode IE NRPPa-PDU")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -8984,11 +11320,13 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 		ran.Log.Error("Missing IE RoutingID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRoutingID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nRPPaPDU == nil {
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNRPPaPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -9002,6 +11340,9 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -9022,9 +11363,11 @@ func handlerUplinkNonUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingM
 
 func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
 	var sONConfigurationTransferUL *ngapType.SONConfigurationTransfer
+	var eNDCSONConfigurationTransferUL *ngapType.ENDCSONConfigurationTransfer
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uplinkRANConfigurationTransfer := initiatingMessage.Value.UplinkRANConfigurationTransfer
 	if uplinkRANConfigurationTransfer == nil {
@@ -9045,12 +11388,41 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			sONConfigurationTransferUL = ie.Value.SONConfigurationTransferUL
 			ran.Log.Trace("Decode IE SONConfigurationTransfer")
 		case ngapType.ProtocolIEIDENDCSONConfigurationTransferUL: // optional, ignore
-			ran.Log.Info("Not comprehended IE EN-DCSONConfigurationTransfer")
+			if eNDCSONConfigurationTransferUL != nil {
+				ran.Log.Error("Duplicate IE EN-DCSONConfigurationTransfer")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			eNDCSONConfigurationTransferUL = ie.Value.ENDCSONConfigurationTransferUL
+			ran.Log.Trace("Decode IE EN-DCSONConfigurationTransfer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -9065,7 +11437,14 @@ func handlerUplinkRANConfigurationTransfer(ran *context.AmfRan, initiatingMessag
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
+	}
+
+	if eNDCSONConfigurationTransferUL != nil {
+		ran.Log.Warn("IE EN-DCSONConfigurationTransfer is not implemented")
 	}
 
 	// func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
@@ -9080,6 +11459,7 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uplinkRANStatusTransfer := initiatingMessage.Value.UplinkRANStatusTransfer
 	if uplinkRANStatusTransfer == nil {
@@ -9100,6 +11480,7 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -9113,6 +11494,7 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -9126,10 +11508,27 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANStatusTransferTransparentContainer = ie.Value.RANStatusTransferTransparentContainer
 			ran.Log.Trace("Decode IE RANStatusTransfer-TransparentContainer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -9137,16 +11536,19 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANStatusTransferTransparentContainer == nil {
 		ran.Log.Error("Missing IE RANStatusTransfer-TransparentContainer")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANStatusTransferTransparentContainer, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -9160,6 +11562,9 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -9174,6 +11579,9 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 	if rANStatusTransferTransparentContainer == nil {
 		ran.Log.Error("Missing IE RANStatusTransfer-TransparentContainer")
 		return
+	}
+	if rANStatusTransferTransparentContainer != nil {
+		ran.Log.Warn("IE RANStatusTransfer-TransparentContainer is not implemented")
 	}
 
 	// AMF: mandatory, reject
@@ -9192,9 +11600,8 @@ func handlerUplinkRANStatusTransfer(ran *context.AmfRan, initiatingMessage *ngap
 	ranUe.Log.Infof("Handle UplinkRANStatusTransfer (RAN UE NGAP ID: %d)", ranUe.RanUeNgapId)
 
 	// func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
-	//	ranUe *context.RanUe,
-	//	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer) {
-	handleUplinkRANStatusTransferMain(ran, ranUe, rANStatusTransferTransparentContainer)
+	//	ranUe *context.RanUe) {
+	handleUplinkRANStatusTransferMain(ran, ranUe)
 }
 
 func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -9205,6 +11612,7 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	uplinkUEAssociatedNRPPaTransport := initiatingMessage.Value.UplinkUEAssociatedNRPPaTransport
 	if uplinkUEAssociatedNRPPaTransport == nil {
@@ -9225,6 +11633,7 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			aMFUENGAPID = ie.Value.AMFUENGAPID
@@ -9238,6 +11647,7 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			rANUENGAPID = ie.Value.RANUENGAPID
@@ -9251,6 +11661,7 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			routingID = ie.Value.RoutingID
@@ -9264,10 +11675,27 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			nRPPaPDU = ie.Value.NRPPaPDU
 			ran.Log.Trace("Decode IE NRPPa-PDU")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -9275,21 +11703,25 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 		ran.Log.Error("Missing IE AMF-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if rANUENGAPID == nil {
 		ran.Log.Error("Missing IE RAN-UE-NGAP-ID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if routingID == nil {
 		ran.Log.Error("Missing IE RoutingID")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRoutingID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if nRPPaPDU == nil {
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNRPPaPDU, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -9303,6 +11735,9 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -9321,6 +11756,9 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 	if nRPPaPDU == nil {
 		ran.Log.Error("Missing IE NRPPa-PDU")
 		return
+	}
+	if nRPPaPDU != nil {
+		ran.Log.Warn("IE NRPPa-PDU is not implemented")
 	}
 
 	// AMF: mandatory, reject
@@ -9340,9 +11778,8 @@ func handlerUplinkUEAssociatedNRPPaTransport(ran *context.AmfRan, initiatingMess
 
 	// func handleUplinkUEAssociatedNRPPaTransportMain(ran *context.AmfRan,
 	//	ranUe *context.RanUe,
-	//	routingID *ngapType.RoutingID,
-	//	nRPPaPDU *ngapType.NRPPaPDU) {
-	handleUplinkUEAssociatedNRPPaTransportMain(ran, ranUe, routingID, nRPPaPDU)
+	//	routingID *ngapType.RoutingID) {
+	handleUplinkUEAssociatedNRPPaTransportMain(ran, ranUe, routingID)
 }
 
 func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *ngapType.InitiatingMessage) {
@@ -9360,6 +11797,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 
 	var syntaxCause *ngapType.Cause
 	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
 	writeReplaceWarningRequest := initiatingMessage.Value.WriteReplaceWarningRequest
 	if writeReplaceWarningRequest == nil {
@@ -9380,6 +11818,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			messageIdentifier = ie.Value.MessageIdentifier
@@ -9393,6 +11832,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			serialNumber = ie.Value.SerialNumber
@@ -9406,6 +11846,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningAreaList = ie.Value.WarningAreaList
@@ -9419,6 +11860,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			repetitionPeriod = ie.Value.RepetitionPeriod
@@ -9432,6 +11874,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			numberOfBroadcastsRequested = ie.Value.NumberOfBroadcastsRequested
@@ -9445,6 +11888,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningType = ie.Value.WarningType
@@ -9458,6 +11902,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningSecurityInfo = ie.Value.WarningSecurityInfo
@@ -9471,6 +11916,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			dataCodingScheme = ie.Value.DataCodingScheme
@@ -9484,6 +11930,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningMessageContents = ie.Value.WarningMessageContents
@@ -9497,6 +11944,7 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			concurrentWarningMessageInd = ie.Value.ConcurrentWarningMessageInd
@@ -9510,10 +11958,27 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
 					},
 				}
+				abort = true
 				break
 			}
 			warningAreaCoordinates = ie.Value.WarningAreaCoordinates
 			ran.Log.Trace("Decode IE WarningAreaCoordinates")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
 		}
 	}
 
@@ -9521,21 +11986,25 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 		ran.Log.Error("Missing IE MessageIdentifier")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDMessageIdentifier, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if serialNumber == nil {
 		ran.Log.Error("Missing IE SerialNumber")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSerialNumber, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if repetitionPeriod == nil {
 		ran.Log.Error("Missing IE RepetitionPeriod")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRepetitionPeriod, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 	if numberOfBroadcastsRequested == nil {
 		ran.Log.Error("Missing IE NumberOfBroadcastsRequested")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDNumberOfBroadcastsRequested, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
@@ -9549,6 +12018,9 @@ func handlerWriteReplaceWarningRequest(ran *context.AmfRan, initiatingMessage *n
 		}
 		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
 		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
 		return
 	}
 
@@ -9605,6 +12077,10 @@ func handlerWriteReplaceWarningResponse(ran *context.AmfRan, successfulOutcome *
 	var broadcastCompletedAreaList *ngapType.BroadcastCompletedAreaList
 	var criticalityDiagnostics *ngapType.CriticalityDiagnostics
 
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
+
 	writeReplaceWarningResponse := successfulOutcome.Value.WriteReplaceWarningResponse
 	if writeReplaceWarningResponse == nil {
 		ran.Log.Error("WriteReplaceWarningResponse is nil")
@@ -9618,32 +12094,64 @@ func handlerWriteReplaceWarningResponse(ran *context.AmfRan, successfulOutcome *
 		case ngapType.ProtocolIEIDMessageIdentifier: // mandatory, reject
 			if messageIdentifier != nil {
 				ran.Log.Error("Duplicate IE MessageIdentifier")
-				return
+				abort = true
+				break
 			}
 			messageIdentifier = ie.Value.MessageIdentifier
 			ran.Log.Trace("Decode IE MessageIdentifier")
 		case ngapType.ProtocolIEIDSerialNumber: // mandatory, reject
 			if serialNumber != nil {
 				ran.Log.Error("Duplicate IE SerialNumber")
-				return
+				abort = true
+				break
 			}
 			serialNumber = ie.Value.SerialNumber
 			ran.Log.Trace("Decode IE SerialNumber")
 		case ngapType.ProtocolIEIDBroadcastCompletedAreaList: // optional, ignore
 			if broadcastCompletedAreaList != nil {
 				ran.Log.Error("Duplicate IE BroadcastCompletedAreaList")
-				return
+				abort = true
+				break
 			}
 			broadcastCompletedAreaList = ie.Value.BroadcastCompletedAreaList
 			ran.Log.Trace("Decode IE BroadcastCompletedAreaList")
 		case ngapType.ProtocolIEIDCriticalityDiagnostics: // optional, ignore
 			if criticalityDiagnostics != nil {
 				ran.Log.Error("Duplicate IE CriticalityDiagnostics")
-				return
+				abort = true
+				break
 			}
 			criticalityDiagnostics = ie.Value.CriticalityDiagnostics
 			ran.Log.Trace("Decode IE CriticalityDiagnostics")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				ran.Log.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				ran.Log.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				ran.Log.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+			}
 		}
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		ran.Log.Trace("Has IE error")
+		procedureCode := ngapType.ProcedureCodeWriteReplaceWarning
+		triggeringMessage := ngapType.TriggeringMessagePresentSuccessfulOutcome
+		procedureCriticality := ngapType.CriticalityPresentReject
+		var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
+		if len(iesCriticalityDiagnostics.List) > 0 {
+			pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
+		}
+		criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)
+		ngap_message.SendErrorIndication(ran, nil, nil, syntaxCause, &criticalityDiagnostics)
+	}
+
+	if abort {
+		return
 	}
 
 	if messageIdentifier == nil {
