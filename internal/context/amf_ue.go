@@ -90,7 +90,7 @@ type AmfUe struct {
 	Tai                      models.Tai
 	LocationChanged          bool
 	LastVisitedRegisteredTai models.Tai
-	TimeZone                 string
+	TimeZone                 string // "[+-]HH:MM+[0-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
 	/* context about udm */
 	UdmId                             string
 	NudmUECMUri                       string

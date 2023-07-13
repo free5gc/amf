@@ -68,9 +68,10 @@ type AMFContext struct {
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
 	NgapPort                     int
-	T3502Value                   int // unit is second
-	T3512Value                   int // unit is second
-	Non3gppDeregTimerValue       int // unit is second
+	T3502Value                   int    // unit is second
+	T3512Value                   int    // unit is second
+	Non3gppDeregTimerValue       int    // unit is second
+	TimeZone                     string // "[+-]HH:MM+[0-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
@@ -128,6 +129,7 @@ func InitAmfContext(context *AMFContext) {
 		context.SecurityAlgorithm.CipheringOrder = getEncAlgOrder(security.CipheringOrder)
 	}
 	context.NetworkName = configuration.NetworkName
+	context.TimeZone = getTimeZone(time.Now())
 	context.T3502Value = configuration.T3502Value
 	context.T3512Value = configuration.T3512Value
 	context.Non3gppDeregTimerValue = configuration.Non3gppDeregTimerValue
@@ -138,6 +140,22 @@ func InitAmfContext(context *AMFContext) {
 	context.T3565Cfg = configuration.T3565
 	context.T3570Cfg = configuration.T3570
 	context.Locality = configuration.Locality
+}
+
+func getTimeZone(now time.Time) string {
+	timezone := ""
+	_, offset := now.Zone()
+	if offset < 0 {
+		timezone += "-"
+	} else {
+		timezone += "+"
+	}
+	timezone += fmt.Sprintf("%2d:%2d", offset/3600, (offset%3600)/60)
+	if now.IsDST() {
+		timezone += "+1"
+	}
+
+	return timezone
 }
 
 func getIntAlgOrder(integrityOrder []string) (intOrder []uint8) {

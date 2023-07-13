@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -765,7 +766,6 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		}
 	}
 
-	// TODO: UniversalTimeAndLocalTimeZone
 	if anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
 		ue.AmPolicyAssociation.ServAreaRes != nil {
 		configurationUpdateCommand.ServiceAreaList = nasType.
@@ -789,8 +789,19 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.ShortNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandShortNameForNetworkType)
 	}
 
+	now := time.Now()
+	universalTimeAndLocalTimeZone := nasConvert.UniversalTimeAndLocalTimeZoneToNas(now)
+	universalTimeAndLocalTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandUniversalTimeAndLocalTimeZoneType)
+	configurationUpdateCommand.UniversalTimeAndLocalTimeZone = &universalTimeAndLocalTimeZone
+
 	if ue.TimeZone != "" {
 		localTimeZone := nasConvert.LocalTimeZoneToNas(ue.TimeZone)
+		localTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
+		configurationUpdateCommand.LocalTimeZone = nasType.
+			NewLocalTimeZone(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
+		configurationUpdateCommand.LocalTimeZone = &localTimeZone
+	} else if amfSelf.TimeZone != "" {
+		localTimeZone := nasConvert.LocalTimeZoneToNas(amfSelf.TimeZone)
 		localTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
 		configurationUpdateCommand.LocalTimeZone = nasType.
 			NewLocalTimeZone(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
@@ -799,6 +810,12 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 
 	if ue.TimeZone != "" {
 		daylightSavingTime := nasConvert.DaylightSavingTimeToNas(ue.TimeZone)
+		daylightSavingTime.SetIei(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
+		configurationUpdateCommand.NetworkDaylightSavingTime = nasType.
+			NewNetworkDaylightSavingTime(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
+		configurationUpdateCommand.NetworkDaylightSavingTime = &daylightSavingTime
+	} else if amfSelf.TimeZone != "" {
+		daylightSavingTime := nasConvert.DaylightSavingTimeToNas(amfSelf.TimeZone)
 		daylightSavingTime.SetIei(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
 		configurationUpdateCommand.NetworkDaylightSavingTime = nasType.
 			NewNetworkDaylightSavingTime(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
