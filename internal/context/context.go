@@ -147,10 +147,11 @@ func getTimeZone(now time.Time) string {
 	_, offset := now.Zone()
 	if offset < 0 {
 		timezone += "-"
+		offset = 0 - offset
 	} else {
 		timezone += "+"
 	}
-	timezone += fmt.Sprintf("%2d:%2d", offset/3600, (offset%3600)/60)
+	timezone += fmt.Sprintf("%02d:%02d", offset/3600, (offset%3600)/60)
 	if now.IsDST() {
 		timezone += "+1"
 	}
