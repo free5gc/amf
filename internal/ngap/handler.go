@@ -758,118 +758,115 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 
 	if pDUSessionResourceNotifyList != nil {
 		ranUe.Log.Infof("Send PDUSessionResourceNotifyTransfer to SMF")
+		for _, item := range pDUSessionResourceNotifyList.List {
+			pduSessionID := int32(item.PDUSessionID.Value)
+			transfer := item.PDUSessionResourceNotifyTransfer
+			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+			if !ok {
+				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+				continue
+			}
+			response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, smContext,
+				models.N2SmInfoType_PDU_RES_NTY, transfer)
+			if err != nil {
+				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyTransfer] Error: %+v", err)
+			}
 
-		if pDUSessionResourceNotifyList != nil {
-			for _, item := range pDUSessionResourceNotifyList.List {
-				pduSessionID := int32(item.PDUSessionID.Value)
-				transfer := item.PDUSessionResourceNotifyTransfer
-				smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
-				if !ok {
-					ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
-					continue
-				}
-				response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, smContext,
-					models.N2SmInfoType_PDU_RES_NTY, transfer)
-				if err != nil {
-					ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyTransfer] Error: %+v", err)
-				}
-
-				if response != nil {
-					responseData := response.JsonData
-					n2Info := response.BinaryDataN1SmMessage
-					n1Msg := response.BinaryDataN2SmInformation
-					if n2Info != nil {
-						switch responseData.N2SmInfoType {
-						case models.N2SmInfoType_PDU_RES_MOD_REQ:
-							ranUe.Log.Debugln("AMF Transfer NGAP PDU Resource Modify Req from SMF")
-							var nasPdu []byte
-							if n1Msg != nil {
-								pduSessionId := uint8(pduSessionID)
-								nasPdu, err = gmm_message.BuildDLNASTransport(amfUe, ran.AnType, nasMessage.PayloadContainerTypeN1SMInfo,
-									n1Msg, pduSessionId, nil, nil, 0)
-								if err != nil {
-									ranUe.Log.Warnf("GMM Message build DL NAS Transport filaed: %v", err)
-								}
+			if response != nil {
+				responseData := response.JsonData
+				n2Info := response.BinaryDataN1SmMessage
+				n1Msg := response.BinaryDataN2SmInformation
+				if n2Info != nil {
+					switch responseData.N2SmInfoType {
+					case models.N2SmInfoType_PDU_RES_MOD_REQ:
+						ranUe.Log.Debugln("AMF Transfer NGAP PDU Resource Modify Req from SMF")
+						var nasPdu []byte
+						if n1Msg != nil {
+							pduSessionId := uint8(pduSessionID)
+							nasPdu, err = gmm_message.BuildDLNASTransport(amfUe, ran.AnType, nasMessage.PayloadContainerTypeN1SMInfo,
+								n1Msg, pduSessionId, nil, nil, 0)
+							if err != nil {
+								ranUe.Log.Warnf("GMM Message build DL NAS Transport filaed: %v", err)
 							}
-							list := ngapType.PDUSessionResourceModifyListModReq{}
-							ngap_message.AppendPDUSessionResourceModifyListModReq(&list, pduSessionID, nasPdu, n2Info)
-							ngap_message.SendPDUSessionResourceModifyRequest(ranUe, list)
 						}
+						list := ngapType.PDUSessionResourceModifyListModReq{}
+						ngap_message.AppendPDUSessionResourceModifyListModReq(&list, pduSessionID, nasPdu, n2Info)
+						ngap_message.SendPDUSessionResourceModifyRequest(ranUe, list)
 					}
-				} else if errResponse != nil {
-					errJSON := errResponse.JsonData
-					n1Msg := errResponse.BinaryDataN2SmInformation
-					ranUe.Log.Warnf("PDU Session Modification is rejected by SMF[pduSessionId:%d], Error[%s]\n",
-						pduSessionID, errJSON.Error.Cause)
-					if n1Msg != nil {
-						gmm_message.SendDLNASTransport(
-							ranUe, nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
-					}
-					// TODO: handle n2 info transfer
-				} else if err != nil {
-					return
-				} else {
-					// TODO: error handling
-					ranUe.Log.Errorf("Failed to Update smContext[pduSessionID: %d], Error[%v]", pduSessionID, problemDetail)
-					return
 				}
+			} else if errResponse != nil {
+				errJSON := errResponse.JsonData
+				n1Msg := errResponse.BinaryDataN2SmInformation
+				ranUe.Log.Warnf("PDU Session Modification is rejected by SMF[pduSessionId:%d], Error[%s]\n",
+					pduSessionID, errJSON.Error.Cause)
+				if n1Msg != nil {
+					gmm_message.SendDLNASTransport(
+						ranUe, nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
+				}
+				// TODO: handle n2 info transfer
+			} else if err != nil {
+				return
+			} else {
+				// TODO: error handling
+				ranUe.Log.Errorf("Failed to Update smContext[pduSessionID: %d], Error[%v]", pduSessionID, problemDetail)
+				return
 			}
 		}
+	}
 
-		if pDUSessionResourceReleasedListNot != nil {
-			ranUe.Log.Infof("Send PDUSessionResourceNotifyReleasedTransfer to SMF")
-			for _, item := range pDUSessionResourceReleasedListNot.List {
-				pduSessionID := int32(item.PDUSessionID.Value)
-				transfer := item.PDUSessionResourceNotifyReleasedTransfer
-				smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
-				if !ok {
-					ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
-					// TODO: Check if doing error handling here
-					continue
-				}
-				response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, smContext,
-					models.N2SmInfoType_PDU_RES_NTY_REL, transfer)
-				if err != nil {
-					ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyReleasedTransfer] Error: %+v", err)
-				}
-				if response != nil {
-					responseData := response.JsonData
-					n2Info := response.BinaryDataN1SmMessage
-					n1Msg := response.BinaryDataN2SmInformation
-					if n2Info != nil {
-						switch responseData.N2SmInfoType {
-						case models.N2SmInfoType_PDU_RES_REL_CMD:
-							ranUe.Log.Debugln("AMF Transfer NGAP PDU Session Resource Rel Co from SMF")
-							var nasPdu []byte
-							if n1Msg != nil {
-								nasPdu, err = gmm_message.BuildDLNASTransport(
-									amfUe, ran.AnType, nasMessage.PayloadContainerTypeN1SMInfo, n1Msg,
-									uint8(pduSessionID), nil, nil, 0)
-								if err != nil {
-									ranUe.Log.Warnf("GMM Message build DL NAS Transport filaed: %v", err)
-								}
+	if pDUSessionResourceReleasedListNot != nil {
+		ranUe.Log.Infof("Send PDUSessionResourceNotifyReleasedTransfer to SMF")
+		for _, item := range pDUSessionResourceReleasedListNot.List {
+			pduSessionID := int32(item.PDUSessionID.Value)
+			transfer := item.PDUSessionResourceNotifyReleasedTransfer
+			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+			if !ok {
+				ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+				// TODO: Check if doing error handling here
+				continue
+			}
+			response, errResponse, problemDetail, err := consumer.SendUpdateSmContextN2Info(amfUe, smContext,
+				models.N2SmInfoType_PDU_RES_NTY_REL, transfer)
+			if err != nil {
+				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyReleasedTransfer] Error: %+v", err)
+			}
+			if response != nil {
+				responseData := response.JsonData
+				n2Info := response.BinaryDataN1SmMessage
+				n1Msg := response.BinaryDataN2SmInformation
+				if n2Info != nil {
+					switch responseData.N2SmInfoType {
+					case models.N2SmInfoType_PDU_RES_REL_CMD:
+						ranUe.Log.Debugln("AMF Transfer NGAP PDU Session Resource Rel Co from SMF")
+						var nasPdu []byte
+						if n1Msg != nil {
+							nasPdu, err = gmm_message.BuildDLNASTransport(
+								amfUe, ran.AnType, nasMessage.PayloadContainerTypeN1SMInfo, n1Msg,
+								uint8(pduSessionID), nil, nil, 0)
+							if err != nil {
+								ranUe.Log.Warnf("GMM Message build DL NAS Transport filaed: %v", err)
 							}
-							list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
-							ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, pduSessionID, n2Info)
-							ngap_message.SendPDUSessionResourceReleaseCommand(ranUe, nasPdu, list)
 						}
+						list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
+						ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, pduSessionID, n2Info)
+						ngap_message.SendPDUSessionResourceReleaseCommand(ranUe, nasPdu, list)
 					}
-				} else if errResponse != nil {
-					errJSON := errResponse.JsonData
-					n1Msg := errResponse.BinaryDataN2SmInformation
-					ranUe.Log.Warnf("PDU Session Release is rejected by SMF[pduSessionID:%d], Error[%s]\n",
-						pduSessionID, errJSON.Error.Cause)
-					if n1Msg != nil {
-						gmm_message.SendDLNASTransport(
-							ranUe, nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
-					}
-				} else if err != nil {
-					return
-				} else {
-					// TODO: error handling
-					ranUe.Log.Errorf("Failed to Update smContext[pduSessionID: %d], Error[%v]", pduSessionID, problemDetail)
-					return
 				}
+			} else if errResponse != nil {
+				errJSON := errResponse.JsonData
+				n1Msg := errResponse.BinaryDataN2SmInformation
+				ranUe.Log.Warnf("PDU Session Release is rejected by SMF[pduSessionID:%d], Error[%s]\n",
+					pduSessionID, errJSON.Error.Cause)
+				if n1Msg != nil {
+					gmm_message.SendDLNASTransport(
+						ranUe, nasMessage.PayloadContainerTypeN1SMInfo, errResponse.BinaryDataN1SmMessage, pduSessionID, 0, nil, 0)
+				}
+			} else if err != nil {
+				return
+			} else {
+				// TODO: error handling
+				ranUe.Log.Errorf("Failed to Update smContext[pduSessionID: %d], Error[%v]", pduSessionID, problemDetail)
+				return
 			}
 		}
 	}
