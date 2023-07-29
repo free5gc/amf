@@ -33,7 +33,7 @@ func InitConfigFactory(f string, cfg *Config) error {
 		}
 	}
 
-	//change sd to lowercase
+	// change sd to lowercase
 	PlmnSupportList := cfg.Configuration.PlmnSupportList
 	for i := range PlmnSupportList {
 		SNssaiList := PlmnSupportList[i].SNssaiList
