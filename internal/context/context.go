@@ -71,7 +71,7 @@ type AMFContext struct {
 	T3502Value                   int    // unit is second
 	T3512Value                   int    // unit is second
 	Non3gppDeregTimerValue       int    // unit is second
-	TimeZone                     string // "[+-]HH:MM+[0-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	TimeZone                     string // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
