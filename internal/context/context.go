@@ -15,6 +15,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/idgenerator"
 )
@@ -413,7 +414,7 @@ func (context *AMFContext) InSupportDnnList(targetDnn string) bool {
 func (context *AMFContext) InPlmnSupportList(snssai models.Snssai) bool {
 	for _, plmnSupportItem := range context.PlmnSupportList {
 		for _, supportSnssai := range plmnSupportItem.SNssaiList {
-			if reflect.DeepEqual(supportSnssai, snssai) {
+			if openapi.SnssaiEqualFold(supportSnssai, snssai) {
 				return true
 			}
 		}
