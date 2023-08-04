@@ -2,9 +2,11 @@ package consumer
 
 import (
 	"context"
+	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 	"github.com/free5gc/openapi/models"
@@ -21,11 +23,18 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
+		deregCallbackUri := fmt.Sprintf("%s%s/amf-implicit-deregistration/%s",
+			amfSelf.GetIPv4Uri(),
+			factory.AmfCallbackResUriPrefix,
+			ue.Supi,
+		)
+
 		registrationData := models.Amf3GppAccessRegistration{
 			AmfInstanceId:          amfSelf.NfId,
 			InitialRegistrationInd: initialRegistrationInd,
 			Guami:                  &amfSelf.ServedGuamiList[0],
 			RatType:                ue.RatType,
+			DeregCallbackUri:       deregCallbackUri,
 			// TODO: not support Homogenous Support of IMS Voice over PS Sessions this stage
 			ImsVoPs: models.ImsVoPs_HOMOGENEOUS_NON_SUPPORT,
 		}

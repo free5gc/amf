@@ -260,8 +260,9 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	ueContextTransferResponse := new(models.UeContextTransferResponse)
-	ueContextTransferResponse.JsonData = new(models.UeContextTransferRspData)
+	ueContextTransferResponse := &models.UeContextTransferResponse{
+		JsonData: new(models.UeContextTransferRspData),
+	}
 	ueContextTransferRspData := ueContextTransferResponse.JsonData
 
 	//if ue.GetAnType() != UeContextTransferReqData.AccessType {
@@ -604,7 +605,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 			}
 		}
 
-		gmm_common.RemoveAmfUe(ue, false)
+		// gmm_common.RemoveAmfUe(ue, false)
 	} else {
 		// NOT_TRANSFERRED
 		logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")

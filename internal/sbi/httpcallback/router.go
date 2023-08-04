@@ -100,4 +100,11 @@ var routes = Routes{
 		"/n1-message-notify",
 		HTTPN1MessageNotify,
 	},
+
+	{
+		"AmfHandleDeregistrationNotification",
+		strings.ToUpper("Post"),
+		"/amf-implicit-deregistration/:ueid",
+		HTTPAmfHandleDeregistrationNotification,
+	},
 }
