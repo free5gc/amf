@@ -114,6 +114,11 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationRequest: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Infof("Send Authentication Request")
 
 	if amfUe.AuthenticationCtx == nil {
@@ -121,7 +126,7 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		return
 	}
 
-	nasMsg, err := BuildAuthenticationRequest(amfUe)
+	nasMsg, err := BuildAuthenticationRequest(amfUe, ran.AnType)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -206,9 +211,14 @@ func SendAuthenticationReject(ue *context.RanUe, eapMsg string) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Authentication Reject")
 
-	nasMsg, err := BuildAuthenticationReject(amfUe, eapMsg)
+	nasMsg, err := BuildAuthenticationReject(amfUe, ran.AnType, eapMsg)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -226,9 +236,14 @@ func SendAuthenticationResult(ue *context.RanUe, eapSuccess bool, eapMsg string)
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationResult: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Authentication Result")
 
-	nasMsg, err := BuildAuthenticationResult(amfUe, eapSuccess, eapMsg)
+	nasMsg, err := BuildAuthenticationResult(amfUe, ran.AnType, eapSuccess, eapMsg)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -241,13 +256,18 @@ func SendServiceReject(ue *context.RanUe, pDUSessionStatus *[16]bool, cause uint
 		logger.GmmLog.Error("SendServiceReject: RanUe is nil")
 		return
 	}
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendServiceReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	if ue.AmfUe == nil {
 		ue.Log.Info("Send Service Reject")
 	} else {
 		ue.AmfUe.GmmLog.Info("Send Service Reject")
 	}
 
-	nasMsg, err := BuildServiceReject(pDUSessionStatus, cause)
+	nasMsg, err := BuildServiceReject(ue.AmfUe, ran.AnType, pDUSessionStatus, cause)
 	if err != nil {
 		if ue.AmfUe == nil {
 			ue.Log.Error(err.Error())
@@ -266,13 +286,18 @@ func SendRegistrationReject(ue *context.RanUe, cause5GMM uint8, eapMessage strin
 		logger.GmmLog.Error("SendRegistrationReject: RanUe is nil")
 		return
 	}
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendRegistrationReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	if ue.AmfUe == nil {
 		ue.Log.Info("Send Registration Reject")
 	} else {
 		ue.AmfUe.GmmLog.Info("Send Registration Reject")
 	}
 
-	nasMsg, err := BuildRegistrationReject(ue.AmfUe, cause5GMM, eapMessage)
+	nasMsg, err := BuildRegistrationReject(ue.AmfUe, ran.AnType, cause5GMM, eapMessage)
 	if err != nil {
 		if ue.AmfUe == nil {
 			ue.Log.Error(err.Error())
@@ -376,9 +401,14 @@ func SendDeregistrationAccept(ue *context.RanUe) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendDeregistrationAccept: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Deregistration Accept")
 
-	nasMsg, err := BuildDeregistrationAccept()
+	nasMsg, err := BuildDeregistrationAccept(ue.AmfUe, ran.AnType)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -449,9 +479,14 @@ func SendStatus5GMM(ue *context.RanUe, cause uint8) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendStatus5GMM: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Status 5GMM")
 
-	nasMsg, err := BuildStatus5GMM(cause)
+	nasMsg, err := BuildStatus5GMM(ue.AmfUe, ran.AnType, cause)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
