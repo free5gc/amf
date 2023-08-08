@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -765,7 +766,6 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		}
 	}
 
-	// TODO: UniversalTimeAndLocalTimeZone
 	if anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
 		ue.AmPolicyAssociation.ServAreaRes != nil {
 		configurationUpdateCommand.ServiceAreaList = nasType.
@@ -789,16 +789,21 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.ShortNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandShortNameForNetworkType)
 	}
 
-	if ue.TimeZone != "" {
-		localTimeZone := nasConvert.LocalTimeZoneToNas(ue.TimeZone)
+	now := time.Now()
+	universalTimeAndLocalTimeZone := nasConvert.EncodeUniversalTimeAndLocalTimeZoneToNas(now)
+	universalTimeAndLocalTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandUniversalTimeAndLocalTimeZoneType)
+	configurationUpdateCommand.UniversalTimeAndLocalTimeZone = &universalTimeAndLocalTimeZone
+
+	if ue.TimeZone != amfSelf.TimeZone {
+		ue.TimeZone = amfSelf.TimeZone
+
+		localTimeZone := nasConvert.EncodeLocalTimeZoneToNas(ue.TimeZone)
 		localTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
 		configurationUpdateCommand.LocalTimeZone = nasType.
 			NewLocalTimeZone(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
 		configurationUpdateCommand.LocalTimeZone = &localTimeZone
-	}
 
-	if ue.TimeZone != "" {
-		daylightSavingTime := nasConvert.DaylightSavingTimeToNas(ue.TimeZone)
+		daylightSavingTime := nasConvert.EncodeDaylightSavingTimeToNas(ue.TimeZone)
 		daylightSavingTime.SetIei(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
 		configurationUpdateCommand.NetworkDaylightSavingTime = nasType.
 			NewNetworkDaylightSavingTime(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
