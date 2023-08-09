@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"regexp"
 	"sync"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/fsm"
 	"github.com/free5gc/util/idgenerator"
@@ -371,7 +371,7 @@ func (ue *AmfUe) GetCmInfo() (cmInfos []models.CmInfo) {
 
 func (ue *AmfUe) InAllowedNssai(targetSNssai models.Snssai, anType models.AccessType) bool {
 	for _, allowedSnssai := range ue.AllowedNssai[anType] {
-		if reflect.DeepEqual(*allowedSnssai.AllowedSnssai, targetSNssai) {
+		if openapi.SnssaiEqualFold(*allowedSnssai.AllowedSnssai, targetSNssai) {
 			return true
 		}
 	}
@@ -380,7 +380,7 @@ func (ue *AmfUe) InAllowedNssai(targetSNssai models.Snssai, anType models.Access
 
 func (ue *AmfUe) InSubscribedNssai(targetSNssai models.Snssai) bool {
 	for _, sNssai := range ue.SubscribedNssai {
-		if reflect.DeepEqual(*sNssai.SubscribedSnssai, targetSNssai) {
+		if openapi.SnssaiEqualFold(*sNssai.SubscribedSnssai, targetSNssai) {
 			return true
 		}
 	}
@@ -389,7 +389,7 @@ func (ue *AmfUe) InSubscribedNssai(targetSNssai models.Snssai) bool {
 
 func (ue *AmfUe) GetNsiInformationFromSnssai(anType models.AccessType, snssai models.Snssai) *models.NsiInformation {
 	for _, allowedSnssai := range ue.AllowedNssai[anType] {
-		if reflect.DeepEqual(*allowedSnssai.AllowedSnssai, snssai) {
+		if openapi.SnssaiEqualFold(*allowedSnssai.AllowedSnssai, snssai) {
 			// TODO: select NsiInformation based on operator policy
 			if len(allowedSnssai.NsiInformationList) != 0 {
 				return &allowedSnssai.NsiInformationList[0]
