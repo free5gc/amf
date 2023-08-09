@@ -242,7 +242,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	var ueContextTransferResponse *models.UeContextTransferResponse
+	ueContextTransferResponse := new(models.UeContextTransferResponse)
 	ueContextTransferResponse.JsonData = new(models.UeContextTransferRspData)
 	ueContextTransferRspData := ueContextTransferResponse.JsonData
 
