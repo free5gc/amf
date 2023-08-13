@@ -1579,7 +1579,8 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe,
 		return fmt.Errorf("NAS message integrity check failed")
 	}
 
-	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
+	// Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
+	ue.StopT3555()
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "github.com/free5gc/openapi/Nudm_SubscriberDataManagement" client.Info
 
