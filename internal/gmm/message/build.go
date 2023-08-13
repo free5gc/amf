@@ -878,7 +878,6 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.NetworkSlicingIndication != nil ||
 		configurationUpdateCommand.OperatordefinedAccessCategoryDefinitions != nil ||
 		configurationUpdateCommand.SMSIndication != nil {
-
 		// TS 24.501 - 5.4.4.2 Generic UE configuration update procedure initiated by the network
 		// Acknowledgement shall be requested for all parameters except when only NITZ is included
 		configurationUpdateCommand.ConfigurationUpdateIndication.SetACK(uint8(1))
