@@ -80,6 +80,7 @@ type AMFContext struct {
 	T3560Cfg factory.TimerValue
 	T3565Cfg factory.TimerValue
 	T3570Cfg factory.TimerValue
+	T3555Cfg factory.TimerValue
 	Locality string
 }
 
@@ -140,6 +141,7 @@ func InitAmfContext(context *AMFContext) {
 	context.T3560Cfg = configuration.T3560
 	context.T3565Cfg = configuration.T3565
 	context.T3570Cfg = configuration.T3570
+	context.T3555Cfg = configuration.T3555
 	context.Locality = configuration.Locality
 }
 

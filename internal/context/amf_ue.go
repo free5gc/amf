@@ -183,6 +183,8 @@ type AmfUe struct {
 	T3522 *Timer
 	/* T3570 (for identity request) */
 	T3570 *Timer
+	/* T3555 (for configuration update command) */
+	T3555 *Timer
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
@@ -290,6 +292,8 @@ func (ue *AmfUe) Remove() {
 	ue.StopT3560()
 	ue.StopT3550()
 	ue.StopT3522()
+	ue.StopT3570()
+	ue.StopT3555()
 
 	for _, ranUe := range ue.RanUe {
 		if err := ranUe.Remove(); err != nil {
@@ -888,4 +892,24 @@ func (ue *AmfUe) StopT3522() {
 	ue.GmmLog.Infof("Stop T3522 timer")
 	ue.T3522.Stop()
 	ue.T3522 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3570() {
+	if ue.T3570 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3570 timer")
+	ue.T3570.Stop()
+	ue.T3570 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3555() {
+	if ue.T3555 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3555 timer")
+	ue.T3555.Stop()
+	ue.T3555 = nil // clear the timer
 }

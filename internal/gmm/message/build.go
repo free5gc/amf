@@ -726,9 +726,22 @@ func BuildStatus5GMM(ue *context.AmfUe, accessType models.AccessType, cause uint
 	return nas_security.Encode(ue, m, accessType)
 }
 
+// Fllowed by TS 24.501 - 5.4.4 Generic UE configuration update procedure - 5.4.4.1 General
 func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType,
 	networkSlicingIndication *nasType.NetworkSlicingIndication,
-) ([]byte, error) {
+	needGUTI bool,
+	needTaiList bool,
+	needAllowedNSSAI bool,
+	needLadnInformation bool,
+	needServiceAreaList bool,
+	needMicoIndication bool,
+	needNITZ bool,
+	needConfiguredNSSAI bool,
+	needRejectNSSAI bool,
+	needOperatordefinedAccessCategoryDefinitions bool,
+	needSmsIndication bool,
+) ([]byte, error, bool) {
+	needTimer := false
 	m := nas.NewMessage()
 	m.GmmMessage = nas.NewGmmMessage()
 	m.GmmHeader.SetMessageType(nas.MsgTypeConfigurationUpdateCommand)
@@ -739,35 +752,22 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 	configurationUpdateCommand.SpareHalfOctetAndSecurityHeaderType.SetSpareHalfOctet(0)
 	configurationUpdateCommand.SetMessageType(nas.MsgTypeConfigurationUpdateCommand)
 
-	if ue.ConfigurationUpdateIndication.Octet != 0 {
-		configurationUpdateCommand.ConfigurationUpdateIndication = nasType.
-			NewConfigurationUpdateIndication(nasMessage.ConfigurationUpdateCommandConfigurationUpdateIndicationType)
-		configurationUpdateCommand.ConfigurationUpdateIndication = &ue.ConfigurationUpdateIndication
-	}
-
 	if networkSlicingIndication != nil {
 		configurationUpdateCommand.NetworkSlicingIndication = nasType.
 			NewNetworkSlicingIndication(nasMessage.ConfigurationUpdateCommandNetworkSlicingIndicationType)
 		configurationUpdateCommand.NetworkSlicingIndication = networkSlicingIndication
 	}
 
-	if ue.Guti != "" {
+	if needGUTI && ue.Guti != "" {
 		gutiNas, err := nasConvert.GutiToNasWithError(ue.Guti)
 		if err != nil {
-			return nil, fmt.Errorf("encode GUTI failed: %w", err)
+			return nil, fmt.Errorf("encode GUTI failed: %w", err), needTimer
 		}
 		configurationUpdateCommand.GUTI5G = &gutiNas
 		configurationUpdateCommand.GUTI5G.SetIei(nasMessage.ConfigurationUpdateCommandGUTI5GType)
 	}
 
-	if len(ue.RegistrationArea[anType]) > 0 {
-		configurationUpdateCommand.TAIList = nasType.NewTAIList(nasMessage.ConfigurationUpdateCommandTAIListType)
-		taiListNas := nasConvert.TaiListToNas(ue.RegistrationArea[anType])
-		configurationUpdateCommand.TAIList.SetLen(uint8(len(taiListNas)))
-		configurationUpdateCommand.TAIList.SetPartialTrackingAreaIdentityList(taiListNas)
-	}
-
-	if len(ue.AllowedNssai[anType]) > 0 {
+	if needAllowedNSSAI && len(ue.AllowedNssai[anType]) > 0 {
 		configurationUpdateCommand.AllowedNSSAI = nasType.
 			NewAllowedNSSAI(nasMessage.ConfigurationUpdateCommandAllowedNSSAIType)
 		var buf []uint8
@@ -778,7 +778,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.AllowedNSSAI.SetSNSSAIValue(buf)
 	}
 
-	if len(ue.ConfiguredNssai) > 0 {
+	if needConfiguredNSSAI && len(ue.ConfiguredNssai) > 0 {
 		configurationUpdateCommand.ConfiguredNSSAI = nasType.
 			NewConfiguredNSSAI(nasMessage.ConfigurationUpdateCommandConfiguredNSSAIType)
 		var buf []uint8
@@ -789,7 +789,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.ConfiguredNSSAI.SetSNSSAIValue(buf)
 	}
 
-	if ue.NetworkSliceInfo != nil {
+	if needRejectNSSAI && ue.NetworkSliceInfo != nil {
 		if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) != 0 || len(ue.NetworkSliceInfo.RejectedNssaiInTa) != 0 {
 			rejectedNssaiNas := nasConvert.RejectedNssaiToNas(
 				ue.NetworkSliceInfo.RejectedNssaiInPlmn, ue.NetworkSliceInfo.RejectedNssaiInTa)
@@ -798,7 +798,14 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		}
 	}
 
-	if anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
+	if needTaiList && anType == models.AccessType__3_GPP_ACCESS && len(ue.RegistrationArea[anType]) > 0 {
+		configurationUpdateCommand.TAIList = nasType.NewTAIList(nasMessage.ConfigurationUpdateCommandTAIListType)
+		taiListNas := nasConvert.TaiListToNas(ue.RegistrationArea[anType])
+		configurationUpdateCommand.TAIList.SetLen(uint8(len(taiListNas)))
+		configurationUpdateCommand.TAIList.SetPartialTrackingAreaIdentityList(taiListNas)
+	}
+
+	if needServiceAreaList && anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
 		ue.AmPolicyAssociation.ServAreaRes != nil {
 		configurationUpdateCommand.ServiceAreaList = nasType.
 			NewServiceAreaList(nasMessage.ConfigurationUpdateCommandServiceAreaListType)
@@ -809,40 +816,44 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 	}
 
 	amfSelf := context.GetSelf()
-	if amfSelf.NetworkName.Full != "" {
-		fullNetworkName := nasConvert.FullNetworkNameToNas(amfSelf.NetworkName.Full)
-		configurationUpdateCommand.FullNameForNetwork = &fullNetworkName
-		configurationUpdateCommand.FullNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandFullNameForNetworkType)
+
+	if needNITZ {
+		// Full network name
+		if amfSelf.NetworkName.Full != "" {
+			fullNetworkName := nasConvert.FullNetworkNameToNas(amfSelf.NetworkName.Full)
+			configurationUpdateCommand.FullNameForNetwork = &fullNetworkName
+			configurationUpdateCommand.FullNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandFullNameForNetworkType)
+		}
+		// Short network name
+		if amfSelf.NetworkName.Short != "" {
+			shortNetworkName := nasConvert.ShortNetworkNameToNas(amfSelf.NetworkName.Short)
+			configurationUpdateCommand.ShortNameForNetwork = &shortNetworkName
+			configurationUpdateCommand.ShortNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandShortNameForNetworkType)
+		}
+		// Universal Time and Local Time Zone
+		now := time.Now()
+		universalTimeAndLocalTimeZone := nasConvert.EncodeUniversalTimeAndLocalTimeZoneToNas(now)
+		universalTimeAndLocalTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandUniversalTimeAndLocalTimeZoneType)
+		configurationUpdateCommand.UniversalTimeAndLocalTimeZone = &universalTimeAndLocalTimeZone
+
+		if ue.TimeZone != amfSelf.TimeZone {
+			ue.TimeZone = amfSelf.TimeZone
+			// Local Time Zone
+			localTimeZone := nasConvert.EncodeLocalTimeZoneToNas(ue.TimeZone)
+			localTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
+			configurationUpdateCommand.LocalTimeZone = nasType.
+				NewLocalTimeZone(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
+			configurationUpdateCommand.LocalTimeZone = &localTimeZone
+			// Daylight Saving Time
+			daylightSavingTime := nasConvert.EncodeDaylightSavingTimeToNas(ue.TimeZone)
+			daylightSavingTime.SetIei(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
+			configurationUpdateCommand.NetworkDaylightSavingTime = nasType.
+				NewNetworkDaylightSavingTime(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
+			configurationUpdateCommand.NetworkDaylightSavingTime = &daylightSavingTime
+		}
 	}
 
-	if amfSelf.NetworkName.Short != "" {
-		shortNetworkName := nasConvert.ShortNetworkNameToNas(amfSelf.NetworkName.Short)
-		configurationUpdateCommand.ShortNameForNetwork = &shortNetworkName
-		configurationUpdateCommand.ShortNameForNetwork.SetIei(nasMessage.ConfigurationUpdateCommandShortNameForNetworkType)
-	}
-
-	now := time.Now()
-	universalTimeAndLocalTimeZone := nasConvert.EncodeUniversalTimeAndLocalTimeZoneToNas(now)
-	universalTimeAndLocalTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandUniversalTimeAndLocalTimeZoneType)
-	configurationUpdateCommand.UniversalTimeAndLocalTimeZone = &universalTimeAndLocalTimeZone
-
-	if ue.TimeZone != amfSelf.TimeZone {
-		ue.TimeZone = amfSelf.TimeZone
-
-		localTimeZone := nasConvert.EncodeLocalTimeZoneToNas(ue.TimeZone)
-		localTimeZone.SetIei(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
-		configurationUpdateCommand.LocalTimeZone = nasType.
-			NewLocalTimeZone(nasMessage.ConfigurationUpdateCommandLocalTimeZoneType)
-		configurationUpdateCommand.LocalTimeZone = &localTimeZone
-
-		daylightSavingTime := nasConvert.EncodeDaylightSavingTimeToNas(ue.TimeZone)
-		daylightSavingTime.SetIei(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
-		configurationUpdateCommand.NetworkDaylightSavingTime = nasType.
-			NewNetworkDaylightSavingTime(nasMessage.ConfigurationUpdateCommandNetworkDaylightSavingTimeType)
-		configurationUpdateCommand.NetworkDaylightSavingTime = &daylightSavingTime
-	}
-
-	if len(ue.LadnInfo) > 0 {
+	if needLadnInformation && anType == models.AccessType__3_GPP_ACCESS && len(ue.LadnInfo) > 0 {
 		configurationUpdateCommand.LADNInformation = nasType.
 			NewLADNInformation(nasMessage.ConfigurationUpdateCommandLADNInformationType)
 		var buf []uint8
@@ -854,11 +865,40 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.LADNInformation.SetLADND(buf)
 	}
 
+	configurationUpdateCommand.ConfigurationUpdateIndication = nasType.
+		NewConfigurationUpdateIndication(nasMessage.ConfigurationUpdateCommandConfigurationUpdateIndicationType)
+	if configurationUpdateCommand.GUTI5G != nil ||
+		configurationUpdateCommand.TAIList != nil ||
+		configurationUpdateCommand.AllowedNSSAI != nil ||
+		configurationUpdateCommand.LADNInformation != nil ||
+		configurationUpdateCommand.ServiceAreaList != nil ||
+		configurationUpdateCommand.MICOIndication != nil ||
+		configurationUpdateCommand.ConfiguredNSSAI != nil ||
+		configurationUpdateCommand.RejectedNSSAI != nil ||
+		configurationUpdateCommand.NetworkSlicingIndication != nil ||
+		configurationUpdateCommand.OperatordefinedAccessCategoryDefinitions != nil ||
+		configurationUpdateCommand.SMSIndication != nil {
+
+		// TS 24.501 - 5.4.4.2 Generic UE configuration update procedure initiated by the network
+		// Acknowledgement shall be requested for all parameters except when only NITZ is included
+		configurationUpdateCommand.ConfigurationUpdateIndication.SetACK(uint8(1))
+		needTimer = true
+	}
+	if configurationUpdateCommand.MICOIndication != nil {
+		// Allowed NSSAI and Configured NSSAI are optional to request to perform the registration procedure
+		configurationUpdateCommand.ConfigurationUpdateIndication.SetRED(uint8(1))
+	}
+
 	m.GmmMessage.ConfigurationUpdateCommand = configurationUpdateCommand
 
 	m.SecurityHeader = nas.SecurityHeader{
 		ProtocolDiscriminator: nasMessage.Epd5GSMobilityManagementMessage,
 		SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
 	}
-	return nas_security.Encode(ue, m, anType)
+
+	b, err := nas_security.Encode(ue, m, anType)
+	if err != nil {
+		needTimer = false
+	}
+	return b, err, needTimer
 }

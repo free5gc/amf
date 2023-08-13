@@ -2159,6 +2159,30 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 		})
 	}
 
+	// Send NITZ information to UE
+	nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue, accessType, nil,
+		false, false, false, false, false, false, true, false, false, false, false,
+	)
+	if err != nil {
+		ue.GmmLog.Errorf("HandleRegistrationComplete: %+v", err)
+	}
+	if startT3555 && context.GetSelf().T3555Cfg.Enable {
+		cfg := context.GetSelf().T3555Cfg
+		ue.T3555 = context.NewTimer(context.GetSelf().T3555Cfg.ExpireTime,
+			context.GetSelf().T3555Cfg.MaxRetryTimes,
+			func(expireTimes int32) {
+				ue.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
+					expireTimes)
+				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
+			},
+			func() {
+				ue.GmmLog.Warnf("T3555 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
+					cfg.MaxRetryTimes)
+			},
+		)
+	}
+	gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
+
 	// if registrationComplete.SORTransparentContainer != nil {
 	// 	TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,
 	// 	AMF provides the UE's ack with Nudm_SDM_Info (SOR not supportted in this stage)

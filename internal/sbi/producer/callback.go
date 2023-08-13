@@ -155,16 +155,48 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 
 			// UE is CM-Connected State
 			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				// TODO: Verify this procedure need which parameters
+				nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue,
+					models.AccessType__3_GPP_ACCESS,
+					nil,
+					false, false, false, false, false, false, false, false, false, false, false,
+				)
+				if err != nil {
+					ue.GmmLog.Error(err.Error())
+					return
+				}
+				if startT3555 && context.GetSelf().T3555Cfg.Enable {
+					cfg := context.GetSelf().T3555Cfg
+					ue.T3555 = context.NewTimer(context.GetSelf().T3555Cfg.ExpireTime,
+						context.GetSelf().T3555Cfg.MaxRetryTimes,
+						func(expireTimes int32) {
+							ue.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
+								expireTimes)
+							gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
+						},
+						func() {
+							ue.GmmLog.Warnf("T3555 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
+								cfg.MaxRetryTimes)
+						},
+					)
+				}
+				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
+
 				// UE is CM-IDLE => paging
 			} else {
-				message, err := gmm_message.BuildConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nil)
+				// TODO: Verify this procedure need which parameters
+				// TODO: Verify if need to start the timer
+				nasMsg, err, _ := gmm_message.BuildConfigurationUpdateCommand(ue,
+					models.AccessType__3_GPP_ACCESS,
+					nil,
+					false, false, false, false, false, false, false, false, false, false, false,
+				)
 				if err != nil {
 					logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
 					return
 				}
 
-				ue.ConfigurationUpdateMessage = message
+				ue.ConfigurationUpdateMessage = nasMsg
 				ue.SetOnGoing(models.AccessType__3_GPP_ACCESS, &context.OnGoing{
 					Procedure: context.OnGoingProcedurePaging,
 				})

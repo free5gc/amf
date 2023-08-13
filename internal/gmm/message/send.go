@@ -9,7 +9,6 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/nas/nasMessage"
-	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
@@ -179,9 +178,7 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 	return nil
 }
 
-func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType,
-	networkSlicingIndication *nasType.NetworkSlicingIndication,
-) {
+func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType, nasMsg []byte) {
 	if amfUe == nil {
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: AmfUe is nil")
 		return
@@ -190,13 +187,8 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.Acce
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: RanUe is nil")
 		return
 	}
-	amfUe.GmmLog.Info("Configuration Update Command")
+	amfUe.GmmLog.Info("Send Configuration Update Command")
 
-	nasMsg, err := BuildConfigurationUpdateCommand(amfUe, accessType, networkSlicingIndication)
-	if err != nil {
-		amfUe.GmmLog.Error(err.Error())
-		return
-	}
 	mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(amfUe)
 	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
 }
