@@ -2161,8 +2161,12 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	}
 
 	// Send NITZ information to UE
+	configurationUpdateCommandFlags := &gmm_message.ConfigurationUpdateCommandFlags{
+		NeedNITZ: true,
+	}
+
 	nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue, accessType, nil,
-		false, false, false, false, false, false, true, false, false, false, false,
+		configurationUpdateCommandFlags,
 	)
 	if err != nil {
 		ue.GmmLog.Errorf("HandleRegistrationComplete: %+v", err)

@@ -153,13 +153,22 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 				}
 			}()
 
+			configurationUpdateCommandFlags := &gmm_message.ConfigurationUpdateCommandFlags{
+				NeedGUTI:            true,
+				NeedAllowedNSSAI:    true,
+				NeedConfiguredNSSAI: true,
+				NeedRejectNSSAI:     true,
+				NeedTaiList:         true,
+				NeedNITZ:            true,
+				NeedLadnInformation: true,
+			}
+
 			// UE is CM-Connected State
 			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-				// TODO: Verify this procedure need which parameters
 				nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue,
 					models.AccessType__3_GPP_ACCESS,
 					nil,
-					false, false, false, false, false, false, false, false, false, false, false,
+					configurationUpdateCommandFlags,
 				)
 				if err != nil {
 					ue.GmmLog.Error(err.Error())
@@ -184,12 +193,11 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 
 				// UE is CM-IDLE => paging
 			} else {
-				// TODO: Verify this procedure need which parameters
 				// TODO: Verify if need to start the timer
 				nasMsg, err, _ := gmm_message.BuildConfigurationUpdateCommand(ue,
 					models.AccessType__3_GPP_ACCESS,
 					nil,
-					false, false, false, false, false, false, false, false, false, false, false,
+					configurationUpdateCommandFlags,
 				)
 				if err != nil {
 					logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())

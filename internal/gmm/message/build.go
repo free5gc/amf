@@ -19,6 +19,20 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
+type ConfigurationUpdateCommandFlags struct {
+	NeedGUTI                                     bool
+	NeedNITZ                                     bool
+	NeedTaiList                                  bool
+	NeedRejectNSSAI                              bool
+	NeedAllowedNSSAI                             bool
+	NeedSmsIndication                            bool
+	NeedMicoIndication                           bool
+	NeedLadnInformation                          bool
+	NeedServiceAreaList                          bool
+	NeedConfiguredNSSAI                          bool
+	NeedOperatordefinedAccessCategoryDefinitions bool
+}
+
 func BuildDLNASTransport(ue *context.AmfUe, accessType models.AccessType, payloadContainerType uint8, nasPdu []byte,
 	pduSessionId uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8,
 ) ([]byte, error) {
@@ -729,17 +743,7 @@ func BuildStatus5GMM(ue *context.AmfUe, accessType models.AccessType, cause uint
 // Fllowed by TS 24.501 - 5.4.4 Generic UE configuration update procedure - 5.4.4.1 General
 func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType,
 	networkSlicingIndication *nasType.NetworkSlicingIndication,
-	needGUTI bool,
-	needTaiList bool,
-	needAllowedNSSAI bool,
-	needLadnInformation bool,
-	needServiceAreaList bool,
-	needMicoIndication bool,
-	needNITZ bool,
-	needConfiguredNSSAI bool,
-	needRejectNSSAI bool,
-	needOperatordefinedAccessCategoryDefinitions bool,
-	needSmsIndication bool,
+	flags *ConfigurationUpdateCommandFlags,
 ) ([]byte, error, bool) {
 	needTimer := false
 	m := nas.NewMessage()
@@ -758,7 +762,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.NetworkSlicingIndication = networkSlicingIndication
 	}
 
-	if needGUTI && ue.Guti != "" {
+	if flags.NeedGUTI && ue.Guti != "" {
 		gutiNas, err := nasConvert.GutiToNasWithError(ue.Guti)
 		if err != nil {
 			return nil, fmt.Errorf("encode GUTI failed: %w", err), needTimer
@@ -767,7 +771,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.GUTI5G.SetIei(nasMessage.ConfigurationUpdateCommandGUTI5GType)
 	}
 
-	if needAllowedNSSAI && len(ue.AllowedNssai[anType]) > 0 {
+	if flags.NeedAllowedNSSAI && len(ue.AllowedNssai[anType]) > 0 {
 		configurationUpdateCommand.AllowedNSSAI = nasType.
 			NewAllowedNSSAI(nasMessage.ConfigurationUpdateCommandAllowedNSSAIType)
 		var buf []uint8
@@ -778,7 +782,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.AllowedNSSAI.SetSNSSAIValue(buf)
 	}
 
-	if needConfiguredNSSAI && len(ue.ConfiguredNssai) > 0 {
+	if flags.NeedConfiguredNSSAI && len(ue.ConfiguredNssai) > 0 {
 		configurationUpdateCommand.ConfiguredNSSAI = nasType.
 			NewConfiguredNSSAI(nasMessage.ConfigurationUpdateCommandConfiguredNSSAIType)
 		var buf []uint8
@@ -789,7 +793,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		configurationUpdateCommand.ConfiguredNSSAI.SetSNSSAIValue(buf)
 	}
 
-	if needRejectNSSAI && ue.NetworkSliceInfo != nil {
+	if flags.NeedRejectNSSAI && ue.NetworkSliceInfo != nil {
 		if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) != 0 || len(ue.NetworkSliceInfo.RejectedNssaiInTa) != 0 {
 			rejectedNssaiNas := nasConvert.RejectedNssaiToNas(
 				ue.NetworkSliceInfo.RejectedNssaiInPlmn, ue.NetworkSliceInfo.RejectedNssaiInTa)
@@ -798,14 +802,14 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		}
 	}
 
-	if needTaiList && anType == models.AccessType__3_GPP_ACCESS && len(ue.RegistrationArea[anType]) > 0 {
+	if flags.NeedTaiList && anType == models.AccessType__3_GPP_ACCESS && len(ue.RegistrationArea[anType]) > 0 {
 		configurationUpdateCommand.TAIList = nasType.NewTAIList(nasMessage.ConfigurationUpdateCommandTAIListType)
 		taiListNas := nasConvert.TaiListToNas(ue.RegistrationArea[anType])
 		configurationUpdateCommand.TAIList.SetLen(uint8(len(taiListNas)))
 		configurationUpdateCommand.TAIList.SetPartialTrackingAreaIdentityList(taiListNas)
 	}
 
-	if needServiceAreaList && anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
+	if flags.NeedServiceAreaList && anType == models.AccessType__3_GPP_ACCESS && ue.AmPolicyAssociation != nil &&
 		ue.AmPolicyAssociation.ServAreaRes != nil {
 		configurationUpdateCommand.ServiceAreaList = nasType.
 			NewServiceAreaList(nasMessage.ConfigurationUpdateCommandServiceAreaListType)
@@ -817,7 +821,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 
 	amfSelf := context.GetSelf()
 
-	if needNITZ {
+	if flags.NeedNITZ {
 		// Full network name
 		if amfSelf.NetworkName.Full != "" {
 			fullNetworkName := nasConvert.FullNetworkNameToNas(amfSelf.NetworkName.Full)
@@ -853,7 +857,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 		}
 	}
 
-	if needLadnInformation && anType == models.AccessType__3_GPP_ACCESS && len(ue.LadnInfo) > 0 {
+	if flags.NeedLadnInformation && anType == models.AccessType__3_GPP_ACCESS && len(ue.LadnInfo) > 0 {
 		configurationUpdateCommand.LADNInformation = nasType.
 			NewLADNInformation(nasMessage.ConfigurationUpdateCommandLADNInformationType)
 		var buf []uint8
