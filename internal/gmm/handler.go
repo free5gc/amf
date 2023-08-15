@@ -603,7 +603,7 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 }
 
 func IdentityVerification(ue *context.AmfUe) bool {
-	return ue.Supi != "" || len(ue.Suci) != 0
+	return len(ue.Suci) != 0
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
@@ -1591,7 +1591,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 
 	// Check whether UE has SUCI and SUPI
 	if IdentityVerification(ue) {
-		ue.GmmLog.Debugln("UE has SUCI / SUPI")
+		ue.GmmLog.Debugln("UE has SUCI")
 		if ue.SecurityContextIsValid() {
 			ue.GmmLog.Debugln("UE has a valid security context - skip the authentication procedure")
 			return true, nil
