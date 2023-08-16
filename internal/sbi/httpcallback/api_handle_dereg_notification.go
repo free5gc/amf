@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
@@ -11,7 +13,6 @@ import (
 	"github.com/free5gc/openapi/Nudm_SubscriberDataManagement"
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 	"github.com/free5gc/openapi/models"
-	"github.com/gin-gonic/gin"
 )
 
 func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
@@ -67,7 +68,8 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 			smContext := value.(*amf_context.SmContext)
 
 			if smContext.AccessType() == deregData.AccessType {
-				problemDetails, err := consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+				var problemDetails *models.ProblemDetails
+				problemDetails, err = consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 				if problemDetails != nil {
 					ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetails)
 				} else if err != nil {
@@ -99,11 +101,18 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 		configuration := Nudm_UEContextManagement.NewConfiguration()
 		configuration.SetBasePath(ue.NudmUECMUri)
 		client := Nudm_UEContextManagement.NewAPIClient(configuration)
-		httpResp, err := client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(
+		var httpResp *http.Response
+		httpResp, err = client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(
 			context.Background(),
 			ue.Supi,
 			regModification,
 		)
+		defer func() {
+			err = httpResp.Body.Close()
+			if err != nil {
+				logger.CallbackLog.Errorf("Body close error %v", err)
+			}
+		}()
 
 		switch httpResp.StatusCode {
 		case 204:
@@ -129,10 +138,17 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 	configuration := Nudm_SubscriberDataManagement.NewConfiguration()
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
-	httpResp, err := client.SubscriptionDeletionApi.Unsubscribe(context.Background(), ue.Supi, ue.SdmSubscriptionId)
+	var httpResp *http.Response
+	httpResp, err = client.SubscriptionDeletionApi.Unsubscribe(context.Background(), ue.Supi, ue.SdmSubscriptionId)
 	if err != nil {
 		logger.CallbackLog.Errorf("AMF unsubscribes the UE[%s] with the UDM: %v", ue.Supi, err)
 	}
+	defer func() {
+		err = httpResp.Body.Close()
+		if err != nil {
+			logger.CallbackLog.Errorf("Body close error %v", err)
+		}
+	}()
 
 	switch httpResp.StatusCode {
 	case 204:
@@ -155,5 +171,5 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 	// TS 23.503 - 5.3.2.3.2 UDM initiated NF Deregistration
 	// The AMF acknowledges the Nudm_UECM_DeRegistrationNotification to the UDM.
 	c.JSON(http.StatusNoContent, nil)
-	return
+	// return
 }

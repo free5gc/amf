@@ -604,8 +604,9 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
 			}
 		}
-
-		// gmm_common.RemoveAmfUe(ue, false)
+		if !ue.UeCmRegistered[models.AccessType__3_GPP_ACCESS] {
+			gmm_common.RemoveAmfUe(ue, false)
+		}
 	} else {
 		// NOT_TRANSFERRED
 		logger.CommLog.Debug("[AMF] RegistrationStatusUpdate: NOT_TRANSFERRED")
