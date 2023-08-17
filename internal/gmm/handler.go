@@ -1596,11 +1596,11 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		// Request UE's SUCI by sending identity request
 		ue.IdentityRequestSendTimes++
 		gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
+		// blocking until timer timeout/closed
+		ue.T3570.Done()
 	}
 
 	if ue.SecurityContextIsValid() {
-		// blocking until timer timeout/closed
-		ue.T3570.Done()
 		if !IdentityVerification(ue) {
 			return false, nil
 		}
