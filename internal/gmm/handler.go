@@ -2164,29 +2164,7 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	configurationUpdateCommandFlags := &gmm_message.ConfigurationUpdateCommandFlags{
 		NeedNITZ: true,
 	}
-
-	nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue, accessType, nil,
-		configurationUpdateCommandFlags,
-	)
-	if err != nil {
-		ue.GmmLog.Errorf("HandleRegistrationComplete: %+v", err)
-	}
-	if startT3555 && context.GetSelf().T3555Cfg.Enable {
-		cfg := context.GetSelf().T3555Cfg
-		ue.T3555 = context.NewTimer(context.GetSelf().T3555Cfg.ExpireTime,
-			context.GetSelf().T3555Cfg.MaxRetryTimes,
-			func(expireTimes int32) {
-				ue.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
-					expireTimes)
-				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
-			},
-			func() {
-				ue.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
-					cfg.MaxRetryTimes)
-			},
-		)
-	}
-	gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
+	gmm_message.SendConfigurationUpdateCommand(ue, accessType, configurationUpdateCommandFlags)
 
 	// if registrationComplete.SORTransparentContainer != nil {
 	// 	TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,

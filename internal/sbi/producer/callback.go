@@ -165,31 +165,10 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 
 			// UE is CM-Connected State
 			if ue.CmConnect(models.AccessType__3_GPP_ACCESS) {
-				nasMsg, err, startT3555 := gmm_message.BuildConfigurationUpdateCommand(ue,
+				gmm_message.SendConfigurationUpdateCommand(ue,
 					models.AccessType__3_GPP_ACCESS,
-					nil,
 					configurationUpdateCommandFlags,
 				)
-				if err != nil {
-					ue.GmmLog.Error(err.Error())
-					return
-				}
-				if startT3555 && context.GetSelf().T3555Cfg.Enable {
-					cfg := context.GetSelf().T3555Cfg
-					ue.T3555 = context.NewTimer(context.GetSelf().T3555Cfg.ExpireTime,
-						context.GetSelf().T3555Cfg.MaxRetryTimes,
-						func(expireTimes int32) {
-							ue.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
-								expireTimes)
-							gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
-						},
-						func() {
-							ue.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
-								cfg.MaxRetryTimes)
-						},
-					)
-				}
-				gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
 
 				// UE is CM-IDLE => paging
 			} else {
