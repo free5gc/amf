@@ -604,6 +604,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				logger.GmmLog.Errorf("AM Policy Control Delete Error[%v]", err.Error())
 			}
 		}
+		// TODO: Currently only consider the 3GPP access type
 		if !ue.UeCmRegistered[models.AccessType__3_GPP_ACCESS] {
 			gmm_common.RemoveAmfUe(ue, false)
 		}
