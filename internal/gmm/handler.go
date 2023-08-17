@@ -1592,15 +1592,20 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	// Check whether UE has SUCI and SUPI
 	if IdentityVerification(ue) {
 		ue.GmmLog.Debugln("UE has SUCI")
-		if ue.SecurityContextIsValid() {
-			ue.GmmLog.Debugln("UE has a valid security context - skip the authentication procedure")
-			return true, nil
-		}
 	} else {
 		// Request UE's SUCI by sending identity request
 		ue.IdentityRequestSendTimes++
 		gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
-		return false, nil
+	}
+
+	if ue.SecurityContextIsValid() {
+		// blocking until timer timeout/closed
+		ue.T3570.Done()
+		if !IdentityVerification(ue) {
+			return false, nil
+		}
+		ue.GmmLog.Debugln("UE has a valid security context - skip the authentication procedure")
+		return true, nil
 	}
 
 	amfSelf := context.GetSelf()

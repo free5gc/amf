@@ -43,11 +43,13 @@ func NewTimer(d time.Duration, maxRetryTimes int,
 		for {
 			select {
 			case <-t.done:
+				close(t.done)
 				return
 			case <-ticker.C:
 				atomic.AddInt32(&t.expireTimes, 1)
 				if t.ExpireTimes() > t.MaxRetryTimes() {
 					cancelFunc()
+					close(t.done)
 					return
 				} else {
 					expiredFunc(t.ExpireTimes())
@@ -73,5 +75,12 @@ func (t *Timer) ExpireTimes() int32 {
 // otherwise it may hang on writing to done channel
 func (t *Timer) Stop() {
 	t.done <- true
-	close(t.done)
+}
+
+func (t *Timer) Done() {
+	for {
+		if t.done == nil {
+			return
+		}
+	}
 }
