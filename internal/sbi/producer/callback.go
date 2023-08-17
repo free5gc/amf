@@ -184,7 +184,7 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 							gmm_message.SendConfigurationUpdateCommand(ue, models.AccessType__3_GPP_ACCESS, nasMsg)
 						},
 						func() {
-							ue.GmmLog.Warnf("T3555 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
+							ue.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
 								cfg.MaxRetryTimes)
 						},
 					)
