@@ -190,12 +190,13 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: RanUe is nil")
 		return
 	}
-	amfUe.GmmLog.Info("Send Configuration Update Command")
 
 	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, nil, flags)
 	if err != nil {
 		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
+		return
 	}
+	amfUe.GmmLog.Info("Send Configuration Update Command")
 
 	mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(amfUe)
 	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
