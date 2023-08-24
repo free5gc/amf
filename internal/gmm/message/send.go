@@ -204,17 +204,14 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 	if startT3555 && context.GetSelf().T3555Cfg.Enable {
 		cfg := context.GetSelf().T3555Cfg
 		amfUe.GmmLog.Infof("Start T3555 timer")
-		amfUe.T3555 = context.NewTimer(context.GetSelf().T3555Cfg.ExpireTime,
-			context.GetSelf().T3555Cfg.MaxRetryTimes,
-			func(expireTimes int32) {
-				amfUe.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
-					expireTimes)
-				ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
-			},
-			func() {
-				amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
-					cfg.MaxRetryTimes)
-			},
+		amfUe.T3555 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+			amfUe.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
+				expireTimes)
+			ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+		}, func() {
+			amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
+				cfg.MaxRetryTimes)
+		},
 		)
 	}
 }

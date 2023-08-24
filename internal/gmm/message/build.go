@@ -932,8 +932,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 			configurationUpdateCommand.UniversalTimeAndLocalTimeZone == nil &&
 			configurationUpdateCommand.LocalTimeZone == nil &&
 			configurationUpdateCommand.NetworkDaylightSavingTime == nil) {
-		needTimer = false
-		return nil, fmt.Errorf("Configuration Update Command is invaild"), needTimer
+		return nil, fmt.Errorf("Configuration Update Command is invaild"), false
 	}
 
 	m.GmmMessage.ConfigurationUpdateCommand = configurationUpdateCommand
@@ -945,7 +944,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 
 	b, err := nas_security.Encode(ue, m, anType)
 	if err != nil {
-		needTimer = false
+		return nil, fmt.Errorf("BuildConfigurationUpdateCommand() err: %v", err), false
 	}
 	return b, err, needTimer
 }
