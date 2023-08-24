@@ -14,6 +14,7 @@ import (
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/nas/nasConvert"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
@@ -131,7 +132,7 @@ func InitAmfContext(context *AMFContext) {
 		context.SecurityAlgorithm.CipheringOrder = getEncAlgOrder(security.CipheringOrder)
 	}
 	context.NetworkName = configuration.NetworkName
-	context.TimeZone = getTimeZone(time.Now())
+	context.TimeZone = nasConvert.GetTimeZone(time.Now())
 	context.T3502Value = configuration.T3502Value
 	context.T3512Value = configuration.T3512Value
 	context.Non3gppDeregTimerValue = configuration.Non3gppDeregTimerValue
@@ -143,23 +144,6 @@ func InitAmfContext(context *AMFContext) {
 	context.T3570Cfg = configuration.T3570
 	context.T3555Cfg = configuration.T3555
 	context.Locality = configuration.Locality
-}
-
-func getTimeZone(now time.Time) string {
-	timezone := ""
-	_, offset := now.Zone()
-	if offset < 0 {
-		timezone += "-"
-		offset = 0 - offset
-	} else {
-		timezone += "+"
-	}
-	timezone += fmt.Sprintf("%02d:%02d", offset/3600, (offset%3600)/60)
-	if now.IsDST() {
-		timezone += "+1"
-	}
-
-	return timezone
 }
 
 func getIntAlgOrder(integrityOrder []string) (intOrder []uint8) {
