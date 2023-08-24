@@ -11,7 +11,7 @@ require (
 	github.com/free5gc/nas v1.1.2-0.20230731044306-324a5cc4c35e
 	github.com/free5gc/ngap v1.0.7-0.20230614061954-9c128114ab1f
 	github.com/free5gc/openapi v1.0.7-0.20230802173229-2b3ded4db293
-	github.com/free5gc/util v1.0.5-0.20230306071612-a52909216bd2
+	github.com/free5gc/util v1.0.5-0.20230823103219-e511c4fd20ef
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
