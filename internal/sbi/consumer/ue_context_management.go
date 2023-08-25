@@ -107,8 +107,9 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
 		modificationData := models.Amf3GppAccessRegistrationModification{
-			Guami:     &amfSelf.ServedGuamiList[0],
-			PurgeFlag: true,
+			Guami:         &amfSelf.ServedGuamiList[0],
+			PurgeFlag:     true,
+			BackupAmfInfo: ue.BackupAmfInfo,
 		}
 
 		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(context.Background(),

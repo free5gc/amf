@@ -1,16 +1,15 @@
 package httpcallback
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	amf_context "github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -81,65 +80,23 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 	case models.DeregistrationReason_SUBSCRIPTION_WITHDRAWN:
 		// TS 23.502 - 4.2.2.3.3 Network-initiated Deregistration
 		// The AMF executes Deregistration procedure over the access(es) the Access Type indicates
-		// TS 29.503 - 5.3.2.4.2 AMF deregistration for 3GPP access
 
 		// Use old AMF as the backup AMF
-		backupAmfInfo := []models.BackupAmfInfo{
-			{
-				BackupAmf: amfSelf.Name,
-				GuamiList: amfSelf.ServedGuamiList,
-			},
+		backupAmfInfo := models.BackupAmfInfo{
+			BackupAmf: amfSelf.Name,
+			GuamiList: amfSelf.ServedGuamiList,
 		}
-
-		regModification := models.Amf3GppAccessRegistrationModification{
-			Guami:         &amfSelf.ServedGuamiList[0],
-			Pei:           ue.Pei,
-			BackupAmfInfo: backupAmfInfo,
-		}
-
-		configuration := Nudm_UEContextManagement.NewConfiguration()
-		configuration.SetBasePath(ue.NudmUECMUri)
-		client := Nudm_UEContextManagement.NewAPIClient(configuration)
-		var httpResp *http.Response
-		httpResp, err = client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(
-			context.Background(),
-			ue.Supi,
-			regModification,
-		)
-		defer func() {
-			err = httpResp.Body.Close()
-			if err != nil {
-				logger.CallbackLog.Errorf("Body close error %v", err)
-			}
-		}()
-
-		switch httpResp.StatusCode {
-		case 204:
-			// Successful response
-		case 404:
-			problemDetails := &models.ProblemDetails{
-				Status: http.StatusNotFound,
-				Cause:  "CONTEXT_NOT_FOUND",
-			}
-			c.JSON(http.StatusNotFound, problemDetails)
-			return
-		case 403, 422:
-			// TODO: How to handle the error?
-			problemDetails := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			logger.CallbackLog.Errorf("AMF Deregistration: %+v", problemDetails)
-		default:
-			logger.CallbackLog.Warningf("No handler for status during deregistration procedure: %v", httpResp.Status)
-		}
+		ue.UpdateBackupAmfInfo(backupAmfInfo)
 	}
 
-	// TS 23.502 - 4.2.2.3.3 Network-initiated Deregistration
-	// The AMF also unsubscribes with the UDM using Nudm_SDM_Unsubscribe service operation.
-	problemDetails, err := consumer.SDMUnsubscribe(ue)
-	if problemDetails != nil {
-		logger.CallbackLog.Errorf("AMF SDM Unsubscribe: %+v", problemDetails)
-	}
 	// TS 23.502 - 4.2.2.2.2 General Registration
 	// The old AMF should clean the UE context
+	// The AMF also unsubscribes with the UDM using Nudm_SDM_Unsubscribe service operation.
+	err = gmm_common.PurgeSubscriberData(ue, deregData.AccessType)
+	if err != nil {
+		logger.CallbackLog.Errorf("Purge subscriber data Error: %v", err)
+	}
+	// TODO: (R16) Only remove the target access UE context
 	ue.Remove()
 
 	// TS 23.503 - 5.3.2.3.2 UDM initiated NF Deregistration
