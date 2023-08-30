@@ -3,6 +3,7 @@ package consumer
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -215,6 +216,20 @@ func UEContextTransferRequest(
 	}
 	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
 		var buf bytes.Buffer
+		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.ProtocolDiscriminator); err != nil {
+			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/ProtocolDiscriminator): %w", err)
+		}
+		// TODO: check the correct security header
+		ue.SecurityHeader.SecurityHeaderType = 2 & 0x0f
+		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SecurityHeaderType); err != nil {
+			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/SecurityHeaderType): %w", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.MessageAuthenticationCode); err != nil {
+			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/MessageAuthenticationCode): %w", err)
+		}
+		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SequenceNumber); err != nil {
+			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/SequenceNumber): %w", err)
+		}
 		err = ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("re-encoding registration request message is failed: %w", err)

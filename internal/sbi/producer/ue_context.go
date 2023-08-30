@@ -7,6 +7,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
@@ -257,6 +258,16 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	switch UeContextTransferReqData.Reason {
 	case models.TransferReason_INIT_REG:
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
+		ue.ULCount.Set(0, 0)
+		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, false)
+		if err != nil {
+			ue.NASLog.Errorln(err)
+		}
+		if integrityProtected {
+			ue.NASLog.Info("UE integrity check success")
+		} else {
+			ue.NASLog.Info("UE integrity check fail")
+		}
 		// TODO: handle condition of TS 29.518 5.2.2.2.1.1 step 2a case b
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
 	case models.TransferReason_MOBI_REG:

@@ -606,7 +606,8 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 }
 
 func IdentityVerification(ue *context.AmfUe) bool {
-	return ue.Supi != "" || len(ue.Suci) != 0
+	// return ue.Supi != "" || len(ue.Suci) != 0
+	return len(ue.Suci) != 0
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {

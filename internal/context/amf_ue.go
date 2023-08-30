@@ -14,6 +14,7 @@ import (
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/nas/security"
@@ -63,6 +64,7 @@ type AmfUe struct {
 	RegistrationType5GS                uint8
 	IdentityTypeUsedForRegistration    uint8
 	RegistrationRequest                *nasMessage.RegistrationRequest
+	SecurityHeader                     nas.SecurityHeader
 	ServingAmfChanged                  bool
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
