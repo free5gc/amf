@@ -191,7 +191,7 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 		return
 	}
 
-	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, nil, flags)
+	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, flags)
 	if err != nil {
 		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
 		return

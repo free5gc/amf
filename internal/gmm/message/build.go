@@ -30,6 +30,7 @@ type ConfigurationUpdateCommandFlags struct {
 	NeedLadnInformation                          bool
 	NeedServiceAreaList                          bool
 	NeedConfiguredNSSAI                          bool
+	NeedNetworkSlicingIndication                 bool
 	NeedOperatordefinedAccessCategoryDefinitions bool
 }
 
@@ -742,7 +743,6 @@ func BuildStatus5GMM(ue *context.AmfUe, accessType models.AccessType, cause uint
 
 // Fllowed by TS 24.501 - 5.4.4 Generic UE configuration update procedure - 5.4.4.1 General
 func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType,
-	networkSlicingIndication *nasType.NetworkSlicingIndication,
 	flags *ConfigurationUpdateCommandFlags,
 ) ([]byte, error, bool) {
 	needTimer := false
@@ -756,10 +756,10 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 	configurationUpdateCommand.SpareHalfOctetAndSecurityHeaderType.SetSpareHalfOctet(0)
 	configurationUpdateCommand.SetMessageType(nas.MsgTypeConfigurationUpdateCommand)
 
-	if networkSlicingIndication != nil {
+	if flags.NeedNetworkSlicingIndication {
 		configurationUpdateCommand.NetworkSlicingIndication = nasType.
 			NewNetworkSlicingIndication(nasMessage.ConfigurationUpdateCommandNetworkSlicingIndicationType)
-		configurationUpdateCommand.NetworkSlicingIndication = networkSlicingIndication
+		configurationUpdateCommand.NetworkSlicingIndication.SetNSSCI(0x01)
 	}
 
 	if flags.NeedGUTI {

@@ -175,7 +175,6 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 				// TODO: Verify if need to start the timer
 				nasMsg, err, _ := gmm_message.BuildConfigurationUpdateCommand(ue,
 					models.AccessType__3_GPP_ACCESS,
-					nil,
 					configurationUpdateCommandFlags,
 				)
 				if err != nil {
