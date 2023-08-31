@@ -19,21 +19,6 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-type ConfigurationUpdateCommandFlags struct {
-	NeedGUTI                                     bool
-	NeedNITZ                                     bool
-	NeedTaiList                                  bool
-	NeedRejectNSSAI                              bool
-	NeedAllowedNSSAI                             bool
-	NeedSmsIndication                            bool
-	NeedMicoIndication                           bool
-	NeedLadnInformation                          bool
-	NeedServiceAreaList                          bool
-	NeedConfiguredNSSAI                          bool
-	NeedNetworkSlicingIndication                 bool
-	NeedOperatordefinedAccessCategoryDefinitions bool
-}
-
 func BuildDLNASTransport(ue *context.AmfUe, accessType models.AccessType, payloadContainerType uint8, nasPdu []byte,
 	pduSessionId uint8, cause *uint8, backoffTimerUint *uint8, backoffTimer uint8,
 ) ([]byte, error) {
@@ -743,7 +728,7 @@ func BuildStatus5GMM(ue *context.AmfUe, accessType models.AccessType, cause uint
 
 // Fllowed by TS 24.501 - 5.4.4 Generic UE configuration update procedure - 5.4.4.1 General
 func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType,
-	flags *ConfigurationUpdateCommandFlags,
+	flags *context.ConfigurationUpdateCommandFlags,
 ) ([]byte, error, bool) {
 	needTimer := false
 	m := nas.NewMessage()

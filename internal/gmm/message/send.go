@@ -180,7 +180,7 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 
 func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 	accessType models.AccessType,
-	flags *ConfigurationUpdateCommandFlags,
+	flags *context.ConfigurationUpdateCommandFlags,
 ) {
 	if amfUe == nil {
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: AmfUe is nil")

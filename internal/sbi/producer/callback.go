@@ -153,7 +153,7 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 				}
 			}()
 
-			configurationUpdateCommandFlags := &gmm_message.ConfigurationUpdateCommandFlags{
+			configurationUpdateCommandFlags := &context.ConfigurationUpdateCommandFlags{
 				NeedGUTI:            true,
 				NeedAllowedNSSAI:    true,
 				NeedConfiguredNSSAI: true,
@@ -169,20 +169,10 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 					models.AccessType__3_GPP_ACCESS,
 					configurationUpdateCommandFlags,
 				)
-
-				// UE is CM-IDLE => paging
 			} else {
-				// TODO: Verify if need to start the timer
-				nasMsg, err, _ := gmm_message.BuildConfigurationUpdateCommand(ue,
-					models.AccessType__3_GPP_ACCESS,
-					configurationUpdateCommandFlags,
-				)
-				if err != nil {
-					logger.GmmLog.Errorf("Build Configuration Update Command Failed : %s", err.Error())
-					return
-				}
+				// UE is CM-IDLE => paging
+				ue.ConfigurationUpdateCommandFlags = configurationUpdateCommandFlags
 
-				ue.ConfigurationUpdateMessage = nasMsg
 				ue.SetOnGoing(models.AccessType__3_GPP_ACCESS, &context.OnGoing{
 					Procedure: context.OnGoingProcedurePaging,
 				})
