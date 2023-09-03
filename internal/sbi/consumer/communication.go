@@ -219,8 +219,6 @@ func UEContextTransferRequest(
 		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.ProtocolDiscriminator); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/ProtocolDiscriminator): %w", err)
 		}
-		// TODO: check the correct security header
-		ue.SecurityHeader.SecurityHeaderType = 2 & 0x0f
 		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SecurityHeaderType); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/SecurityHeaderType): %w", err)
 		}

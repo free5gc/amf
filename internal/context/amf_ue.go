@@ -737,6 +737,9 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 			ue.NH = nh
 		}
 		ue.NCC = uint8(seafData.Ncc)
+		ue.SecurityContextAvailable = true
+	} else {
+		ue.SecurityContextAvailable = false
 	}
 
 	if ueContext.PcfId != "" {

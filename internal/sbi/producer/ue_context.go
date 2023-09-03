@@ -1,6 +1,8 @@
 package producer
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"net/http"
 	"strings"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
 )
@@ -259,20 +262,31 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	case models.TransferReason_INIT_REG:
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
 		ue.ULCount.Set(0, 0)
-		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, false)
+		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, true)
 		if err != nil {
 			ue.NASLog.Errorln(err)
 		}
+		// ue.MacFailed = !integrityProtected
 		if integrityProtected {
 			ue.NASLog.Info("UE integrity check success")
 		} else {
 			ue.NASLog.Info("UE integrity check fail")
 		}
 		// TODO: handle condition of TS 29.518 5.2.2.2.1.1 step 2a case b
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
+		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 	case models.TransferReason_MOBI_REG:
+		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, false)
+		if err != nil {
+			ue.NASLog.Errorln(err)
+		}
+		ue.MacFailed = !integrityProtected
+		if integrityProtected {
+			ue.NASLog.Info("UE integrity check success")
+		} else {
+			ue.NASLog.Info("UE integrity check fail")
+		}
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
+		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 
 		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
 		ue.SmContextList.Range(func(key, value interface{}) bool {
@@ -302,7 +316,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		b := []byte(ue.UeRadioCapability)
 		copy(ueContextTransferResponse.BinaryDataN2Information, b)
 	case models.TransferReason_MOBI_REG_UE_VALIDATED:
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue)
+		ueContextTransferRspData.UeContext = buildUEContextModel(ue, false)
 
 		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
 		ue.SmContextList.Range(func(key, value interface{}) bool {
@@ -347,11 +361,55 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	return ueContextTransferResponse, nil
 }
 
-func buildUEContextModel(ue *context.AmfUe) *models.UeContext {
+func buildUEContextModel(ue *context.AmfUe, integrityProtected bool) *models.UeContext {
 	ueContext := new(models.UeContext)
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 
+	if integrityProtected {
+		var mmcontext models.MmContext
+		mmcontext.AccessType = models.AccessType__3_GPP_ACCESS
+		NasSecurityMode := new(models.NasSecurityMode)
+		switch ue.IntegrityAlg {
+		case security.AlgIntegrity128NIA0:
+			NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA0
+		case security.AlgIntegrity128NIA1:
+			NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA1
+		case security.AlgIntegrity128NIA2:
+			NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA2
+		case security.AlgIntegrity128NIA3:
+			NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA3
+		}
+		switch ue.CipheringAlg {
+		case security.AlgCiphering128NEA0:
+			NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA0
+		case security.AlgCiphering128NEA1:
+			NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA1
+		case security.AlgCiphering128NEA2:
+			NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA2
+		case security.AlgCiphering128NEA3:
+			NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA3
+		}
+		NgKsi := new(models.NgKsi)
+		NgKsi.Ksi = ue.NgKsi.Ksi
+		NgKsi.Tsc = ue.NgKsi.Tsc
+		KeyAmf := new(models.KeyAmf)
+		KeyAmf.KeyType = models.KeyAmfType_KAMF
+		KeyAmf.KeyVal = ue.Kamf
+		SeafData := new(models.SeafData)
+		SeafData.NgKsi = NgKsi
+		SeafData.KeyAmf = KeyAmf
+		SeafData.Nh = hex.EncodeToString(ue.NH)
+		SeafData.Ncc = int32(ue.NCC)
+		SeafData.KeyAmfChangeInd = false
+		SeafData.KeyAmfHDerivationInd = false
+		ueContext.SeafData = SeafData
+		mmcontext.NasSecurityMode = NasSecurityMode
+		mmcontext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
+		mmcontext.NasDownlinkCount = int32(ue.DLCount.Get())
+		mmcontext.NasUplinkCount = int32(ue.ULCount.Get())
+		ueContext.MmContextList = append(ueContext.MmContextList, mmcontext)
+	}
 	if ue.Gpsi != "" {
 		ueContext.GpsiList = append(ueContext.GpsiList, ue.Gpsi)
 	}

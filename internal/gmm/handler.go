@@ -564,7 +564,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			// if failed, give up to retrieve the old context and start a new authentication procedure.
 			ue.ServingAmfChanged = false
 			context.GetSelf().AllocateGutiToUe(ue) // refresh 5G-GUTI
-			ue.SecurityContextAvailable = false    // need to start authentication procedure later
+			// ue.SecurityContextAvailable = false    // need to start authentication procedure later
 		}
 	}
 	return nil
@@ -602,6 +602,9 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 	}
 
 	ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
+	if ue.SecurityContextAvailable {
+		ue.DerivateAlgKey()
+	}
 	return nil
 }
 
