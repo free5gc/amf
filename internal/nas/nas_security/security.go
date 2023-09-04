@@ -281,7 +281,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 			mobileIdentityContents := msg.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
 			if len(mobileIdentityContents) >= 1 &&
 				nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) == nasMessage.MobileIdentity5GSTypeSuci {
-				// Identity is SUSI
+				// Identity is SUCI
 				if ue.SecurityContextAvailable {
 					if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
 						return nil, false, errWrongSecurityHeader()
@@ -291,7 +291,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 					}
 				}
 			} else {
-				// Identity is not SUSI
+				// Identity is not SUCI
 				if !ue.SecurityContextAvailable {
 					return nil, false, errNoSecurityContext()
 				}

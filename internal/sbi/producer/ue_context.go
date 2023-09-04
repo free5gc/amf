@@ -262,7 +262,8 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	case models.TransferReason_INIT_REG:
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
 		ue.ULCount.Set(0, 0)
-		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, true)
+		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
+			ueContextTransferRequest.BinaryDataN1Message, true)
 		if err != nil {
 			ue.NASLog.Errorln(err)
 		}
@@ -275,7 +276,8 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		// TODO: handle condition of TS 29.518 5.2.2.2.1.1 step 2a case b
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 	case models.TransferReason_MOBI_REG:
-		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType, ueContextTransferRequest.BinaryDataN1Message, false)
+		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
+			ueContextTransferRequest.BinaryDataN1Message, false)
 		if err != nil {
 			ue.NASLog.Errorln(err)
 		}

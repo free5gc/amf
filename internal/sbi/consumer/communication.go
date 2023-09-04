@@ -216,16 +216,16 @@ func UEContextTransferRequest(
 	}
 	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
 		var buf bytes.Buffer
-		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.ProtocolDiscriminator); err != nil {
+		if err = binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.ProtocolDiscriminator); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/ProtocolDiscriminator): %w", err)
 		}
-		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SecurityHeaderType); err != nil {
+		if err = binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SecurityHeaderType); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/SecurityHeaderType): %w", err)
 		}
-		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.MessageAuthenticationCode); err != nil {
+		if err = binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.MessageAuthenticationCode); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/MessageAuthenticationCode): %w", err)
 		}
-		if err := binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SequenceNumber); err != nil {
+		if err = binary.Write(&buf, binary.BigEndian, ue.SecurityHeader.SequenceNumber); err != nil {
 			logger.ConsumerLog.Error("NAS encode error (SecurityHeader/SequenceNumber): %w", err)
 		}
 		err = ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
