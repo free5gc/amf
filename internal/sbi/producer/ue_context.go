@@ -268,23 +268,39 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		}
 		// ue.MacFailed = !integrityProtected
 		if integrityProtected {
-			ue.NASLog.Info("UE integrity check success")
+			ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 		} else {
-			ue.NASLog.Info("UE integrity check fail")
+			problemDetails := &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INTEGRITY_CHECK_FAIL",
+				InvalidParams: []models.InvalidParam{
+					{
+						Param: "reason",
+					},
+				},
+			}
+			return nil, problemDetails
 		}
 		// TODO: handle condition of TS 29.518 5.2.2.2.1.1 step 2a case b
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 	case models.TransferReason_MOBI_REG:
 		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
 			ueContextTransferRequest.BinaryDataN1Message, false)
 		if err != nil {
 			ue.NASLog.Errorln(err)
 		}
-		ue.MacFailed = !integrityProtected
 		if integrityProtected {
-			ue.NASLog.Info("UE integrity check success")
+			ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 		} else {
-			ue.NASLog.Info("UE integrity check fail")
+			problemDetails := &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INTEGRITY_CHECK_FAIL",
+				InvalidParams: []models.InvalidParam{
+					{
+						Param: "reason",
+					},
+				},
+			}
+			return nil, problemDetails
 		}
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
 		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
@@ -409,6 +425,11 @@ func buildUEContextModel(ue *context.AmfUe, integrityProtected bool) *models.UeC
 		mmcontext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
 		mmcontext.NasDownlinkCount = int32(ue.DLCount.Get())
 		mmcontext.NasUplinkCount = int32(ue.ULCount.Get())
+		if ue.AllowedNssai[models.AccessType__3_GPP_ACCESS] != nil {
+			for _, allowedSnssai := range ue.AllowedNssai[models.AccessType__3_GPP_ACCESS] {
+				mmcontext.AllowedNssai = append(mmcontext.AllowedNssai, *(allowedSnssai.AllowedSnssai))
+			}
+		}
 		ueContext.MmContextList = append(ueContext.MmContextList, mmcontext)
 	}
 	if ue.Gpsi != "" {

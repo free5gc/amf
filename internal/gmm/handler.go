@@ -482,6 +482,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			return fmt.Errorf("decode GUTI failed: %w", err)
 		}
 		guamiFromUeGuti = guamiFromUeGutiTmp
+		ue.PlmnId = *guamiFromUeGuti.PlmnId
 		ue.GmmLog.Infof("MobileIdentity5GS: GUTI[%s]", guti)
 
 		// TODO: support multiple ServedGuami
@@ -599,6 +600,9 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
 	} else if err != nil {
 		return fmt.Errorf("UE Context Transfer Request Error[%+v]", err)
+	} else {
+		ue.SecurityContextAvailable = true
+		ue.MacFailed = false
 	}
 
 	ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
@@ -609,8 +613,8 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 }
 
 func IdentityVerification(ue *context.AmfUe) bool {
-	// return ue.Supi != "" || len(ue.Suci) != 0
-	return len(ue.Suci) != 0
+	return ue.Supi != "" || len(ue.Suci) != 0
+	// return len(ue.Suci) != 0
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
