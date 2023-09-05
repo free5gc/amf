@@ -124,8 +124,8 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	ulCountNew := ue.ULCount
 
 	msg = new(nas.Message)
+	msg.ProtocolDiscriminator = payload[0]
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
-	msg.ProtocolDiscriminator = payload[0] & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas { // Security protected NAS message
 		// Extended protocol discriminator	V 1
@@ -141,7 +141,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 		ue.NASLog.Traceln("securityHeader is ", securityHeader)
 		sequenceNumber := payload[6]
 		ue.NASLog.Traceln("sequenceNumber", sequenceNumber)
-		msg.SequenceNumber = sequenceNumber & 0x0f
+		msg.SequenceNumber = sequenceNumber
 		receivedMac32 := securityHeader[2:]
 		msg.MessageAuthenticationCode = binary.BigEndian.Uint32(receivedMac32)
 		// remove security Header except for sequece Number
