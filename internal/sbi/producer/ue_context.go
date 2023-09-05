@@ -261,7 +261,6 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	switch UeContextTransferReqData.Reason {
 	case models.TransferReason_INIT_REG:
 		// TODO: check integrity of the registration request included in ueContextTransferRequest
-		ue.ULCount.Set(0, 0)
 		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
 			ueContextTransferRequest.BinaryDataN1Message, true)
 		if err != nil {
