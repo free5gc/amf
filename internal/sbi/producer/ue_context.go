@@ -302,8 +302,6 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 			}
 			return nil, problemDetails
 		}
-		// TODO: check integrity of the registration request included in ueContextTransferRequest
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
 
 		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
 		ue.SmContextList.Range(func(key, value interface{}) bool {
@@ -416,13 +414,17 @@ func buildUEContextModel(ue *context.AmfUe, integrityProtected bool) *models.UeC
 		SeafData := new(models.SeafData)
 		SeafData.NgKsi = NgKsi
 		SeafData.KeyAmf = KeyAmf
-		SeafData.Nh = hex.EncodeToString(ue.NH)
+		if ue.NH != nil {
+			SeafData.Nh = hex.EncodeToString(ue.NH)
+		}
 		SeafData.Ncc = int32(ue.NCC)
 		SeafData.KeyAmfChangeInd = false
 		SeafData.KeyAmfHDerivationInd = false
 		ueContext.SeafData = SeafData
 		mmcontext.NasSecurityMode = NasSecurityMode
-		mmcontext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
+		if ue.UESecurityCapability.Buffer != nil {
+			mmcontext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
+		}
 		mmcontext.NasDownlinkCount = int32(ue.DLCount.Get())
 		mmcontext.NasUplinkCount = int32(ue.ULCount.Get())
 		if ue.AllowedNssai[models.AccessType__3_GPP_ACCESS] != nil {

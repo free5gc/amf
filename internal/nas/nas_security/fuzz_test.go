@@ -50,7 +50,7 @@ func FuzzNASSecurity(f *testing.F) {
 						if !integrityProtected2 {
 							panic("integrityProtected mismatch")
 						}
-						if !reflect.DeepEqual(msg0, msg2) {
+						if !reflect.DeepEqual(msg0.GmmMessage, msg2.GmmMessage) {
 							panic("msg mismatch")
 						}
 					}
