@@ -1582,7 +1582,8 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe,
 		return fmt.Errorf("NAS message integrity check failed")
 	}
 
-	// TODO: Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
+	// Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
+	ue.StopT3555()
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "github.com/free5gc/openapi/Nudm_SubscriberDataManagement" client.Info
 
@@ -1849,16 +1850,14 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 
 		// downlink signaling
-		if ue.ConfigurationUpdateMessage != nil {
+		if ue.ConfigurationUpdateCommandFlags != nil {
 			err := gmm_message.SendServiceAccept(ue, anType, cxtList,
 				pduStatusResult, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
 				return err
 			}
-			mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(ue)
-			ngap_message.SendDownlinkNasTransport(ue.RanUe[models.AccessType__3_GPP_ACCESS],
-				ue.ConfigurationUpdateMessage, &mobilityRestrictionList)
-			ue.ConfigurationUpdateMessage = nil
+			gmm_message.SendConfigurationUpdateCommand(ue, anType, ue.ConfigurationUpdateCommandFlags)
+			ue.ConfigurationUpdateCommandFlags = nil
 		}
 	case nasMessage.ServiceTypeData:
 		if anType == models.AccessType__3_GPP_ACCESS {
@@ -2161,6 +2160,12 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 			return true
 		})
 	}
+
+	// Send NITZ information to UE
+	configurationUpdateCommandFlags := &context.ConfigurationUpdateCommandFlags{
+		NeedNITZ: true,
+	}
+	gmm_message.SendConfigurationUpdateCommand(ue, accessType, configurationUpdateCommandFlags)
 
 	// if registrationComplete.SORTransparentContainer != nil {
 	// 	TODO: if at regsitration procedure 14b, udm provide amf Steering of Roaming info & request an ack,

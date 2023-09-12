@@ -9,7 +9,6 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/nas/nasMessage"
-	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
@@ -179,8 +178,9 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 	return nil
 }
 
-func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType,
-	networkSlicingIndication *nasType.NetworkSlicingIndication,
+func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
+	accessType models.AccessType,
+	flags *context.ConfigurationUpdateCommandFlags,
 ) {
 	if amfUe == nil {
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: AmfUe is nil")
@@ -190,15 +190,30 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.Acce
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: RanUe is nil")
 		return
 	}
-	amfUe.GmmLog.Info("Configuration Update Command")
 
-	nasMsg, err := BuildConfigurationUpdateCommand(amfUe, accessType, networkSlicingIndication)
+	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, flags)
 	if err != nil {
-		amfUe.GmmLog.Error(err.Error())
+		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
 		return
 	}
+	amfUe.GmmLog.Info("Send Configuration Update Command")
+
 	mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(amfUe)
 	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+
+	if startT3555 && context.GetSelf().T3555Cfg.Enable {
+		cfg := context.GetSelf().T3555Cfg
+		amfUe.GmmLog.Infof("Start T3555 timer")
+		amfUe.T3555 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+			amfUe.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
+				expireTimes)
+			ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+		}, func() {
+			amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
+				cfg.MaxRetryTimes)
+		},
+		)
+	}
 }
 
 func SendAuthenticationReject(ue *context.RanUe, eapMsg string) {
