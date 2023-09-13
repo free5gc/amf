@@ -695,6 +695,10 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 		param.PreferredLocality = optional.NewString(amfSelf.Locality)
 	}
 
+	if ue.PcfId != "" {
+		// TODO: (step 15) Should use PCF ID to select PCF
+		// Retrieve PCF ID from old AMF
+	}
 	for {
 		resp, err := consumer.SendSearchNFInstances(amfSelf.NrfUri, models.NfType_PCF, models.NfType_AMF, &param)
 		if err != nil {

@@ -89,9 +89,9 @@ func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	if ue.UeCmRegistered[accessType] {
 		problemDetails, err := consumer.UeCmDeregistration(ue, accessType)
 		if problemDetails != nil {
-			logger.GmmLog.Errorf("UECM_Registration Failed Problem[%+v]", problemDetails)
+			logger.GmmLog.Errorf("UECM Deregistration Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
-			logger.GmmLog.Errorf("UECM_Registration Error[%+v]", err)
+			logger.GmmLog.Errorf("UECM Deregistration Error[%+v]", err)
 		}
 		ue.UeCmRegistered[accessType] = false
 	}

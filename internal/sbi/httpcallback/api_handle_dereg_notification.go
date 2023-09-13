@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	amf_context "github.com/free5gc/amf/internal/context"
-	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/openapi"
@@ -18,6 +17,7 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 	logger.CallbackLog.Infoln("Handle Deregistration Notification")
 
 	var deregData models.DeregistrationData
+	var doUecmDereg bool = true
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -78,24 +78,44 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 			return true
 		})
 	case models.DeregistrationReason_SUBSCRIPTION_WITHDRAWN:
-		// TS 23.502 - 4.2.2.3.3 Network-initiated Deregistration
-		// The AMF executes Deregistration procedure over the access(es) the Access Type indicates
+		// The notification is triggered by the new AMF executing UECM registration,
+		// UDM will use the new data to replace the old context.
+		// Therefore old AMF doesn't need to execute UECM de-registration to clean the old context stored in UDM.
+		doUecmDereg = false
+	}
 
+	// TS 23.502 - 4.2.2.2.2 General Registration
+	// TODO: (R16) If old AMF does not have UE context for another access type (i.e. non-3GPP access),
+	// the Old AMF unsubscribes with the UDM for subscription data using Nudm_SDM_unsubscribe
+	if ue.SdmSubscriptionId != "" {
+		var problemDetails *models.ProblemDetails
+		problemDetails, err = consumer.SDMUnsubscribe(ue)
+		if problemDetails != nil {
+			logger.GmmLog.Errorf("SDM Unubscribe Failed Problem[%+v]", problemDetails)
+		} else if err != nil {
+			logger.GmmLog.Errorf("SDM Unubscribe Error[%+v]", err)
+		}
+		ue.SdmSubscriptionId = ""
+	}
+	if doUecmDereg {
 		// Use old AMF as the backup AMF
 		backupAmfInfo := models.BackupAmfInfo{
 			BackupAmf: amfSelf.Name,
 			GuamiList: amfSelf.ServedGuamiList,
 		}
 		ue.UpdateBackupAmfInfo(backupAmfInfo)
-	}
 
-	// TS 23.502 - 4.2.2.2.2 General Registration
-	// The old AMF should clean the UE context
-	// The AMF also unsubscribes with the UDM using Nudm_SDM_Unsubscribe service operation.
-	err = gmm_common.PurgeSubscriberData(ue, deregData.AccessType)
-	if err != nil {
-		logger.CallbackLog.Errorf("Purge subscriber data Error: %v", err)
+		if ue.UeCmRegistered[deregData.AccessType] {
+			problemDetails, err := consumer.UeCmDeregistration(ue, deregData.AccessType)
+			if problemDetails != nil {
+				logger.GmmLog.Errorf("UECM Deregistration Failed Problem[%+v]", problemDetails)
+			} else if err != nil {
+				logger.GmmLog.Errorf("UECM Deregistration Error[%+v]", err)
+			}
+			ue.UeCmRegistered[deregData.AccessType] = false
+		}
 	}
+	// The old AMF should clean the UE context
 	// TODO: (R16) Only remove the target access UE context
 	ue.Remove()
 
