@@ -595,6 +595,9 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 	ueContextTransferRspData, problemDetails, err := consumer.UEContextTransferRequest(ue, anType, transferReason)
 	if problemDetails != nil {
 		if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
+			// TODO 9a. After successful authentication in new AMF, which is triggered by the integrity check failure
+			// in old AMF at step 5, the new AMF invokes step 4 above again and indicates that the UE is validated
+			//(i.e. through the reason parameter as specified in clause 5.2.2.2.2).
 			return fmt.Errorf("Can not retrieve UE Context from old AMF[Cause: %s]", problemDetails.Cause)
 		}
 		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
