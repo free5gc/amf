@@ -83,8 +83,7 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 		// Therefore old AMF doesn't need to execute UECM de-registration to clean the old context stored in UDM.
 		doUecmDereg = false
 	}
-
-	// TS 23.502 - 4.2.2.2.2 General Registration
+	// TS 23.502 - 4.2.2.2.2 General Registration - 14e
 	// TODO: (R16) If old AMF does not have UE context for another access type (i.e. non-3GPP access),
 	// the Old AMF unsubscribes with the UDM for subscription data using Nudm_SDM_unsubscribe
 	if ue.SdmSubscriptionId != "" {
@@ -97,6 +96,7 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 		}
 		ue.SdmSubscriptionId = ""
 	}
+
 	if doUecmDereg {
 		// Use old AMF as the backup AMF
 		backupAmfInfo := models.BackupAmfInfo{
@@ -115,6 +115,19 @@ func HTTPAmfHandleDeregistrationNotification(c *gin.Context) {
 			ue.UeCmRegistered[deregData.AccessType] = false
 		}
 	}
+
+	// TS 23.502 - 4.2.2.2.2 General Registration - 20
+	if ue.PolicyAssociationId != "" {
+		// TODO: It also needs to check if the PCF ID is tranfered to new AMF
+		// Currently, old AMF will transfer the PCF ID but new AMF will not utilize the PCF ID
+		problemDetails, err := consumer.AMPolicyControlDelete(ue)
+		if problemDetails != nil {
+			logger.GmmLog.Errorf("Delete AM policy Failed Problem[%+v]", problemDetails)
+		} else if err != nil {
+			logger.GmmLog.Errorf("Delete AM policy Error[%+v]", err)
+		}
+	}
+
 	// The old AMF should clean the UE context
 	// TODO: (R16) Only remove the target access UE context
 	ue.Remove()
