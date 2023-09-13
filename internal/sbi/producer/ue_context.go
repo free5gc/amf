@@ -194,6 +194,17 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 
 	return nil
 }
+func HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData, ueContextTransferResponse *models.UeContextTransferResponse) {
+	ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
+		NgapMessageType: 0,
+		NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
+		NgapData: &models.RefToBinaryData{
+			ContentId: "n2Info",
+		},
+	}
+	b := []byte(ue.UeRadioCapability)
+	copy(ueContextTransferResponse.BinaryDataN2Information, b)
+}
 
 // TS 29.518 5.2.2.2.1
 func HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
@@ -264,20 +275,20 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
 			ueContextTransferRequest.BinaryDataN1Message, true)
 		if err != nil {
+			problemDetails := &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INTEGRITY_CHECK_FAIL",
+			}
 			ue.NASLog.Errorln(err)
+			return nil, problemDetails
 		}
 		// ue.MacFailed = !integrityProtected
 		if integrityProtected {
-			ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
+			ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
 		} else {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusForbidden,
 				Cause:  "INTEGRITY_CHECK_FAIL",
-				InvalidParams: []models.InvalidParam{
-					{
-						Param: "reason",
-					},
-				},
 			}
 			return nil, problemDetails
 		}
@@ -286,80 +297,79 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 		_, integrityProtected, err := nas_security.Decode(ue, UeContextTransferReqData.AccessType,
 			ueContextTransferRequest.BinaryDataN1Message, false)
 		if err != nil {
+			problemDetails := &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INTEGRITY_CHECK_FAIL",
+			}
 			ue.NASLog.Errorln(err)
+			return nil, problemDetails
 		}
 		if integrityProtected {
-			ueContextTransferRspData.UeContext = buildUEContextModel(ue, integrityProtected)
+			ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
 		} else {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusForbidden,
 				Cause:  "INTEGRITY_CHECK_FAIL",
-				InvalidParams: []models.InvalidParam{
-					{
-						Param: "reason",
-					},
-				},
 			}
 			return nil, problemDetails
 		}
 
-		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
-		ue.SmContextList.Range(func(key, value interface{}) bool {
-			smContext := value.(*context.SmContext)
-			snssai := smContext.Snssai()
-			pduSessionContext := models.PduSessionContext{
-				PduSessionId: smContext.PduSessionID(),
-				SmContextRef: smContext.SmContextRef(),
-				SNssai:       &snssai,
-				Dnn:          smContext.Dnn(),
-				AccessType:   smContext.AccessType(),
-				HsmfId:       smContext.HSmfID(),
-				VsmfId:       smContext.VSmfID(),
-				NsInstance:   smContext.NsInstance(),
-			}
-			*sessionContextList = append(*sessionContextList, pduSessionContext)
-			return true
-		})
-
-		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
-			NgapMessageType: 0,
-			NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
-			NgapData: &models.RefToBinaryData{
-				ContentId: "n2Info",
-			},
-		}
-		b := []byte(ue.UeRadioCapability)
-		copy(ueContextTransferResponse.BinaryDataN2Information, b)
+		// sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
+		// ue.SmContextList.Range(func(key, value interface{}) bool {
+		// 	smContext := value.(*context.SmContext)
+		// 	snssai := smContext.Snssai()
+		// 	pduSessionContext := models.PduSessionContext{
+		// 		PduSessionId: smContext.PduSessionID(),
+		// 		SmContextRef: smContext.SmContextRef(),
+		// 		SNssai:       &snssai,
+		// 		Dnn:          smContext.Dnn(),
+		// 		AccessType:   smContext.AccessType(),
+		// 		HsmfId:       smContext.HSmfID(),
+		// 		VsmfId:       smContext.VSmfID(),
+		// 		NsInstance:   smContext.NsInstance(),
+		// 	}
+		// 	*sessionContextList = append(*sessionContextList, pduSessionContext)
+		// 	return true
+		// })
+		HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
+		// ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
+		// 	NgapMessageType: 0,
+		// 	NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
+		// 	NgapData: &models.RefToBinaryData{
+		// 		ContentId: "n2Info",
+		// 	},
+		// }
+		// b := []byte(ue.UeRadioCapability)
+		// copy(ueContextTransferResponse.BinaryDataN2Information, b)
 	case models.TransferReason_MOBI_REG_UE_VALIDATED:
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue, false)
-
-		sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
-		ue.SmContextList.Range(func(key, value interface{}) bool {
-			smContext := value.(*context.SmContext)
-			snssai := smContext.Snssai()
-			pduSessionContext := models.PduSessionContext{
-				PduSessionId: smContext.PduSessionID(),
-				SmContextRef: smContext.SmContextRef(),
-				SNssai:       &snssai,
-				Dnn:          smContext.Dnn(),
-				AccessType:   smContext.AccessType(),
-				HsmfId:       smContext.HSmfID(),
-				VsmfId:       smContext.VSmfID(),
-				NsInstance:   smContext.NsInstance(),
-			}
-			*sessionContextList = append(*sessionContextList, pduSessionContext)
-			return true
-		})
-
-		ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
-			NgapMessageType: 0,
-			NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
-			NgapData: &models.RefToBinaryData{
-				ContentId: "n2Info",
-			},
-		}
-		b := []byte(ue.UeRadioCapability)
-		copy(ueContextTransferResponse.BinaryDataN2Information, b)
+		ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
+		// sessionContextList := &ueContextTransferRspData.UeContext.SessionContextList
+		// ue.SmContextList.Range(func(key, value interface{}) bool {
+		// 	smContext := value.(*context.SmContext)
+		// 	snssai := smContext.Snssai()
+		// 	pduSessionContext := models.PduSessionContext{
+		// 		PduSessionId: smContext.PduSessionID(),
+		// 		SmContextRef: smContext.SmContextRef(),
+		// 		SNssai:       &snssai,
+		// 		Dnn:          smContext.Dnn(),
+		// 		AccessType:   smContext.AccessType(),
+		// 		HsmfId:       smContext.HSmfID(),
+		// 		VsmfId:       smContext.VSmfID(),
+		// 		NsInstance:   smContext.NsInstance(),
+		// 	}
+		// 	*sessionContextList = append(*sessionContextList, pduSessionContext)
+		// 	return true
+		// })
+		HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
+		// ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
+		// 	NgapMessageType: 0,
+		// 	NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
+		// 	NgapData: &models.RefToBinaryData{
+		// 		ContentId: "n2Info",
+		// 	},
+		// }
+		// b := []byte(ue.UeRadioCapability)
+		// copy(ueContextTransferResponse.BinaryDataN2Information, b)
 	default:
 		logger.ProducerLog.Warnf("Invalid Transfer Reason: %+v", UeContextTransferReqData.Reason)
 		problemDetails := &models.ProblemDetails{
@@ -376,14 +386,13 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	return ueContextTransferResponse, nil
 }
 
-func buildUEContextModel(ue *context.AmfUe, integrityProtected bool) *models.UeContext {
+func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *models.UeContext {
 	ueContext := new(models.UeContext)
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
-
-	if integrityProtected {
-		var mmcontext models.MmContext
-		mmcontext.AccessType = models.AccessType__3_GPP_ACCESS
+	if Reason == models.TransferReason_INIT_REG || Reason == models.TransferReason_MOBI_REG {
+		var mmContext models.MmContext
+		mmContext.AccessType = models.AccessType__3_GPP_ACCESS
 		NasSecurityMode := new(models.NasSecurityMode)
 		switch ue.IntegrityAlg {
 		case security.AlgIntegrity128NIA0:
@@ -421,19 +430,41 @@ func buildUEContextModel(ue *context.AmfUe, integrityProtected bool) *models.UeC
 		SeafData.KeyAmfChangeInd = false
 		SeafData.KeyAmfHDerivationInd = false
 		ueContext.SeafData = SeafData
-		mmcontext.NasSecurityMode = NasSecurityMode
+		mmContext.NasSecurityMode = NasSecurityMode
 		if ue.UESecurityCapability.Buffer != nil {
-			mmcontext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
+			mmContext.UeSecurityCapability = base64.StdEncoding.EncodeToString(ue.UESecurityCapability.Buffer)
 		}
-		mmcontext.NasDownlinkCount = int32(ue.DLCount.Get())
-		mmcontext.NasUplinkCount = int32(ue.ULCount.Get())
+		mmContext.NasDownlinkCount = int32(ue.DLCount.Get())
+		mmContext.NasUplinkCount = int32(ue.ULCount.Get())
 		if ue.AllowedNssai[models.AccessType__3_GPP_ACCESS] != nil {
 			for _, allowedSnssai := range ue.AllowedNssai[models.AccessType__3_GPP_ACCESS] {
-				mmcontext.AllowedNssai = append(mmcontext.AllowedNssai, *(allowedSnssai.AllowedSnssai))
+				mmContext.AllowedNssai = append(mmContext.AllowedNssai, *(allowedSnssai.AllowedSnssai))
 			}
 		}
-		ueContext.MmContextList = append(ueContext.MmContextList, mmcontext)
+		ueContext.MmContextList = append(ueContext.MmContextList, mmContext)
 	}
+	if Reason == models.TransferReason_MOBI_REG_UE_VALIDATED || Reason == models.TransferReason_MOBI_REG {
+
+		sessionContextList := &ueContext.SessionContextList
+		ue.SmContextList.Range(func(key, value interface{}) bool {
+			smContext := value.(*context.SmContext)
+			snssai := smContext.Snssai()
+			pduSessionContext := models.PduSessionContext{
+				PduSessionId: smContext.PduSessionID(),
+				SmContextRef: smContext.SmContextRef(),
+				SNssai:       &snssai,
+				Dnn:          smContext.Dnn(),
+				AccessType:   smContext.AccessType(),
+				HsmfId:       smContext.HSmfID(),
+				VsmfId:       smContext.VSmfID(),
+				NsInstance:   smContext.NsInstance(),
+			}
+			*sessionContextList = append(*sessionContextList, pduSessionContext)
+			return true
+		})
+
+	}
+
 	if ue.Gpsi != "" {
 		ueContext.GpsiList = append(ueContext.GpsiList, ue.Gpsi)
 	}
