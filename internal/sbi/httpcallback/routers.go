@@ -104,7 +104,7 @@ var routes = Routes{
 	{
 		"AmfHandleDeregistrationNotification",
 		strings.ToUpper("Post"),
-		"/amf-implicit-deregistration/:ueid",
+		"/amf-implicit-deregistration/3gpp-access/:ueid",
 		HTTPAmfHandleDeregistrationNotification,
 	},
 }

@@ -23,7 +23,7 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
-		deregCallbackUri := fmt.Sprintf("%s%s/amf-implicit-deregistration/%s",
+		deregCallbackUri := fmt.Sprintf("%s%s/amf-implicit-deregistration/3gpp-access/%s",
 			amfSelf.GetIPv4Uri(),
 			factory.AmfCallbackResUriPrefix,
 			ue.Supi,
