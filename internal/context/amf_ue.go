@@ -71,20 +71,19 @@ type AmfUe struct {
 	/* Used for AMF relocation */
 	TargetAmfProfile *models.NfProfile
 	TargetAmfUri     string
-	/* Ue Identity*/
-	PlmnId              models.PlmnId
-	Suci                string
-	Supi                string
-	UnauthenticatedSupi bool
-	Gpsi                string
-	Pei                 string
-	Tmsi                int32 // 5G-Tmsi
-	Guti                string
-	GroupID             string
-	EBI                 int32
-	/* Ue Identity*/
+	/* Ue Identity */
+	PlmnId                 models.PlmnId
+	Suci                   string
+	Supi                   string
+	UnauthenticatedSupi    bool
+	Gpsi                   string
+	Pei                    string
+	Tmsi                   int32 // 5G-Tmsi
+	Guti                   string
+	GroupID                string
+	EBI                    int32
 	EventSubscriptionsInfo map[string]*AmfUeEventSubscription
-	/* User Location*/
+	/* User Location */
 	RatType                  models.RatType
 	Location                 models.UserLocation
 	Tai                      models.Tai
@@ -122,8 +121,7 @@ type AmfUe struct {
 	AmPolicyUri                  string
 	AmPolicyAssociation          *models.PolicyAssociation
 	RequestTriggerLocationChange bool // true if AmPolicyAssociation.Trigger contains RequestTrigger_LOC_CH
-	ConfigurationUpdateMessage   []byte
-	/* UeContextForHandover*/
+	/* UeContextForHandover */
 	HandoverNotifyUri string
 	/* N1N2Message */
 	N1N2MessageIDGenerator          *idgenerator.IDGenerator
@@ -133,13 +131,14 @@ type AmfUe struct {
 	N1N2MessageSubscription sync.Map
 	/* Pdu Sesseion context */
 	SmContextList sync.Map // map[int32]*SmContext, pdu session id as key
-	/* Related Context*/
+	/* Related Context */
 	RanUe map[models.AccessType]*RanUe
 	/* other */
-	onGoing                       map[models.AccessType]*OnGoing
-	UeRadioCapability             string // OCTET string
-	Capability5GMM                nasType.Capability5GMM
-	ConfigurationUpdateIndication nasType.ConfigurationUpdateIndication
+	onGoing                         map[models.AccessType]*OnGoing
+	UeRadioCapability               string // OCTET string
+	Capability5GMM                  nasType.Capability5GMM
+	ConfigurationUpdateIndication   nasType.ConfigurationUpdateIndication
+	ConfigurationUpdateCommandFlags *ConfigurationUpdateCommandFlags
 	/* context related to Paging */
 	UeRadioCapabilityForPaging                 *UERadioCapabilityForPaging
 	InfoOnRecommendedCellsAndRanNodesForPaging *InfoOnRecommendedCellsAndRanNodesForPaging
@@ -183,6 +182,8 @@ type AmfUe struct {
 	T3522 *Timer
 	/* T3570 (for identity request) */
 	T3570 *Timer
+	/* T3555 (for configuration update command) */
+	T3555 *Timer
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
@@ -245,6 +246,22 @@ type NGRANCGI struct {
 	EUTRACGI *models.Ecgi
 }
 
+// TS 24.501 8.2.19
+type ConfigurationUpdateCommandFlags struct {
+	NeedGUTI                                     bool
+	NeedNITZ                                     bool
+	NeedTaiList                                  bool
+	NeedRejectNSSAI                              bool
+	NeedAllowedNSSAI                             bool
+	NeedSmsIndication                            bool
+	NeedMicoIndication                           bool
+	NeedLadnInformation                          bool
+	NeedServiceAreaList                          bool
+	NeedConfiguredNSSAI                          bool
+	NeedNetworkSlicingIndication                 bool
+	NeedOperatordefinedAccessCategoryDefinitions bool
+}
+
 func (ue *AmfUe) init() {
 	ue.servingAMF = GetSelf()
 	ue.State = make(map[models.AccessType]*fsm.State)
@@ -290,6 +307,8 @@ func (ue *AmfUe) Remove() {
 	ue.StopT3560()
 	ue.StopT3550()
 	ue.StopT3522()
+	ue.StopT3570()
+	ue.StopT3555()
 
 	for _, ranUe := range ue.RanUe {
 		if err := ranUe.Remove(); err != nil {
@@ -888,4 +907,24 @@ func (ue *AmfUe) StopT3522() {
 	ue.GmmLog.Infof("Stop T3522 timer")
 	ue.T3522.Stop()
 	ue.T3522 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3570() {
+	if ue.T3570 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3570 timer")
+	ue.T3570.Stop()
+	ue.T3570 = nil // clear the timer
+}
+
+func (ue *AmfUe) StopT3555() {
+	if ue.T3555 == nil {
+		return
+	}
+
+	ue.GmmLog.Infof("Stop T3555 timer")
+	ue.T3555.Stop()
+	ue.T3555 = nil // clear the timer
 }
