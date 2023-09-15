@@ -194,7 +194,10 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 
 	return nil
 }
-func HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData, ueContextTransferResponse *models.UeContextTransferResponse) {
+
+func HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData,
+	ueContextTransferResponse *models.UeContextTransferResponse,
+) {
 	ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
 		NgapMessageType: 0,
 		NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
@@ -391,7 +394,6 @@ func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *model
 		ueContext.MmContextList = append(ueContext.MmContextList, mmContext)
 	}
 	if Reason == models.TransferReason_MOBI_REG_UE_VALIDATED || Reason == models.TransferReason_MOBI_REG {
-
 		sessionContextList := &ueContext.SessionContextList
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*context.SmContext)
@@ -409,9 +411,7 @@ func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *model
 			*sessionContextList = append(*sessionContextList, pduSessionContext)
 			return true
 		})
-
 	}
-
 	if ue.Gpsi != "" {
 		ueContext.GpsiList = append(ueContext.GpsiList, ue.Gpsi)
 	}
