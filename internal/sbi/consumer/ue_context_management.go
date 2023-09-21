@@ -23,7 +23,7 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
-		deregCallbackUri := fmt.Sprintf("%s%s/amf-implicit-deregistration/3gpp-access/%s",
+		deregCallbackUri := fmt.Sprintf("%s%s/deregistration/%s",
 			amfSelf.GetIPv4Uri(),
 			factory.AmfCallbackResUriPrefix,
 			ue.Supi,
@@ -107,9 +107,8 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
 		modificationData := models.Amf3GppAccessRegistrationModification{
-			Guami:         &amfSelf.ServedGuamiList[0],
-			PurgeFlag:     true,
-			BackupAmfInfo: ue.BackupAmfInfo,
+			Guami:     &amfSelf.ServedGuamiList[0],
+			PurgeFlag: true,
 		}
 
 		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(context.Background(),
