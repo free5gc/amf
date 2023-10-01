@@ -66,6 +66,7 @@ type AmfUe struct {
 	ServingAmfChanged                  bool
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
+	NasPduValue                        []byte
 	RetransmissionOfInitialNASMsg      bool
 	RequestIdentityType                uint8
 	/* Used for AMF relocation */
@@ -735,6 +736,8 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 			ue.NH = nh
 		}
 		ue.NCC = uint8(seafData.Ncc)
+	} else {
+		ue.SecurityContextAvailable = false
 	}
 
 	if ueContext.PcfId != "" {

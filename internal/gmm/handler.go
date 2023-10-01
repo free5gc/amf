@@ -482,6 +482,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			return fmt.Errorf("decode GUTI failed: %w", err)
 		}
 		guamiFromUeGuti = guamiFromUeGutiTmp
+		ue.PlmnId = *guamiFromUeGuti.PlmnId
 		ue.GmmLog.Infof("MobileIdentity5GS: GUTI[%s]", guti)
 
 		// TODO: support multiple ServedGuami
@@ -564,7 +565,6 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			// if failed, give up to retrieve the old context and start a new authentication procedure.
 			ue.ServingAmfChanged = false
 			context.GetSelf().AllocateGutiToUe(ue) // refresh 5G-GUTI
-			ue.SecurityContextAvailable = false    // need to start authentication procedure later
 		}
 	}
 	return nil
@@ -594,14 +594,23 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 	ueContextTransferRspData, problemDetails, err := consumer.UEContextTransferRequest(ue, anType, transferReason)
 	if problemDetails != nil {
 		if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
+			// TODO 9a. After successful authentication in new AMF, which is triggered by the integrity check failure
+			// in old AMF at step 5, the new AMF invokes step 4 above again and indicates that the UE is validated
+			//(i.e. through the reason parameter as specified in clause 5.2.2.2.2).
 			return fmt.Errorf("Can not retrieve UE Context from old AMF[Cause: %s]", problemDetails.Cause)
 		}
 		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
 	} else if err != nil {
 		return fmt.Errorf("UE Context Transfer Request Error[%+v]", err)
+	} else {
+		ue.SecurityContextAvailable = true
+		ue.MacFailed = false
 	}
 
 	ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
+	if ue.SecurityContextAvailable {
+		ue.DerivateAlgKey()
+	}
 	return nil
 }
 

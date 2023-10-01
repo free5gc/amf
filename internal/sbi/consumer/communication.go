@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -214,18 +213,13 @@ func UEContextTransferRequest(
 		JsonData: &ueContextTransferReqData,
 	}
 	if transferReason == models.TransferReason_INIT_REG || transferReason == models.TransferReason_MOBI_REG {
-		var buf bytes.Buffer
-		err = ue.RegistrationRequest.EncodeRegistrationRequest(&buf)
-		if err != nil {
-			return nil, nil, fmt.Errorf("re-encoding registration request message is failed: %w", err)
-		}
 		ueContextTransferReqData.RegRequest = &models.N1MessageContainer{
 			N1MessageClass: models.N1MessageClass__5_GMM,
 			N1MessageContent: &models.RefToBinaryData{
 				ContentId: "n1Msg",
 			},
 		}
-		req.BinaryDataN1Message = buf.Bytes()
+		req.BinaryDataN1Message = ue.NasPduValue
 	}
 
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
