@@ -88,6 +88,7 @@ type Configuration struct {
 	T3560                  TimerValue        `yaml:"t3560" valid:"required"`
 	T3565                  TimerValue        `yaml:"t3565" valid:"required"`
 	T3570                  TimerValue        `yaml:"t3570" valid:"required"`
+	T3555                  TimerValue        `yaml:"t3555" valid:"required"`
 	Locality               string            `yaml:"locality,omitempty" valid:"type(string),optional"`
 	SCTP                   *Sctp             `yaml:"sctp,omitempty" valid:"optional"`
 	DefaultUECtxReq        bool              `yaml:"defaultUECtxReq,omitempty" valid:"type(bool),optional"`
@@ -264,6 +265,10 @@ func (c *Configuration) validate() (bool, error) {
 	}
 
 	if _, err := c.T3570.validate(); err != nil {
+		return false, err
+	}
+
+	if _, err := c.T3555.validate(); err != nil {
 		return false, err
 	}
 

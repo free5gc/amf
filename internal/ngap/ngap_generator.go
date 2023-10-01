@@ -28,14 +28,14 @@ const (
 
 // NGAP IE definition
 type IEInfo struct {
-	Criticality  aper.Enumerated
-	Type         string
-	Presence     aper.Enumerated
-	GoID         string
-	GoField      string
-	GoVar        string
-	GoType       string
-	Comprehended bool
+	Criticality   aper.Enumerated
+	Type          string
+	Presence      aper.Enumerated
+	GoID          string
+	GoField       string
+	GoVar         string
+	GoType        string
+	Unimplemented bool
 }
 
 // NGAP message definition
@@ -154,7 +154,6 @@ func readASN1() {
 					ie.GoField = "Value." + convGoName(ieId[3:])
 					ie.GoVar = convGoLocalName(ieId[3:])
 					ie.GoType = "ngapType." + convGoName(ieType)
-					ie.Comprehended = true
 					// fmt.Printf("%+v\n", *ie)
 				}
 			}
@@ -234,23 +233,23 @@ func readASN1() {
 }
 
 func fixIEs() {
-	// Uncomprehended (not implemented) IEs
-	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationSetupList"].Comprehended = false
-	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationFailedToSetupList"].Comprehended = false
-	MsgTable["AMFConfigurationUpdateFailure"].IEs["id-TimeToWait"].Comprehended = false
-	MsgTable["HandoverRequired"].IEs["id-DirectForwardingPathAvailability"].Comprehended = false
-	MsgTable["InitialUEMessage"].IEs["id-AMFSetID"].Comprehended = false
-	// MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Comprehended = false
-	MsgTable["NGSetupRequest"].IEs["id-UERetentionInformation"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-RANNodeName"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-DefaultPagingDRX"].Comprehended = false
-	MsgTable["RANConfigurationUpdate"].IEs["id-GlobalRANNodeID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-AMF-UE-NGAP-ID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Comprehended = false
-	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Comprehended = false
-	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Comprehended = false
-	// MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Comprehended = false
-	// MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Comprehended = false
+	// Not implemented IEs
+	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationSetupList"].Unimplemented = true
+	MsgTable["AMFConfigurationUpdateAcknowledge"].IEs["id-AMF-TNLAssociationFailedToSetupList"].Unimplemented = true
+	MsgTable["AMFConfigurationUpdateFailure"].IEs["id-TimeToWait"].Unimplemented = true
+	MsgTable["HandoverRequired"].IEs["id-DirectForwardingPathAvailability"].Unimplemented = true
+	MsgTable["InitialUEMessage"].IEs["id-AMFSetID"].Unimplemented = true
+	MsgTable["InitialUEMessage"].IEs["id-AllowedNSSAI"].Unimplemented = true
+	MsgTable["NGSetupRequest"].IEs["id-UERetentionInformation"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-RANNodeName"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-DefaultPagingDRX"].Unimplemented = true
+	MsgTable["RANConfigurationUpdate"].IEs["id-GlobalRANNodeID"].Unimplemented = true
+	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-AMF-UE-NGAP-ID"].Unimplemented = true
+	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Unimplemented = true
+	MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Unimplemented = true
+	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Unimplemented = true
+	MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Unimplemented = true
+	MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Unimplemented = true
 }
 
 // generate NGAP handler file
@@ -304,15 +303,12 @@ func generateHandler() {
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
 			// fmt.Fprintf(fOut, "// %s\n", ieName)
-			if ieInfo.Comprehended {
-				fmt.Fprintf(fOut, "var %s *%s\n", ieInfo.GoVar, ieInfo.GoType)
-			}
+			fmt.Fprintf(fOut, "var %s *%s\n", ieInfo.GoVar, ieInfo.GoType)
 		}
 		fmt.Fprintln(fOut, "")
-		if isRequest {
-			fmt.Fprintln(fOut, "var syntaxCause *ngapType.Cause")
-			fmt.Fprintln(fOut, "var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList")
-		}
+		fmt.Fprintln(fOut, "var syntaxCause *ngapType.Cause")
+		fmt.Fprintln(fOut, "var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList")
+		fmt.Fprintln(fOut, "abort := false")
 
 		// generate extract IEs code
 		fmt.Fprintln(fOut, "")
@@ -329,14 +325,13 @@ func generateHandler() {
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
 			fmt.Fprintf(fOut, "case %s: // %s, %s\n", ieInfo.GoID, presence2Str(ieInfo.Presence), criticality2Str(ieInfo.Criticality))
-			if ieInfo.Comprehended {
-				// supported IE
+			// supported IE
 
-				// duplicate check code
-				fmt.Fprintf(fOut, "if %s !=nil {\n", ieInfo.GoVar)
-				fmt.Fprintf(fOut, "ran.Log.Error(\"Duplicate IE %s\")\n", ieInfo.Type)
-				if isRequest {
-					fmt.Fprint(fOut, `
+			// duplicate check code
+			fmt.Fprintf(fOut, "if %s !=nil {\n", ieInfo.GoVar)
+			fmt.Fprintf(fOut, "ran.Log.Error(\"Duplicate IE %s\")\n", ieInfo.Type)
+			if isRequest {
+				fmt.Fprint(fOut, `
 syntaxCause = &ngapType.Cause{
 	Present: ngapType.CausePresentProtocol,
 	Protocol: &ngapType.CauseProtocol{
@@ -344,31 +339,35 @@ syntaxCause = &ngapType.Cause{
 	},
 }
 `[1:])
-					fmt.Fprintf(fOut, "break\n")
-				} else {
-					fmt.Fprintln(fOut, "return")
-				}
-				fmt.Fprintf(fOut, "}\n")
-
-				fmt.Fprintf(fOut, "%s = ie.%s\n", ieInfo.GoVar, ieInfo.GoField)
-				fmt.Fprintf(fOut, "ran.Log.Trace(\"Decode IE %s\")\n", ieInfo.Type)
-			} else {
-				// not supported IE
-				switch ieInfo.Criticality {
-				case ngapType.CriticalityPresentReject:
-					fmt.Fprintf(fOut, "ran.Log.Error(\"Not comprehended IE %s\")\n", ieInfo.Type)
-					if isRequest {
-						fmt.Fprintf(fOut, "item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, %s, ngapType.TypeOfErrorPresentNotUnderstood)\n", ieInfo.GoID)
-						fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
-					} else {
-						fmt.Fprintln(fOut, "return")
-					}
-				case ngapType.CriticalityPresentIgnore:
-					fmt.Fprintf(fOut, "ran.Log.Info(\"Not comprehended IE %s\")\n", ieInfo.Type)
-				case ngapType.CriticalityPresentNotify:
-					panic("not yet")
-				}
 			}
+			fmt.Fprintln(fOut, "abort = true")
+			fmt.Fprintln(fOut, "break")
+			fmt.Fprintf(fOut, "}\n")
+
+			fmt.Fprintf(fOut, "%s = ie.%s\n", ieInfo.GoVar, ieInfo.GoField)
+			fmt.Fprintf(fOut, "ran.Log.Trace(\"Decode IE %s\")\n", ieInfo.Type)
+		}
+		fmt.Fprintln(fOut, "default:")
+		fmt.Fprintln(fOut, "switch ie.Criticality.Value {")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentReject:")
+		fmt.Fprintln(fOut, "ran.Log.Errorf(\"Not comprehended IE ID 0x%04x (criticality: reject)\", ie.Id.Value)")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentIgnore:")
+		fmt.Fprintln(fOut, "ran.Log.Infof(\"Not comprehended IE ID 0x%04x (criticality: ignore)\", ie.Id.Value)")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentNotify:")
+		fmt.Fprintln(fOut, "ran.Log.Warnf(\"Not comprehended IE ID 0x%04x (criticality: notify)\", ie.Id.Value)")
+		if !isRequest {
+			fmt.Fprintln(fOut, "item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)")
+			fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+		}
+		fmt.Fprintln(fOut, "}")
+		if isRequest {
+			fmt.Fprintln(fOut, "if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {")
+			fmt.Fprintln(fOut, "item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)")
+			fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+			fmt.Fprintln(fOut, "if ie.Criticality.Value == ngapType.CriticalityPresentReject {")
+			fmt.Fprintln(fOut, "abort = true")
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "}")
 		}
 		fmt.Fprintln(fOut, "}")
 		fmt.Fprintln(fOut, "}")
@@ -383,65 +382,68 @@ syntaxCause = &ngapType.Cause{
 					fmt.Fprintf(fOut, "ran.Log.Error(\"Missing IE %s\")\n", ieInfo.Type)
 					fmt.Fprintf(fOut, "item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, %s, ngapType.TypeOfErrorPresentMissing)\n", ieInfo.GoID)
 					fmt.Fprintln(fOut, "iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)")
+					fmt.Fprintln(fOut, "abort = true")
 					fmt.Fprintln(fOut, "}")
 				}
 			}
-
-			// Generate Error Indication
-			fmt.Fprintln(fOut, "")
-			fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
-			fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
-			genErrorIndicationCommon(fOut, mInfo)
-			fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
-			fmt.Fprintln(fOut, "if len(iesCriticalityDiagnostics.List) > 0 {")
-			fmt.Fprintln(fOut, "pIesCriticalityDiagnostics = &iesCriticalityDiagnostics")
-			fmt.Fprintln(fOut, "}")
-			fmt.Fprintln(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)")
-			// Must report error by other message than ErrorIndication by these messages
-			switch msgName {
-			// AMF to RAN message
-			// case "AMFConfigurationUpdate":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendAMFConfigurationUpdateFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "HandoverRequired":
-				fmt.Fprintf(fOut, "if %s != nil && %s != nil {\n", amfIdIeVar, ranIdIeVar)
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendHandoverPreparationFailure(ran, *%s, *%s, *syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-				fmt.Fprintln(fOut, "} else {")
-				fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-				fmt.Fprintln(fOut, "}")
-
-			// AMF to RAN message
-			// case "HandoverRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendHandoverFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			// AMF to RAN message
-			// case "InitialContextSetupRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendInitialContextSetupFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "NGSetupRequest":
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
-
-			// Cannot fill mandatory IEs
-			// case "PathSwitchRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendPathSwitchRequestFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			case "RANConfigurationUpdate":
-				avoidNilSyntaxCause(fOut)
-				fmt.Fprintf(fOut, "rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
-
-			// AMF to RAN message
-			// case "UEContextModificationRequest":
-			// 	fmt.Fprintf(fOut, "ngap_message.SendUEContextModificationFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
-
-			default:
-				fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
-			}
-			fmt.Fprintln(fOut, "return")
-			fmt.Fprintln(fOut, "}")
-			// }
 		}
+
+		// Generate Error Indication
+		fmt.Fprintln(fOut, "")
+		fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
+		fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
+		genErrorIndicationCommon(fOut, mInfo)
+		fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
+		fmt.Fprintln(fOut, "if len(iesCriticalityDiagnostics.List) > 0 {")
+		fmt.Fprintln(fOut, "pIesCriticalityDiagnostics = &iesCriticalityDiagnostics")
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintln(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics)")
+		// Must report error by other message than ErrorIndication by these messages
+		switch msgName {
+		// AMF to RAN message
+		// case "AMFConfigurationUpdate":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendAMFConfigurationUpdateFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "HandoverRequired":
+			fmt.Fprintf(fOut, "if %s != nil && %s != nil {\n", amfIdIeVar, ranIdIeVar)
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendHandoverPreparationFailure(ran, *%s, *%s, *syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+			fmt.Fprintln(fOut, "} else {")
+			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+			fmt.Fprintln(fOut, "}")
+
+		// AMF to RAN message
+		// case "HandoverRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendHandoverFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		// AMF to RAN message
+		// case "InitialContextSetupRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendInitialContextSetupFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "NGSetupRequest":
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
+
+		// Cannot fill mandatory IEs
+		// case "PathSwitchRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendPathSwitchRequestFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		case "RANConfigurationUpdate":
+			avoidNilSyntaxCause(fOut)
+			fmt.Fprintf(fOut, "rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
+
+		// AMF to RAN message
+		// case "UEContextModificationRequest":
+		// 	fmt.Fprintf(fOut, "ngap_message.SendUEContextModificationFailure(ran, syntaxCause, &criticalityDiagnostics)\n")
+
+		default:
+			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
+		}
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintln(fOut, "")
+		fmt.Fprintln(fOut, "if abort {")
+		fmt.Fprintln(fOut, "return")
+		fmt.Fprintln(fOut, "}")
 
 		// To avoid Coverity's false positive, generate this check for Request messages too
 		fmt.Fprintln(fOut, "")
@@ -455,6 +457,11 @@ syntaxCause = &ngapType.Cause{
 				} else {
 					fmt.Fprintf(fOut, "ran.Log.Warn(\"Missing IE %s\")\n", ieInfo.Type)
 				}
+				fmt.Fprintln(fOut, "}")
+			}
+			if ieInfo.Unimplemented {
+				fmt.Fprintf(fOut, "if %s != nil {\n", ieInfo.GoVar)
+				fmt.Fprintf(fOut, "ran.Log.Warn(\"IE %s is not implemented\")\n", ieInfo.Type)
 				fmt.Fprintln(fOut, "}")
 			}
 		}
@@ -507,7 +514,7 @@ syntaxCause = &ngapType.Cause{
 		}
 		for _, ieName := range mInfo.IEorder {
 			ieInfo := mInfo.IEs[ieName]
-			if ieInfo.Comprehended && (!hasRanUe || (ieName != "id-AMF-UE-NGAP-ID" && ieName != "id-RAN-UE-NGAP-ID") || (msgName == "HandoverRequestAcknowledge" && ieName == "id-RAN-UE-NGAP-ID")) {
+			if !ieInfo.Unimplemented && (!hasRanUe || (ieName != "id-AMF-UE-NGAP-ID" && ieName != "id-RAN-UE-NGAP-ID") || (msgName == "HandoverRequestAcknowledge" && ieName == "id-RAN-UE-NGAP-ID")) {
 				mayNil := ""
 				if !(ieInfo.Presence == ngapType.PresencePresentMandatory && ieInfo.Criticality == ngapType.CriticalityPresentReject) {
 					mayNil = " /* may be nil */"
@@ -576,6 +583,7 @@ func generateDispatcher() {
 		"ngap",
 		[]string{
 			"\"github.com/free5gc/amf/internal/context\"",
+			"ngap_message \"github.com/free5gc/amf/internal/ngap/message\"",
 			"\"github.com/free5gc/ngap/ngapType\"",
 		})
 
@@ -589,12 +597,13 @@ func generateDispatcher() {
 		"UnsuccessfulOutcome",
 	} {
 		fmt.Fprintf(fOut, "case ngapType.NGAPPDUPresent%s:\n", present)
-		fmt.Fprintf(fOut, "%s := message.%s\n", convGoLocalName(present), present)
-		fmt.Fprintf(fOut, "if %s == nil {\n", convGoLocalName(present))
+		presentVar := convGoLocalName(present)
+		fmt.Fprintf(fOut, "%s := message.%s\n", presentVar, present)
+		fmt.Fprintf(fOut, "if %s == nil {\n", presentVar)
 		fmt.Fprintf(fOut, "ran.Log.Errorln(\"%s is nil\")\n", present)
 		fmt.Fprintln(fOut, "return")
 		fmt.Fprintln(fOut, "}")
-		fmt.Fprintf(fOut, "switch %s.ProcedureCode.Value {\n", convGoLocalName(present))
+		fmt.Fprintf(fOut, "switch %s.ProcedureCode.Value {\n", presentVar)
 		for _, msgName := range msgNames {
 			mInfo := MsgTable[msgName]
 			if mInfo.GoField == present {
@@ -603,11 +612,28 @@ func generateDispatcher() {
 				if msgName == "InitialUEMessage" {
 					messageAppend = ", message"
 				}
-				fmt.Fprintf(fOut, "handler%s(ran%s, %s)\n", msgName, messageAppend, convGoLocalName(present))
+				fmt.Fprintf(fOut, "handler%s(ran%s, %s)\n", msgName, messageAppend, presentVar)
 			}
 		}
 		fmt.Fprintln(fOut, "default:")
-		fmt.Fprintf(fOut, "ran.Log.Warnf(\"Not implemented(choice:%%d, procedureCode:%%d)\", message.Present, %s.ProcedureCode.Value)\n", convGoLocalName(present))
+		fmt.Fprintln(fOut, "cause := ngapType.Cause{")
+		fmt.Fprintln(fOut, "Present:  ngapType.CausePresentProtocol,")
+		fmt.Fprintln(fOut, "Protocol: &ngapType.CauseProtocol{},")
+		fmt.Fprintln(fOut, "}")
+		fmt.Fprintf(fOut, "switch %s.Criticality.Value {\n", presentVar)
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentReject:")
+		fmt.Fprintf(fOut, "ran.Log.Errorf(\"Not comprehended procedure code of %s (criticality: reject, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorReject")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentIgnore:")
+		fmt.Fprintf(fOut, "ran.Log.Infof(\"Not comprehended procedure code of %s (criticality: ignore, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "return")
+		fmt.Fprintln(fOut, "case ngapType.CriticalityPresentNotify:")
+		fmt.Fprintf(fOut, "ran.Log.Warnf(\"Not comprehended procedure code of %s (criticality: notify, procedureCode:0x%%02x)\", %s.ProcedureCode.Value)\n", present, presentVar)
+		fmt.Fprintln(fOut, "cause.Protocol.Value = ngapType.CauseProtocolPresentAbstractSyntaxErrorIgnoreAndNotify")
+		fmt.Fprintln(fOut, "}")
+		genTriggeringMessage(fOut, present)
+		fmt.Fprintf(fOut, "criticalityDiagnostics := buildCriticalityDiagnostics(&%s.ProcedureCode.Value, &triggeringMessage, &%s.Criticality.Value, nil)\n", presentVar, presentVar)
+		fmt.Fprintln(fOut, "ngap_message.SendErrorIndication(ran, nil, nil, &cause, &criticalityDiagnostics)")
 		fmt.Fprintln(fOut, "}")
 	}
 	fmt.Fprintln(fOut, "}")
@@ -764,11 +790,7 @@ func (o *outputFile) Close() {
 
 func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 	fmt.Fprintf(f, "procedureCode := ngapType.ProcedureCode%s\n", mInfo.ProcCode)
-	if mInfo.GoField == "UnsuccessfulOutcome" {
-		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome\n")
-	} else {
-		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresent%s\n", mInfo.GoField)
-	}
+	genTriggeringMessage(f, mInfo.GoField)
 	switch mInfo.Criticality {
 	case ngapType.CriticalityPresentReject:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentReject")
@@ -776,6 +798,14 @@ func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentIgnore")
 	case ngapType.CriticalityPresentNotify:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentNotify")
+	}
+}
+
+func genTriggeringMessage(f io.Writer, present string) {
+	if present == "UnsuccessfulOutcome" {
+		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresentUnsuccessfullOutcome\n")
+	} else {
+		fmt.Fprintf(f, "triggeringMessage := ngapType.TriggeringMessagePresent%s\n", present)
 	}
 }
 

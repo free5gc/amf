@@ -33,6 +33,7 @@ func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte, initia
 		ue.AmfUe.NASLog.Errorln(err)
 		return
 	}
+	ue.AmfUe.NasPduValue = nasPdu
 	ue.AmfUe.MacFailed = !integrityProtected
 
 	if err := Dispatch(ue.AmfUe, ue.Ran.AnType, procedureCode, msg); err != nil {

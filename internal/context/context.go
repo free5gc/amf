@@ -14,7 +14,9 @@ import (
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/nas/nasConvert"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/idgenerator"
 )
@@ -68,9 +70,10 @@ type AMFContext struct {
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
 	NgapPort                     int
-	T3502Value                   int // unit is second
-	T3512Value                   int // unit is second
-	Non3gppDeregTimerValue       int // unit is second
+	T3502Value                   int    // unit is second
+	T3512Value                   int    // unit is second
+	Non3gppDeregTimerValue       int    // unit is second
+	TimeZone                     string // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
@@ -78,6 +81,7 @@ type AMFContext struct {
 	T3560Cfg factory.TimerValue
 	T3565Cfg factory.TimerValue
 	T3570Cfg factory.TimerValue
+	T3555Cfg factory.TimerValue
 	Locality string
 }
 
@@ -128,6 +132,7 @@ func InitAmfContext(context *AMFContext) {
 		context.SecurityAlgorithm.CipheringOrder = getEncAlgOrder(security.CipheringOrder)
 	}
 	context.NetworkName = configuration.NetworkName
+	context.TimeZone = nasConvert.GetTimeZone(time.Now())
 	context.T3502Value = configuration.T3502Value
 	context.T3512Value = configuration.T3512Value
 	context.Non3gppDeregTimerValue = configuration.Non3gppDeregTimerValue
@@ -137,6 +142,7 @@ func InitAmfContext(context *AMFContext) {
 	context.T3560Cfg = configuration.T3560
 	context.T3565Cfg = configuration.T3565
 	context.T3570Cfg = configuration.T3570
+	context.T3555Cfg = configuration.T3555
 	context.Locality = configuration.Locality
 }
 
@@ -413,7 +419,7 @@ func (context *AMFContext) InSupportDnnList(targetDnn string) bool {
 func (context *AMFContext) InPlmnSupportList(snssai models.Snssai) bool {
 	for _, plmnSupportItem := range context.PlmnSupportList {
 		for _, supportSnssai := range plmnSupportItem.SNssaiList {
-			if reflect.DeepEqual(supportSnssai, snssai) {
+			if openapi.SnssaiEqualFold(supportSnssai, snssai) {
 				return true
 			}
 		}

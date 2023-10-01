@@ -9,7 +9,6 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/nas/nasMessage"
-	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
@@ -114,6 +113,11 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationRequest: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Infof("Send Authentication Request")
 
 	if amfUe.AuthenticationCtx == nil {
@@ -121,7 +125,7 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		return
 	}
 
-	nasMsg, err := BuildAuthenticationRequest(amfUe)
+	nasMsg, err := BuildAuthenticationRequest(amfUe, ran.AnType)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -174,8 +178,9 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 	return nil
 }
 
-func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.AccessType,
-	networkSlicingIndication *nasType.NetworkSlicingIndication,
+func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
+	accessType models.AccessType,
+	flags *context.ConfigurationUpdateCommandFlags,
 ) {
 	if amfUe == nil {
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: AmfUe is nil")
@@ -185,15 +190,30 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe, accessType models.Acce
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: RanUe is nil")
 		return
 	}
-	amfUe.GmmLog.Info("Configuration Update Command")
 
-	nasMsg, err := BuildConfigurationUpdateCommand(amfUe, accessType, networkSlicingIndication)
+	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, flags)
 	if err != nil {
-		amfUe.GmmLog.Error(err.Error())
+		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
 		return
 	}
+	amfUe.GmmLog.Info("Send Configuration Update Command")
+
 	mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(amfUe)
 	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+
+	if startT3555 && context.GetSelf().T3555Cfg.Enable {
+		cfg := context.GetSelf().T3555Cfg
+		amfUe.GmmLog.Infof("Start T3555 timer")
+		amfUe.T3555 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+			amfUe.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
+				expireTimes)
+			ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+		}, func() {
+			amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
+				cfg.MaxRetryTimes)
+		},
+		)
+	}
 }
 
 func SendAuthenticationReject(ue *context.RanUe, eapMsg string) {
@@ -206,9 +226,14 @@ func SendAuthenticationReject(ue *context.RanUe, eapMsg string) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Authentication Reject")
 
-	nasMsg, err := BuildAuthenticationReject(amfUe, eapMsg)
+	nasMsg, err := BuildAuthenticationReject(amfUe, ran.AnType, eapMsg)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -226,9 +251,14 @@ func SendAuthenticationResult(ue *context.RanUe, eapSuccess bool, eapMsg string)
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendAuthenticationResult: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Authentication Result")
 
-	nasMsg, err := BuildAuthenticationResult(amfUe, eapSuccess, eapMsg)
+	nasMsg, err := BuildAuthenticationResult(amfUe, ran.AnType, eapSuccess, eapMsg)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -241,13 +271,18 @@ func SendServiceReject(ue *context.RanUe, pDUSessionStatus *[16]bool, cause uint
 		logger.GmmLog.Error("SendServiceReject: RanUe is nil")
 		return
 	}
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendServiceReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	if ue.AmfUe == nil {
 		ue.Log.Info("Send Service Reject")
 	} else {
 		ue.AmfUe.GmmLog.Info("Send Service Reject")
 	}
 
-	nasMsg, err := BuildServiceReject(pDUSessionStatus, cause)
+	nasMsg, err := BuildServiceReject(ue.AmfUe, ran.AnType, pDUSessionStatus, cause)
 	if err != nil {
 		if ue.AmfUe == nil {
 			ue.Log.Error(err.Error())
@@ -266,13 +301,18 @@ func SendRegistrationReject(ue *context.RanUe, cause5GMM uint8, eapMessage strin
 		logger.GmmLog.Error("SendRegistrationReject: RanUe is nil")
 		return
 	}
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendRegistrationReject: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	if ue.AmfUe == nil {
 		ue.Log.Info("Send Registration Reject")
 	} else {
 		ue.AmfUe.GmmLog.Info("Send Registration Reject")
 	}
 
-	nasMsg, err := BuildRegistrationReject(ue.AmfUe, cause5GMM, eapMessage)
+	nasMsg, err := BuildRegistrationReject(ue.AmfUe, ran.AnType, cause5GMM, eapMessage)
 	if err != nil {
 		if ue.AmfUe == nil {
 			ue.Log.Error(err.Error())
@@ -376,9 +416,14 @@ func SendDeregistrationAccept(ue *context.RanUe) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendDeregistrationAccept: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Deregistration Accept")
 
-	nasMsg, err := BuildDeregistrationAccept()
+	nasMsg, err := BuildDeregistrationAccept(ue.AmfUe, ran.AnType)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
@@ -449,9 +494,14 @@ func SendStatus5GMM(ue *context.RanUe, cause uint8) {
 		return
 	}
 	amfUe := ue.AmfUe
+	if ue.Ran == nil {
+		logger.GmmLog.Error("SendStatus5GMM: Ran is nil")
+		return
+	}
+	ran := ue.Ran
 	amfUe.GmmLog.Info("Send Status 5GMM")
 
-	nasMsg, err := BuildStatus5GMM(cause)
+	nasMsg, err := BuildStatus5GMM(ue.AmfUe, ran.AnType, cause)
 	if err != nil {
 		amfUe.GmmLog.Error(err.Error())
 		return
