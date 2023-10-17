@@ -104,8 +104,11 @@ func DeregistrationNotificationProcedure(ue *amf_context.AmfUe, deregData models
 	}
 
 	// TS 23.502 - 4.2.2.2.2 General Registration - 20 AMF-Initiated Policy Association Termination
+	// For UE_INITIAL_REGISTRATION and SUBSCRIPTION_WITHDRAW, do AMF-Initiated Policy Association Termination directly.
 	if ue.PolicyAssociationId != "" {
-		// TODO: It also needs to check if the PCF ID is tranfered to new AMF
+		// TODO: For REGISTRATION_AREA_CHANGE, old AMF performs an AMF-initiated Policy Association Termination
+		// procedure if the old AMF has established an AM Policy Association and a UE Policy Association with the PCF(s)
+		// and the old AMF did not transfer the PCF ID(s) to the new AMF. (Ref: TS 23.502 - 4.2.2.2.2)
 		// Currently, old AMF will transfer the PCF ID but new AMF will not utilize the PCF ID
 		problemDetails, err := consumer.AMPolicyControlDelete(ue)
 		if problemDetails != nil {
