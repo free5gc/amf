@@ -1,6 +1,7 @@
 package nas_security
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"reflect"
@@ -123,6 +124,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	ulCountNew := ue.ULCount
 
 	msg = new(nas.Message)
+	msg.ProtocolDiscriminator = payload[0]
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas { // Security protected NAS message
@@ -139,8 +141,9 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 		ue.NASLog.Traceln("securityHeader is ", securityHeader)
 		sequenceNumber := payload[6]
 		ue.NASLog.Traceln("sequenceNumber", sequenceNumber)
-
+		msg.SequenceNumber = sequenceNumber
 		receivedMac32 := securityHeader[2:]
+		msg.MessageAuthenticationCode = binary.BigEndian.Uint32(receivedMac32)
 		// remove security Header except for sequece Number
 		payload = payload[6:]
 
@@ -278,7 +281,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 			mobileIdentityContents := msg.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
 			if len(mobileIdentityContents) >= 1 &&
 				nasConvert.GetTypeOfIdentity(mobileIdentityContents[0]) == nasMessage.MobileIdentity5GSTypeSuci {
-				// Identity is SUSI
+				// Identity is SUCI
 				if ue.SecurityContextAvailable {
 					if msg.SecurityHeaderType != nas.SecurityHeaderTypeIntegrityProtectedAndCiphered {
 						return nil, false, errWrongSecurityHeader()
@@ -288,7 +291,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 					}
 				}
 			} else {
-				// Identity is not SUSI
+				// Identity is not SUCI
 				if !ue.SecurityContextAvailable {
 					return nil, false, errNoSecurityContext()
 				}
