@@ -100,4 +100,11 @@ var routes = Routes{
 		"/n1-message-notify",
 		HTTPN1MessageNotify,
 	},
+
+	{
+		"HandleDeregistrationNotification",
+		strings.ToUpper("Post"),
+		"/deregistration/:ueid",
+		HTTPHandleDeregistrationNotification,
+	},
 }

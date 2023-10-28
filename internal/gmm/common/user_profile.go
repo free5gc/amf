@@ -41,13 +41,13 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 
 func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
 	if ue.RanUe[models.AccessType__3_GPP_ACCESS] != nil {
-		err := purgeSubscriberData(ue, models.AccessType__3_GPP_ACCESS)
+		err := PurgeSubscriberData(ue, models.AccessType__3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
 		}
 	}
 	if ue.RanUe[models.AccessType_NON_3_GPP_ACCESS] != nil {
-		err := purgeSubscriberData(ue, models.AccessType_NON_3_GPP_ACCESS)
+		err := PurgeSubscriberData(ue, models.AccessType_NON_3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
 		}
@@ -69,8 +69,8 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(ue *context.AmfUe, ranUe *context.RanU
 	ue.AttachRanUe(ranUe)
 }
 
-func purgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error {
-	logger.GmmLog.Debugln("purgeSubscriberData")
+func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error {
+	logger.GmmLog.Debugln("PurgeSubscriberData")
 
 	if !ue.ContextValid {
 		return nil
@@ -89,9 +89,9 @@ func purgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	if ue.UeCmRegistered[accessType] {
 		problemDetails, err := consumer.UeCmDeregistration(ue, accessType)
 		if problemDetails != nil {
-			logger.GmmLog.Errorf("UECM_Registration Failed Problem[%+v]", problemDetails)
+			logger.GmmLog.Errorf("UECM Deregistration Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
-			logger.GmmLog.Errorf("UECM_Registration Error[%+v]", err)
+			logger.GmmLog.Errorf("UECM Deregistration Error[%+v]", err)
 		}
 		ue.UeCmRegistered[accessType] = false
 	}

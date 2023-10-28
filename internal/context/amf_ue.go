@@ -104,6 +104,7 @@ type AmfUe struct {
 	UdmGroupId                        string
 	SubscribedNssai                   []models.SubscribedSnssai
 	AccessAndMobilitySubscriptionData *models.AccessAndMobilitySubscriptionData
+	BackupAmfInfo                     []models.BackupAmfInfo
 	/* contex abut ausf */
 	AusfGroupId                       string
 	AusfId                            string
@@ -850,7 +851,6 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 }
 
 // SM Context realted function
-
 func (ue *AmfUe) StoreSmContext(pduSessionID int32, smContext *SmContext) {
 	ue.SmContextList.Store(pduSessionID, smContext)
 }
@@ -860,6 +860,19 @@ func (ue *AmfUe) SmContextFindByPDUSessionID(pduSessionID int32) (*SmContext, bo
 		return value.(*SmContext), true
 	}
 	return nil, false
+}
+
+func (ue *AmfUe) UpdateBackupAmfInfo(backupAmfInfo models.BackupAmfInfo) {
+	isExist := false
+	for _, amfInfo := range ue.BackupAmfInfo {
+		if amfInfo.BackupAmf == backupAmfInfo.BackupAmf {
+			isExist = true
+			break
+		}
+	}
+	if !isExist {
+		ue.BackupAmfInfo = append(ue.BackupAmfInfo, backupAmfInfo)
+	}
 }
 
 func (ue *AmfUe) StopT3513() {
