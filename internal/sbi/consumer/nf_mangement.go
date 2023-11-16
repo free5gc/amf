@@ -80,8 +80,9 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 
 	var res *http.Response
+	var nf models.NfProfile
 	for {
-		_, res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
+		nf, res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
 		if err != nil || res == nil {
 			// TODO : add log
 			fmt.Println(fmt.Errorf("AMF register to NRF Error[%s]", err.Error()))
@@ -104,6 +105,14 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 			resourceUri := res.Header.Get("Location")
 			resouceNrfUri = resourceUri[:strings.Index(resourceUri, "/nnrf-nfm/")]
 			retrieveNfInstanceId = resourceUri[strings.LastIndex(resourceUri, "/")+1:]
+
+			oauth2 := nf.CustomInfo["oauth2"].(bool)
+			amf_context.GetSelf().OAuth2Required = oauth2
+			logger.MainLog.Infoln("OAuth2 setting receive from NRF:", oauth2)
+			if oauth2 && amf_context.GetSelf().NrfCerPem == "" {
+				logger.CfgLog.Error("OAuth2 enable but no nrfCerPem provided in config.")
+			}
+
 			break
 		} else {
 			fmt.Println(fmt.Errorf("handler returned wrong status code %d", status))
@@ -116,6 +125,11 @@ func SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfil
 func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
 
+	ctx, pd, err := GetTokenCtx("nnrf-nfm", "NRF")
+	if err != nil {
+		return pd, err
+	}
+
 	amfSelf := amf_context.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
@@ -124,9 +138,9 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 
 	var res *http.Response
 
-	res, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(context.Background(), amfSelf.NfId)
+	res, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(ctx, amfSelf.NfId)
 	if err == nil {
-		return
+		return problemDetails, err
 	} else if res != nil {
 		defer func() {
 			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
@@ -134,12 +148,12 @@ func SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err erro
 			}
 		}()
 		if res.Status != err.Error() {
-			return
+			return problemDetails, err
 		}
 		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
 		err = openapi.ReportError("server no response")
 	}
-	return
+	return problemDetails, err
 }

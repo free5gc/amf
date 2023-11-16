@@ -75,6 +75,7 @@ type Configuration struct {
 	SupportDnnList         []string          `yaml:"supportDnnList,omitempty" valid:"required"`
 	SupportLadnList        []Ladn            `yaml:"supportLadnList,omitempty" valid:"optional"`
 	NrfUri                 string            `yaml:"nrfUri,omitempty" valid:"required, url"`
+	NrfCerPem              string            `yaml:"nrfCerPem,omitempty" valid:"type(string),minstringlength(1),optional"`
 	Security               *Security         `yaml:"security,omitempty" valid:"required"`
 	NetworkName            NetworkName       `yaml:"networkName,omitempty" valid:"required"`
 	NgapIE                 *NgapIE           `yaml:"ngapIE,omitempty" valid:"optional"`

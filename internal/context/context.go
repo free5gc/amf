@@ -66,6 +66,7 @@ type AMFContext struct {
 	SupportDnnLists              []string
 	AMFStatusSubscriptions       sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                       string
+	NrfCerPem                    string
 	SecurityAlgorithm            SecurityAlgorithm
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
@@ -83,6 +84,8 @@ type AMFContext struct {
 	T3570Cfg factory.TimerValue
 	T3555Cfg factory.TimerValue
 	Locality string
+
+	OAuth2Required bool
 }
 
 type AMFContextEventSubscription struct {
@@ -126,6 +129,9 @@ func InitAmfContext(context *AMFContext) {
 		context.LadnPool[ladn.Dnn] = ladn
 	}
 	context.NrfUri = config.GetNrfUri()
+	if configuration.NrfCerPem != "" {
+		context.NrfCerPem = configuration.NrfCerPem
+	}
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
