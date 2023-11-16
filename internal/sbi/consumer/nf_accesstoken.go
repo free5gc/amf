@@ -13,8 +13,8 @@ import (
 func GetTokenCtx(scope, targetNF string) (context.Context, *models.ProblemDetails, error) {
 	if amf_context.GetSelf().OAuth2Required {
 		logger.ConsumerLog.Debugln("GetToekenCtx")
-		udrSelf := amf_context.GetSelf()
-		tok, pd, err := oauth.SendAccTokenReq(udrSelf.NfId, models.NfType_AMF, scope, targetNF, udrSelf.NrfUri)
+		amfSelf := amf_context.GetSelf()
+		tok, pd, err := oauth.SendAccTokenReq(amfSelf.NfId, models.NfType_AMF, scope, targetNF, amfSelf.NrfUri)
 		if err != nil {
 			return nil, pd, err
 		}
