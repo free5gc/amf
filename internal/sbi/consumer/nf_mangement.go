@@ -32,25 +32,25 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 	amfInfo := models.AmfInfo{}
 	if len(context.ServedGuamiList) == 0 {
 		err = fmt.Errorf("Gumai List is Empty in AMF")
-		return
+		return profile, err
 	}
 	regionId, setId, _, err1 := util.SeperateAmfId(context.ServedGuamiList[0].AmfId)
 	if err1 != nil {
 		err = err1
-		return
+		return profile, err
 	}
 	amfInfo.AmfRegionId = regionId
 	amfInfo.AmfSetId = setId
 	amfInfo.GuamiList = &context.ServedGuamiList
 	if len(context.SupportTaiLists) == 0 {
 		err = fmt.Errorf("SupportTaiList is Empty in AMF")
-		return
+		return profile, err
 	}
 	amfInfo.TaiList = &context.SupportTaiLists
 	profile.AmfInfo = &amfInfo
 	if context.RegisterIPv4 == "" {
 		err = fmt.Errorf("AMF Address is empty")
-		return
+		return profile, err
 	}
 	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIPv4)
 	service := []models.NfService{}

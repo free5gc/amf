@@ -141,7 +141,7 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 	} else if httpResponse != nil {
 		if httpResponse.Status != err.Error() {
 			err1 = err
-			return
+			return response, problemDetails, err1
 		}
 		switch httpResponse.StatusCode {
 		case 400, 500:
