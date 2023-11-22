@@ -1121,7 +1121,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				break
 			}
 
-			reqSnssai := models.Snssai {
+			reqSnssai := models.Snssai{
 				Sst: requestedSnssai.ServingSnssai.Sst,
 				Sd:  requestedSnssai.ServingSnssai.Sd,
 			}
@@ -1130,14 +1130,8 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				needSliceSelection = true
 				break
 			}
-
 		}
 
-			if !amfSelf.InPlmnSupportList(reqSnssai) {
-				needSliceSelection = true
-				break
-			} 
-		}
 		if needSliceSelection {
 			if ue.NssfUri == "" {
 				for {
