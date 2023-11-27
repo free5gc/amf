@@ -1236,6 +1236,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
 				allowedNssaiNgap := ngapConvert.AllowedNssaiToNgap(ue.AllowedNssai[anType])
 				ngap_message.SendRerouteNasRequest(ue, anType, nil, ue.RanUe[anType].InitialUEMessage, &allowedNssaiNgap)
+				return err
 			}
 			return nil
 		}
