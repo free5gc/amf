@@ -3,11 +3,10 @@ package ngap
 import (
 	"net"
 
-	"git.cs.nctu.edu.tw/calee/sctp"
-
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/ngap"
+	"github.com/free5gc/sctp"
 )
 
 func Dispatch(conn net.Conn, msg []byte) {

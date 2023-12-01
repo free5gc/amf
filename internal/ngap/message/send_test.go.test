@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"git.cs.nctu.edu.tw/calee/sctp"
+	"github.com/free5gc/sctp"
 )
 
 var ran *context.AmfRan
