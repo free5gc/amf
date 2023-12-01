@@ -10,6 +10,7 @@ require (
 	github.com/free5gc/nas v1.1.2-0.20230828074825-175b09665828
 	github.com/free5gc/ngap v1.0.7-0.20230614061954-9c128114ab1f
 	github.com/free5gc/openapi v1.0.7-0.20230802173229-2b3ded4db293
+	github.com/free5gc/sctp v0.0.0-20231121085449-400a702ea7f9
 	github.com/free5gc/util v1.0.5-0.20231001095115-433858e5be94
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.9.1
@@ -30,7 +31,6 @@ require (
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
-	github.com/free5gc/sctp v0.0.0-20231121085449-400a702ea7f9 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
