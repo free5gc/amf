@@ -354,7 +354,13 @@ func (context *AMFContext) NewAmfRan(conn net.Conn) *AmfRan {
 	ran := AmfRan{}
 	ran.SupportedTAList = make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
 	ran.Conn = conn
-	ran.Log = logger.NgapLog.WithField(logger.FieldRanAddr, conn.RemoteAddr().String())
+	addr := conn.RemoteAddr()
+	if addr != nil {
+		ran.Log = logger.NgapLog.WithField(logger.FieldRanAddr, addr.String())
+	} else {
+		ran.Log = logger.NgapLog.WithField(logger.FieldRanAddr, "(nil)")
+	}
+
 	context.AmfRanPool.Store(conn, &ran)
 	return &ran
 }

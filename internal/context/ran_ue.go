@@ -124,7 +124,12 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 
 func (ranUe *RanUe) UpdateLogFields() {
 	if ranUe.Ran != nil && ranUe.Ran.Conn != nil {
-		ranUe.Log = ranUe.Log.WithField(logger.FieldRanAddr, ranUe.Ran.Conn.RemoteAddr().String())
+		addr := ranUe.Ran.Conn.RemoteAddr()
+		if addr != nil {
+			ranUe.Log = ranUe.Log.WithField(logger.FieldRanAddr, addr.String())
+		} else {
+			ranUe.Log = ranUe.Log.WithField(logger.FieldRanAddr, "(nil)")
+		}
 
 		anTypeStr := ""
 		if ranUe.Ran.AnType == models.AccessType__3_GPP_ACCESS {
