@@ -147,7 +147,7 @@ func SendCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.Sm
 	} else if httpResponse != nil {
 		if httpResponse.Status != err.Error() {
 			err1 = err
-			return
+			return response, smContextRef, errorResponse, problemDetail, err1
 		}
 		switch httpResponse.StatusCode {
 		case 400, 403, 404, 500, 503, 504:
@@ -451,7 +451,7 @@ func SendUpdateSmContextRequest(smContext *amf_context.SmContext,
 	} else if httpResponse != nil {
 		if httpResponse.Status != err.Error() {
 			err1 = err
-			return
+			return response, errorResponse, problemDetail, err1
 		}
 		switch httpResponse.StatusCode {
 		case 400, 403, 404, 500, 503:
