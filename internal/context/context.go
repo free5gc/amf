@@ -131,9 +131,7 @@ func InitAmfContext(context *AMFContext) {
 		context.LadnPool[ladn.Dnn] = ladn
 	}
 	context.NrfUri = config.GetNrfUri()
-	if configuration.NrfCertPem != "" {
-		context.NrfCertPem = configuration.NrfCertPem
-	}
+	context.NrfCertPem = configuration.NrfCertPem
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
