@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/openapi/oauth"
 	"github.com/free5gc/util/idgenerator"
 )
 
@@ -542,9 +544,21 @@ func (context *AMFContext) Reset() {
 	context.HttpIPv6Address = ""
 	context.Name = "amf"
 	context.NrfUri = ""
+	context.NrfCertPem = ""
+	context.OAuth2Required = false
 }
 
 // Create new AMF context
 func GetSelf() *AMFContext {
 	return &amfContext
+}
+
+func (c *AMFContext) GetTokenCtx(scope, targetNF string) (
+	context.Context, *models.ProblemDetails, error,
+) {
+	if !c.OAuth2Required {
+		return context.TODO(), nil, nil
+	}
+	return oauth.GetTokenCtx(models.NfType_AMF,
+		c.NfId, c.NrfUri, scope, targetNF)
 }
