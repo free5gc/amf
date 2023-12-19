@@ -1,6 +1,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/openapi/oauth"
 	"github.com/free5gc/util/idgenerator"
 )
 
@@ -66,6 +68,7 @@ type AMFContext struct {
 	SupportDnnLists              []string
 	AMFStatusSubscriptions       sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                       string
+	NrfCertPem                   string
 	SecurityAlgorithm            SecurityAlgorithm
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
@@ -83,6 +86,8 @@ type AMFContext struct {
 	T3570Cfg factory.TimerValue
 	T3555Cfg factory.TimerValue
 	Locality string
+
+	OAuth2Required bool
 }
 
 type AMFContextEventSubscription struct {
@@ -126,6 +131,7 @@ func InitAmfContext(context *AMFContext) {
 		context.LadnPool[ladn.Dnn] = ladn
 	}
 	context.NrfUri = config.GetNrfUri()
+	context.NrfCertPem = configuration.NrfCertPem
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
@@ -536,9 +542,21 @@ func (context *AMFContext) Reset() {
 	context.HttpIPv6Address = ""
 	context.Name = "amf"
 	context.NrfUri = ""
+	context.NrfCertPem = ""
+	context.OAuth2Required = false
 }
 
 // Create new AMF context
 func GetSelf() *AMFContext {
 	return &amfContext
+}
+
+func (c *AMFContext) GetTokenCtx(scope, targetNF string) (
+	context.Context, *models.ProblemDetails, error,
+) {
+	if !c.OAuth2Required {
+		return context.TODO(), nil, nil
+	}
+	return oauth.GetTokenCtx(models.NfType_AMF,
+		c.NfId, c.NrfUri, scope, targetNF)
 }

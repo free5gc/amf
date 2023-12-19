@@ -240,11 +240,11 @@ func SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetail
 		}
 	}()
 	if localErr == nil {
-		return
+		return problemDetails, err
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
 			err = localErr
-			return
+			return problemDetails, err
 		}
 		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
