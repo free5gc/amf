@@ -1120,6 +1120,16 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				needSliceSelection = true
 				break
 			}
+
+			reqSnssai := models.Snssai{
+				Sst: requestedSnssai.ServingSnssai.Sst,
+				Sd:  requestedSnssai.ServingSnssai.Sd,
+			}
+
+			if !amfSelf.InPlmnSupportList(reqSnssai) {
+				needSliceSelection = true
+				break
+			}
 		}
 
 		if needSliceSelection {
@@ -1161,12 +1171,12 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 			// Step 6
 			searchTargetAmfQueryParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{}
 			if ue.NetworkSliceInfo != nil {
-				netwotkSliceInfo := ue.NetworkSliceInfo
-				if netwotkSliceInfo.TargetAmfSet != "" {
+				networkSliceInfo := ue.NetworkSliceInfo
+				if networkSliceInfo.TargetAmfSet != "" {
 					// TS 29.531
 					// TargetAmfSet format: ^[0-9]{3}-[0-9]{2-3}-[A-Fa-f0-9]{2}-[0-3][A-Fa-f0-9]{2}$
 					// mcc-mnc-amfRegionId(8 bit)-AmfSetId(10 bit)
-					targetAmfSetToken := strings.Split(netwotkSliceInfo.TargetAmfSet, "-")
+					targetAmfSetToken := strings.Split(networkSliceInfo.TargetAmfSet, "-")
 					guami := amfSelf.ServedGuamiList[0]
 					targetAmfPlmnId := models.PlmnId{
 						Mcc: targetAmfSetToken[0],
@@ -1182,9 +1192,9 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 
 					searchTargetAmfQueryParam.AmfRegionId = optional.NewString(targetAmfSetToken[2])
 					searchTargetAmfQueryParam.AmfSetId = optional.NewString(targetAmfSetToken[3])
-				} else if len(netwotkSliceInfo.CandidateAmfList) > 0 {
+				} else if len(networkSliceInfo.CandidateAmfList) > 0 {
 					// TODO: select candidate Amf based on local poilcy
-					searchTargetAmfQueryParam.TargetNfInstanceId = optional.NewInterface(netwotkSliceInfo.CandidateAmfList[0])
+					searchTargetAmfQueryParam.TargetNfInstanceId = optional.NewInterface(networkSliceInfo.CandidateAmfList[0])
 				}
 			}
 
@@ -1226,6 +1236,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
 				allowedNssaiNgap := ngapConvert.AllowedNssaiToNgap(ue.AllowedNssai[anType])
 				ngap_message.SendRerouteNasRequest(ue, anType, nil, ue.RanUe[anType].InitialUEMessage, &allowedNssaiNgap)
+				return err
 			}
 			return nil
 		}
