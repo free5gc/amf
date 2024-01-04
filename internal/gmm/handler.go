@@ -1096,6 +1096,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 	amfSelf := context.GetSelf()
 
 	if ue.RegistrationRequest.RequestedNSSAI != nil {
+		logger.GmmLog.Infof("RequestedNssai: %+v", ue.RegistrationRequest.RequestedNSSAI)
 		requestedNssai, err := nasConvert.RequestedNssaiToModels(ue.RegistrationRequest.RequestedNSSAI)
 		if err != nil {
 			return fmt.Errorf("Decode failed at RequestedNSSAI[%s]", err)
@@ -1128,6 +1129,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 
 			if !amfSelf.InPlmnSupportList(reqSnssai) {
 				needSliceSelection = true
+				logger.GmmLog.Warnf("RequestedNssai[%+v] is not supported by AMF", reqSnssai)
 				break
 			}
 		}
@@ -1198,6 +1200,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				}
 			}
 
+			sendReroute := true
 			err = consumer.SearchAmfCommunicationInstance(ue, amfSelf.NrfUri,
 				models.NfType_AMF, models.NfType_AMF, &searchTargetAmfQueryParam)
 			if err == nil {
@@ -1229,10 +1232,17 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				var n1Message bytes.Buffer
 				err = ue.RegistrationRequest.EncodeRegistrationRequest(&n1Message)
 				if err != nil {
-					return fmt.Errorf("re-encoding registration request message is failed: %w", err)
+					logger.GmmLog.Errorf("re-encoding registration request message is failed: %+v", err)
+				} else {
+					err = callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
+					if err != nil {
+						logger.GmmLog.Errorf("send N1MessageNotify failed: %+v", err)
+					} else {
+						sendReroute = false
+					}
 				}
-				callback.SendN1MessageNotifyAtAMFReAllocation(ue, n1Message.Bytes(), &registerContext)
-			} else {
+			}
+			if sendReroute {
 				// Condition (B) Step 7: initial AMF can not find Target AMF via NRF -> Send Reroute NAS Request to RAN
 				allowedNssaiNgap := ngapConvert.AllowedNssaiToNgap(ue.AllowedNssai[anType])
 				ngap_message.SendRerouteNasRequest(ue, anType, nil, ue.RanUe[anType].InitialUEMessage, &allowedNssaiNgap)
