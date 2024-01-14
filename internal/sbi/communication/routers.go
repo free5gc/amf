@@ -19,6 +19,8 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	logger_util "github.com/free5gc/util/logger"
+	amf_context "github.com/free5gc/amf/internal/context"
+
 )
 
 var HttpLog *logrus.Entry
@@ -70,6 +72,11 @@ func AddService(engine *gin.Engine) *gin.RouterGroup {
 // Index is the index handler.
 func Index(c *gin.Context) {
 	c.String(http.StatusOK, "Hello World!")
+}
+
+func authorizationCheck(c *gin.Context) error {
+	token := c.Request.Header.Get("Authorization")
+	return amf_context.GetSelf().AuthorizationCheck(token, "namf-comm")
 }
 
 var routes = Routes{

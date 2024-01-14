@@ -560,3 +560,14 @@ func (c *AMFContext) GetTokenCtx(scope, targetNF string) (
 	return oauth.GetTokenCtx(models.NfType_AMF,
 		c.NfId, c.NrfUri, scope, targetNF)
 }
+
+func (context *AMFContext) AuthorizationCheck(token, serviceName string) error {
+	if !context.OAuth2Required {
+		return nil
+	}
+	err := oauth.VerifyOAuth(token, serviceName, context.NrfCertPem)
+	if err != nil {
+		return err
+	}
+	return nil
+}

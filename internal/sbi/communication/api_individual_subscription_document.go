@@ -13,7 +13,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/producer"
 	"github.com/free5gc/openapi"
@@ -26,7 +25,7 @@ func HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 	auth_err := authorizationCheck(c)
 	if auth_err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
+		return 
 	}
 
 	var subscriptionData models.SubscriptionData
