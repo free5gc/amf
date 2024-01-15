@@ -13,6 +13,11 @@ import (
 )
 
 func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
+	auth_err := authorizationCheck(c)
+	if auth_err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
+		return
+	}
 	var policyUpdate models.PolicyUpdate
 
 	requestBody, err := c.GetRawData()
@@ -61,6 +66,11 @@ func HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 }
 
 func HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
+	auth_err := authorizationCheck(c)
+	if auth_err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
+		return
+	}
 	var terminationNotification models.TerminationNotification
 
 	requestBody, err := c.GetRawData()

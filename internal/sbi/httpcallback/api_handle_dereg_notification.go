@@ -13,6 +13,11 @@ import (
 )
 
 func HTTPHandleDeregistrationNotification(c *gin.Context) {
+	auth_err := authorizationCheck(c)
+	if auth_err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
+		return
+	}
 	// TS 23.502 - 4.2.2.2.2 - step 14d
 	logger.CallbackLog.Infoln("Handle Deregistration Notification")
 
