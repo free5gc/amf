@@ -18,6 +18,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	logger_util "github.com/free5gc/util/logger"
+	amf_context "github.com/free5gc/amf/internal/context"
 )
 
 // Route is the information for every URI.
