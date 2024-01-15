@@ -362,6 +362,9 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 
 	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas {
 		// remove security Header
+		if len(payload) < 7 {
+			return nil, fmt.Errorf("nas payload is too short")
+		}
 		payload = payload[7:]
 	}
 
