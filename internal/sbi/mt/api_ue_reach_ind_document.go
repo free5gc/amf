@@ -19,11 +19,6 @@ import (
 
 // EnableUeReachability - Namf_MT EnableUEReachability service Operation
 func HTTPEnableUeReachability(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
 	logger.MtLog.Warnf("Handle Enable Ue Reachability is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }

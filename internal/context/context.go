@@ -45,6 +45,13 @@ func init() {
 	amfUeNGAPIDGenerator = idgenerator.NewGenerator(1, MaxValueOfAmfUeNgapId)
 }
 
+type NFContext interface {
+	AuthorizationCheck(token, serviceName string) error
+}
+
+var _ NFContext = &AMFContext{}
+
+
 type AMFContext struct {
 	EventSubscriptionIDGenerator *idgenerator.IDGenerator
 	EventSubscriptions           sync.Map
@@ -551,23 +558,22 @@ func GetSelf() *AMFContext {
 	return &amfContext
 }
 
-func (c *AMFContext) GetTokenCtx(scope, targetNF string) (
+func (c *AMFContext) GetTokenCtx(scope string, targetNF models.NfType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.NfType_AMF,
-		c.NfId, c.NrfUri, scope, targetNF)
+	return oauth.GetTokenCtx(models.NfType_AMF,targetNF,
+		c.NfId, c.NrfUri, scope)
 }
 
-func (context *AMFContext) AuthorizationCheck(token, serviceName string) error {
-	if !context.OAuth2Required {
+func (c *AMFContext) AuthorizationCheck(token, serviceName string) error {
+	if !c.OAuth2Required {
+		logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: OAuth2 not required\n")
 		return nil
 	}
-	err := oauth.VerifyOAuth(token, serviceName, context.NrfCertPem)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
+	return oauth.VerifyOAuth(token, serviceName, c.NrfCertPem)
 }

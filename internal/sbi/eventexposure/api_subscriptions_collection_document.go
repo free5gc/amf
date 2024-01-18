@@ -23,12 +23,6 @@ import (
 
 // CreateSubscription - Namf_EventExposure Subscribe service Operation
 func HTTPCreateSubscription(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
-	
 	var createEventSubscription models.AmfCreateEventSubscription
 
 	requestBody, err := c.GetRawData()

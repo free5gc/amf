@@ -17,10 +17,13 @@ import (
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/amf/internal/util"
+	"github.com/free5gc/openapi/models"
 	logger_util "github.com/free5gc/util/logger"
 	amf_context "github.com/free5gc/amf/internal/context"
 )
 
+const serviceName string = string(models.ServiceName_NAMF_EVTS)
 // Route is the information for every URI.
 type Route struct {
 	// Name is the name of this Route.
@@ -46,6 +49,11 @@ func NewRouter() *gin.Engine {
 func AddService(engine *gin.Engine) *gin.RouterGroup {
 	group := engine.Group(factory.AmfEvtsResUriPrefix)
 
+	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(serviceName)
+	group.Use(func(c *gin.Context) {
+		routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+	})
+
 	for _, route := range routes {
 		switch route.Method {
 		case "GET":
@@ -66,11 +74,6 @@ func AddService(engine *gin.Engine) *gin.RouterGroup {
 // Index is the index handler.
 func Index(c *gin.Context) {
 	c.String(http.StatusOK, "Hello World!")
-}
-
-func authorizationCheck(c *gin.Context) error {
-	token := c.Request.Header.Get("Authorization")
-	return amf_context.GetSelf().AuthorizationCheck(token, "namf-evts")
 }
 
 var routes = Routes{

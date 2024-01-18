@@ -13,11 +13,6 @@ import (
 )
 
 func HTTPN1MessageNotify(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
 	var n1MessageNotification models.N1MessageNotification
 
 	requestBody, err := c.GetRawData()
