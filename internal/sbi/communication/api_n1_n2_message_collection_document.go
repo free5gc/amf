@@ -25,11 +25,6 @@ import (
 
 // N1N2MessageTransfer - Namf_Communication N1N2 Message Transfer (UE Specific) service Operation
 func HTTPN1N2MessageTransfer(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
 
 	var n1n2MessageTransferRequest models.N1N2MessageTransferRequest
 	n1n2MessageTransferRequest.JsonData = new(models.N1N2MessageTransferReqData)
