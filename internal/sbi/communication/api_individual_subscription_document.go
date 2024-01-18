@@ -22,12 +22,6 @@ import (
 
 // AMFStatusChangeSubscribeModify - Namf_Communication AMF Status Change Subscribe Modify service Operation
 func HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return 
-	}
-
 	var subscriptionData models.SubscriptionData
 
 	requestBody, err := c.GetRawData()
@@ -77,12 +71,6 @@ func HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
 func HTTPAMFStatusChangeUnSubscribe(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
-
 	req := httpwrapper.NewRequest(c.Request, nil)
 	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
 

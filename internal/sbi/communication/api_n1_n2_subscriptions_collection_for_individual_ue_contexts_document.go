@@ -22,12 +22,6 @@ import (
 )
 
 func HTTPN1N2MessageSubscribe(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
-	
 	var ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData
 
 	

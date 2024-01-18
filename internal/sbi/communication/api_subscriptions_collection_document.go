@@ -23,12 +23,6 @@ import (
 
 // AMFStatusChangeSubscribe - Namf_Communication AMF Status Change Subscribe service Operation
 func HTTPAMFStatusChangeSubscribe(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
-	
 	var subscriptionData models.SubscriptionData
 
 	requestBody, err := c.GetRawData()

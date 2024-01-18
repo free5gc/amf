@@ -19,12 +19,6 @@ import (
 
 // NonUeN2InfoUnSubscribe - Namf_Communication Non UE N2 Info UnSubscribe service Operation
 func HTTPNonUeN2InfoUnSubscribe(c *gin.Context) {
-	auth_err := authorizationCheck(c)
-	if auth_err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": auth_err.Error()})
-		return
-	}
-	
 	logger.CommLog.Warnf("Handle Non Ue N2 Info UnSubscribe is not implemented.")
 	c.JSON(http.StatusOK, gin.H{})
 }
