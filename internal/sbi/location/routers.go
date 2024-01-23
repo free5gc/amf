@@ -15,12 +15,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
-	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/internal/util"
+	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"
 	logger_util "github.com/free5gc/util/logger"
-	amf_context "github.com/free5gc/amf/internal/context"
 )
 
 const serviceName string = string(models.ServiceName_NAMF_LOC)

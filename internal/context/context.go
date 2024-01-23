@@ -51,7 +51,6 @@ type NFContext interface {
 
 var _ NFContext = &AMFContext{}
 
-
 type AMFContext struct {
 	EventSubscriptionIDGenerator *idgenerator.IDGenerator
 	EventSubscriptions           sync.Map
@@ -564,7 +563,7 @@ func (c *AMFContext) GetTokenCtx(scope string, targetNF models.NfType) (
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.NfType_AMF,targetNF,
+	return oauth.GetTokenCtx(models.NfType_AMF, targetNF,
 		c.NfId, c.NrfUri, scope)
 }
 
