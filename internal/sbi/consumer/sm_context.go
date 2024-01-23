@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -130,9 +129,12 @@ func SendCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.Sm
 	configuration := Nsmf_PDUSession.NewConfiguration()
 	configuration.SetBasePath(smContext.SmfUri())
 	client := Nsmf_PDUSession.NewAPIClient(configuration)
-
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nsmf-pdusession", models.NfType_SMF)
+	if err != nil {
+		return nil, "", nil, nil, err
+	}
 	postSmContextReponse, httpResponse, err := client.SMContextsCollectionApi.
-		PostSmContexts(context.Background(), postSmContextsRequest)
+		PostSmContexts(ctx, postSmContextsRequest)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
@@ -435,8 +437,12 @@ func SendUpdateSmContextRequest(smContext *amf_context.SmContext,
 	updateSmContextRequest.BinaryDataN1SmMessage = n1Msg
 	updateSmContextRequest.BinaryDataN2SmInformation = n2Info
 
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nsmf-pdusession", models.NfType_SMF)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	updateSmContextReponse, httpResponse, err := client.IndividualSMContextApi.
-		UpdateSmContext(context.Background(), smContext.SmContextRef(),
+		UpdateSmContext(ctx, smContext.SmContextRef(),
 			updateSmContextRequest)
 	defer func() {
 		if httpResponse != nil {
@@ -481,9 +487,12 @@ func SendReleaseSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.S
 	releaseSmContextRequest := models.ReleaseSmContextRequest{
 		JsonData: &releaseData,
 	}
-
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nsmf-pdusession", models.NfType_SMF)
+	if err != nil {
+		return nil, err
+	}
 	response, err1 := client.IndividualSMContextApi.ReleaseSmContext(
-		context.Background(), smContext.SmContextRef(), releaseSmContextRequest)
+		ctx, smContext.SmContextRef(), releaseSmContextRequest)
 	defer func() {
 		if response != nil {
 			if rspCloseErr := response.Body.Close(); rspCloseErr != nil {
