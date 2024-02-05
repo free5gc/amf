@@ -1916,6 +1916,13 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		if err != nil {
 			return err
 		}
+	case nasMessage.ServiceTypeHighPriorityAccess:
+		// TODO: support HighPriorityAccess
+		err := gmm_message.SendServiceAccept(ue, anType, cxtList, pduStatusResult,
+			reactivationResult, errPduSessionId, errCause)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Service Type[%d] is not supported", serviceType)
 	}
