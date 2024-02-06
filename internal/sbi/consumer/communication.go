@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"context"
 	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -124,7 +123,11 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
 	}
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(context.TODO(), ue.Guti, req)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	if err != nil {
+		return nil, nil, err
+	}
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(ctx, ue.Guti, req)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -170,9 +173,12 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 		ueContextRelease.Supi = ue.Supi
 		ueContextRelease.UnauthenticatedSupi = true
 	}
-
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	if err != nil {
+		return nil, err
+	}
 	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(
-		context.TODO(), ueContextId, ueContextRelease)
+		ctx, ueContextId, ueContextRelease)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -225,7 +231,11 @@ func UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(context.TODO(), ueContextId, req)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	if err != nil {
+		return nil, nil, err
+	}
+	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, ueContextId, req)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -259,8 +269,14 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusU
 	client := Namf_Communication.NewAPIClient(configuration)
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
+
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	if err != nil {
+		return regStatusTransferComplete, nil, err
+	}
+
 	res, httpResp, localErr := client.IndividualUeContextDocumentApi.
-		RegistrationStatusUpdate(context.TODO(), ueContextId, request)
+		RegistrationStatusUpdate(ctx, ueContextId, request)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {

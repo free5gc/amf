@@ -45,6 +45,12 @@ func init() {
 	amfUeNGAPIDGenerator = idgenerator.NewGenerator(1, MaxValueOfAmfUeNgapId)
 }
 
+type NFContext interface {
+	AuthorizationCheck(token string, serviceName models.ServiceName) error
+}
+
+var _ NFContext = &AMFContext{}
+
 type AMFContext struct {
 	EventSubscriptionIDGenerator *idgenerator.IDGenerator
 	EventSubscriptions           sync.Map
@@ -551,12 +557,27 @@ func GetSelf() *AMFContext {
 	return &amfContext
 }
 
-func (c *AMFContext) GetTokenCtx(scope, targetNF string) (
+func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NfType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.NfType_AMF,
-		c.NfId, c.NrfUri, scope, targetNF)
+	return oauth.GetTokenCtx(models.NfType_AMF, targetNF,
+		c.NfId, c.NrfUri, string(serviceName))
+}
+
+func (c *AMFContext) AuthorizationCheck(token string, serviceName models.ServiceName) error {
+	if !c.OAuth2Required {
+		logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: OAuth2 not required\n")
+		return nil
+	}
+	// TODO: free5gc webconsole uses namf-oam but it can't get token since it's not an NF.
+	if serviceName == models.ServiceName_NAMF_OAM {
+		logger.UtilLog.Warnf("OAuth2 is enable but namf-oam didn't check token now.")
+		return nil
+	}
+
+	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
+	return oauth.VerifyOAuth(token, string(serviceName), c.NrfCertPem)
 }

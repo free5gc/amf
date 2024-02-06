@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"context"
 	"regexp"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -18,6 +17,10 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	if err != nil {
+		return nil, err
+	}
 
 	policyAssociationRequest := models.PolicyAssociationRequest{
 		NotificationUri: amfSelf.GetIPv4Uri() + factory.AmfCallbackResUriPrefix + "/am-policy/",
@@ -35,8 +38,7 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 	if ue.AccessAndMobilitySubscriptionData != nil {
 		policyAssociationRequest.Rfsp = ue.AccessAndMobilitySubscriptionData.RfspIndex
 	}
-
-	res, httpResp, localErr := client.DefaultApi.PoliciesPost(context.Background(), policyAssociationRequest)
+	res, httpResp, localErr := client.DefaultApi.PoliciesPost(ctx, policyAssociationRequest)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -87,9 +89,13 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	if err != nil {
+		return nil, err
+	}
 
 	res, httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdUpdatePost(
-		context.Background(), ue.PolicyAssociationId, updateRequest)
+		ctx, ue.PolicyAssociationId, updateRequest)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -133,8 +139,12 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	if err != nil {
+		return nil, err
+	}
 
-	httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdDelete(context.Background(), ue.PolicyAssociationId)
+	httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdDelete(ctx, ue.PolicyAssociationId)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -148,13 +158,12 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
 			err = localErr
-			return
+			return nil, err
 		}
 		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
 		err = openapi.ReportError("server no response")
 	}
-
-	return
+	return problemDetails, err
 }

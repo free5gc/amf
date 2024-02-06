@@ -9,7 +9,7 @@ require (
 	github.com/free5gc/aper v1.0.5-0.20230614030933-c73735898582
 	github.com/free5gc/nas v1.1.2-0.20230828074825-175b09665828
 	github.com/free5gc/ngap v1.0.7-0.20230614061954-9c128114ab1f
-	github.com/free5gc/openapi v1.0.7-0.20231216094313-e15a4ff046f6
+	github.com/free5gc/openapi v1.0.7-0.20240206085156-20cdf964e9da
 	github.com/free5gc/sctp v0.0.0-20231121085449-400a702ea7f9
 	github.com/free5gc/util v1.0.5-0.20231001095115-433858e5be94
 	github.com/gin-contrib/cors v1.3.1

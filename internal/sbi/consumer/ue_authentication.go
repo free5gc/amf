@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -38,8 +37,12 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 	if resynchronizationInfo != nil {
 		authInfo.ResynchronizationInfo = resynchronizationInfo
 	}
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	ueAuthenticationCtx, httpResponse, err := client.DefaultApi.UeAuthenticationsPost(context.Background(), authInfo)
+	ueAuthenticationCtx, httpResponse, err := client.DefaultApi.UeAuthenticationsPost(ctx, authInfo)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
@@ -80,9 +83,13 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 			ResStar: resStar,
 		}),
 	}
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
-		context.Background(), ue.Suci, confirmData)
+		ctx, ue.Suci, confirmData)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
@@ -126,8 +133,12 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.GetEAPMessage()),
 		}),
 	}
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(context.Background(), ue.Suci, eapSessionReq)
+	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, ue.Suci, eapSessionReq)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {

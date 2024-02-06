@@ -15,8 +15,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/openapi/models"
 	logger_util "github.com/free5gc/util/logger"
 )
 
@@ -44,6 +47,11 @@ func NewRouter() *gin.Engine {
 
 func AddService(engine *gin.Engine) *gin.RouterGroup {
 	group := engine.Group(factory.AmfLocResUriPrefix)
+
+	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(models.ServiceName_NAMF_LOC)
+	group.Use(func(c *gin.Context) {
+		routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+	})
 
 	for _, route := range routes {
 		switch route.Method {

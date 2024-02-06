@@ -1,7 +1,6 @@
 package consumer
 
 import (
-	"context"
 	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -20,6 +19,10 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UEAU, models.NfType_UDM)
+	if err != nil {
+		return nil, err
+	}
 
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
@@ -39,7 +42,7 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 			ImsVoPs: models.ImsVoPs_HOMOGENEOUS_NON_SUPPORT,
 		}
 
-		_, httpResp, localErr := client.AMFRegistrationFor3GPPAccessApi.Registration(context.Background(),
+		_, httpResp, localErr := client.AMFRegistrationFor3GPPAccessApi.Registration(ctx,
 			ue.Supi, registrationData)
 		defer func() {
 			if httpResp != nil {
@@ -69,7 +72,7 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 		}
 
 		_, httpResp, localErr := client.AMFRegistrationForNon3GPPAccessApi.
-			Register(context.Background(), ue.Supi, registrationData)
+			Register(ctx, ue.Supi, registrationData)
 		defer func() {
 			if httpResp != nil {
 				if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -103,6 +106,10 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UECM, models.NfType_UDM)
+	if err != nil {
+		return nil, err
+	}
 
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
@@ -111,7 +118,7 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 			PurgeFlag: true,
 		}
 
-		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(context.Background(),
+		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationFor3GPPAccessApi.Update(ctx,
 			ue.Supi, modificationData)
 		defer func() {
 			if httpResp != nil {
@@ -139,7 +146,7 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 		}
 
 		httpResp, localErr := client.ParameterUpdateInTheAMFRegistrationForNon3GPPAccessApi.UpdateAmfNon3gppAccess(
-			context.Background(), ue.Supi, modificationData)
+			ctx, ue.Supi, modificationData)
 		defer func() {
 			if httpResp != nil {
 				if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
