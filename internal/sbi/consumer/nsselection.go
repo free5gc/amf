@@ -20,7 +20,7 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 	client := Nnssf_NSSelection.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nnssf-nsselection", models.NfType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nnssf-nsselection", models.NfType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
 	if err != nil {
 		return nil, nil, err
 	}

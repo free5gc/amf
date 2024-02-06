@@ -123,7 +123,7 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("namf-comm", models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -173,7 +173,7 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 		ueContextRelease.Supi = ue.Supi
 		ueContextRelease.UnauthenticatedSupi = true
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("namf-comm", models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("namf-comm", models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -270,7 +270,7 @@ func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusU
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("namf-comm", models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
 	if err != nil {
 		return regStatusTransferComplete, nil, err
 	}

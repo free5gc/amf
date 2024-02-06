@@ -15,7 +15,7 @@ func PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemD
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.Pro
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails,
 		PlmnId:       &ue.PlmnId,
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetail
 	configuration.SetBasePath(ue.NudmSDMUri)
 	client := Nudm_SubscriberDataManagement.NewAPIClient(configuration)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-sdm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}

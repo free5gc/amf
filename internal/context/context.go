@@ -557,14 +557,14 @@ func GetSelf() *AMFContext {
 	return &amfContext
 }
 
-func (c *AMFContext) GetTokenCtx(scope string, targetNF models.NfType) (
+func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NfType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
 	return oauth.GetTokenCtx(models.NfType_AMF, targetNF,
-		c.NfId, c.NrfUri, scope)
+		c.NfId, c.NrfUri, string(serviceName))
 }
 
 func (c *AMFContext) AuthorizationCheck(token, serviceName string) error {

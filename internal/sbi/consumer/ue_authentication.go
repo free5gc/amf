@@ -37,7 +37,7 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 	if resynchronizationInfo != nil {
 		authInfo.ResynchronizationInfo = resynchronizationInfo
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nausf-auth", models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -83,7 +83,7 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 			ResStar: resStar,
 		}),
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nausf-auth", models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -133,7 +133,7 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.GetEAPMessage()),
 		}),
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nausf-auth", models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}

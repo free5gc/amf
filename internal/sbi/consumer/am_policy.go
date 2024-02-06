@@ -17,7 +17,7 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("npcf-am-policy-control", models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("npcf-am-policy-control", models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.Proble
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(ue.PcfUri)
 	client := Npcf_AMPolicy.NewAPIClient(configuration)
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("npcf-am-policy-control", models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err
 	}

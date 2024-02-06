@@ -19,7 +19,7 @@ func UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initi
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-uecm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UEAU, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
 	client := Nudm_UEContextManagement.NewAPIClient(configuration)
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx("nudm-uecm", models.NfType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UECM, models.NfType_UDM)
 	if err != nil {
 		return nil, err
 	}
