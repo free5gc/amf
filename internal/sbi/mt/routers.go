@@ -23,8 +23,6 @@ import (
 	logger_util "github.com/free5gc/util/logger"
 )
 
-const serviceName string = string(models.ServiceName_NAMF_MT)
-
 // Route is the information for every URI.
 type Route struct {
 	// Name is the name of this Route.
@@ -50,7 +48,7 @@ func NewRouter() *gin.Engine {
 func AddService(engine *gin.Engine) *gin.RouterGroup {
 	group := engine.Group(factory.AmfMtResUriPrefix)
 
-	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(serviceName)
+	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MT)
 	group.Use(func(c *gin.Context) {
 		routerAuthorizationCheck.Check(c, amf_context.GetSelf())
 	})

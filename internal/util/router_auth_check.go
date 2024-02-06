@@ -7,13 +7,14 @@ import (
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/openapi/models"
 )
 
 type RouterAuthorizationCheck struct {
-	serviceName string
+	serviceName models.ServiceName
 }
 
-func NewRouterAuthorizationCheck(serviceName string) *RouterAuthorizationCheck {
+func NewRouterAuthorizationCheck(serviceName models.ServiceName) *RouterAuthorizationCheck {
 	return &RouterAuthorizationCheck{
 		serviceName: serviceName,
 	}

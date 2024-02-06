@@ -24,8 +24,6 @@ import (
 	logger_util "github.com/free5gc/util/logger"
 )
 
-const serviceName string = string(models.ServiceName_NAMF_COMM)
-
 var HttpLog *logrus.Entry
 
 func init() {
@@ -57,7 +55,7 @@ func NewRouter() *gin.Engine {
 func AddService(engine *gin.Engine) *gin.RouterGroup {
 	group := engine.Group(factory.AmfCommResUriPrefix)
 
-	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(serviceName)
+	routerAuthorizationCheck := util.NewRouterAuthorizationCheck(models.ServiceName_NAMF_COMM)
 	group.Use(func(c *gin.Context) {
 		routerAuthorizationCheck.Check(c, amf_context.GetSelf())
 	})

@@ -46,7 +46,7 @@ func init() {
 }
 
 type NFContext interface {
-	AuthorizationCheck(token, serviceName string) error
+	AuthorizationCheck(token string, serviceName models.ServiceName) error
 }
 
 var _ NFContext = &AMFContext{}
@@ -567,12 +567,17 @@ func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models
 		c.NfId, c.NrfUri, string(serviceName))
 }
 
-func (c *AMFContext) AuthorizationCheck(token, serviceName string) error {
+func (c *AMFContext) AuthorizationCheck(token string, serviceName models.ServiceName) error {
 	if !c.OAuth2Required {
 		logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: OAuth2 not required\n")
 		return nil
 	}
+	// TODO: free5gc webconsole uses namf-oam but it can't get token since it's not an NF.
+	if serviceName == models.ServiceName_NAMF_OAM {
+		logger.UtilLog.Warnf("OAuth2 is enable but namf-oam didn't check token now.")
+		return nil
+	}
 
 	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
-	return oauth.VerifyOAuth(token, serviceName, c.NrfCertPem)
+	return oauth.VerifyOAuth(token, string(serviceName), c.NrfCertPem)
 }
