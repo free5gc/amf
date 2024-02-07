@@ -1082,7 +1082,6 @@ func BuildInitialContextSetupRequest(
 	case models.AccessType__3_GPP_ACCESS:
 		securityKey.Value = ngapConvert.ByteToBitString(amfUe.Kgnb, 256)
 	case models.AccessType_NON_3_GPP_ACCESS:
-		// securityKey.Value = ngapConvert.ByteToBitString(amfUe.Kn3iwf, 256)
 		securityKey.Value = ngapConvert.ByteToBitString(amfUe.Knon3gpp, 256)
 	}
 
