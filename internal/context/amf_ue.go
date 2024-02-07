@@ -153,7 +153,8 @@ type AmfUe struct {
 	KnasInt                  [16]uint8 // 16 byte
 	KnasEnc                  [16]uint8 // 16 byte
 	Kgnb                     []uint8   // 32 byte
-	Kn3iwf                   []uint8   // 32 byte
+	// Kn3iwf                   []uint8   // 32 byte
+	Knon3gpp                 []uint8   // 32 byte
 	NH                       []uint8   // 32 byte
 	NCC                      uint8     // 0..7
 	ULCount                  security.Count
@@ -535,7 +536,8 @@ func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 	case security.AccessType3GPP:
 		ue.Kgnb = key
 	case security.AccessTypeNon3GPP:
-		ue.Kn3iwf = key
+		// ue.Kn3iwf = key
+		ue.Knon3gpp = key
 	}
 }
 
@@ -562,7 +564,8 @@ func (ue *AmfUe) UpdateSecurityContext(anType models.AccessType) {
 	case models.AccessType__3_GPP_ACCESS:
 		ue.DerivateNH(ue.Kgnb)
 	case models.AccessType_NON_3_GPP_ACCESS:
-		ue.DerivateNH(ue.Kn3iwf)
+		// ue.DerivateNH(ue.Kn3iwf)
+		ue.DerivateNH(ue.Knon3gpp)
 	}
 	ue.NCC = 1
 }
