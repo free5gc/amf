@@ -6,12 +6,12 @@ require (
 	github.com/antihax/optional v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/davecgh/go-spew v1.1.1
-	github.com/free5gc/aper v1.0.5-0.20230614030933-c73735898582
-	github.com/free5gc/nas v1.1.2-0.20230828074825-175b09665828
-	github.com/free5gc/ngap v1.0.7-0.20230614061954-9c128114ab1f
-	github.com/free5gc/openapi v1.0.7-0.20240206085156-20cdf964e9da
-	github.com/free5gc/sctp v0.0.0-20231121085449-400a702ea7f9
-	github.com/free5gc/util v1.0.5-0.20231001095115-433858e5be94
+	github.com/free5gc/aper v1.0.5
+	github.com/free5gc/nas v1.1.2
+	github.com/free5gc/ngap v1.0.7
+	github.com/free5gc/openapi v1.0.7
+	github.com/free5gc/sctp v1.0.0
+	github.com/free5gc/util v1.0.5
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.0
@@ -63,7 +63,7 @@ require (
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/h2non/gock.v1 v1.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
