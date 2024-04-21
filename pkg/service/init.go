@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -33,6 +34,10 @@ import (
 type AmfApp struct {
 	cfg    *factory.Config
 	amfCtx *amf_context.AMFContext
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	consumer *consumer.Consumer
 }
 
 func NewApp(cfg *factory.Config) (*AmfApp, error) {
@@ -43,6 +48,12 @@ func NewApp(cfg *factory.Config) (*AmfApp, error) {
 
 	amf.amfCtx = amf_context.GetSelf()
 	amf_context.InitAmfContext(amf.amfCtx)
+
+	consumer, err := consumer.NewConsumer(amf)
+	if err != nil {
+		return amf, err
+	}
+	amf.consumer = consumer
 	return amf, nil
 }
 
@@ -223,4 +234,20 @@ func (a *AmfApp) Terminate() {
 
 	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")
+}
+
+func (a *AmfApp) Config() *factory.Config {
+	return a.cfg
+}
+
+func (a *AmfApp) Context() *amf_context.AMFContext {
+	return a.amfCtx
+}
+
+func (a *AmfApp) CancelContext() context.Context {
+	return a.ctx
+}
+
+func (a *AmfApp) Consumer() *consumer.Consumer {
+	return a.consumer
 }

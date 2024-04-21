@@ -31,7 +31,7 @@ func BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile,
 	}
 	amfInfo := models.AmfInfo{}
 	if len(context.ServedGuamiList) == 0 {
-		err = fmt.Errorf("Gumai List is Empty in AMF")
+		err = fmt.Errorf("gumai List is Empty in AMF")
 		return profile, err
 	}
 	regionId, setId, _, err1 := util.SeperateAmfId(context.ServedGuamiList[0].AmfId)
