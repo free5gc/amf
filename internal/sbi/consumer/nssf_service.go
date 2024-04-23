@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/antihax/optional"
 
@@ -12,12 +13,40 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.MappingOfSnssai) (
+type nssfService struct {
+	consumer *Consumer
+
+	NSSelectionMu sync.RWMutex
+
+	NSSelectionClients map[string]*Nnssf_NSSelection.APIClient
+}
+
+func (s *nssfService) getNSSelectionClient(uri string) *Nnssf_NSSelection.APIClient {
+	if uri == "" {
+		return nil
+	}
+	s.NSSelectionMu.RLock()
+	client, ok := s.NSSelectionClients[uri]
+	if ok {
+		defer s.NSSelectionMu.RUnlock()
+		return client
+	}
+
+	configuration := Nnssf_NSSelection.NewConfiguration()
+	configuration.SetBasePath(uri)
+	client = Nnssf_NSSelection.NewAPIClient(configuration)
+
+	s.NSSelectionMu.RUnlock()
+	s.NSSelectionMu.Lock()
+	defer s.NSSelectionMu.Unlock()
+	s.NSSelectionClients[uri] = client
+	return client
+}
+
+func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []models.MappingOfSnssai) (
 	*models.ProblemDetails, error,
 ) {
-	configuration := Nnssf_NSSelection.NewConfiguration()
-	configuration.SetBasePath(ue.NssfUri)
-	client := Nnssf_NSSelection.NewAPIClient(configuration)
+	client := s.getNSSelectionClient(ue.NssfUri)
 
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
@@ -74,12 +103,10 @@ func NSSelectionGetForRegistration(ue *amf_context.AmfUe, requestedNssai []model
 	return nil, nil
 }
 
-func NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
+func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai models.Snssai) (
 	*models.AuthorizedNetworkSliceInfo, *models.ProblemDetails, error,
 ) {
-	configuration := Nnssf_NSSelection.NewConfiguration()
-	configuration.SetBasePath(ue.NssfUri)
-	client := Nnssf_NSSelection.NewAPIClient(configuration)
+	client := s.getNSSelectionClient(ue.NssfUri)
 
 	amfSelf := amf_context.GetSelf()
 	sliceInfoForPduSession := models.SliceInfoForPduSession{

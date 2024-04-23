@@ -12,7 +12,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
@@ -233,7 +233,7 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 			}
 		}()
 
-		problem, err := consumer.AMPolicyControlDelete(ue)
+		problem, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
 		if problem != nil {
 			logger.ProducerLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 		} else if err != nil {
