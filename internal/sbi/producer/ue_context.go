@@ -588,6 +588,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
 				continue
 			}
+			// problem, err := app_service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			problem, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)

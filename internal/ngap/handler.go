@@ -13,6 +13,7 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
@@ -1105,7 +1106,8 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 			ranUe.Log.Info("Ue Context in Non GMM-Registered")
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				smContext := value.(*context.SmContext)
-				detail, err := consumer.SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
+				// detail, err := consumer.SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
+				detail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
 				if err != nil {
 					ranUe.Log.Errorf("Send ReleaseSmContextRequest Error[%s]", err.Error())
 				} else if detail != nil {
