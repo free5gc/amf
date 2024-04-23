@@ -11,6 +11,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
@@ -589,7 +590,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				continue
 			}
 			// problem, err := app_service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
-			problem, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+			problem, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)
 			} else if err != nil {

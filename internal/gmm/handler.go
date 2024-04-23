@@ -17,10 +17,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/free5gc/amf/internal/context"
-	gmm_common "github.com/free5gc/amf/internal/gmm/common"
-	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
-	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/amf/internal/util"
@@ -37,6 +34,10 @@ import (
 	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/fsm"
+
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
+	gmm_message "github.com/free5gc/amf/internal/gmm/message"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 )
 
 const psiArraySize = 16
@@ -1404,7 +1405,7 @@ func releaseInactivePDUSession(ue *context.AmfUe, anType models.AccessType, uePd
 			Cause: &cause,
 		}
 		ue.GmmLog.Infof("Release Inactive PDU Session[%d] over  %q", pduSessionID, smContext.AccessType())
-		problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+		problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 		if problemDetail != nil {
 			ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 		} else if err != nil {
@@ -1597,7 +1598,7 @@ func HandleNotificationResponse(ue *context.AmfUe, notificationResponse *nasMess
 					causeAll := &context.CauseAll{
 						Cause: &cause,
 					}
-					problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+					problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 					if problemDetail != nil {
 						ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 					} else if err != nil {
@@ -2194,7 +2195,7 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 			smContext := value.(*context.SmContext)
 
 			if smContext.AccessType() == accessType {
-				problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+				problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 				if problemDetail != nil {
 					ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 				} else if err != nil {
@@ -2320,7 +2321,7 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 
 		if smContext.AccessType() == anType ||
 			targetDeregistrationAccessType == nasMessage.AccessTypeBoth {
-			problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+			problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 			if problemDetail != nil {
 				ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 			} else if err != nil {

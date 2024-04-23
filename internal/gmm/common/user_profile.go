@@ -5,6 +5,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
@@ -15,7 +16,7 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*context.SmContext)
 
-			problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+			problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 			if problemDetail != nil {
 				ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 			} else if err != nil {
