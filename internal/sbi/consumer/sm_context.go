@@ -473,74 +473,74 @@ func SendUpdateSmContextRequest(smContext *amf_context.SmContext,
 	return response, errorResponse, problemDetail, err1
 }
 
-// Release SmContext Request
+// // Release SmContext Request
 
-func SendReleaseSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
-	cause *amf_context.CauseAll, n2SmInfoType models.N2SmInfoType,
-	n2Info []byte,
-) (detail *models.ProblemDetails, err error) {
-	configuration := Nsmf_PDUSession.NewConfiguration()
-	configuration.SetBasePath(smContext.SmfUri())
-	client := Nsmf_PDUSession.NewAPIClient(configuration)
+// func SendReleaseSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
+// 	cause *amf_context.CauseAll, n2SmInfoType models.N2SmInfoType,
+// 	n2Info []byte,
+// ) (detail *models.ProblemDetails, err error) {
+// 	configuration := Nsmf_PDUSession.NewConfiguration()
+// 	configuration.SetBasePath(smContext.SmfUri())
+// 	client := Nsmf_PDUSession.NewAPIClient(configuration)
 
-	releaseData := buildReleaseSmContextRequest(ue, cause, n2SmInfoType, n2Info)
-	releaseSmContextRequest := models.ReleaseSmContextRequest{
-		JsonData: &releaseData,
-	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NfType_SMF)
-	if err != nil {
-		return nil, err
-	}
-	response, err1 := client.IndividualSMContextApi.ReleaseSmContext(
-		ctx, smContext.SmContextRef(), releaseSmContextRequest)
-	defer func() {
-		if response != nil {
-			if rspCloseErr := response.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("ReleaseSmContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err1 == nil {
-		ue.SmContextList.Delete(smContext.PduSessionID())
-	} else if response != nil && response.Status == err1.Error() {
-		if response.StatusCode == 404 {
-			// assume succeeded to release SmContext
-			ue.SmContextList.Delete(smContext.PduSessionID())
-		} else {
-			problem := err1.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			detail = &problem
-		}
-	} else {
-		err = err1
-	}
-	return detail, err
-}
+// 	releaseData := buildReleaseSmContextRequest(ue, cause, n2SmInfoType, n2Info)
+// 	releaseSmContextRequest := models.ReleaseSmContextRequest{
+// 		JsonData: &releaseData,
+// 	}
+// 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NfType_SMF)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	response, err1 := client.IndividualSMContextApi.ReleaseSmContext(
+// 		ctx, smContext.SmContextRef(), releaseSmContextRequest)
+// 	defer func() {
+// 		if response != nil {
+// 			if rspCloseErr := response.Body.Close(); rspCloseErr != nil {
+// 				logger.ConsumerLog.Errorf("ReleaseSmContext response body cannot close: %+v",
+// 					rspCloseErr)
+// 			}
+// 		}
+// 	}()
+// 	if err1 == nil {
+// 		ue.SmContextList.Delete(smContext.PduSessionID())
+// 	} else if response != nil && response.Status == err1.Error() {
+// 		if response.StatusCode == 404 {
+// 			// assume succeeded to release SmContext
+// 			ue.SmContextList.Delete(smContext.PduSessionID())
+// 		} else {
+// 			problem := err1.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
+// 			detail = &problem
+// 		}
+// 	} else {
+// 		err = err1
+// 	}
+// 	return detail, err
+// }
 
-func buildReleaseSmContextRequest(
-	ue *amf_context.AmfUe, cause *amf_context.CauseAll, n2SmInfoType models.N2SmInfoType, n2Info []byte) (
-	releaseData models.SmContextReleaseData,
-) {
-	if cause != nil {
-		if cause.Cause != nil {
-			releaseData.Cause = *cause.Cause
-		}
-		if cause.NgapCause != nil {
-			releaseData.NgApCause = cause.NgapCause
-		}
-		if cause.Var5GmmCause != nil {
-			releaseData.Var5gMmCauseValue = *cause.Var5GmmCause
-		}
-	}
-	if ue.TimeZone != "" {
-		releaseData.UeTimeZone = ue.TimeZone
-	}
-	if n2Info != nil {
-		releaseData.N2SmInfoType = n2SmInfoType
-		releaseData.N2SmInfo = &models.RefToBinaryData{
-			ContentId: "n2SmInfo",
-		}
-	}
-	// TODO: other param(ueLocation...)
-	return
-}
+// func buildReleaseSmContextRequest(
+// 	ue *amf_context.AmfUe, cause *amf_context.CauseAll, n2SmInfoType models.N2SmInfoType, n2Info []byte) (
+// 	releaseData models.SmContextReleaseData,
+// ) {
+// 	if cause != nil {
+// 		if cause.Cause != nil {
+// 			releaseData.Cause = *cause.Cause
+// 		}
+// 		if cause.NgapCause != nil {
+// 			releaseData.NgApCause = cause.NgapCause
+// 		}
+// 		if cause.Var5GmmCause != nil {
+// 			releaseData.Var5gMmCauseValue = *cause.Var5GmmCause
+// 		}
+// 	}
+// 	if ue.TimeZone != "" {
+// 		releaseData.UeTimeZone = ue.TimeZone
+// 	}
+// 	if n2Info != nil {
+// 		releaseData.N2SmInfoType = n2SmInfoType
+// 		releaseData.N2SmInfo = &models.RefToBinaryData{
+// 			ContentId: "n2SmInfo",
+// 		}
+// 	}
+// 	// TODO: other param(ueLocation...)
+// 	return
+// }

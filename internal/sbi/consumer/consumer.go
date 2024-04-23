@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 
+	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/Namf_Communication"
 	"github.com/free5gc/openapi/Nausf_UEAuthentication"
@@ -13,8 +14,6 @@ import (
 	"github.com/free5gc/openapi/Nsmf_PDUSession"
 	"github.com/free5gc/openapi/Nudm_SubscriberDataManagement"
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
-
-	amf_context "github.com/free5gc/amf/internal/context"
 )
 
 type amf interface {

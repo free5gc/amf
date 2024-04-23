@@ -8,6 +8,7 @@ import (
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 )
@@ -80,7 +81,7 @@ func DeregistrationNotificationProcedure(ue *amf_context.AmfUe, deregData models
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*amf_context.SmContext)
 			if smContext.AccessType() == deregData.AccessType {
-				problemDetails, err = consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+				problemDetails, err = service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 				if problemDetails != nil {
 					ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetails)
 				} else if err != nil {
