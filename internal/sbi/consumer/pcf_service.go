@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"regexp"
+	"sync"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
@@ -11,10 +12,38 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*models.ProblemDetails, error) {
+type npcfService struct {
+	consumer *Consumer
+
+	AMPolicyMu sync.RWMutex
+
+	AMPolicyClients map[string]*Npcf_AMPolicy.APIClient
+}
+
+func (s *npcfService) getAMPolicyClient(uri string) *Npcf_AMPolicy.APIClient {
+	if uri == "" {
+		return nil
+	}
+	s.AMPolicyMu.RLock()
+	client, ok := s.AMPolicyClients[uri]
+	if ok {
+		defer s.AMPolicyMu.RUnlock()
+		return client
+	}
+
 	configuration := Npcf_AMPolicy.NewConfiguration()
-	configuration.SetBasePath(ue.PcfUri)
-	client := Npcf_AMPolicy.NewAPIClient(configuration)
+	configuration.SetBasePath(uri)
+	client = Npcf_AMPolicy.NewAPIClient(configuration)
+
+	s.AMPolicyMu.RUnlock()
+	s.AMPolicyMu.Lock()
+	defer s.AMPolicyMu.Unlock()
+	s.AMPolicyClients[uri] = client
+	return client
+}
+
+func (s *npcfService) AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*models.ProblemDetails, error) {
+	client := s.getAMPolicyClient(ue.PcfUri)
 
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
@@ -83,12 +112,10 @@ func AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*mo
 	return nil, nil
 }
 
-func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (
+func (s *npcfService) AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (
 	problemDetails *models.ProblemDetails, err error,
 ) {
-	configuration := Npcf_AMPolicy.NewConfiguration()
-	configuration.SetBasePath(ue.PcfUri)
-	client := Npcf_AMPolicy.NewAPIClient(configuration)
+	client := s.getAMPolicyClient(ue.PcfUri)
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err
@@ -135,10 +162,8 @@ func AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAss
 	return problemDetails, err
 }
 
-func AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
-	configuration := Npcf_AMPolicy.NewConfiguration()
-	configuration.SetBasePath(ue.PcfUri)
-	client := Npcf_AMPolicy.NewAPIClient(configuration)
+func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
+	client := s.getAMPolicyClient(ue.PcfUri)
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 
 	"github.com/antihax/optional"
 
@@ -16,13 +17,40 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
+type nausfService struct {
+	consumer *Consumer
+
+	UEAuthenticationMu sync.RWMutex
+
+	UEAuthenticationClients map[string]*Nausf_UEAuthentication.APIClient
+}
+
+func (s *nausfService) getUEAuthenticationClient(uri string) *Nausf_UEAuthentication.APIClient {
+	if uri == "" {
+		return nil
+	}
+	s.UEAuthenticationMu.RLock()
+	client, ok := s.UEAuthenticationClients[uri]
+	if ok {
+		defer s.UEAuthenticationMu.RUnlock()
+		return client
+	}
+
+	configuration := Nausf_UEAuthentication.NewConfiguration()
+	configuration.SetBasePath(uri)
+	client = Nausf_UEAuthentication.NewAPIClient(configuration)
+
+	s.UEAuthenticationMu.RUnlock()
+	s.UEAuthenticationMu.Lock()
+	defer s.UEAuthenticationMu.Unlock()
+	s.UEAuthenticationClients[uri] = client
+	return client
+}
+
+func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 	resynchronizationInfo *models.ResynchronizationInfo,
 ) (*models.UeAuthenticationCtx, *models.ProblemDetails, error) {
-	configuration := Nausf_UEAuthentication.NewConfiguration()
-	configuration.SetBasePath(ue.AusfUri)
-
-	client := Nausf_UEAuthentication.NewAPIClient(configuration)
+	client := s.getUEAuthenticationClient(ue.AusfUri)
 
 	amfSelf := amf_context.GetSelf()
 	servedGuami := amfSelf.ServedGuamiList[0]
@@ -64,7 +92,7 @@ func SendUEAuthenticationAuthenticateRequest(ue *amf_context.AmfUe,
 	}
 }
 
-func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
+func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error,
 ) {
 	var ausfUri string
@@ -74,9 +102,7 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 		ausfUri = fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
 	}
 
-	configuration := Nausf_UEAuthentication.NewConfiguration()
-	configuration.SetBasePath(ausfUri)
-	client := Nausf_UEAuthentication.NewAPIClient(configuration)
+	client := s.getUEAuthenticationClient(ausfUri)
 
 	confirmData := &Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutParamOpts{
 		ConfirmationData: optional.NewInterface(models.ConfirmationData{
@@ -115,7 +141,7 @@ func SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resStar string) (
 	}
 }
 
-func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
+func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
 	response *models.EapSession, problemDetails *models.ProblemDetails, err1 error,
 ) {
 	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["eap-session"].Href)
@@ -124,9 +150,7 @@ func SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage)
 	}
 	ausfUri := fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
 
-	configuration := Nausf_UEAuthentication.NewConfiguration()
-	configuration.SetBasePath(ausfUri)
-	client := Nausf_UEAuthentication.NewAPIClient(configuration)
+	client := s.getUEAuthenticationClient(ausfUri)
 
 	eapSessionReq := &Nausf_UEAuthentication.EapAuthMethodParamOpts{
 		EapSession: optional.NewInterface(models.EapSession{

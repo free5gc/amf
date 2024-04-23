@@ -7,7 +7,7 @@ import (
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
-	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 )
@@ -80,7 +80,7 @@ func DeregistrationNotificationProcedure(ue *amf_context.AmfUe, deregData models
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*amf_context.SmContext)
 			if smContext.AccessType() == deregData.AccessType {
-				problemDetails, err = consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+				problemDetails, err = service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 				if problemDetails != nil {
 					ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetails)
 				} else if err != nil {
@@ -94,7 +94,7 @@ func DeregistrationNotificationProcedure(ue *amf_context.AmfUe, deregData models
 	// TODO: (R16) If old AMF does not have UE context for another access type (i.e. non-3GPP access),
 	// the Old AMF unsubscribes with the UDM for subscription data using Nudm_SDM_unsubscribe
 	if ue.SdmSubscriptionId != "" {
-		problemDetails, err = consumer.SDMUnsubscribe(ue)
+		problemDetails, err = service.GetApp().Consumer().SDMUnsubscribe(ue)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("SDM Unubscribe Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
@@ -110,7 +110,7 @@ func DeregistrationNotificationProcedure(ue *amf_context.AmfUe, deregData models
 		// procedure if the old AMF has established an AM Policy Association and a UE Policy Association with the PCF(s)
 		// and the old AMF did not transfer the PCF ID(s) to the new AMF. (Ref: TS 23.502 - 4.2.2.2.2)
 		// Currently, old AMF will transfer the PCF ID but new AMF will not utilize the PCF ID
-		problemDetails, err := consumer.AMPolicyControlDelete(ue)
+		problemDetails, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("Delete AM policy Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
