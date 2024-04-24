@@ -51,6 +51,9 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	resynchronizationInfo *models.ResynchronizationInfo,
 ) (*models.UeAuthenticationCtx, *models.ProblemDetails, error) {
 	client := s.getUEAuthenticationClient(ue.AusfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("ausf not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	servedGuami := amfSelf.ServedGuamiList[0]

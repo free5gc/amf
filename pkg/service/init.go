@@ -13,6 +13,17 @@ import (
 	"github.com/free5gc/amf/pkg/factory"
 )
 
+var _ App = &AmfApp{}
+
+type App interface {
+	Start(tlsKeyLogPath string)
+	Terminate()
+	Config() *factory.Config
+	Context() *amf_context.AMFContext
+	CancelContext() context.Context
+	Consumer() *consumer.Consumer
+}
+
 type AmfApp struct {
 	cfg    *factory.Config
 	amfCtx *amf_context.AMFContext
@@ -26,9 +37,9 @@ type AmfApp struct {
 	stop  func(*AmfApp)
 }
 
-var AMF *AmfApp
+var AMF App
 
-func GetApp() *AmfApp {
+func GetApp() App {
 	return AMF
 }
 
