@@ -187,7 +187,7 @@ func action(cliCtx *cli.Context) error {
 		callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	}
 
-	amf, err := service.NewApp(cfg, ([]func(*service.AmfApp){appStart, appStop}))
+	amf, err := service.NewApp(cfg, appStart, appStop)
 	if err != nil {
 		return err
 	}

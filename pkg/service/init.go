@@ -32,11 +32,11 @@ func GetApp() *AmfApp {
 	return AMF
 }
 
-func NewApp(cfg *factory.Config, funcs []func(*AmfApp)) (*AmfApp, error) {
+func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp)) (*AmfApp, error) {
 	amf := &AmfApp{
 		cfg:   cfg,
-		start: funcs[0],
-		stop:  funcs[1],
+		start: startFunc,
+		stop:  terminateFunc,
 	}
 	amf.SetLogEnable(cfg.GetLogEnable())
 	amf.SetLogLevel(cfg.GetLogLevel())
