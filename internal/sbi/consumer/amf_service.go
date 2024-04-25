@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"fmt"
+	"sync"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
@@ -11,13 +12,43 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId,
+type namfService struct {
+	consumer *Consumer
+
+	ComMu sync.RWMutex
+
+	ComClients map[string]*Namf_Communication.APIClient
+}
+
+func (s *namfService) getComClient(uri string) *Namf_Communication.APIClient {
+	if uri == "" {
+		return nil
+	}
+	s.ComMu.RLock()
+	client, ok := s.ComClients[uri]
+	if ok {
+		defer s.ComMu.RUnlock()
+		return client
+	}
+
+	configuration := Namf_Communication.NewConfiguration()
+	configuration.SetBasePath(uri)
+	client = Namf_Communication.NewAPIClient(configuration)
+
+	s.ComMu.RUnlock()
+	s.ComMu.Lock()
+	defer s.ComMu.Unlock()
+	s.ComClients[uri] = client
+	return client
+}
+
+func (s *namfService) BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTargetId,
 	sourceToTargetData models.N2InfoContent, pduSessionList []models.N2SmInformation,
 	n2NotifyUri string, ngapCause *models.NgApCause,
 ) models.UeContextCreateData {
 	var ueContextCreateData models.UeContextCreateData
 
-	ueContext := BuildUeContextModel(ue)
+	ueContext := s.BuildUeContextModel(ue)
 	ueContextCreateData.UeContext = &ueContext
 	ueContextCreateData.TargetId = &targetRanId
 	ueContextCreateData.SourceToTargetData = &sourceToTargetData
@@ -35,7 +66,7 @@ func BuildUeContextCreateData(ue *amf_context.AmfUe, targetRanId models.NgRanTar
 	return ueContextCreateData
 }
 
-func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
+func (s *namfService) BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
 
@@ -81,7 +112,7 @@ func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
 
 	if ue.AmPolicyAssociation != nil {
 		if len(ue.AmPolicyAssociation.Triggers) > 0 {
-			ueContext.AmPolicyReqTriggerList = buildAmPolicyReqTriggers(ue.AmPolicyAssociation.Triggers)
+			ueContext.AmPolicyReqTriggerList = s.buildAmPolicyReqTriggers(ue.AmPolicyAssociation.Triggers)
 		}
 	}
 
@@ -97,7 +128,9 @@ func BuildUeContextModel(ue *amf_context.AmfUe) (ueContext models.UeContext) {
 	return ueContext
 }
 
-func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
+func (s *namfService) buildAmPolicyReqTriggers(
+	triggers []models.RequestTrigger,
+) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
 	for _, trigger := range triggers {
 		switch trigger {
 		case models.RequestTrigger_LOC_CH:
@@ -113,12 +146,13 @@ func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTrig
 	return
 }
 
-func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
+func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
 	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error,
 ) {
-	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(ue.TargetAmfUri)
-	client := Namf_Communication.NewAPIClient(configuration)
+	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("amf not found")
+	}
 
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
@@ -152,12 +186,13 @@ func CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.Ue
 	return ueContextCreatedData, problemDetails, err
 }
 
-func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (
+func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (
 	problemDetails *models.ProblemDetails, err error,
 ) {
-	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(ue.TargetAmfUri)
-	client := Namf_Communication.NewAPIClient(configuration)
+	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, openapi.ReportError("amf not found")
+	}
 
 	var ueContextId string
 	if ue.Supi != "" {
@@ -202,13 +237,14 @@ func ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) 
 	return problemDetails, err
 }
 
-func UEContextTransferRequest(
+func (s *namfService) UEContextTransferRequest(
 	ue *amf_context.AmfUe, accessType models.AccessType, transferReason models.TransferReason) (
 	ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error,
 ) {
-	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(ue.TargetAmfUri)
-	client := Namf_Communication.NewAPIClient(configuration)
+	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("amf not found")
+	}
 
 	ueContextTransferReqData := models.UeContextTransferReqData{
 		Reason:     transferReason,
@@ -260,13 +296,13 @@ func UEContextTransferRequest(
 	return ueContextTransferRspData, problemDetails, err
 }
 
-// This operation is called "RegistrationCompleteNotify" at TS 23.502
-func RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (
+func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request models.UeRegStatusUpdateReqData) (
 	regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error,
 ) {
-	configuration := Namf_Communication.NewConfiguration()
-	configuration.SetBasePath(ue.TargetAmfUri)
-	client := Namf_Communication.NewAPIClient(configuration)
+	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return false, nil, openapi.ReportError("amf not found")
+	}
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 

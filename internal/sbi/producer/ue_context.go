@@ -10,7 +10,7 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
-	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
@@ -588,7 +588,8 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
 				continue
 			}
-			problem, err := consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+			// problem, err := app_service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+			problem, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)
 			} else if err != nil {
@@ -597,7 +598,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 		}
 
 		if ueRegStatusUpdateReqData.PcfReselectedInd {
-			problem, err := consumer.AMPolicyControlDelete(ue)
+			problem, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
 			if problem != nil {
 				logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 			} else if err != nil {
