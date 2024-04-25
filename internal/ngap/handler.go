@@ -1093,10 +1093,10 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 						// TODO: Check if doing error handling here
 						continue
 					}
-					response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
+					rsp, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
 					if err != nil {
 						ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
-					} else if response == nil {
+					} else if rsp == nil {
 						ranUe.Log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
 					}
 				}
@@ -1406,7 +1406,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			response, errResponse, problemDetails, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
+			resp, errResponse, problemDetails, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
 				smContext, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
 			if err != nil {
 				targetUe.Log.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
@@ -1414,10 +1414,10 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 			if problemDetails != nil {
 				targetUe.Log.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
 			}
-			if response != nil && response.BinaryDataN2SmInformation != nil {
+			if resp != nil && resp.BinaryDataN2SmInformation != nil {
 				handoverItem := ngapType.PDUSessionResourceHandoverItem{}
 				handoverItem.PDUSessionID = item.PDUSessionID
-				handoverItem.HandoverCommandTransfer = response.BinaryDataN2SmInformation
+				handoverItem.HandoverCommandTransfer = resp.BinaryDataN2SmInformation
 				pduSessionResourceHandoverList.List = append(pduSessionResourceHandoverList.List, handoverItem)
 				targetUe.SuccessPduSessionId = append(targetUe.SuccessPduSessionId, pduSessionID)
 			}
