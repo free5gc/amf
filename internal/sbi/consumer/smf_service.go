@@ -13,7 +13,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
-
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
@@ -159,6 +158,10 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	}
 
 	client := s.getPDUSessionClient(smContext.SmfUri())
+	if client == nil {
+		return nil, "", nil, nil, openapi.ReportError("smf not found")
+	}
+
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NfType_SMF)
 	if err != nil {
 		return nil, "", nil, nil, err
@@ -459,6 +462,9 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 	problemDetail *models.ProblemDetails, err1 error,
 ) {
 	client := s.getPDUSessionClient(smContext.SmfUri())
+	if client == nil {
+		return nil, nil, nil, openapi.ReportError("smf not found")
+	}
 
 	var updateSmContextRequest models.UpdateSmContextRequest
 	updateSmContextRequest.JsonData = &updateData
@@ -508,6 +514,9 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 	n2Info []byte,
 ) (detail *models.ProblemDetails, err error) {
 	client := s.getPDUSessionClient(smContext.SmfUri())
+	if client == nil {
+		return nil, openapi.ReportError("smf not found")
+	}
 
 	releaseData := s.buildReleaseSmContextRequest(ue, cause, n2SmInfoType, n2Info)
 	releaseSmContextRequest := models.ReleaseSmContextRequest{

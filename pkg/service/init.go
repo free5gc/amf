@@ -32,9 +32,8 @@ type AmfApp struct {
 
 	consumer *consumer.Consumer
 
-	// ngap
-	start func(*AmfApp)
-	stop  func(*AmfApp)
+	start     func(*AmfApp)
+	terminate func(*AmfApp)
 }
 
 var AMF App
@@ -45,9 +44,9 @@ func GetApp() App {
 
 func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp)) (*AmfApp, error) {
 	amf := &AmfApp{
-		cfg:   cfg,
-		start: startFunc,
-		stop:  terminateFunc,
+		cfg:       cfg,
+		start:     startFunc,
+		terminate: terminateFunc,
 	}
 	amf.SetLogEnable(cfg.GetLogEnable())
 	amf.SetLogLevel(cfg.GetLogLevel())
@@ -119,7 +118,7 @@ func (a *AmfApp) Start(tlsKeyLogPath string) {
 func (a *AmfApp) Terminate() {
 	logger.InitLog.Infof("Terminating AMF...")
 	a.cancel()
-	a.stop(a)
+	a.terminate(a)
 	logger.InitLog.Infof("AMF terminated")
 }
 

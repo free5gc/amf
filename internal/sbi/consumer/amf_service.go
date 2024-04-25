@@ -128,7 +128,9 @@ func (s *namfService) BuildUeContextModel(ue *amf_context.AmfUe) (ueContext mode
 	return ueContext
 }
 
-func (s *namfService) buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
+func (s *namfService) buildAmPolicyReqTriggers(
+	triggers []models.RequestTrigger,
+) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
 	for _, trigger := range triggers {
 		switch trigger {
 		case models.RequestTrigger_LOC_CH:
@@ -148,6 +150,9 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("amf not found")
+	}
 
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
@@ -185,6 +190,9 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 	problemDetails *models.ProblemDetails, err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, openapi.ReportError("amf not found")
+	}
 
 	var ueContextId string
 	if ue.Supi != "" {
@@ -234,6 +242,9 @@ func (s *namfService) UEContextTransferRequest(
 	ueContextTransferRspData *models.UeContextTransferRspData, problemDetails *models.ProblemDetails, err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("amf not found")
+	}
 
 	ueContextTransferReqData := models.UeContextTransferReqData{
 		Reason:     transferReason,
@@ -289,6 +300,9 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 	regStatusTransferComplete bool, problemDetails *models.ProblemDetails, err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return false, nil, openapi.ReportError("amf not found")
+	}
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 

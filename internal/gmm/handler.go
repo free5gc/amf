@@ -17,7 +17,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
+	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
@@ -33,10 +36,6 @@ import (
 	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/fsm"
-
-	gmm_common "github.com/free5gc/amf/internal/gmm/common"
-	gmm_message "github.com/free5gc/amf/internal/gmm/message"
-	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 )
 
 const psiArraySize = 16

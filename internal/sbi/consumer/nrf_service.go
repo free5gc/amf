@@ -77,6 +77,9 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 ) (*models.SearchResult, error) {
 	// Set client and set url
 	client := s.getNFDiscClient(nrfUri)
+	if client == nil {
+		return nil, openapi.ReportError("nrf not found")
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_DISC, models.NfType_NRF)
 	if err != nil {
@@ -238,6 +241,9 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 ) {
 	// Set client and set url
 	client := s.getNFManagementClient(nrfUri)
+	if client == nil {
+		return "", "", openapi.ReportError("nrf not found")
+	}
 
 	var res *http.Response
 	var nf models.NfProfile
@@ -290,15 +296,17 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 
 func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
+	amfContext := s.consumer.amf.Context()
+
+	client := s.getNFManagementClient(amfContext.NrfUri)
+	if client == nil {
+		return nil, openapi.ReportError("nrf not found")
+	}
 
 	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_NFM, models.NfType_NRF)
 	if err != nil {
 		return pd, err
 	}
-
-	amfContext := s.consumer.amf.Context()
-	// Set client and set url
-	client := s.getNFManagementClient(amfContext.NrfUri)
 
 	var res *http.Response
 
