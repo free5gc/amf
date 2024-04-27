@@ -87,7 +87,7 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 	logger.NgapLog.Infof("Listen on %s", sctpListener.Addr())
 
 	for {
-		newConn, err := sctpListener.AcceptSCTP()
+		newConn, err := sctpListener.AcceptSCTP(5)
 		if err != nil {
 			switch err {
 			case syscall.EINTR, syscall.EAGAIN:
