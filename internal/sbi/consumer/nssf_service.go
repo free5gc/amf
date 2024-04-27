@@ -47,6 +47,9 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	*models.ProblemDetails, error,
 ) {
 	client := s.getNSSelectionClient(ue.NssfUri)
+	if client == nil {
+		return nil, openapi.ReportError("nssf not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
@@ -107,6 +110,9 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	*models.AuthorizedNetworkSliceInfo, *models.ProblemDetails, error,
 ) {
 	client := s.getNSSelectionClient(ue.NssfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("nssf not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	sliceInfoForPduSession := models.SliceInfoForPduSession{

@@ -13,6 +13,17 @@ import (
 	"github.com/free5gc/amf/pkg/factory"
 )
 
+var _ App = &AmfApp{}
+
+type App interface {
+	Start(tlsKeyLogPath string)
+	Terminate()
+	Config() *factory.Config
+	Context() *amf_context.AMFContext
+	CancelContext() context.Context
+	Consumer() *consumer.Consumer
+}
+
 type AmfApp struct {
 	cfg    *factory.Config
 	amfCtx *amf_context.AMFContext
@@ -21,22 +32,21 @@ type AmfApp struct {
 
 	consumer *consumer.Consumer
 
-	// ngap
-	start func(*AmfApp)
-	stop  func(*AmfApp)
+	start     func(*AmfApp)
+	terminate func(*AmfApp)
 }
 
-var AMF *AmfApp
+var AMF App
 
-func GetApp() *AmfApp {
+func GetApp() App {
 	return AMF
 }
 
-func NewApp(cfg *factory.Config, funcs []func(*AmfApp)) (*AmfApp, error) {
+func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp)) (*AmfApp, error) {
 	amf := &AmfApp{
-		cfg:   cfg,
-		start: funcs[0],
-		stop:  funcs[1],
+		cfg:       cfg,
+		start:     startFunc,
+		terminate: terminateFunc,
 	}
 	amf.SetLogEnable(cfg.GetLogEnable())
 	amf.SetLogLevel(cfg.GetLogLevel())
@@ -108,7 +118,7 @@ func (a *AmfApp) Start(tlsKeyLogPath string) {
 func (a *AmfApp) Terminate() {
 	logger.InitLog.Infof("Terminating AMF...")
 	a.cancel()
-	a.stop(a)
+	a.terminate(a)
 	logger.InitLog.Infof("AMF terminated")
 }
 

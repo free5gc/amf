@@ -42,9 +42,13 @@ func (s *npcfService) getAMPolicyClient(uri string) *Npcf_AMPolicy.APIClient {
 	return client
 }
 
-func (s *npcfService) AMPolicyControlCreate(ue *amf_context.AmfUe, anType models.AccessType) (*models.ProblemDetails, error) {
+func (s *npcfService) AMPolicyControlCreate(
+	ue *amf_context.AmfUe, anType models.AccessType,
+) (*models.ProblemDetails, error) {
 	client := s.getAMPolicyClient(ue.PcfUri)
-
+	if client == nil {
+		return nil, openapi.ReportError("pcf not found")
+	}
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
@@ -112,10 +116,14 @@ func (s *npcfService) AMPolicyControlCreate(ue *amf_context.AmfUe, anType models
 	return nil, nil
 }
 
-func (s *npcfService) AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest) (
-	problemDetails *models.ProblemDetails, err error,
-) {
+func (s *npcfService) AMPolicyControlUpdate(
+	ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest,
+) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getAMPolicyClient(ue.PcfUri)
+	if client == nil {
+		return nil, openapi.ReportError("pcf not found")
+	}
+
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err
@@ -164,6 +172,10 @@ func (s *npcfService) AMPolicyControlUpdate(ue *amf_context.AmfUe, updateRequest
 
 func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getAMPolicyClient(ue.PcfUri)
+	if client == nil {
+		return nil, openapi.ReportError("pcf not found")
+	}
+
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
 	if err != nil {
 		return nil, err

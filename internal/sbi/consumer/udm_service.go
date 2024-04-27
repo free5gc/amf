@@ -71,6 +71,9 @@ func (s *nudmService) getUEContextMngmntClient(uri string) *Nudm_UEContextManage
 
 func (s *nudmService) PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return openapi.ReportError("udm not found")
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
@@ -98,6 +101,9 @@ func (s *nudmService) PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
 
 func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	getAmDataParamOpt := Nudm_SubscriberDataManagement.GetAmDataParamOpts{
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
@@ -136,6 +142,9 @@ func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *model
 
 func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	paramOpt := Nudm_SubscriberDataManagement.GetSmfSelectDataParamOpts{
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
@@ -172,8 +181,13 @@ func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails
 	return problemDetails, err
 }
 
-func (s *nudmService) SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
+func (s *nudmService) SDMGetUeContextInSmfData(
+	ue *amf_context.AmfUe,
+) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
@@ -208,6 +222,9 @@ func (s *nudmService) SDMGetUeContextInSmfData(ue *amf_context.AmfUe) (problemDe
 
 func (s *nudmService) SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	sdmSubscription := models.SdmSubscription{
@@ -246,8 +263,13 @@ func (s *nudmService) SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *model
 	return problemDetails, err
 }
 
-func (s *nudmService) SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
+func (s *nudmService) SDMGetSliceSelectionSubscriptionData(
+	ue *amf_context.AmfUe,
+) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	paramOpt := Nudm_SubscriberDataManagement.GetNssaiParamOpts{
 		PlmnId: optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId)),
@@ -304,6 +326,9 @@ func (s *nudmService) SDMGetSliceSelectionSubscriptionData(ue *amf_context.AmfUe
 
 func (s *nudmService) SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getSubscriberDMngmntClients(ue.NudmSDMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_SDM, models.NfType_UDM)
 	if err != nil {
@@ -334,10 +359,13 @@ func (s *nudmService) SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *mod
 	return problemDetails, err
 }
 
-func (s *nudmService) UeCmRegistration(ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool) (
-	*models.ProblemDetails, error,
-) {
+func (s *nudmService) UeCmRegistration(
+	ue *amf_context.AmfUe, accessType models.AccessType, initialRegistrationInd bool,
+) (*models.ProblemDetails, error) {
 	client := s.getUEContextMngmntClient(ue.NudmUECMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UEAU, models.NfType_UDM)
@@ -419,10 +447,13 @@ func (s *nudmService) UeCmRegistration(ue *amf_context.AmfUe, accessType models.
 	return nil, nil
 }
 
-func (s *nudmService) UeCmDeregistration(ue *amf_context.AmfUe, accessType models.AccessType) (
-	*models.ProblemDetails, error,
-) {
+func (s *nudmService) UeCmDeregistration(
+	ue *amf_context.AmfUe, accessType models.AccessType,
+) (*models.ProblemDetails, error) {
 	client := s.getUEContextMngmntClient(ue.NudmUECMUri)
+	if client == nil {
+		return nil, openapi.ReportError("udm not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NUDM_UECM, models.NfType_UDM)

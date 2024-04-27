@@ -77,6 +77,9 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 ) (*models.SearchResult, error) {
 	// Set client and set url
 	client := s.getNFDiscClient(nrfUri)
+	if client == nil {
+		return nil, openapi.ReportError("nrf not found")
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_DISC, models.NfType_NRF)
 	if err != nil {
@@ -100,7 +103,8 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 	return &result, err
 }
 
-func (s *nnrfService) SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
+func (s *nnrfService) SearchUdmSdmInstance(
+	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
 	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
@@ -126,7 +130,8 @@ func (s *nnrfService) SearchUdmSdmInstance(ue *amf_context.AmfUe, nrfUri string,
 	return nil
 }
 
-func (s *nnrfService) SearchNssfNSSelectionInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
+func (s *nnrfService) SearchNssfNSSelectionInstance(
+	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
 	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
@@ -238,6 +243,9 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 ) {
 	// Set client and set url
 	client := s.getNFManagementClient(nrfUri)
+	if client == nil {
+		return "", "", openapi.ReportError("nrf not found")
+	}
 
 	var res *http.Response
 	var nf models.NfProfile
@@ -290,15 +298,17 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 
 func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
+	amfContext := s.consumer.amf.Context()
+
+	client := s.getNFManagementClient(amfContext.NrfUri)
+	if client == nil {
+		return nil, openapi.ReportError("nrf not found")
+	}
 
 	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_NFM, models.NfType_NRF)
 	if err != nil {
 		return pd, err
 	}
-
-	amfContext := s.consumer.amf.Context()
-	// Set client and set url
-	client := s.getNFManagementClient(amfContext.NrfUri)
 
 	var res *http.Response
 

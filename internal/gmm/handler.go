@@ -17,7 +17,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/free5gc/amf/internal/context"
+	gmm_common "github.com/free5gc/amf/internal/gmm/common"
+	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/producer/callback"
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
@@ -33,10 +36,6 @@ import (
 	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/fsm"
-
-	gmm_common "github.com/free5gc/amf/internal/gmm/common"
-	gmm_message "github.com/free5gc/amf/internal/gmm/message"
-	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 )
 
 const psiArraySize = 16
@@ -261,7 +260,8 @@ func CreatePDUSession(ulNasTransport *nasMessage.ULNASTransport,
 		}
 	}
 
-	if newSmContext, cause, err := service.GetApp().Consumer().SelectSmf(ue, anType, pduSessionID, snssai, dnn); err != nil {
+	if newSmContext, cause, err := service.GetApp().Consumer().SelectSmf(
+		ue, anType, pduSessionID, snssai, dnn); err != nil {
 		ue.GmmLog.Errorf("Select SMF failed: %+v", err)
 		gmm_message.SendDLNASTransport(ue.RanUe[anType], nasMessage.PayloadContainerTypeN1SMInfo,
 			smMessage, pduSessionID, cause, nil, 0)
@@ -592,15 +592,16 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 	case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
 		transferReason = models.TransferReason_MOBI_REG
 	}
-	ueContextTransferRspData, problemDetails, err := service.GetApp().Consumer().UEContextTransferRequest(ue, anType, transferReason)
-	if problemDetails != nil {
-		if problemDetails.Cause == "INTEGRITY_CHECK_FAIL" || problemDetails.Cause == "CONTEXT_NOT_FOUND" {
+
+	ueContextTransferRspData, pd, err := service.GetApp().Consumer().UEContextTransferRequest(ue, anType, transferReason)
+	if pd != nil {
+		if pd.Cause == "INTEGRITY_CHECK_FAIL" || pd.Cause == "CONTEXT_NOT_FOUND" {
 			// TODO 9a. After successful authentication in new AMF, which is triggered by the integrity check failure
 			// in old AMF at step 5, the new AMF invokes step 4 above again and indicates that the UE is validated
 			//(i.e. through the reason parameter as specified in clause 5.2.2.2.2).
-			return fmt.Errorf("Can not retrieve UE Context from old AMF[Cause: %s]", problemDetails.Cause)
+			return fmt.Errorf("Can not retrieve UE Context from old AMF[Cause: %s]", pd.Cause)
 		}
-		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", problemDetails)
+		return fmt.Errorf("UE Context Transfer Request Failed Problem[%+v]", pd)
 	} else if err != nil {
 		return fmt.Errorf("UE Context Transfer Request Error[%+v]", err)
 	} else {
@@ -702,7 +703,8 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 
 	// }
 	for {
-		resp, err := service.GetApp().Consumer().SendSearchNFInstances(amfSelf.NrfUri, models.NfType_PCF, models.NfType_AMF, &param)
+		resp, err := service.GetApp().Consumer().SendSearchNFInstances(
+			amfSelf.NrfUri, models.NfType_PCF, models.NfType_AMF, &param)
 		if err != nil {
 			ue.GmmLog.Error("AMF can not select an PCF by NRF")
 		} else {
@@ -1007,7 +1009,8 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		Supi: optional.NewString(ue.Supi),
 	}
-	resp, err := service.GetApp().Consumer().SendSearchNFInstances(amfSelf.NrfUri, models.NfType_UDM, models.NfType_AMF, &param)
+	resp, err := service.GetApp().Consumer().SendSearchNFInstances(
+		amfSelf.NrfUri, models.NfType_UDM, models.NfType_AMF, &param)
 	if err != nil {
 		return errors.Errorf("AMF can not select an UDM by NRF: SendSearchNFInstances failed")
 	}
@@ -1076,7 +1079,8 @@ func getSubscribedNssai(ue *context.AmfUe) {
 			Supi: optional.NewString(ue.Supi),
 		}
 		for {
-			err := service.GetApp().Consumer().SearchUdmSdmInstance(ue, amfSelf.NrfUri, models.NfType_UDM, models.NfType_AMF, &param)
+			err := service.GetApp().Consumer().SearchUdmSdmInstance(
+				ue, amfSelf.NrfUri, models.NfType_UDM, models.NfType_AMF, &param)
 			if err != nil {
 				ue.GmmLog.Errorf("AMF can not select an Nudm_SDM Instance by NRF[Error: %+v]", err)
 				time.Sleep(2 * time.Second)
@@ -1139,7 +1143,8 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 		if needSliceSelection {
 			if ue.NssfUri == "" {
 				for {
-					err := service.GetApp().Consumer().SearchNssfNSSelectionInstance(ue, amfSelf.NrfUri, models.NfType_NSSF, models.NfType_AMF, nil)
+					err := service.GetApp().Consumer().SearchNssfNSSelectionInstance(
+						ue, amfSelf.NrfUri, models.NfType_NSSF, models.NfType_AMF, nil)
 					if err != nil {
 						ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", err)
 						time.Sleep(2 * time.Second)
@@ -1648,7 +1653,8 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 
 	// TODO: consider ausf group id, Routing ID part of SUCI
 	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{}
-	resp, err := service.GetApp().Consumer().SendSearchNFInstances(amfSelf.NrfUri, models.NfType_AUSF, models.NfType_AMF, &param)
+	resp, err := service.GetApp().Consumer().SendSearchNFInstances(
+		amfSelf.NrfUri, models.NfType_AUSF, models.NfType_AMF, &param)
 	if err != nil {
 		ue.GmmLog.Error("AMF can not select an AUSF by NRF")
 		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
@@ -1984,7 +1990,8 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		}
 
-		response, problemDetails, err := service.GetApp().Consumer().SendAuth5gAkaConfirmRequest(ue, hex.EncodeToString(resStar[:]))
+		response, problemDetails, err := service.GetApp().Consumer().SendAuth5gAkaConfirmRequest(
+			ue, hex.EncodeToString(resStar[:]))
 		if err != nil {
 			return err
 		} else if problemDetails != nil {
@@ -2018,11 +2025,11 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		}
 	case models.AuthType_EAP_AKA_PRIME:
-		response, problemDetails, err := service.GetApp().Consumer().SendEapAuthConfirmRequest(ue, *authenticationResponse.EAPMessage)
+		response, pd, err := service.GetApp().Consumer().SendEapAuthConfirmRequest(ue, *authenticationResponse.EAPMessage)
 		if err != nil {
 			return err
-		} else if problemDetails != nil {
-			ue.GmmLog.Debugf("EapAuthConfirm Error[Problem Detail: %+v]", problemDetails)
+		} else if pd != nil {
+			ue.GmmLog.Debugf("EapAuthConfirm Error[Problem Detail: %+v]", pd)
 			return nil
 		}
 
@@ -2153,11 +2160,11 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 				Rand: av5gAka.Rand,
 			}
 
-			response, problemDetails, err := service.GetApp().Consumer().SendUEAuthenticationAuthenticateRequest(ue, resynchronizationInfo)
+			response, pd, err := service.GetApp().Consumer().SendUEAuthenticationAuthenticateRequest(ue, resynchronizationInfo)
 			if err != nil {
 				return err
-			} else if problemDetails != nil {
-				ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error[Problem Detail: %+v]", problemDetails)
+			} else if pd != nil {
+				ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error[Problem Detail: %+v]", pd)
 				return nil
 			}
 			ue.AuthenticationCtx = response

@@ -51,6 +51,9 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	resynchronizationInfo *models.ResynchronizationInfo,
 ) (*models.UeAuthenticationCtx, *models.ProblemDetails, error) {
 	client := s.getUEAuthenticationClient(ue.AusfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("ausf not found")
+	}
 
 	amfSelf := amf_context.GetSelf()
 	servedGuami := amfSelf.ServedGuamiList[0]
@@ -103,6 +106,9 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	}
 
 	client := s.getUEAuthenticationClient(ausfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("ausf not found")
+	}
 
 	confirmData := &Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutParamOpts{
 		ConfirmationData: optional.NewInterface(models.ConfirmationData{
@@ -151,6 +157,9 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 	ausfUri := fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
 
 	client := s.getUEAuthenticationClient(ausfUri)
+	if client == nil {
+		return nil, nil, openapi.ReportError("ausf not found")
+	}
 
 	eapSessionReq := &Nausf_UEAuthentication.EapAuthMethodParamOpts{
 		EapSession: optional.NewInterface(models.EapSession{
