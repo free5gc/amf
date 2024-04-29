@@ -10,7 +10,7 @@ require (
 	github.com/free5gc/nas v1.1.3
 	github.com/free5gc/ngap v1.0.8
 	github.com/free5gc/openapi v1.0.8
-	github.com/free5gc/sctp v1.0.0
+	github.com/free5gc/sctp v1.0.1
 	github.com/free5gc/util v1.0.6
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
@@ -22,6 +22,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli v1.22.14
+	go.uber.org/mock v0.4.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -57,7 +58,6 @@ require (
 	github.com/tim-ywliu/nested-logrus-formatter v1.3.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/arch v0.7.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/net v0.24.0 // indirect

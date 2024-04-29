@@ -1093,7 +1093,7 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 						// TODO: Check if doing error handling here
 						continue
 					}
-					response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
+					rsp, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
 					if err != nil {
 						ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 					} else if rsp == nil {
