@@ -16,11 +16,8 @@ import (
 var _ App = &AmfApp{}
 
 type App interface {
-	Start(tlsKeyLogPath string)
-	Terminate()
-	Config() *factory.Config
 	Context() *amf_context.AMFContext
-	CancelContext() context.Context
+	Config() *factory.Config
 	Consumer() *consumer.Consumer
 }
 
