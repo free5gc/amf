@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime/debug"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -31,6 +33,7 @@ type AmfApp struct {
 	amfCtx *amf_context.AMFContext
 	ctx    context.Context
 	cancel context.CancelFunc
+	wg     sync.WaitGroup
 
 	consumer *consumer.Consumer
 
@@ -42,7 +45,7 @@ func GetApp() AmfAppInterface {
 	return AMF
 }
 
-func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp), tlsKeyLogPath string) (*AmfApp, error) {
+func NewApp(ctx context.Context, cfg *factory.Config, startFunc, terminateFunc func(*AmfApp), tlsKeyLogPath string) (*AmfApp, error) {
 	amf := &AmfApp{
 		cfg:       cfg,
 		start:     startFunc,
@@ -52,6 +55,7 @@ func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp), tlsKeyL
 	amf.SetLogLevel(cfg.GetLogLevel())
 	amf.SetReportCaller(cfg.GetLogReportCaller())
 
+	amf.ctx, amf.cancel = context.WithCancel(ctx)
 	amf.amfCtx = amf_context.GetSelf()
 	amf_context.InitAmfContext(amf.amfCtx)
 
@@ -111,6 +115,8 @@ func (a *AmfApp) SetReportCaller(reportCaller bool) {
 func (a *AmfApp) Start(tlsKeyLogPath string) {
 	logger.InitLog.Infoln("Server started")
 
+	a.wg.Add(1)
+	go a.listenShutdownEvent()
 	a.start(a)
 }
 
@@ -136,4 +142,17 @@ func (a *AmfApp) CancelContext() context.Context {
 
 func (a *AmfApp) Consumer() *consumer.Consumer {
 	return a.consumer
+}
+
+func (a *AmfApp) listenShutdownEvent() {
+	defer func() {
+		if p := recover(); p != nil {
+			// Print stack for panic to log. Fatalf() will let program exit.
+			logger.MainLog.Fatalf("panic: %v\n%s", p, string(debug.Stack()))
+		}
+		a.wg.Done()
+	}()
+
+	<-a.ctx.Done()
+	a.Terminate()
 }

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime/debug"
+	"syscall"
 
 	"github.com/urfave/cli"
 
@@ -53,6 +56,15 @@ func action(cliCtx *cli.Context) error {
 
 	logger.MainLog.Infoln("AMF version: ", version.GetVersion())
 
+	ctx, cancel := context.WithCancel(context.Background())
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigCh  // Wait for interrupt signal to gracefully shutdown
+		cancel() // Notify each goroutine and wait them stopped
+	}()
+
 	cfg, err := factory.ReadConfig(cliCtx.String("config"))
 	if err != nil {
 		return err
@@ -60,7 +72,7 @@ func action(cliCtx *cli.Context) error {
 	factory.AmfConfig = cfg
 
 	appStart, appStop := utils.InitFunc(tlsKeyLogPath)
-	amf, err := service.NewApp(cfg, appStart, appStop, tlsKeyLogPath)
+	amf, err := service.NewApp(ctx, cfg, appStart, appStop, tlsKeyLogPath)
 	if err != nil {
 		return err
 	}

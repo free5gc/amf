@@ -129,7 +129,9 @@ func InitFunc(tlsKeyLogPath string) (func(a *service.AmfApp), func(a *service.Am
 			ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
 			return true
 		})
+		ngap_service.Stop()
 		callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+
 	}
 	return appStart, appStop
 }
