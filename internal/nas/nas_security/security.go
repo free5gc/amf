@@ -211,7 +211,6 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	}
 
 	err = msg.PlainNasDecode(&payload)
-
 	if err != nil {
 		return nil, false, err
 	}
