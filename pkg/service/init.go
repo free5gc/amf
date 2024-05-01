@@ -42,7 +42,7 @@ func GetApp() AmfAppInterface {
 	return AMF
 }
 
-func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp)) (*AmfApp, error) {
+func NewApp(cfg *factory.Config, startFunc, terminateFunc func(*AmfApp), tlsKeyLogPath string) (*AmfApp, error) {
 	amf := &AmfApp{
 		cfg:       cfg,
 		start:     startFunc,
