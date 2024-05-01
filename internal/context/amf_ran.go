@@ -110,7 +110,8 @@ func (ran *AmfRan) SetRanId(ranNodeId *ngapType.GlobalRANNodeID) {
 	ranId := ngapConvert.RanIdToModels(*ranNodeId)
 	ran.RanPresent = ranNodeId.Present
 	ran.RanId = &ranId
-	if ranNodeId.Present == ngapType.GlobalRANNodeIDPresentGlobalN3IWFID || ranNodeId.Present == ngapType.GlobalRANNodeIDPresentChoiceExtensions {
+	if ranNodeId.Present == ngapType.GlobalRANNodeIDPresentGlobalN3IWFID ||
+		ranNodeId.Present == ngapType.GlobalRANNodeIDPresentChoiceExtensions {
 		ran.AnType = models.AccessType_NON_3_GPP_ACCESS
 	} else {
 		ran.AnType = models.AccessType__3_GPP_ACCESS

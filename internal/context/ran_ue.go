@@ -255,7 +255,8 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 			ranUe.AmfUe.Tai = *ranUe.Location.N3gaLocation.N3gppTai
 		}
 	case ngapType.UserLocationInformationPresentChoiceExtensions:
-		userLocationInformationExtIEsValue := userLocationInformation.ChoiceExtensions.UserLocationInformationExtIEs.Value.UserLocationInformationTNGF
+		userLocationInformationExtIEsValue := userLocationInformation.
+			ChoiceExtensions.UserLocationInformationExtIEs.Value.UserLocationInformationTNGF
 		if ranUe.Location.N3gaLocation == nil {
 			ranUe.Location.N3gaLocation = new(models.N3gaLocation)
 		}
