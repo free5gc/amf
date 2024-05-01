@@ -298,7 +298,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 
 func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infof("[AMF] Send Deregister NFInstance")
-	amfContext := s.consumer.amf.Context()
+	amfContext := s.consumer.Context()
 
 	client := s.getNFManagementClient(amfContext.NrfUri)
 	if client == nil {

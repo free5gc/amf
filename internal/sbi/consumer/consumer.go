@@ -1,10 +1,7 @@
 package consumer
 
 import (
-	"context"
-
-	amf_context "github.com/free5gc/amf/internal/context"
-	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/openapi/Namf_Communication"
 	"github.com/free5gc/openapi/Nausf_UEAuthentication"
 	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
@@ -16,14 +13,12 @@ import (
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 )
 
-type amf interface {
-	Config() *factory.Config
-	Context() *amf_context.AMFContext
-	CancelContext() context.Context
+type ConsumerAmf interface {
+	app.App
 }
 
 type Consumer struct {
-	amf
+	ConsumerAmf
 
 	// consumer services
 	*namfService
@@ -35,9 +30,9 @@ type Consumer struct {
 	*nausfService
 }
 
-func NewConsumer(amf amf) (*Consumer, error) {
+func NewConsumer(amf ConsumerAmf) (*Consumer, error) {
 	c := &Consumer{
-		amf: amf,
+		ConsumerAmf: amf,
 	}
 
 	c.namfService = &namfService{

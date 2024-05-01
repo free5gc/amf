@@ -216,9 +216,10 @@ func FuzzHandleNAS2(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, d []byte) {
 		ctrl := gomock.NewController(t)
-		m := service.NewMockApp(ctrl)
-		service.AMF = m
+		// m := app.NewMockApp(ctrl)
+		m := service.NewMockAmfAppInterface(ctrl)
 		c, err := consumer.NewConsumer(m)
+		service.AMF = m
 		require.NoError(t, err)
 		m.EXPECT().
 			Consumer().

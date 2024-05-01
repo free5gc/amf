@@ -10,18 +10,23 @@ import (
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
 )
 
-var _ App = &AmfApp{}
-
-type App interface {
-	Context() *amf_context.AMFContext
-	Config() *factory.Config
+type AmfAppInterface interface {
+	app.App
+	consumer.ConsumerAmf
 	Consumer() *consumer.Consumer
 }
 
+var AMF AmfAppInterface
+
+var _ app.App = &AmfApp{}
+
 type AmfApp struct {
+	AmfAppInterface
+
 	cfg    *factory.Config
 	amfCtx *amf_context.AMFContext
 	ctx    context.Context
@@ -33,9 +38,7 @@ type AmfApp struct {
 	terminate func(*AmfApp)
 }
 
-var AMF App
-
-func GetApp() App {
+func GetApp() AmfAppInterface {
 	return AMF
 }
 
