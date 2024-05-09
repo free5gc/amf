@@ -31,8 +31,6 @@ type AmfAppInterface interface {
 
 var AMF AmfAppInterface
 
-// var _ app.App = &AmfApp{}
-
 type AmfApp struct {
 	AmfAppInterface
 
@@ -58,7 +56,6 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 	amf.SetLogEnable(cfg.GetLogEnable())
 	amf.SetLogLevel(cfg.GetLogLevel())
 	amf.SetReportCaller(cfg.GetLogReportCaller())
-	// amf_context.InitAmfContext(amf.amfCtx)
 
 	consumer, err := consumer.NewConsumer(amf)
 	if err != nil {
