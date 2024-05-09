@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"net/http"
@@ -11,10 +11,10 @@ import (
 	"github.com/free5gc/util/httpwrapper"
 )
 
-func HandleCreateAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleCreateAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
 	createEventSubscription := request.Body.(models.AmfCreateEventSubscription)
 
-	createdEventSubscription, problemDetails := CreateAMFEventSubscriptionProcedure(createEventSubscription)
+	createdEventSubscription, problemDetails := p.CreateAMFEventSubscriptionProcedure(createEventSubscription)
 	if createdEventSubscription != nil {
 		return httpwrapper.NewResponse(http.StatusCreated, nil, createdEventSubscription)
 	} else if problemDetails != nil {
@@ -29,7 +29,7 @@ func HandleCreateAMFEventSubscription(request *httpwrapper.Request) *httpwrapper
 }
 
 // TODO: handle event filter
-func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreateEventSubscription) (
+func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreateEventSubscription) (
 	*models.AmfCreatedEventSubscription, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
@@ -129,11 +129,11 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 			defer ue.Lock.Unlock()
 
 			if isImmediate {
-				subReports(ue, newSubscriptionID)
+				p.subReports(ue, newSubscriptionID)
 			}
 			for i, flag := range immediateFlags {
 				if flag {
-					report, ok := newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+					report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
 					if ok {
 						reportlist = append(reportlist, report)
 					}
@@ -152,12 +152,12 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 			defer ue.Lock.Unlock()
 
 			if isImmediate {
-				subReports(ue, newSubscriptionID)
+				p.subReports(ue, newSubscriptionID)
 			}
 			if ue.GroupID == subscription.GroupId {
 				for i, flag := range immediateFlags {
 					if flag {
-						report, ok := newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+						report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
 						if ok {
 							reportlist = append(reportlist, report)
 						}
@@ -176,11 +176,11 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 		defer ue.Lock.Unlock()
 
 		if isImmediate {
-			subReports(ue, newSubscriptionID)
+			p.subReports(ue, newSubscriptionID)
 		}
 		for i, flag := range immediateFlags {
 			if flag {
-				report, ok := newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+				report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
 				if ok {
 					reportlist = append(reportlist, report)
 				}
@@ -202,12 +202,12 @@ func CreateAMFEventSubscriptionProcedure(createEventSubscription models.AmfCreat
 	return createdEventSubscription, nil
 }
 
-func HandleDeleteAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleDeleteAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.EeLog.Infoln("Handle Delete AMF Event Subscription")
 
 	subscriptionID := request.Params["subscriptionId"]
 
-	problemDetails := DeleteAMFEventSubscriptionProcedure(subscriptionID)
+	problemDetails := p.DeleteAMFEventSubscriptionProcedure(subscriptionID)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -215,7 +215,7 @@ func HandleDeleteAMFEventSubscription(request *httpwrapper.Request) *httpwrapper
 	}
 }
 
-func DeleteAMFEventSubscriptionProcedure(subscriptionID string) *models.ProblemDetails {
+func (p *Processor) DeleteAMFEventSubscriptionProcedure(subscriptionID string) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 
 	subscription, ok := amfSelf.FindEventSubscription(subscriptionID)
@@ -238,13 +238,13 @@ func DeleteAMFEventSubscriptionProcedure(subscriptionID string) *models.ProblemD
 	return nil
 }
 
-func HandleModifyAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleModifyAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.EeLog.Infoln("Handle Modify AMF Event Subscription")
 
 	subscriptionID := request.Params["subscriptionId"]
 	modifySubscriptionRequest := request.Body.(models.ModifySubscriptionRequest)
 
-	updatedEventSubscription, problemDetails := ModifyAMFEventSubscriptionProcedure(subscriptionID,
+	updatedEventSubscription, problemDetails := p.ModifyAMFEventSubscriptionProcedure(subscriptionID,
 		modifySubscriptionRequest)
 	if updatedEventSubscription != nil {
 		return httpwrapper.NewResponse(http.StatusOK, nil, updatedEventSubscription)
@@ -259,7 +259,7 @@ func HandleModifyAMFEventSubscription(request *httpwrapper.Request) *httpwrapper
 	}
 }
 
-func ModifyAMFEventSubscriptionProcedure(
+func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 	subscriptionID string,
 	modifySubscriptionRequest models.ModifySubscriptionRequest) (
 	*models.AmfUpdatedEventSubscription, *models.ProblemDetails,
@@ -321,7 +321,7 @@ func ModifyAMFEventSubscriptionProcedure(
 	return updatedEventSubscription, nil
 }
 
-func subReports(ue *context.AmfUe, subscriptionId string) {
+func (p *Processor) subReports(ue *context.AmfUe, subscriptionId string) {
 	remainReport := ue.EventSubscriptionsInfo[subscriptionId].RemainReports
 	if remainReport == nil {
 		return
@@ -330,7 +330,7 @@ func subReports(ue *context.AmfUe, subscriptionId string) {
 }
 
 // DO NOT handle AmfEventType_PRESENCE_IN_AOI_REPORT and AmfEventType_UES_IN_AREA_REPORT(about area)
-func newAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscriptionId string) (
+func (p *Processor) newAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscriptionId string) (
 	report models.AmfEventReport, ok bool,
 ) {
 	ueSubscription, ok := ue.EventSubscriptionsInfo[subscriptionId]
@@ -351,7 +351,7 @@ func newAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscription
 	} else if *ueSubscription.RemainReports <= 0 {
 		report.State.Active = false
 	} else {
-		report.State.Active = getDuration(mode.Expiry, &report.State.RemainDuration)
+		report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
 		if report.State.Active {
 			report.State.RemainReports = *ueSubscription.RemainReports
 		}
@@ -399,7 +399,7 @@ func newAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscription
 	return report, ok
 }
 
-func getDuration(expiry *time.Time, remainDuration *int32) bool {
+func (p *Processor) getDuration(expiry *time.Time, remainDuration *int32) bool {
 	if expiry != nil {
 		if time.Now().After(*expiry) {
 			return false

@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"encoding/base64"
@@ -10,20 +10,19 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
-	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
 )
 
 // TS 29.518 5.2.2.2.3
-func HandleCreateUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleCreateUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Infof("Handle Create UE Context Request")
 
 	createUeContextRequest := request.Body.(models.CreateUeContextRequest)
 	ueContextID := request.Params["ueContextId"]
 
-	createUeContextResponse, ueContextCreateError := CreateUEContextProcedure(ueContextID, createUeContextRequest)
+	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
 		return httpwrapper.NewResponse(int(ueContextCreateError.Error.Status), nil, ueContextCreateError)
 	} else {
@@ -31,7 +30,7 @@ func HandleCreateUEContextRequest(request *httpwrapper.Request) *httpwrapper.Res
 	}
 }
 
-func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
+func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
 	*models.CreateUeContextResponse, *models.UeContextCreateError,
 ) {
 	amfSelf := context.GetSelf()
@@ -134,13 +133,13 @@ func CreateUEContextProcedure(ueContextID string, createUeContextRequest models.
 }
 
 // TS 29.518 5.2.2.2.4
-func HandleReleaseUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleReleaseUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle Release UE Context Request")
 
 	ueContextRelease := request.Body.(models.UeContextRelease)
 	ueContextID := request.Params["ueContextId"]
 
-	problemDetails := ReleaseUEContextProcedure(ueContextID, ueContextRelease)
+	problemDetails := p.ReleaseUEContextProcedure(ueContextID, ueContextRelease)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -148,7 +147,9 @@ func HandleReleaseUEContextRequest(request *httpwrapper.Request) *httpwrapper.Re
 	}
 }
 
-func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeContextRelease) *models.ProblemDetails {
+func (p *Processor) ReleaseUEContextProcedure(ueContextID string,
+	ueContextRelease models.UeContextRelease,
+) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 
 	// TODO: UE is emergency registered and the SUPI is not authenticated
@@ -195,7 +196,7 @@ func ReleaseUEContextProcedure(ueContextID string, ueContextRelease models.UeCon
 	return nil
 }
 
-func HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData,
+func (p *Processor) HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData,
 	ueContextTransferResponse *models.UeContextTransferResponse,
 ) {
 	ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
@@ -210,13 +211,13 @@ func HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeConte
 }
 
 // TS 29.518 5.2.2.2.1
-func HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle UE Context Transfer Request")
 
 	ueContextTransferRequest := request.Body.(models.UeContextTransferRequest)
 	ueContextID := request.Params["ueContextId"]
 
-	ueContextTransferResponse, problemDetails := UEContextTransferProcedure(ueContextID, ueContextTransferRequest)
+	ueContextTransferResponse, problemDetails := p.UEContextTransferProcedure(ueContextID, ueContextTransferRequest)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -224,7 +225,8 @@ func HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.R
 	}
 }
 
-func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest models.UeContextTransferRequest) (
+func (p *Processor) UEContextTransferProcedure(ueContextID string,
+	ueContextTransferRequest models.UeContextTransferRequest) (
 	*models.UeContextTransferResponse, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
@@ -286,7 +288,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 			return nil, problemDetails
 		}
 		if integrityProtected {
-			ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
+			ueContextTransferRspData.UeContext = p.buildUEContextModel(ue, UeContextTransferReqData.Reason)
 		} else {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusForbidden,
@@ -307,7 +309,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 			return nil, problemDetails
 		}
 		if integrityProtected {
-			ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
+			ueContextTransferRspData.UeContext = p.buildUEContextModel(ue, UeContextTransferReqData.Reason)
 		} else {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusForbidden,
@@ -315,11 +317,11 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 			}
 			return nil, problemDetails
 		}
-		HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
+		p.HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
 
 	case models.TransferReason_MOBI_REG_UE_VALIDATED:
-		ueContextTransferRspData.UeContext = buildUEContextModel(ue, UeContextTransferReqData.Reason)
-		HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
+		ueContextTransferRspData.UeContext = p.buildUEContextModel(ue, UeContextTransferReqData.Reason)
+		p.HandleMobiRegUe(ue, ueContextTransferRspData, ueContextTransferResponse)
 
 	default:
 		logger.ProducerLog.Warnf("Invalid Transfer Reason: %+v", UeContextTransferReqData.Reason)
@@ -337,7 +339,7 @@ func UEContextTransferProcedure(ueContextID string, ueContextTransferRequest mod
 	return ueContextTransferResponse, nil
 }
 
-func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *models.UeContext {
+func (p *Processor) buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *models.UeContext {
 	ueContext := new(models.UeContext)
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
@@ -455,7 +457,7 @@ func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *model
 
 	if ue.AmPolicyAssociation != nil {
 		if len(ue.AmPolicyAssociation.Triggers) > 0 {
-			ueContext.AmPolicyReqTriggerList = buildAmPolicyReqTriggers(ue.AmPolicyAssociation.Triggers)
+			ueContext.AmPolicyReqTriggerList = p.buildAmPolicyReqTriggers(ue.AmPolicyAssociation.Triggers)
 		}
 	}
 
@@ -471,7 +473,9 @@ func buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *model
 	return ueContext
 }
 
-func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
+func (p *Processor) buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (
+	amPolicyReqTriggers []models.AmPolicyReqTrigger,
+) {
 	for _, trigger := range triggers {
 		switch trigger {
 		case models.RequestTrigger_LOC_CH:
@@ -488,13 +492,13 @@ func buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (amPolicyReqTrig
 }
 
 // TS 29.518 5.2.2.6
-func HandleAssignEbiDataRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAssignEbiDataRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle Assign Ebi Data Request")
 
 	assignEbiData := request.Body.(models.AssignEbiData)
 	ueContextID := request.Params["ueContextId"]
 
-	assignedEbiData, assignEbiError, problemDetails := AssignEbiDataProcedure(ueContextID, assignEbiData)
+	assignedEbiData, assignEbiError, problemDetails := p.AssignEbiDataProcedure(ueContextID, assignEbiData)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else if assignEbiError != nil {
@@ -504,7 +508,7 @@ func HandleAssignEbiDataRequest(request *httpwrapper.Request) *httpwrapper.Respo
 	}
 }
 
-func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (
+func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiData) (
 	*models.AssignedEbiData, *models.AssignEbiError, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
@@ -533,13 +537,13 @@ func AssignEbiDataProcedure(ueContextID string, assignEbiData models.AssignEbiDa
 }
 
 // TS 29.518 5.2.2.2.2
-func HandleRegistrationStatusUpdateRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleRegistrationStatusUpdateRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle Registration Status Update Request")
 
 	ueRegStatusUpdateReqData := request.Body.(models.UeRegStatusUpdateReqData)
 	ueContextID := request.Params["ueContextId"]
 
-	ueRegStatusUpdateRspData, problemDetails := RegistrationStatusUpdateProcedure(ueContextID, ueRegStatusUpdateReqData)
+	ueRegStatusUpdateRspData, problemDetails := p.RegistrationStatusUpdateProcedure(ueContextID, ueRegStatusUpdateReqData)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -547,7 +551,8 @@ func HandleRegistrationStatusUpdateRequest(request *httpwrapper.Request) *httpwr
 	}
 }
 
-func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (
+func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
+	ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData) (
 	*models.UeRegStatusUpdateRspData, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
@@ -588,7 +593,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
 				continue
 			}
-			problem, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+			problem, err := p.consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)
 			} else if err != nil {
@@ -597,7 +602,7 @@ func RegistrationStatusUpdateProcedure(ueContextID string, ueRegStatusUpdateReqD
 		}
 
 		if ueRegStatusUpdateReqData.PcfReselectedInd {
-			problem, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
+			problem, err := p.consumer.AMPolicyControlDelete(ue)
 			if problem != nil {
 				logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 			} else if err != nil {

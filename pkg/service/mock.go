@@ -120,15 +120,15 @@ func (mr *MockAmfAppInterfaceMockRecorder) SetReportCaller(reportCaller any) *go
 }
 
 // Start mocks base method.
-func (m *MockAmfAppInterface) Start(tlsKeyLogPath string) {
+func (m *MockAmfAppInterface) Start() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", tlsKeyLogPath)
+	m.ctrl.Call(m, "Start")
 }
 
 // Start indicates an expected call of Start.
-func (mr *MockAmfAppInterfaceMockRecorder) Start(tlsKeyLogPath any) *gomock.Call {
+func (mr *MockAmfAppInterfaceMockRecorder) Start() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockAmfAppInterface)(nil).Start), tlsKeyLogPath)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockAmfAppInterface)(nil).Start))
 }
 
 // Terminate mocks base method.

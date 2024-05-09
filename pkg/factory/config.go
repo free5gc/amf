@@ -854,3 +854,15 @@ func (c *Config) GetSctpConfig() *Sctp {
 		MaxInitTimeout: sctpDefaultMaxInitTimeout,
 	}
 }
+
+func (c *Config) GetCertPemPath() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.Configuration.Sbi.Tls.Pem
+}
+
+func (c *Config) GetCertKeyPath() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.Configuration.Sbi.Tls.Key
+}

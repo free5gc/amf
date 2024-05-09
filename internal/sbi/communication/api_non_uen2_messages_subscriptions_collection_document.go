@@ -9,16 +9,16 @@
 
 package communication
 
-import (
-	"net/http"
+// import (
+// 	"net/http"
 
-	"github.com/gin-gonic/gin"
+// 	"github.com/gin-gonic/gin"
 
-	"github.com/free5gc/amf/internal/logger"
-)
+// 	"github.com/free5gc/amf/internal/logger"
+// )
 
-// NonUeN2InfoSubscribe - Namf_Communication Non UE N2 Info Subscribe service Operation
-func HTTPNonUeN2InfoSubscribe(c *gin.Context) {
-	logger.CommLog.Warnf("Handle Non Ue N2 Info Subscribe is not implemented.")
-	c.JSON(http.StatusOK, gin.H{})
-}
+// // NonUeN2InfoSubscribe - Namf_Communication Non UE N2 Info Subscribe service Operation
+// func HTTPNonUeN2InfoSubscribe(c *gin.Context) {
+// 	logger.CommLog.Warnf("Handle Non Ue N2 Info Subscribe is not implemented.")
+// 	c.JSON(http.StatusOK, gin.H{})
+// }

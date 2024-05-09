@@ -10,8 +10,7 @@ type App interface {
 	SetLogLevel(level string)
 	SetReportCaller(reportCaller bool)
 
-	// tlsKeyLogPath would be remove
-	Start(tlsKeyLogPath string)
+	Start()
 	Terminate()
 
 	Context() *amf_context.AMFContext

@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"net/http"
@@ -9,13 +9,13 @@ import (
 	"github.com/free5gc/util/httpwrapper"
 )
 
-func HandleProvideLocationInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleProvideLocationInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Info("Handle Provide Location Info Request")
 
 	requestLocInfo := request.Body.(models.RequestLocInfo)
 	ueContextID := request.Params["ueContextId"]
 
-	provideLocInfo, problemDetails := ProvideLocationInfoProcedure(requestLocInfo, ueContextID)
+	provideLocInfo, problemDetails := p.ProvideLocationInfoProcedure(requestLocInfo, ueContextID)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -23,7 +23,7 @@ func HandleProvideLocationInfoRequest(request *httpwrapper.Request) *httpwrapper
 	}
 }
 
-func ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (
+func (p *Processor) ProvideLocationInfoProcedure(requestLocInfo models.RequestLocInfo, ueContextID string) (
 	*models.ProvideLocInfo, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()

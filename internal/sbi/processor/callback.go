@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"fmt"
@@ -12,13 +12,12 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
 )
 
-func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 
 	supi := request.Params["supi"]
@@ -31,7 +30,7 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 	}
 	smContextStatusNotification := request.Body.(models.SmContextStatusNotification)
 
-	problemDetails := SmContextStatusNotifyProcedure(supi, int32(pduSessionID), smContextStatusNotification)
+	problemDetails := p.SmContextStatusNotifyProcedure(supi, int32(pduSessionID), smContextStatusNotification)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -39,7 +38,7 @@ func HandleSmContextStatusNotify(request *httpwrapper.Request) *httpwrapper.Resp
 	}
 }
 
-func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
+func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 	smContextStatusNotification models.SmContextStatusNotification,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
@@ -90,13 +89,13 @@ func SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
 	return nil
 }
 
-func HandleAmPolicyControlUpdateNotifyUpdate(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	polAssoID := request.Params["polAssoId"]
 	policyUpdate := request.Body.(models.PolicyUpdate)
 
-	problemDetails := AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
+	problemDetails := p.AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
 
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
@@ -105,7 +104,7 @@ func HandleAmPolicyControlUpdateNotifyUpdate(request *httpwrapper.Request) *http
 	}
 }
 
-func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
+func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 	policyUpdate models.PolicyUpdate,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
@@ -190,13 +189,13 @@ func AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 }
 
 // TS 29.507 4.2.4.3
-func HandleAmPolicyControlUpdateNotifyTerminate(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
 	polAssoID := request.Params["polAssoId"]
 	terminationNotification := request.Body.(models.TerminationNotification)
 
-	problemDetails := AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
+	problemDetails := p.AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -204,7 +203,7 @@ func HandleAmPolicyControlUpdateNotifyTerminate(request *httpwrapper.Request) *h
 	}
 }
 
-func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
+func (p *Processor) AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 	terminationNotification models.TerminationNotification,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
@@ -233,7 +232,7 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 			}
 		}()
 
-		problem, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
+		problem, err := p.consumer.AMPolicyControlDelete(ue)
 		if problem != nil {
 			logger.ProducerLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 		} else if err != nil {
@@ -244,12 +243,12 @@ func AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
 }
 
 // TS 23.502 4.2.2.2.3 Registration with AMF re-allocation
-func HandleN1MessageNotify(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1MessageNotify(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infoln("[AMF] Handle N1 Message Notify")
 
 	n1MessageNotify := request.Body.(models.N1MessageNotify)
 
-	problemDetails := N1MessageNotifyProcedure(n1MessageNotify)
+	problemDetails := p.N1MessageNotifyProcedure(n1MessageNotify)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -257,7 +256,7 @@ func HandleN1MessageNotify(request *httpwrapper.Request) *httpwrapper.Response {
 	}
 }
 
-func N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.ProblemDetails {
+func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.ProblemDetails {
 	logger.ProducerLog.Debugf("n1MessageNotify: %+v", n1MessageNotify)
 
 	amfSelf := context.GetSelf()

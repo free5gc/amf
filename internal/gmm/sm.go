@@ -6,7 +6,7 @@ import (
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/pkg/service"
+	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasConvert"
 	"github.com/free5gc/nas/nasMessage"
@@ -419,7 +419,7 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
 		if amfUe.UeCmRegistered[accessType] {
-			problemDetails, err := service.GetApp().Consumer().UeCmDeregistration(amfUe, accessType)
+			problemDetails, err := consumer.GetConsumer().UeCmDeregistration(amfUe, accessType)
 			if problemDetails != nil {
 				if problemDetails.Cause != "CONTEXT_NOT_FOUND" {
 					amfUe.GmmLog.Errorf("UECM_Registration Failed Problem[%+v]", problemDetails)

@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"net/http"
@@ -9,14 +9,14 @@ import (
 	"github.com/free5gc/util/httpwrapper"
 )
 
-func HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.MtLog.Info("Handle Provide Domain Selection Info Request")
 
 	ueContextID := request.Params["ueContextId"]
 	infoClassQuery := request.Query.Get("info-class")
 	supportedFeaturesQuery := request.Query.Get("supported-features")
 
-	ueContextInfo, problemDetails := ProvideDomainSelectionInfoProcedure(ueContextID,
+	ueContextInfo, problemDetails := p.ProvideDomainSelectionInfoProcedure(ueContextID,
 		infoClassQuery, supportedFeaturesQuery)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
@@ -25,7 +25,8 @@ func HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *http
 	}
 }
 
-func ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string, supportedFeaturesQuery string) (
+func (p *Processor) ProvideDomainSelectionInfoProcedure(ueContextID string, infoClassQuery string,
+	supportedFeaturesQuery string) (
 	*models.UeContextInfo, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()

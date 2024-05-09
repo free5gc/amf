@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/internal/sbi/producer/callback"
+	"github.com/free5gc/amf/internal/sbi/processor/callback"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap/ngapType"
@@ -17,14 +17,14 @@ import (
 )
 
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
-func HandleN1N2MessageTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infof("Handle N1N2 Message Transfer Request")
 
 	n1n2MessageTransferRequest := request.Body.(models.N1N2MessageTransferRequest)
 	ueContextID := request.Params["ueContextId"]
 	reqUri := request.Params["reqUri"]
 
-	n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr := N1N2MessageTransferProcedure(
+	n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr := p.N1N2MessageTransferProcedure(
 		ueContextID, reqUri, n1n2MessageTransferRequest)
 
 	if problemDetails != nil {
@@ -60,7 +60,7 @@ func HandleN1N2MessageTransferRequest(request *httpwrapper.Request) *httpwrapper
 //   - TransferErr: if AMF reject the request due to procedure error, e.g. UE has an ongoing procedure.
 //
 // see TS 29.518 6.1.3.5.3.1 for more details.
-func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
+func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 	n1n2MessageTransferRequest models.N1N2MessageTransferRequest) (
 	n1n2MessageTransferRspData *models.N1N2MessageTransferRspData,
 	locationHeader string, problemDetails *models.ProblemDetails,
@@ -371,13 +371,13 @@ func N1N2MessageTransferProcedure(ueContextID string, reqUri string,
 	}
 }
 
-func HandleN1N2MessageTransferStatusRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageTransferStatusRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle N1N2Message Transfer Status Request")
 
 	ueContextID := request.Params["ueContextId"]
 	reqUri := request.Params["reqUri"]
 
-	status, problemDetails := N1N2MessageTransferStatusProcedure(ueContextID, reqUri)
+	status, problemDetails := p.N1N2MessageTransferStatusProcedure(ueContextID, reqUri)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -385,7 +385,8 @@ func HandleN1N2MessageTransferStatusRequest(request *httpwrapper.Request) *httpw
 	}
 }
 
-func N1N2MessageTransferStatusProcedure(ueContextID string, reqUri string) (models.N1N2MessageTransferCause,
+func (p *Processor) N1N2MessageTransferStatusProcedure(ueContextID string,
+	reqUri string) (models.N1N2MessageTransferCause,
 	*models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
@@ -417,11 +418,11 @@ func N1N2MessageTransferStatusProcedure(ueContextID string, reqUri string) (mode
 }
 
 // TS 29.518 5.2.2.3.3
-func HandleN1N2MessageSubscirbeRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageSubscirbeRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	ueN1N2InfoSubscriptionCreateData := request.Body.(models.UeN1N2InfoSubscriptionCreateData)
 	ueContextID := request.Params["ueContextId"]
 
-	ueN1N2InfoSubscriptionCreatedData, problemDetails := N1N2MessageSubscribeProcedure(ueContextID,
+	ueN1N2InfoSubscriptionCreatedData, problemDetails := p.N1N2MessageSubscribeProcedure(ueContextID,
 		ueN1N2InfoSubscriptionCreateData)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
@@ -430,7 +431,7 @@ func HandleN1N2MessageSubscirbeRequest(request *httpwrapper.Request) *httpwrappe
 	}
 }
 
-func N1N2MessageSubscribeProcedure(ueContextID string,
+func (p *Processor) N1N2MessageSubscribeProcedure(ueContextID string,
 	ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData) (
 	*models.UeN1N2InfoSubscriptionCreatedData, *models.ProblemDetails,
 ) {
@@ -465,13 +466,13 @@ func N1N2MessageSubscribeProcedure(ueContextID string,
 	return ueN1N2InfoSubscriptionCreatedData, nil
 }
 
-func HandleN1N2MessageUnSubscribeRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageUnSubscribeRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.CommLog.Info("Handle N1N2Message Unsubscribe Request")
 
 	ueContextID := request.Params["ueContextId"]
 	subscriptionID := request.Params["subscriptionId"]
 
-	problemDetails := N1N2MessageUnSubscribeProcedure(ueContextID, subscriptionID)
+	problemDetails := p.N1N2MessageUnSubscribeProcedure(ueContextID, subscriptionID)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -479,7 +480,7 @@ func HandleN1N2MessageUnSubscribeRequest(request *httpwrapper.Request) *httpwrap
 	}
 }
 
-func N1N2MessageUnSubscribeProcedure(ueContextID string, subscriptionID string) *models.ProblemDetails {
+func (p *Processor) N1N2MessageUnSubscribeProcedure(ueContextID string, subscriptionID string) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 
 	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)

@@ -11,8 +11,9 @@ import (
 	amf_nas "github.com/free5gc/amf/internal/nas"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/pkg/factory"
-	"github.com/free5gc/amf/pkg/service"
+	// "github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
@@ -292,7 +293,7 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 					// TODO: Check if doing error handling here
 					continue
 				}
-				response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, cause)
+				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, cause)
 				if err != nil {
 					ran.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 				} else if response == nil {
@@ -373,7 +374,7 @@ func handlePDUSessionResourceReleaseResponseMain(ran *context.AmfRan,
 				continue
 			}
 
-			_, responseErr, problemDetail, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			_, responseErr, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_REL_RSP, transfer)
 			// TODO: error handling
 			if err != nil {
@@ -620,7 +621,7 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
@@ -645,7 +646,7 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error: %+v", err)
@@ -693,7 +694,7 @@ func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_MOD_RSP, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceModifyResponseTransfer] Error: %+v", err)
@@ -717,8 +718,8 @@ func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			// response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			// response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_MOD_FAIL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceModifyUnsuccessfulTransfer] Error: %+v", err)
@@ -766,7 +767,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			response, errResponse, problemDetail, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			response, errResponse, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_NTY, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyTransfer] Error: %+v", err)
@@ -825,7 +826,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			response, errResponse, problemDetail, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			response, errResponse, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_NTY_REL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceNotifyReleasedTransfer] Error: %+v", err)
@@ -896,7 +897,7 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			response, errResponse, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_MOD_IND, transfer)
 			if err != nil {
 				ran.Log.Errorf("SendUpdateSmContextN2Info Error:\n%s", err.Error())
@@ -951,8 +952,8 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			// response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			// response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
@@ -978,8 +979,8 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			// response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			// response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error: %+v", err)
@@ -1039,7 +1040,7 @@ func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2Info(amfUe, smContext,
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_SETUP_FAIL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupUnsuccessfulTransfer] Error: %+v", err)
@@ -1093,7 +1094,7 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 						// TODO: Check if doing error handling here
 						continue
 					}
-					rsp, _, _, err := service.GetApp().Consumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
+					rsp, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
 					if err != nil {
 						ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 					} else if rsp == nil {
@@ -1105,8 +1106,8 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 			ranUe.Log.Info("Ue Context in Non GMM-Registered")
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				smContext := value.(*context.SmContext)
-				// detail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
-				detail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
+				// detail, err := consumer.GetConsumer().SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
+				detail, err := consumer.GetConsumer().SendReleaseSmContextRequest(amfUe, smContext, &causeAll, "", nil)
 				if err != nil {
 					ranUe.Log.Errorf("Send ReleaseSmContextRequest Error[%s]", err.Error())
 				} else if detail != nil {
@@ -1210,7 +1211,7 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverComplete(amfUe, smContext, "", nil)
+			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverComplete(amfUe, smContext, "", nil)
 			if err != nil {
 				ran.Log.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
 			}
@@ -1289,7 +1290,7 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			response, errResponse, _, err := service.GetApp().Consumer().SendUpdateSmContextXnHandover(amfUe, smContext,
+			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
 				models.N2SmInfoType_PATH_SWITCH_REQ, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextXnHandover[PathSwitchRequestTransfer] Error:\n%s", err.Error())
@@ -1321,7 +1322,7 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			response, errResponse, _, err := service.GetApp().Consumer().SendUpdateSmContextXnHandoverFailed(amfUe, smContext,
+			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextXnHandoverFailed(amfUe, smContext,
 				models.N2SmInfoType_PATH_SWITCH_SETUP_FAIL, transfer)
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextXnHandoverFailed[PathSwitchRequestSetupFailedTransfer] Error: %+v", err)
@@ -1406,7 +1407,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			resp, errResponse, problemDetails, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
+			resp, errResponse, problemDetails, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
 				smContext, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
 			if err != nil {
 				targetUe.Log.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
@@ -1441,7 +1442,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			_, _, problemDetails, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverPrepared(amfUe, smContext,
+			_, _, problemDetails, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPrepared(amfUe, smContext,
 				models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
 			if err != nil {
 				targetUe.Log.Errorf("Send HandoverResourceAllocationUnsuccessfulTransfer error: %v", err)
@@ -1513,7 +1514,7 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 						Value: int32(causeValue),
 					},
 				}
-				_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
+				_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
 				if err != nil {
 					ran.Log.Errorf("Send UpdateSmContextN2HandoverCanceled Error for pduSessionID[%d]", pduSessionID)
 				}
@@ -1599,10 +1600,10 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 					continue
 				}
 
-				response, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverPreparing(amfUe, smContext,
+				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing(amfUe, smContext,
 					models.N2SmInfoType_HANDOVER_REQUIRED, pDUSessionResourceHoItem.HandoverRequiredTransfer, "", &targetId)
 				if err != nil {
-					sourceUe.Log.Errorf("service.GetApp().Consumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", err)
+					sourceUe.Log.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", err)
 				}
 				if response == nil {
 					sourceUe.Log.Errorf("SendUpdateSmContextN2HandoverPreparing Error for pduSessionID[%d]", pduSessionID)
@@ -1667,7 +1668,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 						Value: int32(causeValue),
 					},
 				}
-				_, _, _, err := service.GetApp().Consumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
+				_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
 				if err != nil {
 					sourceUe.Log.Errorf("Send UpdateSmContextN2HandoverCanceled Error for pduSessionID[%d]", pduSessionID)
 				}

@@ -11,9 +11,16 @@ import (
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/ngap"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	ngap_service "github.com/free5gc/amf/internal/ngap/service"
+	"github.com/free5gc/amf/internal/sbi"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/internal/sbi/processor"
+	"github.com/free5gc/amf/internal/sbi/processor/callback"
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/openapi/models"
 )
 
 type AmfAppInterface interface {
@@ -24,7 +31,7 @@ type AmfAppInterface interface {
 
 var AMF AmfAppInterface
 
-var _ app.App = &AmfApp{}
+// var _ app.App = &AmfApp{}
 
 type AmfApp struct {
 	AmfAppInterface
@@ -35,35 +42,42 @@ type AmfApp struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	consumer *consumer.Consumer
-
-	start     func(*AmfApp)
-	terminate func(*AmfApp)
+	processor *processor.Processor
+	consumer  *consumer.Consumer
+	sbiServer *sbi.Server
 }
 
 func GetApp() AmfAppInterface {
 	return AMF
 }
 
-func NewApp(ctx context.Context, cfg *factory.Config, startFunc, terminateFunc func(*AmfApp), tlsKeyLogPath string) (*AmfApp, error) {
+func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*AmfApp, error) {
 	amf := &AmfApp{
-		cfg:       cfg,
-		start:     startFunc,
-		terminate: terminateFunc,
+		cfg: cfg,
 	}
 	amf.SetLogEnable(cfg.GetLogEnable())
 	amf.SetLogLevel(cfg.GetLogLevel())
 	amf.SetReportCaller(cfg.GetLogReportCaller())
-
-	amf.ctx, amf.cancel = context.WithCancel(ctx)
-	amf.amfCtx = amf_context.GetSelf()
-	amf_context.InitAmfContext(amf.amfCtx)
+	// amf_context.InitAmfContext(amf.amfCtx)
 
 	consumer, err := consumer.NewConsumer(amf)
 	if err != nil {
 		return amf, err
 	}
 	amf.consumer = consumer
+
+	processor, err_p := processor.NewProcessor(amf)
+	if err_p != nil {
+		return amf, err_p
+	}
+	amf.processor = processor
+
+	amf.ctx, amf.cancel = context.WithCancel(ctx)
+	amf.amfCtx = amf_context.GetSelf()
+
+	if amf.sbiServer, err = sbi.NewServer(amf, tlsKeyLogPath); err != nil {
+		return nil, err
+	}
 
 	AMF = amf
 
@@ -112,19 +126,56 @@ func (a *AmfApp) SetReportCaller(reportCaller bool) {
 	logger.Log.SetReportCaller(reportCaller)
 }
 
-func (a *AmfApp) Start(tlsKeyLogPath string) {
+func (a *AmfApp) Start() {
+	self := a.Context()
+	amf_context.InitAmfContext(self)
+
+	ngapHandler := ngap_service.NGAPHandler{
+		HandleMessage:         ngap.Dispatch,
+		HandleNotification:    ngap.HandleSCTPNotification,
+		HandleConnectionError: ngap.HandleSCTPConnError,
+	}
+
+	sctpConfig := ngap_service.NewSctpConfig(factory.AmfConfig.GetSctpConfig())
+	ngap_service.Run(a.Context().NgapIpList, a.Context().NgapPort, ngapHandler, sctpConfig)
 	logger.InitLog.Infoln("Server started")
 
 	a.wg.Add(1)
 	go a.listenShutdownEvent()
-	a.start(a)
+
+	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
+		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
+	}
 }
 
 // Used in AMF planned removal procedure
 func (a *AmfApp) Terminate() {
 	logger.InitLog.Infof("Terminating AMF...")
 	a.cancel()
-	a.terminate(a)
+	a.CallServerStop()
+	// deregister with NRF
+	problemDetails, err_deg := consumer.GetConsumer().SendDeregisterNFInstance()
+	if problemDetails != nil {
+		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
+	} else if err_deg != nil {
+		logger.InitLog.Errorf("Deregister NF instance Error[%+v]", err_deg)
+	} else {
+		logger.InitLog.Infof("[AMF] Deregister from NRF successfully")
+	}
+	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
+
+	// ngap
+	// send AMF status indication to ran to notify ran that this AMF will be unavailable
+	logger.InitLog.Infof("Send AMF Status Indication to Notify RANs due to AMF terminating")
+	amfSelf := a.Context()
+	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
+	amfSelf.AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*amf_context.AmfRan)
+		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
+		return true
+	})
+	ngap_service.Stop()
+	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 	logger.InitLog.Infof("AMF terminated")
 }
 
@@ -144,6 +195,10 @@ func (a *AmfApp) Consumer() *consumer.Consumer {
 	return a.consumer
 }
 
+func (a *AmfApp) Processor() *processor.Processor {
+	return a.processor
+}
+
 func (a *AmfApp) listenShutdownEvent() {
 	defer func() {
 		if p := recover(); p != nil {
@@ -155,4 +210,15 @@ func (a *AmfApp) listenShutdownEvent() {
 
 	<-a.ctx.Done()
 	a.Terminate()
+}
+
+func (a *AmfApp) CallServerStop() {
+	if a.sbiServer != nil {
+		a.sbiServer.Stop()
+	}
+}
+
+func (a *AmfApp) WaitRoutineStopped() {
+	a.wg.Wait()
+	logger.MainLog.Infof("AMF App is terminated")
 }

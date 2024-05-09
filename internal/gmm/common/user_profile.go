@@ -4,7 +4,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/pkg/service"
+	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
@@ -15,7 +15,7 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*context.SmContext)
 
-			problemDetail, err := service.GetApp().Consumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+			problemDetail, err := consumer.GetConsumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 			if problemDetail != nil {
 				ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 			} else if err != nil {
@@ -26,7 +26,7 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 
 		// notify PCF to terminate AmPolicy association
 		if ue.AmPolicyAssociation != nil {
-			problemDetails, err := service.GetApp().Consumer().AMPolicyControlDelete(ue)
+			problemDetails, err := consumer.GetConsumer().AMPolicyControlDelete(ue)
 			if problemDetails != nil {
 				ue.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
 			} else if err != nil {
@@ -77,7 +77,7 @@ func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	}
 	// Purge of subscriber data in AMF described in TS 23.502 4.5.3
 	if ue.SdmSubscriptionId != "" {
-		problemDetails, err := service.GetApp().Consumer().SDMUnsubscribe(ue)
+		problemDetails, err := consumer.GetConsumer().SDMUnsubscribe(ue)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("SDM Unubscribe Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
@@ -87,7 +87,7 @@ func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	}
 
 	if ue.UeCmRegistered[accessType] {
-		problemDetails, err := service.GetApp().Consumer().UeCmDeregistration(ue, accessType)
+		problemDetails, err := consumer.GetConsumer().UeCmDeregistration(ue, accessType)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("UECM Deregistration Failed Problem[%+v]", problemDetails)
 		} else if err != nil {

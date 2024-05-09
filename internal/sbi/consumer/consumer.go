@@ -13,6 +13,8 @@ import (
 	"github.com/free5gc/openapi/Nudm_UEContextManagement"
 )
 
+var consumer *Consumer
+
 type ConsumerAmf interface {
 	app.App
 }
@@ -28,6 +30,10 @@ type Consumer struct {
 	*nsmfService
 	*nudmService
 	*nausfService
+}
+
+func GetConsumer() *Consumer {
+	return consumer
 }
 
 func NewConsumer(amf ConsumerAmf) (*Consumer, error) {
@@ -71,5 +77,6 @@ func NewConsumer(amf ConsumerAmf) (*Consumer, error) {
 		consumer:                c,
 		UEAuthenticationClients: make(map[string]*Nausf_UEAuthentication.APIClient),
 	}
+	consumer = c
 	return c, nil
 }

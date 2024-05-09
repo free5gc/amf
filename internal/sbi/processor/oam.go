@@ -1,4 +1,4 @@
-package producer
+package processor
 
 import (
 	"net/http"
@@ -34,12 +34,12 @@ type UEContext struct {
 
 type UEContexts []UEContext
 
-func HandleOAMRegisteredUEContext(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleOAMRegisteredUEContext(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
 	supi := request.Params["supi"]
 
-	ueContexts, problemDetails := OAMRegisteredUEContextProcedure(supi)
+	ueContexts, problemDetails := p.OAMRegisteredUEContextProcedure(supi)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	} else {
@@ -47,18 +47,18 @@ func HandleOAMRegisteredUEContext(request *httpwrapper.Request) *httpwrapper.Res
 	}
 }
 
-func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDetails) {
+func (p *Processor) OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDetails) {
 	var ueContexts UEContexts
 	amfSelf := context.GetSelf()
 
 	if supi != "" {
 		if ue, ok := amfSelf.AmfUeFindBySupi(supi); ok {
 			ue.Lock.Lock()
-			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
+			ueContext := p.buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
-			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
+			ueContext = p.buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
@@ -74,11 +74,11 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 		amfSelf.UePool.Range(func(key, value interface{}) bool {
 			ue := value.(*context.AmfUe)
 			ue.Lock.Lock()
-			ueContext := buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
+			ueContext := p.buildUEContext(ue, models.AccessType__3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
-			ueContext = buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
+			ueContext = p.buildUEContext(ue, models.AccessType_NON_3_GPP_ACCESS)
 			if ueContext != nil {
 				ueContexts = append(ueContexts, *ueContext)
 			}
@@ -90,7 +90,7 @@ func OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDe
 	return ueContexts, nil
 }
 
-func buildUEContext(ue *context.AmfUe, accessType models.AccessType) *UEContext {
+func (p *Processor) buildUEContext(ue *context.AmfUe, accessType models.AccessType) *UEContext {
 	if ue.State[accessType].Is(context.Registered) {
 		ueContext := &UEContext{
 			AccessType: models.AccessType__3_GPP_ACCESS,
