@@ -88,12 +88,12 @@ func newRouter(s *Server) *gin.Engine {
 
 func (s *Server) Run(traceCtx context.Context, wg *sync.WaitGroup) error {
 	var profile models.NfProfile
-	if profileTmp, err1 := consumer.GetConsumer().BuildNFInstance(s.Context()); err1 != nil {
+	if profileTmp, err1 := s.Consumer().BuildNFInstance(s.Context()); err1 != nil {
 		logger.InitLog.Error("Build AMF Profile Error")
 	} else {
 		profile = profileTmp
 	}
-	_, nfId, err_reg := consumer.GetConsumer().SendRegisterNFInstance(s.Context().NrfUri, s.Context().NfId, profile)
+	_, nfId, err_reg := s.Consumer().SendRegisterNFInstance(s.Context().NrfUri, s.Context().NfId, profile)
 	if err_reg != nil {
 		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
 	} else {

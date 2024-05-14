@@ -13,7 +13,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/pkg/service"
-	// "github.com/free5gc/amf/pkg/utils"
 	logger_util "github.com/free5gc/util/logger"
 	"github.com/free5gc/util/version"
 )
@@ -71,7 +70,6 @@ func action(cliCtx *cli.Context) error {
 	}
 	factory.AmfConfig = cfg
 
-	// appStart, appStop := utils.InitFunc(tlsKeyLogPath)
 	amf, err := service.NewApp(ctx, cfg, tlsKeyLogPath)
 	if err != nil {
 		return err

@@ -27,6 +27,7 @@ type AmfAppInterface interface {
 	app.App
 	consumer.ConsumerAmf
 	Consumer() *consumer.Consumer
+	Processor() *processor.Processor
 }
 
 var AMF AmfAppInterface
@@ -151,7 +152,7 @@ func (a *AmfApp) Terminate() {
 	a.cancel()
 	a.CallServerStop()
 	// deregister with NRF
-	problemDetails, err_deg := consumer.GetConsumer().SendDeregisterNFInstance()
+	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
 	if problemDetails != nil {
 		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
 	} else if err_deg != nil {
