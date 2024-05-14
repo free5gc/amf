@@ -46,10 +46,6 @@ type AmfApp struct {
 	sbiServer *sbi.Server
 }
 
-func GetApp() AmfAppInterface {
-	return AMF
-}
-
 func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*AmfApp, error) {
 	amf := &AmfApp{
 		cfg: cfg,

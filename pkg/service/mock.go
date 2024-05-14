@@ -14,6 +14,7 @@ import (
 
 	context "github.com/free5gc/amf/internal/context"
 	consumer "github.com/free5gc/amf/internal/sbi/consumer"
+	processor "github.com/free5gc/amf/internal/sbi/processor"
 	factory "github.com/free5gc/amf/pkg/factory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -81,6 +82,20 @@ func (m *MockAmfAppInterface) Context() *context.AMFContext {
 func (mr *MockAmfAppInterfaceMockRecorder) Context() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAmfAppInterface)(nil).Context))
+}
+
+// Processor mocks base method.
+func (m *MockAmfAppInterface) Processor() *processor.Processor {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Processor")
+	ret0, _ := ret[0].(*processor.Processor)
+	return ret0
+}
+
+// Processor indicates an expected call of Processor.
+func (mr *MockAmfAppInterfaceMockRecorder) Processor() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Processor", reflect.TypeOf((*MockAmfAppInterface)(nil).Processor))
 }
 
 // SetLogEnable mocks base method.
