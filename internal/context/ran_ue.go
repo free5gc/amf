@@ -254,6 +254,33 @@ func (ranUe *RanUe) UpdateLocation(userLocationInformation *ngapType.UserLocatio
 			ranUe.AmfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
 			ranUe.AmfUe.Tai = *ranUe.Location.N3gaLocation.N3gppTai
 		}
+	case ngapType.UserLocationInformationPresentChoiceExtensions:
+		userLocationInformationExtIEsValue := userLocationInformation.
+			ChoiceExtensions.UserLocationInformationExtIEs.Value.UserLocationInformationTNGF
+		if ranUe.Location.N3gaLocation == nil {
+			ranUe.Location.N3gaLocation = new(models.N3gaLocation)
+		}
+
+		ip := userLocationInformationExtIEsValue.IPAddress
+		// port := userLocationInformationExtIEsValue.PortNumber
+
+		ipv4Addr, ipv6Addr := ngapConvert.IPAddressToString(ip)
+
+		ranUe.Location.N3gaLocation.UeIpv4Addr = ipv4Addr
+		ranUe.Location.N3gaLocation.UeIpv6Addr = ipv6Addr
+		// ranUe.Location.N3gaLocation.PortNumber = ngapConvert.PortNumberToInt(port)
+		// N3GPP TAI is operator-specific
+		// TODO: define N3GPP TAI
+		ranUe.Location.N3gaLocation.N3gppTai = &models.Tai{
+			PlmnId: amfSelf.SupportTaiLists[0].PlmnId,
+			Tac:    amfSelf.SupportTaiLists[0].Tac,
+		}
+		ranUe.Tai = deepcopy.Copy(*ranUe.Location.N3gaLocation.N3gppTai).(models.Tai)
+
+		if ranUe.AmfUe != nil {
+			ranUe.AmfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
+			ranUe.AmfUe.Tai = *ranUe.Location.N3gaLocation.N3gppTai
+		}
 	case ngapType.UserLocationInformationPresentNothing:
 	}
 }
