@@ -82,7 +82,7 @@ func (s *Server) HTTPModifySubscription(c *gin.Context) {
 
 	err = openapi.Deserialize(&modifySubscriptionRequest, requestBody, "application/json")
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,
@@ -130,7 +130,7 @@ func (s *Server) HTTPCreateSubscription(c *gin.Context) {
 
 	err = openapi.Deserialize(&createEventSubscription, requestBody, "application/json")
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,

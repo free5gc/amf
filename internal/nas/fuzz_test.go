@@ -218,9 +218,9 @@ func FuzzHandleNAS2(f *testing.F) {
 		ctrl := gomock.NewController(t)
 		// m := app.NewMockApp(ctrl)
 		m := service.NewMockAmfAppInterface(ctrl)
-		c, err := consumer.NewConsumer(m)
+		c, errc := consumer.NewConsumer(m)
 		service.AMF = m
-		require.NoError(t, err)
+		require.NoError(t, errc)
 		m.EXPECT().
 			Consumer().
 			AnyTimes().

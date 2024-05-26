@@ -22,6 +22,12 @@ import (
 	logger_util "github.com/free5gc/util/logger"
 )
 
+var (
+	reqbody         = "[Request Body] "
+	applicationjson = "application/json"
+	multipartrelate = "multipart/related"
+)
+
 type ServerAmf interface {
 	app.App
 

@@ -228,7 +228,7 @@ func (p *Processor) DeleteAMFEventSubscriptionProcedure(subscriptionID string) *
 	}
 
 	for _, supi := range subscription.UeSupiList {
-		if ue, ok := amfSelf.AmfUeFindBySupi(supi); ok {
+		if ue, okAmfUeFindBySupi := amfSelf.AmfUeFindBySupi(supi); okAmfUeFindBySupi {
 			ue.Lock.Lock()
 			delete(ue.EventSubscriptionsInfo, subscriptionID)
 			ue.Lock.Unlock()
@@ -280,7 +280,7 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 	} else if modifySubscriptionRequest.SubscriptionItemInner != nil {
 		subscription := &contextSubscription.EventSubscription
 		if !contextSubscription.IsAnyUe && !contextSubscription.IsGroupUe {
-			if _, ok := amfSelf.AmfUeFindBySupi(subscription.Supi); !ok {
+			if _, okAmfUeFindBySupi := amfSelf.AmfUeFindBySupi(subscription.Supi); !okAmfUeFindBySupi {
 				problemDetails := &models.ProblemDetails{
 					Status: http.StatusForbidden,
 					Cause:  "UE_NOT_SERVED_BY_AMF",
@@ -307,11 +307,17 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 		case "remove":
 			if index < eventlistLen {
-				*subscription.EventList = append(lists[:index], lists[index+1:]...)
+				eventlist := []models.AmfEvent{}
+				eventlist = append(eventlist, lists[:index]...)
+				eventlist = append(eventlist, lists[index+1:]...)
+				*subscription.EventList = eventlist
 			}
 		case "add":
 			event := *modifySubscriptionRequest.SubscriptionItemInner.Value
-			*subscription.EventList = append(lists, event)
+			eventlist := []models.AmfEvent{}
+			eventlist = append(eventlist, lists...)
+			eventlist = append(eventlist, event)
+			*subscription.EventList = eventlist
 		}
 	}
 
@@ -330,7 +336,7 @@ func (p *Processor) subReports(ue *context.AmfUe, subscriptionId string) {
 }
 
 // DO NOT handle AmfEventType_PRESENCE_IN_AOI_REPORT and AmfEventType_UES_IN_AREA_REPORT(about area)
-func (p *Processor) newAmfEventReport(ue *context.AmfUe, Type models.AmfEventType, subscriptionId string) (
+func (p *Processor) newAmfEventReport(ue *context.AmfUe, amfEventType models.AmfEventType, subscriptionId string) (
 	report models.AmfEventReport, ok bool,
 ) {
 	ueSubscription, ok := ue.EventSubscriptionsInfo[subscriptionId]
@@ -340,7 +346,7 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, Type models.AmfEventTyp
 
 	report.AnyUe = ueSubscription.AnyUe
 	report.Supi = ue.Supi
-	report.Type = Type
+	report.Type = amfEventType
 	report.TimeStamp = &ueSubscription.Timestamp
 	report.State = new(models.AmfEventState)
 	mode := ueSubscription.EventSubscription.Options
@@ -357,7 +363,7 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, Type models.AmfEventTyp
 		}
 	}
 
-	switch Type {
+	switch amfEventType {
 	case models.AmfEventType_LOCATION_REPORT:
 		report.Location = &ue.Location
 	// case models.AmfEventType_PRESENCE_IN_AOI_REPORT:

@@ -20,6 +20,8 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
+var n2sminfocon = "N2SmInfo"
+
 type nsmfService struct {
 	consumer *Consumer
 
@@ -299,26 +301,26 @@ func (s *nsmfService) SendUpdateSmContextChangeAccessType(ue *amf_context.AmfUe,
 }
 
 func (s *nsmfService) SendUpdateSmContextN2Info(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, N2SmInfo []byte) (
+	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	updateData.N2SmInfoType = n2SmType
 	updateData.N2SmInfo = new(models.RefToBinaryData)
-	updateData.N2SmInfo.ContentId = "N2SmInfo"
+	updateData.N2SmInfo.ContentId = n2sminfocon
 	updateData.UeLocation = &ue.Location
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, N2SmInfo)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, n2SmInfo)
 }
 
 func (s *nsmfService) SendUpdateSmContextXnHandover(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, N2SmInfo []byte) (
+	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
-		updateData.N2SmInfo.ContentId = "N2SmInfo"
+		updateData.N2SmInfo.ContentId = n2sminfocon
 	}
 	updateData.ToBeSwitched = true
 	updateData.UeLocation = &ue.Location
@@ -329,35 +331,35 @@ func (s *nsmfService) SendUpdateSmContextXnHandover(
 			updateData.PresenceInLadn = models.PresenceState_OUT_OF_AREA
 		}
 	}
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, N2SmInfo)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, n2SmInfo)
 }
 
 func (s *nsmfService) SendUpdateSmContextXnHandoverFailed(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, N2SmInfo []byte) (
+	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
-		updateData.N2SmInfo.ContentId = "N2SmInfo"
+		updateData.N2SmInfo.ContentId = n2sminfocon
 	}
 	updateData.FailedToBeSwitched = true
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, N2SmInfo)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, n2SmInfo)
 }
 
 func (s *nsmfService) SendUpdateSmContextN2HandoverPreparing(
 	ue *amf_context.AmfUe,
 	smContext *amf_context.SmContext,
 	n2SmType models.N2SmInfoType,
-	N2SmInfo []byte, amfid string, targetId *models.NgRanTargetId) (
+	n2SmInfo []byte, amfid string, targetId *models.NgRanTargetId) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
-		updateData.N2SmInfo.ContentId = "N2SmInfo"
+		updateData.N2SmInfo.ContentId = n2sminfocon
 	}
 	updateData.HoState = models.HoState_PREPARING
 	updateData.TargetId = targetId
@@ -365,21 +367,21 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverPreparing(
 	if amfid != "" {
 		updateData.TargetServingNfId = amfid
 	}
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, N2SmInfo)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, n2SmInfo)
 }
 
 func (s *nsmfService) SendUpdateSmContextN2HandoverPrepared(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, N2SmInfo []byte) (
+	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
-		updateData.N2SmInfo.ContentId = "N2SmInfo"
+		updateData.N2SmInfo.ContentId = n2sminfocon
 	}
 	updateData.HoState = models.HoState_PREPARED
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, N2SmInfo)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, n2SmInfo)
 }
 
 func (s *nsmfService) SendUpdateSmContextN2HandoverComplete(
@@ -408,6 +410,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverCanceled(ue *amf_context.AmfU
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
+	// nolint openapi/model misspelling
 	updateData.HoState = models.HoState_CANCELLED
 	if cause.Cause != nil {
 		updateData.Cause = *cause.Cause
@@ -422,16 +425,16 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverCanceled(ue *amf_context.AmfU
 }
 
 func (s *nsmfService) SendUpdateSmContextHandoverBetweenAccessType(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, targetAccessType models.AccessType, N1SmMsg []byte) (
+	ue *amf_context.AmfUe, smContext *amf_context.SmContext, targetAccessType models.AccessType, n1SmMsg []byte) (
 	*models.UpdateSmContextResponse, *models.UpdateSmContextErrorResponse, *models.ProblemDetails, error,
 ) {
 	updateData := models.SmContextUpdateData{}
 	updateData.AnType = targetAccessType
-	if N1SmMsg != nil {
+	if n1SmMsg != nil {
 		updateData.N1SmMsg = new(models.RefToBinaryData)
 		updateData.N1SmMsg.ContentId = "N1Msg"
 	}
-	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, N1SmMsg, nil)
+	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, n1SmMsg, nil)
 }
 
 func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
@@ -573,7 +576,7 @@ func (s *nsmfService) buildReleaseSmContextRequest(
 	if n2Info != nil {
 		releaseData.N2SmInfoType = n2SmInfoType
 		releaseData.N2SmInfo = &models.RefToBinaryData{
-			ContentId: "n2SmInfo",
+			ContentId: n2sminfocon,
 		}
 	}
 	// TODO: other param(ueLocation...)

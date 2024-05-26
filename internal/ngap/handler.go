@@ -777,8 +777,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				n2Info := response.BinaryDataN1SmMessage
 				n1Msg := response.BinaryDataN2SmInformation
 				if n2Info != nil {
-					switch responseData.N2SmInfoType {
-					case models.N2SmInfoType_PDU_RES_MOD_REQ:
+					if responseData.N2SmInfoType == models.N2SmInfoType_PDU_RES_MOD_REQ {
 						ranUe.Log.Debugln("AMF Transfer NGAP PDU Resource Modify Req from SMF")
 						var nasPdu []byte
 						if n1Msg != nil {
@@ -835,8 +834,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				n2Info := response.BinaryDataN1SmMessage
 				n1Msg := response.BinaryDataN2SmInformation
 				if n2Info != nil {
-					switch responseData.N2SmInfoType {
-					case models.N2SmInfoType_PDU_RES_REL_CMD:
+					if responseData.N2SmInfoType == models.N2SmInfoType_PDU_RES_REL_CMD {
 						ranUe.Log.Debugln("AMF Transfer NGAP PDU Session Resource Rel Co from SMF")
 						var nasPdu []byte
 						if n1Msg != nil {
@@ -1589,8 +1587,8 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 			sourceUe.Log.Infof("Send HandoverRequiredTransfer to SMF")
 			for _, pDUSessionResourceHoItem := range pDUSessionResourceListHORqd.List {
 				pduSessionID := int32(pDUSessionResourceHoItem.PDUSessionID.Value)
-				smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
-				if !ok {
+				smContext, okSmContextFindByPDUSessionID := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+				if !okSmContextFindByPDUSessionID {
 					sourceUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 					// TODO: Check if doing error handling here
 					continue
@@ -1849,7 +1847,7 @@ func handleLocationReportMain(ran *context.AmfRan,
 
 		case ngapType.EventTypePresentStopUePresenceInAreaOfInterest:
 			ranUe.Log.Trace("To stop reporting UE presence in the area of interest")
-			ranUe.Log.Tracef("ReferenceID To Be Cancelled[%d]",
+			ranUe.Log.Tracef("ReferenceID To Be Canceled[%d]",
 				locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value)
 			// TODO: Clear location report
 
@@ -1997,7 +1995,7 @@ func handleCellTrafficTraceMain(ran *context.AmfRan,
 	}
 
 	// TODO: TS 32.422 4.2.2.10
-	// When AMF receives this new NG signalling message containing the Trace Recording Session Reference (TRSR)
+	// When AMF receives this new NG signaling message containing the Trace Recording Session Reference (TRSR)
 	// and Trace Reference (TR), the AMF shall look up the SUPI/IMEI(SV) of the given call from its database and
 	// shall send the SUPI/IMEI(SV) numbers together with the Trace Recording Session Reference and Trace Reference
 	// to the Trace Collection Entity.

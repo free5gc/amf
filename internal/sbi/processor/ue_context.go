@@ -73,11 +73,11 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	// should be smInfo list
 
-	//for _, smInfo := range ueContextCreateData.PduSessionList {
-	//if smInfo.N2InfoContent.NgapIeType == "NgapIeType_HANDOVER_REQUIRED" {
-	// ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo = &smInfo
-	//}
-	//}
+	//	for _, smInfo := range ueContextCreateData.PduSessionList {
+	//		if smInfo.N2InfoContent.NgapIeType == "NgapIeType_HANDOVER_REQUIRED" {
+	// 			ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo = &smInfo
+	//		}
+	//	}
 
 	ue.RoutingIndicator = ueContextCreateData.UeContext.RoutingIndicator
 
@@ -122,10 +122,10 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	createUeContextResponse.JsonData.PcfReselectedInd = false
 	// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 
-	//response.UeContext = ueContextCreateData.UeContext
-	//response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	//response.PduSessionList = ueContextCreateData.PduSessionList
-	//response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+	//	response.UeContext = ueContextCreateData.UeContext
+	//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
+	//	response.PduSessionList = ueContextCreateData.PduSessionList
+	//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 	//
 
 	// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
@@ -267,13 +267,13 @@ func (p *Processor) UEContextTransferProcedure(ueContextID string,
 	}
 	ueContextTransferRspData := ueContextTransferResponse.JsonData
 
-	//if ue.GetAnType() != UeContextTransferReqData.AccessType {
-	//for _, tai := range ue.RegistrationArea[ue.GetAnType()] {
-	//if UeContextTransferReqData.PlmnId == tai.PlmnId {
-	// TODO : generate N2 signalling
-	//}
-	//}
-	//}
+	//	if ue.GetAnType() != UeContextTransferReqData.AccessType {
+	//		for _, tai := range ue.RegistrationArea[ue.GetAnType()] {
+	//		if UeContextTransferReqData.PlmnId == tai.PlmnId {
+	// 			TODO : generate N2 signaling
+	//			}
+	//		}
+	//	}
 
 	switch UeContextTransferReqData.Reason {
 	case models.TransferReason_INIT_REG:
@@ -339,11 +339,11 @@ func (p *Processor) UEContextTransferProcedure(ueContextID string,
 	return ueContextTransferResponse, nil
 }
 
-func (p *Processor) buildUEContextModel(ue *context.AmfUe, Reason models.TransferReason) *models.UeContext {
+func (p *Processor) buildUEContextModel(ue *context.AmfUe, reason models.TransferReason) *models.UeContext {
 	ueContext := new(models.UeContext)
 	ueContext.Supi = ue.Supi
 	ueContext.SupiUnauthInd = ue.UnauthenticatedSupi
-	if Reason == models.TransferReason_INIT_REG || Reason == models.TransferReason_MOBI_REG {
+	if reason == models.TransferReason_INIT_REG || reason == models.TransferReason_MOBI_REG {
 		var mmContext models.MmContext
 		mmContext.AccessType = models.AccessType__3_GPP_ACCESS
 		NasSecurityMode := new(models.NasSecurityMode)
@@ -396,7 +396,7 @@ func (p *Processor) buildUEContextModel(ue *context.AmfUe, Reason models.Transfe
 		}
 		ueContext.MmContextList = append(ueContext.MmContextList, mmContext)
 	}
-	if Reason == models.TransferReason_MOBI_REG_UE_VALIDATED || Reason == models.TransferReason_MOBI_REG {
+	if reason == models.TransferReason_MOBI_REG_UE_VALIDATED || reason == models.TransferReason_MOBI_REG {
 		sessionContextList := &ueContext.SessionContextList
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*context.SmContext)
@@ -527,7 +527,7 @@ func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData mod
 	defer ue.Lock.Unlock()
 
 	// TODO: AssignEbiError not used, check it!
-	if _, ok := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); ok {
+	if _, okSmContextFind := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); okSmContextFind {
 		var assignedEbiData *models.AssignedEbiData
 		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
 		return assignedEbiData, nil, nil
@@ -566,8 +566,8 @@ func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
 		return nil, problemDetails
 	}
 
-	ue, ok := amfSelf.AmfUeFindByUeContextID(ueContextID)
-	if !ok {
+	ue, okAmfUeFindByUeContextID := amfSelf.AmfUeFindByUeContextID(ueContextID)
+	if !okAmfUeFindByUeContextID {
 		logger.CtxLog.Warnf("AmfUe Context[%s] not found", ueContextID)
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
@@ -588,12 +588,12 @@ func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
 			causeAll := &context.CauseAll{
 				Cause: &cause,
 			}
-			smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionId)
-			if !ok {
+			smContext, okSmContextFindByPDUSessionID := ue.SmContextFindByPDUSessionID(pduSessionId)
+			if !okSmContextFindByPDUSessionID {
 				ue.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionId)
 				continue
 			}
-			problem, err := p.consumer.SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
+			problem, err := p.Consumer().SendReleaseSmContextRequest(ue, smContext, causeAll, "", nil)
 			if problem != nil {
 				logger.GmmLog.Errorf("Release SmContext[pduSessionId: %d] Failed Problem[%+v]", pduSessionId, problem)
 			} else if err != nil {
@@ -602,7 +602,7 @@ func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
 		}
 
 		if ueRegStatusUpdateReqData.PcfReselectedInd {
-			problem, err := p.consumer.AMPolicyControlDelete(ue)
+			problem, err := p.Consumer().AMPolicyControlDelete(ue)
 			if problem != nil {
 				logger.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 			} else if err != nil {

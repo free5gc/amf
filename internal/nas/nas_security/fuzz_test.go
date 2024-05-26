@@ -37,8 +37,8 @@ func FuzzNASSecurity(f *testing.F) {
 			ue.CipheringAlg = security.AlgCiphering128NEA2
 			if err := security.NASEncrypt(ue.CipheringAlg, ue.KnasEnc, uint32(d[6]),
 				security.AccessType3GPP, security.DirectionUplink, d[7:]); err == nil {
-				if mac32, err := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, uint32(d[6]),
-					security.AccessType3GPP, security.DirectionUplink, d[6:]); err == nil {
+				if mac32, errNASMacCalculate := security.NASMacCalculate(ue.IntegrityAlg, ue.KnasInt, uint32(d[6]),
+					security.AccessType3GPP, security.DirectionUplink, d[6:]); errNASMacCalculate == nil {
 					copy(d[2:6], mac32)
 					msg2, integrityProtected2, err2 := nas_security.Decode(ue, models.AccessType__3_GPP_ACCESS, d, true)
 					if err0 == nil && integrityProtected0 &&

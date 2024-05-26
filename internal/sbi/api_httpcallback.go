@@ -62,7 +62,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 
 	err = openapi.Deserialize(&policyUpdate, requestBody, "application/json")
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,
@@ -110,7 +110,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 
 	err = openapi.Deserialize(&terminationNotification, requestBody, "application/json")
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,
@@ -158,7 +158,7 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 
 	err = openapi.Deserialize(&n1MessageNotification, requestBody, "application/json")
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,
@@ -211,7 +211,7 @@ func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {
 		problemDetails := models.ProblemDetails{
 			Title:  "Malformed request syntax",
 			Status: http.StatusBadRequest,
-			Detail: "[Request Body] " + err.Error(),
+			Detail: reqbody + err.Error(),
 		}
 		logger.CallbackLog.Errorln(problemDetails.Detail)
 		c.JSON(http.StatusBadRequest, problemDetails)
@@ -248,8 +248,7 @@ func (s *Server) DeregistrationNotificationProcedure(ue *amf_context.AmfUe, dere
 	problemDetails *models.ProblemDetails, err error,
 ) {
 	// The AMF does not send the Deregistration Request message to the UE for Implicit Deregistration.
-	switch deregData.DeregReason {
-	case models.DeregistrationReason_UE_INITIAL_REGISTRATION:
+	if deregData.DeregReason == models.DeregistrationReason_UE_INITIAL_REGISTRATION {
 		// TS 23.502 - 4.2.2.2.2 General Registration
 		// Invokes the Nsmf_PDUSession_ReleaseSMContext for the corresponding access type
 		ue.SmContextList.Range(func(key, value interface{}) bool {
@@ -285,11 +284,11 @@ func (s *Server) DeregistrationNotificationProcedure(ue *amf_context.AmfUe, dere
 		// procedure if the old AMF has established an AM Policy Association and a UE Policy Association with the PCF(s)
 		// and the old AMF did not transfer the PCF ID(s) to the new AMF. (Ref: TS 23.502 - 4.2.2.2.2)
 		// Currently, old AMF will transfer the PCF ID but new AMF will not utilize the PCF ID
-		problemDetails, err := s.Consumer().AMPolicyControlDelete(ue)
-		if problemDetails != nil {
-			logger.GmmLog.Errorf("Delete AM policy Failed Problem[%+v]", problemDetails)
+		problemDetailsAMPolicyControlDelete, errAMPolicyControlDelete := s.Consumer().AMPolicyControlDelete(ue)
+		if problemDetailsAMPolicyControlDelete != nil {
+			logger.GmmLog.Errorf("Delete AM policy Failed Problem[%+v]", problemDetailsAMPolicyControlDelete)
 		} else if err != nil {
-			logger.GmmLog.Errorf("Delete AM policy Error[%+v]", err)
+			logger.GmmLog.Errorf("Delete AM policy Error[%+v]", errAMPolicyControlDelete)
 		}
 	}
 

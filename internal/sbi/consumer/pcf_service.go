@@ -96,9 +96,9 @@ func (s *npcfService) AMPolicyControlCreate(
 				if trigger == models.RequestTrigger_LOC_CH {
 					ue.RequestTriggerLocationChange = true
 				}
-				//if trigger == models.RequestTrigger_PRA_CH {
+				// if trigger == models.RequestTrigger_PRA_CH {
 				// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
-				//}
+				// }
 			}
 		}
 

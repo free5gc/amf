@@ -129,9 +129,9 @@ func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 		if trigger == models.RequestTrigger_LOC_CH {
 			ue.RequestTriggerLocationChange = true
 		}
-		//if trigger == models.RequestTrigger_PRA_CH {
+		// if trigger == models.RequestTrigger_PRA_CH {
 		// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
-		//}
+		// }
 	}
 
 	if policyUpdate.ServAreaRes != nil {
@@ -232,7 +232,7 @@ func (p *Processor) AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID stri
 			}
 		}()
 
-		problem, err := p.consumer.AMPolicyControlDelete(ue)
+		problem, err := p.Consumer().AMPolicyControlDelete(ue)
 		if problem != nil {
 			logger.ProducerLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problem)
 		} else if err != nil {

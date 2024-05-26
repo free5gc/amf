@@ -68,8 +68,8 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	}
 
 	var paramOpt Nnssf_NSSelection.NSSelectionGetParamOpts
-	if e, err := json.Marshal(sliceInfo); err != nil {
-		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
+	if e, errsliceinfo := json.Marshal(sliceInfo); errsliceinfo != nil {
+		logger.ConsumerLog.Warnf("json marshal failed: %+v", errsliceinfo)
 	} else {
 		paramOpt = Nnssf_NSSelection.NSSelectionGetParamOpts{
 			SliceInfoRequestForRegistration: optional.NewInterface(string(e)),
@@ -94,8 +94,8 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 		ue.ConfiguredNssai = res.ConfiguredNssai
 	} else if httpResp != nil {
 		if httpResp.Status != localErr.Error() {
-			err := localErr
-			return nil, err
+			errlocal := localErr
+			return nil, errlocal
 		}
 		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		return &problem, nil

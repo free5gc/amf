@@ -81,7 +81,10 @@ func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) (
 		}
 
 		// add sequece number
-		payload = append([]byte{ue.DLCount.SQN()}, payload[:]...)
+		addsqn := []byte{}
+		addsqn = append(addsqn, []byte{ue.DLCount.SQN()}...)
+		addsqn = append(addsqn, payload...)
+		payload = addsqn
 
 		ue.NASLog.Debugf("Calculate NAS MAC (algorithm: %+v, DLCount: 0x%0x)", ue.IntegrityAlg, ue.DLCount.Get())
 		ue.NASLog.Tracef("NAS integrity key: %0x", ue.KnasInt)
@@ -92,11 +95,17 @@ func Encode(ue *context.AmfUe, msg *nas.Message, accessType models.AccessType) (
 		}
 		// Add mac value
 		ue.NASLog.Tracef("MAC: 0x%08x", mac32)
-		payload = append(mac32, payload[:]...)
+		addmac := []byte{}
+		addmac = append(addmac, mac32...)
+		addmac = append(addmac, payload...)
+		payload = addmac
 
 		// Add EPD and Security Type
 		msgSecurityHeader := []byte{msg.SecurityHeader.ProtocolDiscriminator, msg.SecurityHeader.SecurityHeaderType}
-		payload = append(msgSecurityHeader, payload[:]...)
+		encodepayload := []byte{}
+		encodepayload = append(encodepayload, msgSecurityHeader...)
+		encodepayload = append(encodepayload, payload...)
+		payload = encodepayload
 
 		// Increase DL Count
 		ue.DLCount.AddOne()
