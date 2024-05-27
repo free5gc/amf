@@ -19,7 +19,8 @@ import (
 
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
 func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
-	n1n2MessageTransferRequest models.N1N2MessageTransferRequest) {
+	n1n2MessageTransferRequest models.N1N2MessageTransferRequest,
+) {
 	logger.ProducerLog.Infof("Handle N1N2 Message Transfer Request")
 
 	ueContextID := c.Param("ueContextId")
@@ -432,8 +433,8 @@ func (p *Processor) HandleN1N2MessageSubscribeRequest(c *gin.Context) {
 
 	ueContextID := c.Param("ueContextId")
 
-	ueN1N2InfoSubscriptionCreatedData, problemDetails :=
-		p.N1N2MessageSubscribeProcedure(ueContextID, ueN1N2InfoSubscriptionCreateData)
+	ueN1N2InfoSubscriptionCreatedData, problemDetails := p.
+		N1N2MessageSubscribeProcedure(ueContextID, ueN1N2InfoSubscriptionCreateData)
 	if problemDetails != nil {
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {

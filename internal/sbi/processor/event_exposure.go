@@ -253,8 +253,8 @@ func (p *Processor) HandleModifyAMFEventSubscription(c *gin.Context) {
 		return
 	}
 
-	updatedEventSubscription, problemDetails :=
-		p.ModifyAMFEventSubscriptionProcedure(subscriptionID, modifySubscriptionRequest)
+	updatedEventSubscription, problemDetails := p.
+		ModifyAMFEventSubscriptionProcedure(subscriptionID, modifySubscriptionRequest)
 	if updatedEventSubscription != nil {
 		c.JSON(http.StatusOK, updatedEventSubscription)
 	} else if problemDetails != nil {

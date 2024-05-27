@@ -100,8 +100,8 @@ func (p *Processor) HandleAMFStatusChangeSubscribeModify(c *gin.Context) {
 
 	subscriptionID := c.Param("subscriptionId")
 
-	updatedSubscriptionData, problemDetails :=
-		p.AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
+	updatedSubscriptionData, problemDetails := p.
+		AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
 	if problemDetails != nil {
 		c.JSON(int(problemDetails.Status), problemDetails)
 		return
