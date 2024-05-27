@@ -3,23 +3,29 @@ package processor
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
-func (p *Processor) HandleProvideLocationInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleProvideLocationInfoRequest(c *gin.Context) {
 	logger.ProducerLog.Info("Handle Provide Location Info Request")
 
-	requestLocInfo := request.Body.(models.RequestLocInfo)
-	ueContextID := request.Params["ueContextId"]
+	var requestLocInfo models.RequestLocInfo
+	if err := c.ShouldBindJSON(&requestLocInfo); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	provideLocInfo, problemDetails := p.ProvideLocationInfoProcedure(requestLocInfo, ueContextID)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, provideLocInfo)
+		c.JSON(http.StatusOK, provideLocInfo)
 	}
 }
 

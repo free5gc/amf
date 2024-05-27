@@ -10,7 +10,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 func Index(c *gin.Context) {
@@ -133,45 +132,12 @@ func (s *Server) HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, subscriptionData)
-	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
-
-	rsp := s.Processor().HandleAMFStatusChangeSubscribeModify(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleAMFStatusChangeSubscribeModify(c)
 }
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
 func (s *Server) HTTPAMFStatusChangeUnSubscribe(c *gin.Context) {
-	req := httpwrapper.NewRequest(c.Request, nil)
-	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
-
-	rsp := s.Processor().HandleAMFStatusChangeUnSubscribeRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleAMFStatusChangeUnSubscribeRequest(c)
 }
 
 func (s *Server) HTTPCreateUEContext(c *gin.Context) {
@@ -213,38 +179,7 @@ func (s *Server) HTTPCreateUEContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, createUeContextRequest)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	rsp := s.Processor().HandleCreateUEContextRequest(req)
-
-	if rsp.Status == http.StatusCreated {
-		responseBody, contentTyperspBody, errrspBody := openapi.MultipartSerialize(rsp.Body)
-		if errrspBody != nil {
-			logger.CommLog.Errorln(errrspBody)
-			problemDetails := models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "SYSTEM_FAILURE",
-				Detail: errrspBody.Error(),
-			}
-			c.JSON(http.StatusInternalServerError, problemDetails)
-		} else {
-			c.Data(rsp.Status, contentTyperspBody, responseBody)
-		}
-	} else {
-		responseBody, errSerialize := openapi.Serialize(rsp.Body, applicationjson)
-		if errSerialize != nil {
-			logger.CommLog.Errorln(errSerialize)
-			problemDetails := models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "SYSTEM_FAILURE",
-				Detail: errSerialize.Error(),
-			}
-			c.JSON(http.StatusInternalServerError, problemDetails)
-		} else {
-			c.Data(rsp.Status, applicationjson, responseBody)
-		}
-	}
+	s.Processor().HandleCreateUEContextRequest(c)
 }
 
 // EBIAssignment - Namf_Communication EBI Assignment service Operation
@@ -276,23 +211,7 @@ func (s *Server) HTTPEBIAssignment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, assignEbiData)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	rsp := s.Processor().HandleAssignEbiDataRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleAssignEbiDataRequest(c)
 }
 
 // RegistrationStatusUpdate - Namf_Communication RegistrationStatusUpdate service Operation
@@ -324,23 +243,7 @@ func (s *Server) HTTPRegistrationStatusUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, ueRegStatusUpdateReqData)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	rsp := s.Processor().HandleRegistrationStatusUpdateRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleRegistrationStatusUpdateRequest(c)
 }
 
 // ReleaseUEContext - Namf_Communication ReleaseUEContext service Operation
@@ -372,23 +275,7 @@ func (s *Server) HTTPReleaseUEContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, ueContextRelease)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	rsp := s.Processor().HandleReleaseUEContextRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleReleaseUEContextRequest(c)
 }
 
 // UEContextTransfer - Namf_Communication UEContextTransfer service Operation
@@ -429,59 +316,11 @@ func (s *Server) HTTPUEContextTransfer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, ueContextTransferRequest)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	rsp := s.Processor().HandleUEContextTransferRequest(req)
-
-	if rsp.Status == http.StatusOK {
-		responseBody, contentTyperspBody, errMultipartSerialize := openapi.MultipartSerialize(rsp.Body)
-		if errMultipartSerialize != nil {
-			logger.CommLog.Errorln(errMultipartSerialize)
-			problemDetails := models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "SYSTEM_FAILURE",
-				Detail: errMultipartSerialize.Error(),
-			}
-			c.JSON(http.StatusInternalServerError, problemDetails)
-		} else {
-			c.Data(rsp.Status, contentTyperspBody, responseBody)
-		}
-	} else {
-		responseBody, errSerialize := openapi.Serialize(rsp.Body, applicationjson)
-		if errSerialize != nil {
-			logger.CommLog.Errorln(errSerialize)
-			problemDetails := models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "SYSTEM_FAILURE",
-				Detail: errSerialize.Error(),
-			}
-			c.JSON(http.StatusInternalServerError, problemDetails)
-		} else {
-			c.Data(rsp.Status, applicationjson, responseBody)
-		}
-	}
+	s.Processor().HandleUEContextTransferRequest(c)
 }
 
 func (s *Server) HTTPN1N2MessageUnSubscribe(c *gin.Context) {
-	req := httpwrapper.NewRequest(c.Request, nil)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	req.Params["subscriptionId"] = c.Params.ByName("subscriptionId")
-
-	rsp := s.Processor().HandleN1N2MessageUnSubscribeRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleN1N2MessageUnSubscribeRequest(c)
 }
 
 func (s *Server) HTTPN1N2MessageTransfer(c *gin.Context) {
@@ -523,49 +362,11 @@ func (s *Server) HTTPN1N2MessageTransfer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, n1n2MessageTransferRequest)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	req.Params["reqUri"] = c.Request.RequestURI
-
-	rsp := s.Processor().HandleN1N2MessageTransferRequest(req)
-
-	for key, val := range rsp.Header {
-		c.Header(key, val[0])
-	}
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleN1N2MessageTransferRequest(c, n1n2MessageTransferRequest)
 }
 
 func (s *Server) HTTPN1N2MessageTransferStatus(c *gin.Context) {
-	req := httpwrapper.NewRequest(c.Request, nil)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-	req.Params["reqUri"] = c.Request.RequestURI
-
-	rsp := s.Processor().HandleN1N2MessageTransferStatusRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleN1N2MessageTransferStatusRequest(c)
 }
 
 func (s *Server) HTTPN1N2MessageSubscribe(c *gin.Context) {
@@ -596,24 +397,7 @@ func (s *Server) HTTPN1N2MessageSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, ueN1N2InfoSubscriptionCreateData)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-
-	rsp := s.Processor().HandleN1N2MessageSubscirbeRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleN1N2MessageSubscribeRequest(c)
 }
 
 func (s *Server) HTTPNonUeN2InfoUnSubscribe(c *gin.Context) {
@@ -659,23 +443,5 @@ func (s *Server) HTTPAMFStatusChangeSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, subscriptionData)
-	rsp := s.Processor().HandleAMFStatusChangeSubscribeRequest(req)
-
-	for key, val := range rsp.Header {
-		c.Header(key, val[0])
-	}
-	responseBody, err := openapi.Serialize(rsp.Body, applicationjson)
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, applicationjson, responseBody)
-	}
+	s.Processor().HandleAMFStatusChangeSubscribeRequest(c)
 }

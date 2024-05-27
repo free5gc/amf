@@ -4,10 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 type PduSession struct {
@@ -34,16 +35,16 @@ type UEContext struct {
 
 type UEContexts []UEContext
 
-func (p *Processor) HandleOAMRegisteredUEContext(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleOAMRegisteredUEContext(c *gin.Context) {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
-	supi := request.Params["supi"]
+	supi := c.Query("supi")
 
 	ueContexts, problemDetails := p.OAMRegisteredUEContextProcedure(supi)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, ueContexts)
+		c.JSON(http.StatusOK, ueContexts)
 	}
 }
 

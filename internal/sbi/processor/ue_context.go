@@ -6,27 +6,33 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 // TS 29.518 5.2.2.2.3
-func (p *Processor) HandleCreateUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleCreateUEContextRequest(c *gin.Context) {
 	logger.CommLog.Infof("Handle Create UE Context Request")
 
-	createUeContextRequest := request.Body.(models.CreateUeContextRequest)
-	ueContextID := request.Params["ueContextId"]
+	var createUeContextRequest models.CreateUeContextRequest
+	if err := c.ShouldBindJSON(&createUeContextRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
-		return httpwrapper.NewResponse(int(ueContextCreateError.Error.Status), nil, ueContextCreateError)
+		c.JSON(int(ueContextCreateError.Error.Status), ueContextCreateError)
 	} else {
-		return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
+		c.JSON(http.StatusCreated, createUeContextResponse)
 	}
 }
 
@@ -133,17 +139,22 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 }
 
 // TS 29.518 5.2.2.2.4
-func (p *Processor) HandleReleaseUEContextRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleReleaseUEContextRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle Release UE Context Request")
 
-	ueContextRelease := request.Body.(models.UeContextRelease)
-	ueContextID := request.Params["ueContextId"]
+	var ueContextRelease models.UeContextRelease
+	if err := c.ShouldBindJSON(&ueContextRelease); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	problemDetails := p.ReleaseUEContextProcedure(ueContextID, ueContextRelease)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+		c.Status(http.StatusNoContent)
 	}
 }
 
@@ -211,17 +222,22 @@ func (p *Processor) HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData 
 }
 
 // TS 29.518 5.2.2.2.1
-func (p *Processor) HandleUEContextTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleUEContextTransferRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle UE Context Transfer Request")
 
-	ueContextTransferRequest := request.Body.(models.UeContextTransferRequest)
-	ueContextID := request.Params["ueContextId"]
+	var ueContextTransferRequest models.UeContextTransferRequest
+	if err := c.ShouldBindJSON(&ueContextTransferRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	ueContextTransferResponse, problemDetails := p.UEContextTransferProcedure(ueContextID, ueContextTransferRequest)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, ueContextTransferResponse)
+		c.JSON(http.StatusOK, ueContextTransferResponse)
 	}
 }
 
@@ -492,19 +508,24 @@ func (p *Processor) buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (
 }
 
 // TS 29.518 5.2.2.6
-func (p *Processor) HandleAssignEbiDataRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAssignEbiDataRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle Assign Ebi Data Request")
 
-	assignEbiData := request.Body.(models.AssignEbiData)
-	ueContextID := request.Params["ueContextId"]
+	var assignEbiData models.AssignEbiData
+	if err := c.ShouldBindJSON(&assignEbiData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	assignedEbiData, assignEbiError, problemDetails := p.AssignEbiDataProcedure(ueContextID, assignEbiData)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else if assignEbiError != nil {
-		return httpwrapper.NewResponse(int(assignEbiError.Error.Status), nil, assignEbiError)
+		c.JSON(int(assignEbiError.Error.Status), assignEbiError)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, assignedEbiData)
+		c.JSON(http.StatusOK, assignedEbiData)
 	}
 }
 
@@ -537,17 +558,22 @@ func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData mod
 }
 
 // TS 29.518 5.2.2.2.2
-func (p *Processor) HandleRegistrationStatusUpdateRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleRegistrationStatusUpdateRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle Registration Status Update Request")
 
-	ueRegStatusUpdateReqData := request.Body.(models.UeRegStatusUpdateReqData)
-	ueContextID := request.Params["ueContextId"]
+	var ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData
+	if err := c.ShouldBindJSON(&ueRegStatusUpdateReqData); err != nil {
+		// Handle error
+		return
+	}
+
+	ueContextID := c.Param("ueContextId")
 
 	ueRegStatusUpdateRspData, problemDetails := p.RegistrationStatusUpdateProcedure(ueContextID, ueRegStatusUpdateReqData)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, ueRegStatusUpdateRspData)
+		c.JSON(http.StatusOK, ueRegStatusUpdateRspData)
 	}
 }
 

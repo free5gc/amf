@@ -5,26 +5,31 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
-func (p *Processor) HandleCreateAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
-	createEventSubscription := request.Body.(models.AmfCreateEventSubscription)
+func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context) {
+	var createEventSubscription models.AmfCreateEventSubscription
+	if err := c.ShouldBindJSON(&createEventSubscription); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	createdEventSubscription, problemDetails := p.CreateAMFEventSubscriptionProcedure(createEventSubscription)
 	if createdEventSubscription != nil {
-		return httpwrapper.NewResponse(http.StatusCreated, nil, createdEventSubscription)
+		c.JSON(http.StatusCreated, createdEventSubscription)
 	} else if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		problemDetails = &models.ProblemDetails{
 			Status: http.StatusInternalServerError,
 			Cause:  "UNSPECIFIED_NF_FAILURE",
 		}
-		return httpwrapper.NewResponse(http.StatusInternalServerError, nil, problemDetails)
+		c.JSON(http.StatusInternalServerError, problemDetails)
 	}
 }
 
@@ -202,16 +207,16 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 	return createdEventSubscription, nil
 }
 
-func (p *Processor) HandleDeleteAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleDeleteAMFEventSubscription(c *gin.Context) {
 	logger.EeLog.Infoln("Handle Delete AMF Event Subscription")
 
-	subscriptionID := request.Params["subscriptionId"]
+	subscriptionID := c.Param("subscriptionId")
 
 	problemDetails := p.DeleteAMFEventSubscriptionProcedure(subscriptionID)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, nil)
+		c.JSON(http.StatusOK, nil)
 	}
 }
 
@@ -238,24 +243,28 @@ func (p *Processor) DeleteAMFEventSubscriptionProcedure(subscriptionID string) *
 	return nil
 }
 
-func (p *Processor) HandleModifyAMFEventSubscription(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleModifyAMFEventSubscription(c *gin.Context) {
 	logger.EeLog.Infoln("Handle Modify AMF Event Subscription")
 
-	subscriptionID := request.Params["subscriptionId"]
-	modifySubscriptionRequest := request.Body.(models.ModifySubscriptionRequest)
+	subscriptionID := c.Param("subscriptionId")
+	var modifySubscriptionRequest models.ModifySubscriptionRequest
+	if err := c.ShouldBindJSON(&modifySubscriptionRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	updatedEventSubscription, problemDetails := p.ModifyAMFEventSubscriptionProcedure(subscriptionID,
-		modifySubscriptionRequest)
+	updatedEventSubscription, problemDetails :=
+		p.ModifyAMFEventSubscriptionProcedure(subscriptionID, modifySubscriptionRequest)
 	if updatedEventSubscription != nil {
-		return httpwrapper.NewResponse(http.StatusOK, nil, updatedEventSubscription)
+		c.JSON(http.StatusOK, updatedEventSubscription)
 	} else if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		problemDetails = &models.ProblemDetails{
 			Status: http.StatusInternalServerError,
 			Cause:  "UNSPECIFIED_NF_FAILURE",
 		}
-		return httpwrapper.NewResponse(http.StatusInternalServerError, nil, problemDetails)
+		c.JSON(http.StatusInternalServerError, problemDetails)
 	}
 }
 

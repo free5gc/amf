@@ -3,25 +3,26 @@ package processor
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
-func (p *Processor) HandleProvideDomainSelectionInfoRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleProvideDomainSelectionInfoRequest(c *gin.Context) {
 	logger.MtLog.Info("Handle Provide Domain Selection Info Request")
 
-	ueContextID := request.Params["ueContextId"]
-	infoClassQuery := request.Query.Get("info-class")
-	supportedFeaturesQuery := request.Query.Get("supported-features")
+	ueContextID := c.Param("ueContextId")
+	infoClassQuery := c.Query("info-class")
+	supportedFeaturesQuery := c.Query("supported-features")
 
 	ueContextInfo, problemDetails := p.ProvideDomainSelectionInfoProcedure(ueContextID,
 		infoClassQuery, supportedFeaturesQuery)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, ueContextInfo)
+		c.JSON(http.StatusOK, ueContextInfo)
 	}
 }
 

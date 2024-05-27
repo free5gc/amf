@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
@@ -13,35 +15,38 @@ import (
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
-func (p *Processor) HandleN1N2MessageTransferRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
+	n1n2MessageTransferRequest models.N1N2MessageTransferRequest) {
 	logger.ProducerLog.Infof("Handle N1N2 Message Transfer Request")
 
-	n1n2MessageTransferRequest := request.Body.(models.N1N2MessageTransferRequest)
-	ueContextID := request.Params["ueContextId"]
-	reqUri := request.Params["reqUri"]
+	ueContextID := c.Param("ueContextId")
+	reqUri := c.Param("reqUri")
 
 	n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr := p.N1N2MessageTransferProcedure(
 		ueContextID, reqUri, n1n2MessageTransferRequest)
 
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
+		return
 	} else if transferErr != nil {
-		return httpwrapper.NewResponse(int(transferErr.Error.Status), nil, transferErr)
+		c.JSON(int(transferErr.Error.Status), transferErr)
+		return
 	} else if n1n2MessageTransferRspData != nil {
 		switch n1n2MessageTransferRspData.Cause {
 		case models.N1N2MessageTransferCause_N1_MSG_NOT_TRANSFERRED:
 			fallthrough
 		case models.N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED:
-			return httpwrapper.NewResponse(http.StatusOK, nil, n1n2MessageTransferRspData)
+			c.JSON(http.StatusOK, n1n2MessageTransferRspData)
+			return
 		case models.N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE:
 			headers := http.Header{
 				"Location": {locationHeader},
 			}
-			return httpwrapper.NewResponse(http.StatusAccepted, headers, n1n2MessageTransferRspData)
+			c.JSON(http.StatusAccepted, gin.H{"headers": headers, "data": n1n2MessageTransferRspData})
+			return
 		}
 	}
 
@@ -49,7 +54,7 @@ func (p *Processor) HandleN1N2MessageTransferRequest(request *httpwrapper.Reques
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
-	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
+	c.JSON(http.StatusForbidden, problemDetails)
 }
 
 // There are 4 possible return value for this function:
@@ -371,17 +376,17 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	}
 }
 
-func (p *Processor) HandleN1N2MessageTransferStatusRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageTransferStatusRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle N1N2Message Transfer Status Request")
 
-	ueContextID := request.Params["ueContextId"]
-	reqUri := request.Params["reqUri"]
+	ueContextID := c.Param("ueContextId")
+	reqUri := c.Param("reqUri")
 
 	status, problemDetails := p.N1N2MessageTransferStatusProcedure(ueContextID, reqUri)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusOK, nil, status)
+		c.JSON(http.StatusOK, status)
 	}
 }
 
@@ -418,16 +423,21 @@ func (p *Processor) N1N2MessageTransferStatusProcedure(ueContextID string,
 }
 
 // TS 29.518 5.2.2.3.3
-func (p *Processor) HandleN1N2MessageSubscirbeRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	ueN1N2InfoSubscriptionCreateData := request.Body.(models.UeN1N2InfoSubscriptionCreateData)
-	ueContextID := request.Params["ueContextId"]
+func (p *Processor) HandleN1N2MessageSubscribeRequest(c *gin.Context) {
+	var ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData
+	if err := c.ShouldBindJSON(&ueN1N2InfoSubscriptionCreateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	ueN1N2InfoSubscriptionCreatedData, problemDetails := p.N1N2MessageSubscribeProcedure(ueContextID,
-		ueN1N2InfoSubscriptionCreateData)
+	ueContextID := c.Param("ueContextId")
+
+	ueN1N2InfoSubscriptionCreatedData, problemDetails :=
+		p.N1N2MessageSubscribeProcedure(ueContextID, ueN1N2InfoSubscriptionCreateData)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusCreated, nil, ueN1N2InfoSubscriptionCreatedData)
+		c.JSON(http.StatusCreated, ueN1N2InfoSubscriptionCreatedData)
 	}
 }
 
@@ -466,17 +476,17 @@ func (p *Processor) N1N2MessageSubscribeProcedure(ueContextID string,
 	return ueN1N2InfoSubscriptionCreatedData, nil
 }
 
-func (p *Processor) HandleN1N2MessageUnSubscribeRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleN1N2MessageUnSubscribeRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle N1N2Message Unsubscribe Request")
 
-	ueContextID := request.Params["ueContextId"]
-	subscriptionID := request.Params["subscriptionId"]
+	ueContextID := c.Param("ueContextId")
+	subscriptionID := c.Param("subscriptionId")
 
 	problemDetails := p.N1N2MessageUnSubscribeProcedure(ueContextID, subscriptionID)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+		c.Status(http.StatusNoContent)
 	}
 }
 

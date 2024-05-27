@@ -17,7 +17,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 func (s *Server) getLocationRoutes() []Route {
@@ -71,24 +70,7 @@ func (s *Server) HTTPProvideLocationInfo(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, requestLocInfo)
-	req.Params["ueContextId"] = c.Params.ByName("ueContextId")
-
-	rsp := s.Processor().HandleProvideLocationInfoRequest(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
-	if err != nil {
-		logger.CommLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, "application/json", responseBody)
-	}
+	s.Processor().HandleProvideLocationInfoRequest(c)
 }
 
 // ProvidePositioningInfo - Namf_Location ProvidePositioningInfo service Operation

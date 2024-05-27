@@ -4,27 +4,31 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 // TS 29.518 5.2.2.5.1
-func (p *Processor) HandleAMFStatusChangeSubscribeRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Request")
 
-	subscriptionDataReq := request.Body.(models.SubscriptionData)
+	var subscriptionDataReq models.SubscriptionData
+	if err := c.ShouldBindJSON(&subscriptionDataReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	subscriptionDataRsp, locationHeader, problemDetails := p.AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
+		return
 	}
 
-	headers := http.Header{
-		"Location": {locationHeader},
-	}
-	return httpwrapper.NewResponse(http.StatusCreated, headers, subscriptionDataRsp)
+	c.Header("Location", locationHeader)
+	c.JSON(http.StatusCreated, subscriptionDataRsp)
 }
 
 func (p *Processor) AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.SubscriptionData) (
@@ -56,16 +60,16 @@ func (p *Processor) AMFStatusChangeSubscribeProcedure(subscriptionDataReq models
 }
 
 // TS 29.518 5.2.2.5.2
-func (p *Processor) HandleAMFStatusChangeUnSubscribeRequest(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAMFStatusChangeUnSubscribeRequest(c *gin.Context) {
 	logger.CommLog.Info("Handle AMF Status Change UnSubscribe Request")
 
-	subscriptionID := request.Params["subscriptionId"]
+	subscriptionID := c.Param("subscriptionId")
 
 	problemDetails := p.AMFStatusChangeUnSubscribeProcedure(subscriptionID)
 	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+		c.Status(http.StatusNoContent)
 	}
 }
 
@@ -85,19 +89,25 @@ func (p *Processor) AMFStatusChangeUnSubscribeProcedure(subscriptionID string) (
 }
 
 // TS 29.518 5.2.2.5.1.3
-func (p *Processor) HandleAMFStatusChangeSubscribeModify(request *httpwrapper.Request) *httpwrapper.Response {
+func (p *Processor) HandleAMFStatusChangeSubscribeModify(c *gin.Context) {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Modify Request")
 
-	updateSubscriptionData := request.Body.(models.SubscriptionData)
-	subscriptionID := request.Params["subscriptionId"]
-
-	updatedSubscriptionData, problemDetails := p.AMFStatusChangeSubscribeModifyProcedure(subscriptionID,
-		updateSubscriptionData)
-	if problemDetails != nil {
-		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
-	} else {
-		return httpwrapper.NewResponse(http.StatusAccepted, nil, updatedSubscriptionData)
+	var updateSubscriptionData models.SubscriptionData
+	if err := c.ShouldBindJSON(&updateSubscriptionData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
+
+	subscriptionID := c.Param("subscriptionId")
+
+	updatedSubscriptionData, problemDetails :=
+		p.AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
+	if problemDetails != nil {
+		c.JSON(int(problemDetails.Status), problemDetails)
+		return
+	}
+
+	c.JSON(http.StatusAccepted, updatedSubscriptionData)
 }
 
 func (p *Processor) AMFStatusChangeSubscribeModifyProcedure(subscriptionID string,

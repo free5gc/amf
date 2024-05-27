@@ -9,7 +9,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/util/httpwrapper"
 )
 
 func (s *Server) getHttpCallBackRoutes() []Route {
@@ -72,24 +71,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, policyUpdate)
-	req.Params["polAssoId"] = c.Params.ByName("polAssoId")
-
-	rsp := s.Processor().HandleAmPolicyControlUpdateNotifyUpdate(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
-	if err != nil {
-		logger.CallbackLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, "application/json", responseBody)
-	}
+	s.Processor().HandleAmPolicyControlUpdateNotifyUpdate(c)
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
@@ -120,24 +102,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, terminationNotification)
-	req.Params["polAssoId"] = c.Params.ByName("polAssoId")
-
-	rsp := s.Processor().HandleAmPolicyControlUpdateNotifyTerminate(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
-	if err != nil {
-		logger.CallbackLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, "application/json", responseBody)
-	}
+	s.Processor().HandleAmPolicyControlUpdateNotifyTerminate(c)
 }
 
 func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
@@ -168,23 +133,7 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-
-	req := httpwrapper.NewRequest(c.Request, n1MessageNotification)
-
-	rsp := s.Processor().HandleN1MessageNotify(req)
-
-	responseBody, err := openapi.Serialize(rsp.Body, "application/json")
-	if err != nil {
-		logger.CallbackLog.Errorln(err)
-		problemDetails := models.ProblemDetails{
-			Status: http.StatusInternalServerError,
-			Cause:  "SYSTEM_FAILURE",
-			Detail: err.Error(),
-		}
-		c.JSON(http.StatusInternalServerError, problemDetails)
-	} else {
-		c.Data(rsp.Status, "application/json", responseBody)
-	}
+	s.Processor().HandleN1MessageNotify(c)
 }
 
 func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {
