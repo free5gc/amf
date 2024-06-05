@@ -71,7 +71,7 @@ func (s *Server) HTTPModifySubscription(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleModifyAMFEventSubscription(c)
+	s.Processor().HandleModifyAMFEventSubscription(c, modifySubscriptionRequest)
 }
 
 func (s *Server) HTTPCreateSubscription(c *gin.Context) {
@@ -102,5 +102,5 @@ func (s *Server) HTTPCreateSubscription(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleCreateAMFEventSubscription(c)
+	s.Processor().HandleCreateAMFEventSubscription(c, createEventSubscription)
 }

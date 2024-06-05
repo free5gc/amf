@@ -642,15 +642,15 @@ func BuildHandoverCancelAcknowledge(
 
 	// Criticality Diagnostics [optional]
 	if criticalityDiagnostics != nil {
-		HandoverCancelAcknowledgeIEsie := ngapType.HandoverCancelAcknowledgeIEs{}
-		HandoverCancelAcknowledgeIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		HandoverCancelAcknowledgeIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		HandoverCancelAcknowledgeIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
-		HandoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		handoverCancelAcknowledgeIEsie := ngapType.HandoverCancelAcknowledgeIEs{}
+		handoverCancelAcknowledgeIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		handoverCancelAcknowledgeIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
-		HandoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
 
-		handoverCancelAcknowledgeIEs.List = append(handoverCancelAcknowledgeIEs.List, HandoverCancelAcknowledgeIEsie)
+		handoverCancelAcknowledgeIEs.List = append(handoverCancelAcknowledgeIEs.List, handoverCancelAcknowledgeIEsie)
 	}
 
 	return ngap.Encoder(pdu)

@@ -10,14 +10,8 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func (p *Processor) HandleProvideLocationInfoRequest(c *gin.Context) {
+func (p *Processor) HandleProvideLocationInfoRequest(c *gin.Context, requestLocInfo models.RequestLocInfo) {
 	logger.ProducerLog.Info("Handle Provide Location Info Request")
-
-	var requestLocInfo models.RequestLocInfo
-	if err := c.ShouldBindJSON(&requestLocInfo); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 

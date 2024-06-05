@@ -70,7 +70,7 @@ func (s *Server) HTTPProvideLocationInfo(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleProvideLocationInfoRequest(c)
+	s.Processor().HandleProvideLocationInfoRequest(c, requestLocInfo)
 }
 
 // ProvidePositioningInfo - Namf_Location ProvidePositioningInfo service Operation

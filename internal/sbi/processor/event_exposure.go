@@ -12,13 +12,9 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context) {
-	var createEventSubscription models.AmfCreateEventSubscription
-	if err := c.ShouldBindJSON(&createEventSubscription); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
+func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context,
+	createEventSubscription models.AmfCreateEventSubscription,
+) {
 	createdEventSubscription, problemDetails := p.CreateAMFEventSubscriptionProcedure(createEventSubscription)
 	if createdEventSubscription != nil {
 		c.JSON(http.StatusCreated, createdEventSubscription)
@@ -243,15 +239,12 @@ func (p *Processor) DeleteAMFEventSubscriptionProcedure(subscriptionID string) *
 	return nil
 }
 
-func (p *Processor) HandleModifyAMFEventSubscription(c *gin.Context) {
+func (p *Processor) HandleModifyAMFEventSubscription(c *gin.Context,
+	modifySubscriptionRequest models.ModifySubscriptionRequest,
+) {
 	logger.EeLog.Infoln("Handle Modify AMF Event Subscription")
 
 	subscriptionID := c.Param("subscriptionId")
-	var modifySubscriptionRequest models.ModifySubscriptionRequest
-	if err := c.ShouldBindJSON(&modifySubscriptionRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	updatedEventSubscription, problemDetails := p.
 		ModifyAMFEventSubscriptionProcedure(subscriptionID, modifySubscriptionRequest)

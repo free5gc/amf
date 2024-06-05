@@ -12,14 +12,8 @@ import (
 )
 
 // TS 29.518 5.2.2.5.1
-func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context) {
+func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context, subscriptionDataReq models.SubscriptionData) {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Request")
-
-	var subscriptionDataReq models.SubscriptionData
-	if err := c.ShouldBindJSON(&subscriptionDataReq); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	subscriptionDataRsp, locationHeader, problemDetails := p.AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
 	if problemDetails != nil {
@@ -89,14 +83,10 @@ func (p *Processor) AMFStatusChangeUnSubscribeProcedure(subscriptionID string) (
 }
 
 // TS 29.518 5.2.2.5.1.3
-func (p *Processor) HandleAMFStatusChangeSubscribeModify(c *gin.Context) {
+func (p *Processor) HandleAMFStatusChangeSubscribeModify(c *gin.Context,
+	updateSubscriptionData models.SubscriptionData,
+) {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Modify Request")
-
-	var updateSubscriptionData models.SubscriptionData
-	if err := c.ShouldBindJSON(&updateSubscriptionData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	subscriptionID := c.Param("subscriptionId")
 

@@ -132,7 +132,7 @@ func (s *Server) HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleAMFStatusChangeSubscribeModify(c)
+	s.Processor().HandleAMFStatusChangeSubscribeModify(c, subscriptionData)
 }
 
 // AMFStatusChangeUnSubscribe - Namf_Communication AMF Status Change UnSubscribe service Operation
@@ -179,7 +179,7 @@ func (s *Server) HTTPCreateUEContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleCreateUEContextRequest(c)
+	s.Processor().HandleCreateUEContextRequest(c, createUeContextRequest)
 }
 
 // EBIAssignment - Namf_Communication EBI Assignment service Operation
@@ -211,7 +211,7 @@ func (s *Server) HTTPEBIAssignment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleAssignEbiDataRequest(c)
+	s.Processor().HandleAssignEbiDataRequest(c, assignEbiData)
 }
 
 // RegistrationStatusUpdate - Namf_Communication RegistrationStatusUpdate service Operation
@@ -243,7 +243,7 @@ func (s *Server) HTTPRegistrationStatusUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleRegistrationStatusUpdateRequest(c)
+	s.Processor().HandleRegistrationStatusUpdateRequest(c, ueRegStatusUpdateReqData)
 }
 
 // ReleaseUEContext - Namf_Communication ReleaseUEContext service Operation
@@ -275,7 +275,7 @@ func (s *Server) HTTPReleaseUEContext(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleReleaseUEContextRequest(c)
+	s.Processor().HandleReleaseUEContextRequest(c, ueContextRelease)
 }
 
 // UEContextTransfer - Namf_Communication UEContextTransfer service Operation
@@ -316,7 +316,7 @@ func (s *Server) HTTPUEContextTransfer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleUEContextTransferRequest(c)
+	s.Processor().HandleUEContextTransferRequest(c, ueContextTransferRequest)
 }
 
 func (s *Server) HTTPN1N2MessageUnSubscribe(c *gin.Context) {
@@ -397,7 +397,7 @@ func (s *Server) HTTPN1N2MessageSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleN1N2MessageSubscribeRequest(c)
+	s.Processor().HandleN1N2MessageSubscribeRequest(c, ueN1N2InfoSubscriptionCreateData)
 }
 
 func (s *Server) HTTPNonUeN2InfoUnSubscribe(c *gin.Context) {
@@ -443,5 +443,5 @@ func (s *Server) HTTPAMFStatusChangeSubscribe(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleAMFStatusChangeSubscribeRequest(c)
+	s.Processor().HandleAMFStatusChangeSubscribeRequest(c, subscriptionData)
 }

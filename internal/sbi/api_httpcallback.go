@@ -71,7 +71,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleAmPolicyControlUpdateNotifyUpdate(c)
+	s.Processor().HandleAmPolicyControlUpdateNotifyUpdate(c, policyUpdate)
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
@@ -102,11 +102,11 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleAmPolicyControlUpdateNotifyTerminate(c)
+	s.Processor().HandleAmPolicyControlUpdateNotifyTerminate(c, terminationNotification)
 }
 
 func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
-	var n1MessageNotification models.N1MessageNotification
+	var n1MessageNotify models.N1MessageNotify
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 		return
 	}
 
-	err = openapi.Deserialize(&n1MessageNotification, requestBody, "application/json")
+	err = openapi.Deserialize(&n1MessageNotify, requestBody, "application/json")
 	if err != nil {
 		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
@@ -133,7 +133,7 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
-	s.Processor().HandleN1MessageNotify(c)
+	s.Processor().HandleN1MessageNotify(c, n1MessageNotify)
 }
 
 func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {

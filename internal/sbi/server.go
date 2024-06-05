@@ -12,9 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 
+	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/internal/sbi/processor"
+	util_oauth "github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"
@@ -65,29 +67,54 @@ func NewServer(amf ServerAmf, tlsKeyLogPath string) (*Server, error) {
 func newRouter(s *Server) *gin.Engine {
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 
-	amfCommunicationGroup := router.Group(factory.AmfCommResUriPrefix)
-	amfCommunicationRoutes := s.getCommunicationRoutes()
-	applyRoutes(amfCommunicationGroup, amfCommunicationRoutes)
-
-	amfEventExposureGroup := router.Group(factory.AmfEvtsResUriPrefix)
-	amfEventExposureRoutes := s.getEventexposureRoutes()
-	applyRoutes(amfEventExposureGroup, amfEventExposureRoutes)
-
 	amfHttpCallBackGroup := router.Group(factory.AmfCallbackResUriPrefix)
 	amfHttpCallBackRoutes := s.getHttpCallBackRoutes()
 	applyRoutes(amfHttpCallBackGroup, amfHttpCallBackRoutes)
 
-	amfLocationGroup := router.Group(factory.AmfLocResUriPrefix)
-	amfLocationRoutes := s.getLocationRoutes()
-	applyRoutes(amfLocationGroup, amfLocationRoutes)
-
-	amfMTGroup := router.Group(factory.AmfMtResUriPrefix)
-	amfMTRoutes := s.getMTRoutes()
-	applyRoutes(amfMTGroup, amfMTRoutes)
-
-	amfOAMGroup := router.Group(factory.AmfOamResUriPrefix)
-	amfOAMRoutes := s.getOAMRoutes()
-	applyRoutes(amfOAMGroup, amfOAMRoutes)
+	for _, serverName := range factory.AmfConfig.Configuration.ServiceNameList {
+		switch models.ServiceName(serverName) {
+		case models.ServiceName_NAMF_COMM:
+			amfCommunicationGroup := router.Group(factory.AmfCommResUriPrefix)
+			amfCommunicationRoutes := s.getCommunicationRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_COMM)
+			amfCommunicationGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfCommunicationGroup, amfCommunicationRoutes)
+		case models.ServiceName_NAMF_EVTS:
+			amfEventExposureGroup := router.Group(factory.AmfEvtsResUriPrefix)
+			amfEventExposureRoutes := s.getEventexposureRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_EVTS)
+			amfEventExposureGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfEventExposureGroup, amfEventExposureRoutes)
+		case models.ServiceName_NAMF_MT:
+			amfMTGroup := router.Group(factory.AmfMtResUriPrefix)
+			amfMTRoutes := s.getMTRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MT)
+			amfMTGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfMTGroup, amfMTRoutes)
+		case models.ServiceName_NAMF_LOC:
+			amfLocationGroup := router.Group(factory.AmfLocResUriPrefix)
+			amfLocationRoutes := s.getLocationRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_LOC)
+			amfLocationGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfLocationGroup, amfLocationRoutes)
+		case models.ServiceName_NAMF_OAM:
+			amfOAMGroup := router.Group(factory.AmfOamResUriPrefix)
+			amfOAMRoutes := s.getOAMRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_OAM)
+			amfOAMGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfOAMGroup, amfOAMRoutes)
+		}
+	}
 
 	return router
 }

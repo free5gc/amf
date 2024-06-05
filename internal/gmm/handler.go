@@ -2168,7 +2168,8 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 			gmm_message.SendAuthenticationRequest(ue.RanUe[anType])
 		}
 	} else if ue.AuthenticationCtx.AuthType == models.AuthType_EAP_AKA_PRIME {
-		if cause5GMM == nasMessage.Cause5GMMngKSIAlreadyInUse {
+		switch cause5GMM {
+		case nasMessage.Cause5GMMngKSIAlreadyInUse:
 			ue.GmmLog.Warn("Authentication Failure 5GMM Cause: NgKSI Already In Use")
 			if ue.NgKsi.Ksi < 6 { // ksi is range from 0 to 6
 				ue.NgKsi.Ksi += 1
@@ -2176,6 +2177,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 				ue.NgKsi.Ksi = 0
 			}
 			gmm_message.SendAuthenticationRequest(ue.RanUe[anType])
+		default:
 		}
 	}
 

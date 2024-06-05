@@ -424,13 +424,9 @@ func (p *Processor) N1N2MessageTransferStatusProcedure(ueContextID string,
 }
 
 // TS 29.518 5.2.2.3.3
-func (p *Processor) HandleN1N2MessageSubscribeRequest(c *gin.Context) {
-	var ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData
-	if err := c.ShouldBindJSON(&ueN1N2InfoSubscriptionCreateData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
+func (p *Processor) HandleN1N2MessageSubscribeRequest(c *gin.Context,
+	ueN1N2InfoSubscriptionCreateData models.UeN1N2InfoSubscriptionCreateData,
+) {
 	ueContextID := c.Param("ueContextId")
 
 	ueN1N2InfoSubscriptionCreatedData, problemDetails := p.

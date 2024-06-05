@@ -17,14 +17,8 @@ import (
 )
 
 // TS 29.518 5.2.2.2.3
-func (p *Processor) HandleCreateUEContextRequest(c *gin.Context) {
+func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContextRequest models.CreateUeContextRequest) {
 	logger.CommLog.Infof("Handle Create UE Context Request")
-
-	var createUeContextRequest models.CreateUeContextRequest
-	if err := c.ShouldBindJSON(&createUeContextRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 
@@ -139,14 +133,8 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 }
 
 // TS 29.518 5.2.2.2.4
-func (p *Processor) HandleReleaseUEContextRequest(c *gin.Context) {
+func (p *Processor) HandleReleaseUEContextRequest(c *gin.Context, ueContextRelease models.UeContextRelease) {
 	logger.CommLog.Info("Handle Release UE Context Request")
-
-	var ueContextRelease models.UeContextRelease
-	if err := c.ShouldBindJSON(&ueContextRelease); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 
@@ -222,14 +210,10 @@ func (p *Processor) HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData 
 }
 
 // TS 29.518 5.2.2.2.1
-func (p *Processor) HandleUEContextTransferRequest(c *gin.Context) {
+func (p *Processor) HandleUEContextTransferRequest(c *gin.Context,
+	ueContextTransferRequest models.UeContextTransferRequest,
+) {
 	logger.CommLog.Info("Handle UE Context Transfer Request")
-
-	var ueContextTransferRequest models.UeContextTransferRequest
-	if err := c.ShouldBindJSON(&ueContextTransferRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 
@@ -508,14 +492,8 @@ func (p *Processor) buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (
 }
 
 // TS 29.518 5.2.2.6
-func (p *Processor) HandleAssignEbiDataRequest(c *gin.Context) {
+func (p *Processor) HandleAssignEbiDataRequest(c *gin.Context, assignEbiData models.AssignEbiData) {
 	logger.CommLog.Info("Handle Assign Ebi Data Request")
-
-	var assignEbiData models.AssignEbiData
-	if err := c.ShouldBindJSON(&assignEbiData); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 
@@ -558,14 +536,10 @@ func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData mod
 }
 
 // TS 29.518 5.2.2.2.2
-func (p *Processor) HandleRegistrationStatusUpdateRequest(c *gin.Context) {
+func (p *Processor) HandleRegistrationStatusUpdateRequest(c *gin.Context,
+	ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData,
+) {
 	logger.CommLog.Info("Handle Registration Status Update Request")
-
-	var ueRegStatusUpdateReqData models.UeRegStatusUpdateReqData
-	if err := c.ShouldBindJSON(&ueRegStatusUpdateReqData); err != nil {
-		// Handle error
-		return
-	}
 
 	ueContextID := c.Param("ueContextId")
 

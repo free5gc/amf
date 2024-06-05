@@ -18,7 +18,9 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func (p *Processor) HandleSmContextStatusNotify(c *gin.Context) {
+func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
+	smContextStatusNotification models.SmContextStatusNotification,
+) {
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 
 	supi := c.Param("supi")
@@ -28,16 +30,6 @@ func (p *Processor) HandleSmContextStatusNotify(c *gin.Context) {
 		logger.ProducerLog.Warnf("PDU Session ID atoi failed: %+v", err)
 	} else {
 		pduSessionID = pduSessionIDTmp
-	}
-	var smContextStatusNotification models.SmContextStatusNotification
-	if err := c.ShouldBindJSON(&smContextStatusNotification); err != nil {
-		problemDetails := &models.ProblemDetails{
-			Status: http.StatusBadRequest,
-			Cause:  "INVALID_BODY_FORMAT",
-			Detail: fmt.Sprintf("Failed to parse SmContextStatusNotification: %+v", err),
-		}
-		c.JSON(int(problemDetails.Status), problemDetails)
-		return
 	}
 
 	problemDetails := p.SmContextStatusNotifyProcedure(supi, int32(pduSessionID), smContextStatusNotification)
@@ -99,15 +91,10 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 	return nil
 }
 
-func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, policyUpdate models.PolicyUpdate) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	polAssoID := c.Param("polAssoId")
-	var policyUpdate models.PolicyUpdate
-	if err := c.ShouldBindJSON(&policyUpdate); err != nil {
-		logger.ProducerLog.Errorf("Failed to bind JSON: %v", err)
-	}
-
 	problemDetails := p.AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
 
 	if problemDetails != nil {
@@ -202,15 +189,12 @@ func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 }
 
 // TS 29.507 4.2.4.3
-func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(c *gin.Context,
+	terminationNotification models.TerminationNotification,
+) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
 	polAssoID := c.Param("polAssoId")
-	var terminationNotification models.TerminationNotification
-	if err := c.ShouldBindJSON(&terminationNotification); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	problemDetails := p.AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
 	if problemDetails != nil {
@@ -260,14 +244,8 @@ func (p *Processor) AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID stri
 }
 
 // TS 23.502 4.2.2.2.3 Registration with AMF re-allocation
-func (p *Processor) HandleN1MessageNotify(c *gin.Context) {
+func (p *Processor) HandleN1MessageNotify(c *gin.Context, n1MessageNotify models.N1MessageNotify) {
 	logger.ProducerLog.Infoln("[AMF] Handle N1 Message Notify")
-
-	var n1MessageNotify models.N1MessageNotify
-	if err := c.ShouldBindJSON(&n1MessageNotify); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
 	problemDetails := p.N1MessageNotifyProcedure(n1MessageNotify)
 	if problemDetails != nil {

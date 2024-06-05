@@ -717,7 +717,6 @@ func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			// response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, pduSessionID,
 			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 				models.N2SmInfoType_PDU_RES_MOD_FAIL, transfer)
 			if err != nil {
@@ -777,7 +776,8 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				n2Info := response.BinaryDataN1SmMessage
 				n1Msg := response.BinaryDataN2SmInformation
 				if n2Info != nil {
-					if responseData.N2SmInfoType == models.N2SmInfoType_PDU_RES_MOD_REQ {
+					switch responseData.N2SmInfoType {
+					case models.N2SmInfoType_PDU_RES_MOD_REQ:
 						ranUe.Log.Debugln("AMF Transfer NGAP PDU Resource Modify Req from SMF")
 						var nasPdu []byte
 						if n1Msg != nil {
@@ -791,6 +791,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 						list := ngapType.PDUSessionResourceModifyListModReq{}
 						ngap_message.AppendPDUSessionResourceModifyListModReq(&list, pduSessionID, nasPdu, n2Info)
 						ngap_message.SendPDUSessionResourceModifyRequest(ranUe, list)
+					default:
 					}
 				}
 			} else if errResponse != nil {
