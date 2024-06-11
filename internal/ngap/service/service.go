@@ -20,7 +20,10 @@ type NGAPHandler struct {
 	HandleConnectionError func(conn net.Conn)
 }
 
-const readBufSize uint32 = 262144
+const (
+	notimeout   int    = -1
+	readBufSize uint32 = 262144
+)
 
 // set default read timeout to 2 seconds
 var readTimeout syscall.Timeval = syscall.Timeval{Sec: 2, Usec: 0}
@@ -87,7 +90,7 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 	logger.NgapLog.Infof("Listen on %s", sctpListener.Addr())
 
 	for {
-		newConn, err := sctpListener.AcceptSCTP(-1)
+		newConn, err := sctpListener.AcceptSCTP(notimeout)
 		if err != nil {
 			switch err {
 			case syscall.EINTR, syscall.EAGAIN:

@@ -138,7 +138,7 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 
 func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {
 	// TS 23.502 - 4.2.2.2.2 - step 14d
-	logger.CallbackLog.Infoln("Handle Deregistration Notification")
+	logger.CallbackLog.Traceln("Handle Deregistration Notification")
 
 	var deregData models.DeregistrationData
 

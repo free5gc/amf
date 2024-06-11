@@ -37,5 +37,5 @@ func (s *Server) HTTPProvideDomainSelectionInfo(c *gin.Context) {
 
 func (s *Server) HTTPEnableUeReachability(c *gin.Context) {
 	logger.MtLog.Warnf("Handle Enable Ue Reachability is not implemented.")
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusNotImplemented, gin.H{})
 }

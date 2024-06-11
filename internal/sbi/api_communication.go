@@ -402,17 +402,17 @@ func (s *Server) HTTPN1N2MessageSubscribe(c *gin.Context) {
 
 func (s *Server) HTTPNonUeN2InfoUnSubscribe(c *gin.Context) {
 	logger.CommLog.Warnf("Handle Non Ue N2 Info UnSubscribe is not implemented.")
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusNotImplemented, gin.H{})
 }
 
 func (s *Server) HTTPNonUeN2MessageTransfer(c *gin.Context) {
 	logger.CommLog.Warnf("Handle Non Ue N2 Message Transfer is not implemented.")
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusNotImplemented, gin.H{})
 }
 
 func (s *Server) HTTPNonUeN2InfoSubscribe(c *gin.Context) {
 	logger.CommLog.Warnf("Handle Non Ue N2 Info Subscribe is not implemented.")
-	c.JSON(http.StatusOK, gin.H{})
+	c.JSON(http.StatusNotImplemented, gin.H{})
 }
 
 func (s *Server) HTTPAMFStatusChangeSubscribe(c *gin.Context) {
