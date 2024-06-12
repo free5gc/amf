@@ -1497,15 +1497,15 @@ func BuildHandoverCommand(
 
 	// Criticality Diagnostics [optional]
 	if criticalityDiagnostics != nil {
-		HandoverCommandIEsie := ngapType.HandoverCommandIEs{}
-		HandoverCommandIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		HandoverCommandIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		HandoverCommandIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
-		HandoverCommandIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		handoverCommandIEsie := ngapType.HandoverCommandIEs{}
+		handoverCommandIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		handoverCommandIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		handoverCommandIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
+		handoverCommandIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
-		HandoverCommandIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		handoverCommandIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
 
-		handoverCommandIEs.List = append(handoverCommandIEs.List, HandoverCommandIEsie)
+		handoverCommandIEs.List = append(handoverCommandIEs.List, handoverCommandIEsie)
 	}
 
 	return ngap.Encoder(pdu)
