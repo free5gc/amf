@@ -126,6 +126,7 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	}
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),
+		Tai:                           optional.NewInterface(ue.Tai), // TS 29.531 R15.3 6.1.3.2.3.1
 	}
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
 	if err != nil {
