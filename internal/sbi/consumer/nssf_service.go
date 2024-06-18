@@ -124,10 +124,15 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	if err != nil {
 		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
 	}
+	tai, taierr := json.Marshal(ue.Tai)
+	if taierr != nil {
+		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
+	}
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),
-		Tai:                           optional.NewInterface(ue.Tai), // TS 29.531 R15.3 6.1.3.2.3.1
+		Tai:                           optional.NewInterface(string(tai)), // TS 29.531 R15.3 6.1.3.2.3.1
 	}
+
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
 	if err != nil {
 		return nil, nil, err
