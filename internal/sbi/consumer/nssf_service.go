@@ -126,7 +126,7 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	}
 	tai, taierr := json.Marshal(ue.Tai)
 	if taierr != nil {
-		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
+		logger.ConsumerLog.Warnf("json marshal failed: %+v", taierr)
 	}
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),
