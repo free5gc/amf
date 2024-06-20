@@ -140,37 +140,12 @@ func (a *AmfApp) Start() {
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
 		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
 	}
+	a.WaitRoutineStopped()
 }
 
 // Used in AMF planned removal procedure
 func (a *AmfApp) Terminate() {
-	logger.InitLog.Infof("Terminating AMF...")
 	a.cancel()
-	a.CallServerStop()
-	// deregister with NRF
-	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
-	if problemDetails != nil {
-		logger.InitLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
-	} else if err_deg != nil {
-		logger.InitLog.Errorf("Deregister NF instance Error[%+v]", err_deg)
-	} else {
-		logger.InitLog.Infof("[AMF] Deregister from NRF successfully")
-	}
-	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
-
-	// ngap
-	// send AMF status indication to ran to notify ran that this AMF will be unavailable
-	logger.InitLog.Infof("Send AMF Status Indication to Notify RANs due to AMF terminating")
-	amfSelf := a.Context()
-	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
-	amfSelf.AmfRanPool.Range(func(key, value interface{}) bool {
-		ran := value.(*amf_context.AmfRan)
-		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
-		return true
-	})
-	ngap_service.Stop()
-	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
-	logger.InitLog.Infof("AMF terminated")
 }
 
 func (a *AmfApp) Config() *factory.Config {
@@ -203,7 +178,7 @@ func (a *AmfApp) listenShutdownEvent() {
 	}()
 
 	<-a.ctx.Done()
-	a.Terminate()
+	a.terminateProcedure()
 }
 
 func (a *AmfApp) CallServerStop() {
@@ -215,4 +190,33 @@ func (a *AmfApp) CallServerStop() {
 func (a *AmfApp) WaitRoutineStopped() {
 	a.wg.Wait()
 	logger.MainLog.Infof("AMF App is terminated")
+}
+
+func (a *AmfApp) terminateProcedure() {
+	logger.MainLog.Infof("Terminating AMF...")
+	a.CallServerStop()
+	// deregister with NRF
+	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
+	if problemDetails != nil {
+		logger.MainLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
+	} else if err_deg != nil {
+		logger.MainLog.Errorf("Deregister NF instance Error[%+v]", err_deg)
+	} else {
+		logger.MainLog.Infof("[AMF] Deregister from NRF successfully")
+	}
+
+	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
+
+	// ngap
+	// send AMF status indication to ran to notify ran that this AMF will be unavailable
+	logger.MainLog.Infof("Send AMF Status Indication to Notify RANs due to AMF terminating")
+	amfSelf := a.Context()
+	unavailableGuamiList := ngap_message.BuildUnavailableGUAMIList(amfSelf.ServedGuamiList)
+	amfSelf.AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*amf_context.AmfRan)
+		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
+		return true
+	})
+	ngap_service.Stop()
+	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 }

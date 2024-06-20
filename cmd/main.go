@@ -77,7 +77,6 @@ func action(cliCtx *cli.Context) error {
 	AMF = amf
 
 	amf.Start()
-	amf.WaitRoutineStopped()
 
 	return nil
 }
