@@ -69,10 +69,15 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 
 	var paramOpt Nnssf_NSSelection.NSSelectionGetParamOpts
 	if e, errsliceinfo := json.Marshal(sliceInfo); errsliceinfo != nil {
-		logger.ConsumerLog.Warnf("json marshal failed: %+v", errsliceinfo)
+		logger.ConsumerLog.Warnf("slice json marshal failed: %+v", errsliceinfo)
 	} else {
+		tai, taierr := json.Marshal(ue.Tai)
+		if taierr != nil {
+			logger.ConsumerLog.Warnf("tai json marshal failed: %+v", taierr)
+		}
 		paramOpt = Nnssf_NSSelection.NSSelectionGetParamOpts{
 			SliceInfoRequestForRegistration: optional.NewInterface(string(e)),
+			Tai:                             optional.NewInterface(string(tai)), // TS 29.531 R15.3 6.1.3.2.3.1
 		}
 	}
 
@@ -122,11 +127,11 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 
 	e, err := json.Marshal(sliceInfoForPduSession)
 	if err != nil {
-		logger.ConsumerLog.Warnf("json marshal failed: %+v", err)
+		logger.ConsumerLog.Warnf("slice json marshal failed: %+v", err)
 	}
 	tai, taierr := json.Marshal(ue.Tai)
 	if taierr != nil {
-		logger.ConsumerLog.Warnf("json marshal failed: %+v", taierr)
+		logger.ConsumerLog.Warnf("tai json marshal failed: %+v", taierr)
 	}
 	paramOpt := Nnssf_NSSelection.NSSelectionGetParamOpts{
 		SliceInfoRequestForPduSession: optional.NewInterface(string(e)),
