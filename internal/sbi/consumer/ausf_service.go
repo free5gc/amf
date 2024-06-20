@@ -32,7 +32,7 @@ func (s *nausfService) getUEAuthenticationClient(uri string) *Nausf_UEAuthentica
 	s.UEAuthenticationMu.RLock()
 	client, ok := s.UEAuthenticationClients[uri]
 	if ok {
-		defer s.UEAuthenticationMu.RUnlock()
+		s.UEAuthenticationMu.RUnlock()
 		return client
 	}
 

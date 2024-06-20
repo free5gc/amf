@@ -27,7 +27,7 @@ func (s *namfService) getComClient(uri string) *Namf_Communication.APIClient {
 	s.ComMu.RLock()
 	client, ok := s.ComClients[uri]
 	if ok {
-		defer s.ComMu.RUnlock()
+		s.ComMu.RUnlock()
 		return client
 	}
 

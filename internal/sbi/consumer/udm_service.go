@@ -32,7 +32,7 @@ func (s *nudmService) getSubscriberDMngmntClients(uri string) *Nudm_SubscriberDa
 	s.SubscriberDMngmntMu.RLock()
 	client, ok := s.SubscriberDMngmntClients[uri]
 	if ok {
-		defer s.SubscriberDMngmntMu.RUnlock()
+		s.SubscriberDMngmntMu.RUnlock()
 		return client
 	}
 
@@ -54,7 +54,7 @@ func (s *nudmService) getUEContextMngmntClient(uri string) *Nudm_UEContextManage
 	s.UEContextMngmntMu.RLock()
 	client, ok := s.UEContextMngmntClients[uri]
 	if ok {
-		defer s.UEContextMngmntMu.RUnlock()
+		s.UEContextMngmntMu.RUnlock()
 		return client
 	}
 

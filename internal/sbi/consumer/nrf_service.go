@@ -35,7 +35,7 @@ func (s *nnrfService) getNFManagementClient(uri string) *Nnrf_NFManagement.APICl
 	s.nfMngmntMu.RLock()
 	client, ok := s.nfMngmntClients[uri]
 	if ok {
-		defer s.nfMngmntMu.RUnlock()
+		s.nfMngmntMu.RUnlock()
 		return client
 	}
 
@@ -57,7 +57,7 @@ func (s *nnrfService) getNFDiscClient(uri string) *Nnrf_NFDiscovery.APIClient {
 	s.nfDiscMu.RLock()
 	client, ok := s.nfDiscClients[uri]
 	if ok {
-		defer s.nfDiscMu.RUnlock()
+		s.nfDiscMu.RUnlock()
 		return client
 	}
 

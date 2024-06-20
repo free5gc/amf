@@ -27,7 +27,7 @@ func (s *npcfService) getAMPolicyClient(uri string) *Npcf_AMPolicy.APIClient {
 	s.AMPolicyMu.RLock()
 	client, ok := s.AMPolicyClients[uri]
 	if ok {
-		defer s.AMPolicyMu.RUnlock()
+		s.AMPolicyMu.RUnlock()
 		return client
 	}
 

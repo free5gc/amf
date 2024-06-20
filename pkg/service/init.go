@@ -17,7 +17,7 @@ import (
 	"github.com/free5gc/amf/internal/sbi"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/internal/sbi/processor"
-	"github.com/free5gc/amf/internal/sbi/processor/callback"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"

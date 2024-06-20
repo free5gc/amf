@@ -22,7 +22,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
-	"github.com/free5gc/amf/internal/sbi/processor/callback"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas"
@@ -1034,7 +1034,6 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 	// "After a successful response is received, the AMF subscribes to be notified
 	// 		using Nudm_SDM_Subscribe when the data requested is modified"
 	problemDetails, err = consumer.GetConsumer().SDMGetAmData(ue)
-	// problemDetails, err = consumer.SDMGetAmData(ue)
 	if problemDetails != nil {
 		return errors.Errorf(problemDetails.Cause)
 	} else if err != nil {

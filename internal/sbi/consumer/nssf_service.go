@@ -28,7 +28,7 @@ func (s *nssfService) getNSSelectionClient(uri string) *Nnssf_NSSelection.APICli
 	s.NSSelectionMu.RLock()
 	client, ok := s.NSSelectionClients[uri]
 	if ok {
-		defer s.NSSelectionMu.RUnlock()
+		s.NSSelectionMu.RUnlock()
 		return client
 	}
 
