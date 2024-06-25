@@ -3,7 +3,7 @@ package message
 import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
-	"github.com/free5gc/amf/internal/sbi/producer/callback"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -542,9 +542,9 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cau
 // pduSessionResourceReleasedList: provided by AMF, and the transfer data is from SMF
 // newSecurityContextIndicator: if AMF has activated a new 5G NAS security context, set it to true,
 // otherwise set to false
-// coreNetworkAssistanceInformation: provided by AMF, based on collection of UE behaviour statistics
+// coreNetworkAssistanceInformation: provided by AMF, based on collection of UE behavior statistics
 // and/or other available
-// information about the expected UE behaviour. TS 23.501 5.4.6, 5.4.6.2
+// information about the expected UE behavior. TS 23.501 5.4.6, 5.4.6.2
 // rrcInactiveTransitionReportRequest: configured by amf
 // criticalityDiagnostics: from received node when received not comprehended IE or missing IE
 func SendPathSwitchRequestAcknowledge(
@@ -790,7 +790,7 @@ func SendAMFStatusIndication(ran *context.AmfRan, unavailableGUAMIList ngapType.
 }
 
 // TS 23.501 5.19.5.2
-// amfOverloadResponse: the required behaviour of NG-RAN, provided by AMF
+// amfOverloadResponse: the required behavior of NG-RAN, provided by AMF
 // amfTrafficLoadReductionIndication(int 1~99): indicates the percentage of the type, set to 0 if does not need this ie
 // of traffic relative to the instantaneous incoming rate at the NG-RAN node, provided by AMF
 // overloadStartNSSAIList: overload slices, provide by AMF
@@ -912,12 +912,12 @@ func SendDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) {
 // TS 23.502 4.10 LocationReportingProcedure
 // The AMF may request the NG-RAN location reporting with event reporting type (e.g. UE location or UE presence
 // in Area of Interest), reporting mode and its related parameters (e.g. number of reporting) TS 23.501 5.4.7
-// Location Reference ID To Be Cancelled IE shall be present if the Event Type IE is set to "Stop UE presence
+// Location Reference ID To Be Canceled IE shall be present if the Event Type IE is set to "Stop UE presence
 // in the area of interest". otherwise set it to 0
 func SendLocationReportingControl(
 	ue *context.RanUe,
-	AOIList *ngapType.AreaOfInterestList,
-	LocationReportingReferenceIDToBeCancelled int64,
+	aoiList *ngapType.AreaOfInterestList,
+	locationReportingReferenceIDToBeCancelled int64,
 	eventType ngapType.EventType,
 ) {
 	if ue == nil {
@@ -927,19 +927,19 @@ func SendLocationReportingControl(
 
 	ue.Log.Info("Send Location Reporting Control")
 
-	if AOIList != nil && len(AOIList.List) > context.MaxNumOfAOI {
+	if aoiList != nil && len(aoiList.List) > context.MaxNumOfAOI {
 		ue.Log.Error("AOI List out of range")
 		return
 	}
 
 	if eventType.Value == ngapType.EventTypePresentStopUePresenceInAreaOfInterest {
-		if LocationReportingReferenceIDToBeCancelled < 1 || LocationReportingReferenceIDToBeCancelled > 64 {
+		if locationReportingReferenceIDToBeCancelled < 1 || locationReportingReferenceIDToBeCancelled > 64 {
 			ue.Log.Error("LocationReportingReferenceIDToBeCancelled out of range (should be 1 ~ 64)")
 			return
 		}
 	}
 
-	pkt, err := BuildLocationReportingControl(ue, AOIList, LocationReportingReferenceIDToBeCancelled, eventType)
+	pkt, err := BuildLocationReportingControl(ue, aoiList, locationReportingReferenceIDToBeCancelled, eventType)
 	if err != nil {
 		ue.Log.Errorf("Build LocationReportingControl failed : %s", err.Error())
 		return

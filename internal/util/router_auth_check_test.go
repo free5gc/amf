@@ -1,4 +1,4 @@
-package util
+package util_test
 
 import (
 	"net/http"
@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
+	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -85,7 +86,7 @@ func TestRouterAuthorizationCheck_Check(t *testing.T) {
 
 			var testService models.ServiceName = "testService"
 
-			rac := NewRouterAuthorizationCheck(testService)
+			rac := util.NewRouterAuthorizationCheck(testService)
 			rac.Check(c, newMockAMFContext())
 			if w.Code != tt.want.statusCode {
 				t.Errorf("StatusCode should be %d, but got %d", tt.want.statusCode, w.Code)

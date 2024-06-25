@@ -33,12 +33,12 @@ func DeRegistered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleRegistrationRequest(amfUe, accessType, procedureCode, gmmMessage.RegistrationRequest); err != nil {
 				logger.GmmLog.Errorln(err)
 			} else {
-				if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
+				if errSendEvent := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
 					ArgAmfUe:         amfUe,
 					ArgAccessType:    accessType,
 					ArgProcedureCode: procedureCode,
-				}, logger.GmmLog); err != nil {
-					logger.GmmLog.Errorln(err)
+				}, logger.GmmLog); errSendEvent != nil {
+					logger.GmmLog.Errorln(errSendEvent)
 				}
 			}
 		// If UE that considers itself Registared and CM-IDLE throws a ServiceRequest
@@ -79,12 +79,12 @@ func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleRegistrationRequest(amfUe, accessType, procedureCode, gmmMessage.RegistrationRequest); err != nil {
 				logger.GmmLog.Errorln(err)
 			} else {
-				if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
+				if errSendEvent := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
 					ArgAmfUe:         amfUe,
 					ArgAccessType:    accessType,
 					ArgProcedureCode: procedureCode,
-				}, logger.GmmLog); err != nil {
-					logger.GmmLog.Errorln(err)
+				}, logger.GmmLog); errSendEvent != nil {
+					logger.GmmLog.Errorln(errSendEvent)
 				}
 			}
 		case nas.MsgTypeULNASTransport:
@@ -144,19 +144,19 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 
 		pass, err := AuthenticationProcedure(amfUe, accessType)
 		if err != nil {
-			if err := GmmFSM.SendEvent(state, AuthErrorEvent, fsm.ArgsType{
+			if errSendEvent := GmmFSM.SendEvent(state, AuthErrorEvent, fsm.ArgsType{
 				ArgAmfUe:      amfUe,
 				ArgAccessType: accessType,
-			}, logger.GmmLog); err != nil {
-				logger.GmmLog.Errorln(err)
+			}, logger.GmmLog); errSendEvent != nil {
+				logger.GmmLog.Errorln(errSendEvent)
 			}
 		}
 		if pass {
-			if err := GmmFSM.SendEvent(state, AuthSuccessEvent, fsm.ArgsType{
+			if errSendEvent := GmmFSM.SendEvent(state, AuthSuccessEvent, fsm.ArgsType{
 				ArgAmfUe:      amfUe,
 				ArgAccessType: accessType,
-			}, logger.GmmLog); err != nil {
-				logger.GmmLog.Errorln(err)
+			}, logger.GmmLog); errSendEvent != nil {
+				logger.GmmLog.Errorln(errSendEvent)
 			}
 		}
 	case GmmMessageEvent:
@@ -174,7 +174,7 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				mobileIdentityContents := gmmMessage.IdentityResponse.MobileIdentity.GetMobileIdentityContents()
 				amfUe.IdentityTypeUsedForRegistration = nasConvert.GetTypeOfIdentity(mobileIdentityContents[0])
 
-				err := GmmFSM.SendEvent(
+				errSendEvent := GmmFSM.SendEvent(
 					state,
 					AuthRestartEvent,
 					fsm.ArgsType{
@@ -182,8 +182,8 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 						ArgAccessType: accessType,
 					}, logger.GmmLog,
 				)
-				if err != nil {
-					logger.GmmLog.Errorln(err)
+				if errSendEvent != nil {
+					logger.GmmLog.Errorln(errSendEvent)
 				}
 			}
 		case nas.MsgTypeAuthenticationResponse:
@@ -375,27 +375,27 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			} else {
 				switch amfUe.RegistrationType5GS {
 				case nasMessage.RegistrationType5GSInitialRegistration:
-					if err := HandleInitialRegistration(amfUe, accessType); err != nil {
-						logger.GmmLog.Errorln(err)
-						err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+					if err2 := HandleInitialRegistration(amfUe, accessType); err2 != nil {
+						logger.GmmLog.Errorln(err2)
+						err2 = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
 							ArgAmfUe:      amfUe,
 							ArgAccessType: accessType,
 						}, logger.GmmLog)
-						if err != nil {
-							logger.GmmLog.Errorln(err)
+						if err2 != nil {
+							logger.GmmLog.Errorln(err2)
 						}
 					}
 				case nasMessage.RegistrationType5GSMobilityRegistrationUpdating:
 					fallthrough
 				case nasMessage.RegistrationType5GSPeriodicRegistrationUpdating:
-					if err := HandleMobilityAndPeriodicRegistrationUpdating(amfUe, accessType); err != nil {
-						logger.GmmLog.Errorln(err)
-						err = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+					if err2 := HandleMobilityAndPeriodicRegistrationUpdating(amfUe, accessType); err2 != nil {
+						logger.GmmLog.Errorln(err2)
+						err2 = GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
 							ArgAmfUe:      amfUe,
 							ArgAccessType: accessType,
 						}, logger.GmmLog)
-						if err != nil {
-							logger.GmmLog.Errorln(err)
+						if err2 != nil {
+							logger.GmmLog.Errorln(err2)
 						}
 					}
 				}
@@ -419,7 +419,7 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType := args[ArgAccessType].(models.AccessType)
 		if amfUe.UeCmRegistered[accessType] {
-			problemDetails, err := consumer.UeCmDeregistration(amfUe, accessType)
+			problemDetails, err := consumer.GetConsumer().UeCmDeregistration(amfUe, accessType)
 			if problemDetails != nil {
 				if problemDetails.Cause != "CONTEXT_NOT_FOUND" {
 					amfUe.GmmLog.Errorf("UECM_Registration Failed Problem[%+v]", problemDetails)

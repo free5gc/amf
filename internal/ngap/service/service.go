@@ -20,7 +20,10 @@ type NGAPHandler struct {
 	HandleConnectionError func(conn net.Conn)
 }
 
-const readBufSize uint32 = 262144
+const (
+	notimeout   int    = -1
+	readBufSize uint32 = 262144
+)
 
 // set default read timeout to 2 seconds
 var readTimeout syscall.Timeval = syscall.Timeval{Sec: 2, Usec: 0}
@@ -87,7 +90,7 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 	logger.NgapLog.Infof("Listen on %s", sctpListener.Addr())
 
 	for {
-		newConn, err := sctpListener.AcceptSCTP()
+		newConn, err := sctpListener.AcceptSCTP(notimeout)
 		if err != nil {
 			switch err {
 			case syscall.EINTR, syscall.EAGAIN:
@@ -99,10 +102,10 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 		}
 
 		var info *sctp.SndRcvInfo
-		if infoTmp, err := newConn.GetDefaultSentParam(); err != nil {
-			logger.NgapLog.Errorf("Get default sent param error: %+v, accept failed", err)
-			if err = newConn.Close(); err != nil {
-				logger.NgapLog.Errorf("Close error: %+v", err)
+		if infoTmp, errGetDefaultSentParam := newConn.GetDefaultSentParam(); errGetDefaultSentParam != nil {
+			logger.NgapLog.Errorf("Get default sent param error: %+v, accept failed", errGetDefaultSentParam)
+			if errGetDefaultSentParam = newConn.Close(); errGetDefaultSentParam != nil {
+				logger.NgapLog.Errorf("Close error: %+v", errGetDefaultSentParam)
 			}
 			continue
 		} else {
@@ -111,10 +114,10 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 		}
 
 		info.PPID = ngap.PPID
-		if err := newConn.SetDefaultSentParam(info); err != nil {
-			logger.NgapLog.Errorf("Set default sent param error: %+v, accept failed", err)
-			if err = newConn.Close(); err != nil {
-				logger.NgapLog.Errorf("Close error: %+v", err)
+		if errSetDefaultSentParam := newConn.SetDefaultSentParam(info); errSetDefaultSentParam != nil {
+			logger.NgapLog.Errorf("Set default sent param error: %+v, accept failed", errSetDefaultSentParam)
+			if errSetDefaultSentParam = newConn.Close(); errSetDefaultSentParam != nil {
+				logger.NgapLog.Errorf("Close error: %+v", errSetDefaultSentParam)
 			}
 			continue
 		} else {
@@ -122,30 +125,30 @@ func listenAndServe(addr *sctp.SCTPAddr, handler NGAPHandler, sctpConfig *sctp.S
 		}
 
 		events := sctp.SCTP_EVENT_DATA_IO | sctp.SCTP_EVENT_SHUTDOWN | sctp.SCTP_EVENT_ASSOCIATION
-		if err := newConn.SubscribeEvents(events); err != nil {
-			logger.NgapLog.Errorf("Failed to accept: %+v", err)
-			if err = newConn.Close(); err != nil {
-				logger.NgapLog.Errorf("Close error: %+v", err)
+		if errSubscribeEvents := newConn.SubscribeEvents(events); errSubscribeEvents != nil {
+			logger.NgapLog.Errorf("Failed to accept: %+v", errSubscribeEvents)
+			if errSubscribeEvents = newConn.Close(); errSubscribeEvents != nil {
+				logger.NgapLog.Errorf("Close error: %+v", errSubscribeEvents)
 			}
 			continue
 		} else {
 			logger.NgapLog.Debugln("Subscribe SCTP event[DATA_IO, SHUTDOWN_EVENT, ASSOCIATION_CHANGE]")
 		}
 
-		if err := newConn.SetReadBuffer(int(readBufSize)); err != nil {
-			logger.NgapLog.Errorf("Set read buffer error: %+v, accept failed", err)
-			if err = newConn.Close(); err != nil {
-				logger.NgapLog.Errorf("Close error: %+v", err)
+		if errSetReadBuffer := newConn.SetReadBuffer(int(readBufSize)); errSetReadBuffer != nil {
+			logger.NgapLog.Errorf("Set read buffer error: %+v, accept failed", errSetReadBuffer)
+			if errSetReadBuffer = newConn.Close(); errSetReadBuffer != nil {
+				logger.NgapLog.Errorf("Close error: %+v", errSetReadBuffer)
 			}
 			continue
 		} else {
 			logger.NgapLog.Debugf("Set read buffer to %d bytes", readBufSize)
 		}
 
-		if err := newConn.SetReadTimeout(readTimeout); err != nil {
-			logger.NgapLog.Errorf("Set read timeout error: %+v, accept failed", err)
-			if err = newConn.Close(); err != nil {
-				logger.NgapLog.Errorf("Close error: %+v", err)
+		if errSetReadTimeout := newConn.SetReadTimeout(readTimeout); errSetReadTimeout != nil {
+			logger.NgapLog.Errorf("Set read timeout error: %+v, accept failed", errSetReadTimeout)
+			if errSetReadTimeout = newConn.Close(); errSetReadTimeout != nil {
+				logger.NgapLog.Errorf("Close error: %+v", errSetReadTimeout)
 			}
 			continue
 		} else {

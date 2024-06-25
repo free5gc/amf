@@ -106,7 +106,7 @@ func (c *Configuration) validate() (bool, error) {
 		var errs govalidator.Errors
 		for _, v := range c.NgapIpList {
 			if result := govalidator.IsHost(v); !result {
-				err := fmt.Errorf("Invalid NgapIpList: %s, value should be in the form of IP", v)
+				err := fmt.Errorf("invalid NgapIpList: %s, value should be in the form of IP", v)
 				errs = append(errs, err)
 			}
 		}
@@ -125,7 +125,7 @@ func (c *Configuration) validate() (bool, error) {
 		var errs govalidator.Errors
 		for _, v := range c.ServiceNameList {
 			if v != "namf-comm" && v != "namf-evts" && v != "namf-mt" && v != "namf-loc" && v != "namf-oam" {
-				err := fmt.Errorf("Invalid ServiceNameList: %s,"+
+				err := fmt.Errorf("invalid ServiceNameList: %s,"+
 					" value should be namf-comm or namf-evts or namf-mt or namf-loc or namf-oam", v)
 				errs = append(errs, err)
 			}
@@ -225,7 +225,7 @@ func (c *Configuration) validate() (bool, error) {
 	}
 
 	if n3gppVal := &(c.Non3gppDeregTimerValue); n3gppVal == nil {
-		err := fmt.Errorf("Invalid Non3gppDeregTimerValue: value is required")
+		err := fmt.Errorf("invalid Non3gppDeregTimerValue: value is required")
 		return false, err
 	}
 
@@ -374,7 +374,7 @@ func (p *PlmnSupportItem) validate() (bool, error) {
 
 	mnc := p.PlmnId.Mnc
 	if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-		err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+		err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 		errs = append(errs, err)
 	}
 
@@ -382,11 +382,11 @@ func (p *PlmnSupportItem) validate() (bool, error) {
 		sst := snssai.Sst
 		sd := snssai.Sd
 		if result := govalidator.InRangeInt(sst, 0, 255); !result {
-			err := fmt.Errorf("Invalid sst: %d, should be in the range of 0~255", sst)
+			err := fmt.Errorf("invalid sst: %d, should be in the range of 0~255", sst)
 			errs = append(errs, err)
 		}
 		if result := govalidator.StringMatches(sd, "^[A-Fa-f0-9]{6}$"); !result {
-			err := fmt.Errorf("Invalid sd: %s, should be 3 bytes hex string, range: 000000~FFFFFF", sd)
+			err := fmt.Errorf("invalid sd: %s, should be 3 bytes hex string, range: 000000~FFFFFF", sd)
 			errs = append(errs, err)
 		}
 	}
@@ -853,4 +853,16 @@ func (c *Config) GetSctpConfig() *Sctp {
 		MaxAttempts:    sctpDefaultMaxAttempts,
 		MaxInitTimeout: sctpDefaultMaxInitTimeout,
 	}
+}
+
+func (c *Config) GetCertPemPath() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.Configuration.Sbi.Tls.Pem
+}
+
+func (c *Config) GetCertKeyPath() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.Configuration.Sbi.Tls.Key
 }

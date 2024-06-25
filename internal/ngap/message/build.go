@@ -642,15 +642,15 @@ func BuildHandoverCancelAcknowledge(
 
 	// Criticality Diagnostics [optional]
 	if criticalityDiagnostics != nil {
-		ie := ngapType.HandoverCancelAcknowledgeIEs{}
-		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		ie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
-		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		handoverCancelAcknowledgeIEsie := ngapType.HandoverCancelAcknowledgeIEs{}
+		handoverCancelAcknowledgeIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		handoverCancelAcknowledgeIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
-		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		handoverCancelAcknowledgeIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
 
-		handoverCancelAcknowledgeIEs.List = append(handoverCancelAcknowledgeIEs.List, ie)
+		handoverCancelAcknowledgeIEs.List = append(handoverCancelAcknowledgeIEs.List, handoverCancelAcknowledgeIEsie)
 	}
 
 	return ngap.Encoder(pdu)
@@ -1497,15 +1497,15 @@ func BuildHandoverCommand(
 
 	// Criticality Diagnostics [optional]
 	if criticalityDiagnostics != nil {
-		ie := ngapType.HandoverCommandIEs{}
-		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		ie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
-		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		handoverCommandIEsie := ngapType.HandoverCommandIEs{}
+		handoverCommandIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		handoverCommandIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		handoverCommandIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
+		handoverCommandIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
-		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		handoverCommandIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
 
-		handoverCommandIEs.List = append(handoverCommandIEs.List, ie)
+		handoverCommandIEs.List = append(handoverCommandIEs.List, handoverCommandIEsie)
 	}
 
 	return ngap.Encoder(pdu)
@@ -1569,15 +1569,15 @@ func BuildHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Cau
 
 	// Criticality Diagnostics [optional]
 	if criticalityDiagnostics != nil {
-		ie := ngapType.HandoverPreparationFailureIEs{}
-		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		ie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
-		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		HandoverPreparationFailureIEsie := ngapType.HandoverPreparationFailureIEs{}
+		HandoverPreparationFailureIEsie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		HandoverPreparationFailureIEsie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		HandoverPreparationFailureIEsie.Value.Present = ngapType.HandoverCancelAcknowledgeIEsPresentCriticalityDiagnostics
+		HandoverPreparationFailureIEsie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
-		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		HandoverPreparationFailureIEsie.Value.CriticalityDiagnostics = criticalityDiagnostics
 
-		handoverPreparationFailureIEs.List = append(handoverPreparationFailureIEs.List, ie)
+		handoverPreparationFailureIEs.List = append(handoverPreparationFailureIEs.List, HandoverPreparationFailureIEsie)
 	}
 
 	return ngap.Encoder(pdu)
@@ -1859,8 +1859,8 @@ func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause,
 // newSecurityContextIndicator: if AMF has activated a new 5G NAS security context,
 // set it to true, otherwise set to false
 // coreNetworkAssistanceInformation: provided by AMF,
-// based on collection of UE behaviour statistics and/or other available
-// information about the expected UE behaviour. TS 23.501 5.4.6, 5.4.6.2
+// based on collection of UE behavior statistics and/or other available
+// information about the expected UE behavior. TS 23.501 5.4.6, 5.4.6.2
 // rrcInactiveTransitionReportRequest: configured by amf
 // criticalityDiagnostics: from received node when received not comprehended IE or missing IE
 func BuildPathSwitchRequestAcknowledge(
@@ -2575,7 +2575,7 @@ func BuildAMFStatusIndication(unavailableGUAMIList ngapType.UnavailableGUAMIList
 }
 
 // TS 23.501 5.19.5.2
-// amfOverloadResponse: the required behaviour of NG-RAN, provided by AMF
+// amfOverloadResponse: the required behavior of NG-RAN, provided by AMF
 // amfTrafficLoadReductionIndication(int 1~99): indicates the percentage of the type
 // of traffic relative to the instantaneous incoming rate at the NG-RAN node, provided by AMF
 // overloadStartNSSAIList: overload slices, provide by AMF
@@ -2805,14 +2805,17 @@ func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byt
 		}
 
 		tmp := ngapConvert.PlmnIdToNgap(plmnID)
-		traceReference := append(tmp.Value, traceID...)
+		traceReference := []byte{}
+		traceReference = append(traceReference, tmp.Value...)
+		traceReference = append(traceReference, traceID...)
 		trsr := ranUe.Trsr
 		trsrNgap, err := hex.DecodeString(trsr)
 		if err != nil {
 			logger.NgapLog.Errorf(
 				"[Build Error] DecodeString trsr error: %+v", err)
 		}
-		ie.Value.NGRANTraceID.Value = append(traceReference, trsrNgap...)
+		ie.Value.NGRANTraceID.Value = append(ie.Value.NGRANTraceID.Value, traceReference...)
+		ie.Value.NGRANTraceID.Value = append(ie.Value.NGRANTraceID.Value, trsrNgap...)
 		deactivateTraceIEs.List = append(deactivateTraceIEs.List, ie)
 	}
 	return ngap.Encoder(pdu)
@@ -2827,12 +2830,12 @@ func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byt
 // The AMF may request the NG-RAN location reporting with event reporting type
 // (e.g. UE location or UE presence in Area of Interest),
 // reporting mode and its related parameters (e.g. number of reporting) TS 23.501 5.4.7
-// Location Reference ID To Be Cancelled IE shall be present if
+// Location Reference ID To Be Canceled IE shall be present if
 // the Event Type IE is set to "Stop UE presence in the area of interest".
 func BuildLocationReportingControl(
 	ue *context.RanUe,
-	AOIList *ngapType.AreaOfInterestList,
-	LocationReportingReferenceIDToBeCancelled int64,
+	aoiList *ngapType.AreaOfInterestList,
+	locationReportingReferenceIDToBeCancelled int64,
 	eventType ngapType.EventType,
 ) ([]byte, error) {
 	var pdu ngapType.NGAPPDU
@@ -2890,18 +2893,18 @@ func BuildLocationReportingControl(
 	locationReportingRequestType.ReportArea.Value = ngapType.ReportAreaPresentCell // only this enum
 
 	// AOI List in Location Reporting Request Type
-	if AOIList != nil {
+	if aoiList != nil {
 		locationReportingRequestType.AreaOfInterestList = new(ngapType.AreaOfInterestList)
 		areaOfInterestList := locationReportingRequestType.AreaOfInterestList
-		areaOfInterestList.List = AOIList.List
+		areaOfInterestList.List = aoiList.List
 	}
 
-	// location reference ID to be Cancelled [Conditional]
+	// location reference ID to be Canceled [Conditional]
 	if locationReportingRequestType.EventType.Value ==
 		ngapType.EventTypePresentStopUePresenceInAreaOfInterest {
 		locationReportingRequestType.LocationReportingReferenceIDToBeCancelled = new(ngapType.LocationReportingReferenceID)
 		locationReportingRequestType.
-			LocationReportingReferenceIDToBeCancelled.Value = LocationReportingReferenceIDToBeCancelled
+			LocationReportingReferenceIDToBeCancelled.Value = locationReportingReferenceIDToBeCancelled
 	}
 
 	locationReportingControlIEs.List = append(locationReportingControlIEs.List, ie)

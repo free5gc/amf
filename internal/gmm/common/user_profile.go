@@ -15,7 +15,7 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 		ue.SmContextList.Range(func(key, value interface{}) bool {
 			smContext := value.(*context.SmContext)
 
-			problemDetail, err := consumer.SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
+			problemDetail, err := consumer.GetConsumer().SendReleaseSmContextRequest(ue, smContext, nil, "", nil)
 			if problemDetail != nil {
 				ue.GmmLog.Errorf("Release SmContext Failed Problem[%+v]", problemDetail)
 			} else if err != nil {
@@ -26,7 +26,7 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 
 		// notify PCF to terminate AmPolicy association
 		if ue.AmPolicyAssociation != nil {
-			problemDetails, err := consumer.AMPolicyControlDelete(ue)
+			problemDetails, err := consumer.GetConsumer().AMPolicyControlDelete(ue)
 			if problemDetails != nil {
 				ue.GmmLog.Errorf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
 			} else if err != nil {
@@ -77,7 +77,7 @@ func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	}
 	// Purge of subscriber data in AMF described in TS 23.502 4.5.3
 	if ue.SdmSubscriptionId != "" {
-		problemDetails, err := consumer.SDMUnsubscribe(ue)
+		problemDetails, err := consumer.GetConsumer().SDMUnsubscribe(ue)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("SDM Unubscribe Failed Problem[%+v]", problemDetails)
 		} else if err != nil {
@@ -87,7 +87,7 @@ func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error 
 	}
 
 	if ue.UeCmRegistered[accessType] {
-		problemDetails, err := consumer.UeCmDeregistration(ue, accessType)
+		problemDetails, err := consumer.GetConsumer().UeCmDeregistration(ue, accessType)
 		if problemDetails != nil {
 			logger.GmmLog.Errorf("UECM Deregistration Failed Problem[%+v]", problemDetails)
 		} else if err != nil {

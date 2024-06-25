@@ -571,7 +571,7 @@ func (ue *AmfUe) UpdateNH() {
 	ue.NCC++
 	// TS33.501 6.2.3.2 Key identification
 	// The next hop chaining count, NCC, represents the 3 least significant bits of this counter.
-	ue.NCC = ue.NCC & 0x7
+	ue.NCC &= 0x7
 
 	ue.DerivateNH(ue.NH)
 }

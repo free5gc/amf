@@ -7,7 +7,7 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/amf/internal/sbi/producer/callback"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"

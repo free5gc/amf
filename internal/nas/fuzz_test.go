@@ -7,10 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
+	"github.com/free5gc/amf/internal/sbi/consumer"
+	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/nas"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
@@ -129,6 +132,7 @@ func FuzzHandleNAS2(f *testing.F) {
 		Tac: "1",
 	}
 	amfSelf.SupportTaiLists = []models.Tai{tai}
+	amfSelf.NrfUri = "test"
 
 	msg := nas.NewMessage()
 	msg.GmmMessage = nas.NewGmmMessage()
@@ -211,6 +215,17 @@ func FuzzHandleNAS2(f *testing.F) {
 	f.Add(buf)
 
 	f.Fuzz(func(t *testing.T, d []byte) {
+		ctrl := gomock.NewController(t)
+		// m := app.NewMockApp(ctrl)
+		m := service.NewMockAmfAppInterface(ctrl)
+		c, errc := consumer.NewConsumer(m)
+		service.AMF = m
+		require.NoError(t, errc)
+		m.EXPECT().
+			Consumer().
+			AnyTimes().
+			Return(c)
+
 		ue := new(amf_context.RanUe)
 		ue.Ran = new(amf_context.AmfRan)
 		ue.Ran.AnType = models.AccessType__3_GPP_ACCESS
