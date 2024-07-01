@@ -62,6 +62,15 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 		ueEventSubscription.RemainReports = new(int32)
 		*ueEventSubscription.RemainReports = subscription.Options.MaxReports
 	}
+
+	if subscription.EventList == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "SUBSCRIPTION_EMPTY",
+		}
+		return nil, problemDetails
+	}
+
 	for _, events := range *subscription.EventList {
 		immediateFlags = append(immediateFlags, events.ImmediateFlag)
 		if events.ImmediateFlag {
