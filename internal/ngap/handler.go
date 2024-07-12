@@ -498,6 +498,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
 		ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
 		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+		amfUe.HoldingRanUe[ranUe.Ran.AnType] = amfUe.RanUe[ranUe.Ran.AnType]
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 	} else if regReqType != nasMessage.RegistrationType5GSInitialRegistration {
 		if regReqType == nasMessage.RegistrationType5GSPeriodicRegistrationUpdating ||
