@@ -36,6 +36,14 @@ func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte, initia
 	ue.AmfUe.NasPduValue = nasPdu
 	ue.AmfUe.MacFailed = !integrityProtected
 
+	if ue.AmfUe.SecurityContextIsValid() {
+		ue.IsSecured = true
+	}
+
+	if ue.AmfUe.HoldingRanUe[ue.Ran.AnType] != nil && ue.IsSecured {
+		gmm_common.ClearHoldingRanUeContext(ue.AmfUe, ue.AmfUe.HoldingRanUe[ue.Ran.AnType])
+	}
+
 	if errDispatch := Dispatch(ue.AmfUe, ue.Ran.AnType, procedureCode, msg); errDispatch != nil {
 		ue.AmfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
 	}

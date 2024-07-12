@@ -64,9 +64,19 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(ue *context.AmfUe, ranUe *context.RanU
 		StopAll5GSMMTimers(ue)
 		causeGroup := ngapType.CausePresentRadioNetwork
 		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
-		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+		if ranUe.IsSecured {
+			ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+		}
 	}
 	ue.AttachRanUe(ranUe)
+}
+
+func ClearHoldingRanUeContext(ue *context.AmfUe, ranUe *context.RanUe) {
+	ranUe.Log.Infof("ClearHoldingRanUeContext - RanUeNgapID[%d]", ranUe.RanUeNgapId)
+	causeGroup := ngapType.CausePresentRadioNetwork
+	causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
+	ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+	ue.HoldingRanUe[ranUe.Ran.AnType] = nil
 }
 
 func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error {

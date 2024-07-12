@@ -64,6 +64,7 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	ranUe.Ran = ran
 	ranUe.Log = ran.Log
 	ranUe.UpdateLogFields()
+	ranUe.IsSecured = false
 
 	if ranUeNgapID != RanUeNgapIdUnspecified {
 		// store to RanUeList only when RANUENGAPID is specified

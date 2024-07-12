@@ -134,7 +134,8 @@ type AmfUe struct {
 	/* Pdu Sesseion context */
 	SmContextList sync.Map // map[int32]*SmContext, pdu session id as key
 	/* Related Context */
-	RanUe map[models.AccessType]*RanUe
+	RanUe        map[models.AccessType]*RanUe
+	HoldingRanUe map[models.AccessType]*RanUe
 	/* other */
 	onGoing                         map[models.AccessType]*OnGoing
 	UeRadioCapability               string // OCTET string
@@ -272,6 +273,7 @@ func (ue *AmfUe) init() {
 	ue.UnauthenticatedSupi = true
 	ue.EventSubscriptionsInfo = make(map[string]*AmfUeEventSubscription)
 	ue.RanUe = make(map[models.AccessType]*RanUe)
+	ue.HoldingRanUe = make(map[models.AccessType]*RanUe)
 	ue.RegistrationArea = make(map[models.AccessType][]models.Tai)
 	ue.AllowedNssai = make(map[models.AccessType][]models.AllowedSnssai)
 	ue.N1N2MessageIDGenerator = idgenerator.NewGenerator(1, 2147483647)
