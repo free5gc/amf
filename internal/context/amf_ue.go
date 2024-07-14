@@ -121,7 +121,7 @@ type AmfUe struct {
 	PcfUri                       string
 	PolicyAssociationId          string
 	AmPolicyUri                  string
-	AmPolicyAssociation          *models.PolicyAssociation
+	AmPolicyAssociation          *models.AmPolicyAssociation
 	RequestTriggerLocationChange bool // true if AmPolicyAssociation.Trigger contains RequestTrigger_LOC_CH
 	/* UeContextForHandover */
 	HandoverNotifyUri string
