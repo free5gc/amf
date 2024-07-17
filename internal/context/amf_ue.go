@@ -97,6 +97,7 @@ type AmfUe struct {
 	NudmSDMUri                        string
 	ContextValid                      bool
 	Reachability                      models.UeReachability
+	// TODO: remove from r17
 	SubscribedData                    models.SubscribedData
 	SmfSelectionData                  *models.SmfSelectionSubscriptionData
 	UeContextInSmfData                *models.UeContextInSmfData
@@ -751,7 +752,7 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 
 	if len(ueContext.AmPolicyReqTriggerList) > 0 {
 		if ue.AmPolicyAssociation == nil {
-			ue.AmPolicyAssociation = new(models.PolicyAssociation)
+			ue.AmPolicyAssociation = new(models.AmPolicyAssociation)
 		}
 		for _, trigger := range ueContext.AmPolicyReqTriggerList {
 			switch trigger {
