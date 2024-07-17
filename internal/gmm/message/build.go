@@ -126,7 +126,7 @@ func BuildAuthenticationRequest(ue *context.AmfUe, accessType models.AccessType)
 	authenticationRequest.ABBA.SetABBAContents(ue.ABBA)
 
 	switch ue.AuthenticationCtx.AuthType {
-	case models.AuthType__5_G_AKA:
+	case models.AusfUeAuthenticationAuthType__5_G_AKA:
 		var tmpArray [16]byte
 		var av5gAka models.Av5gAka
 
@@ -153,7 +153,7 @@ func BuildAuthenticationRequest(ue *context.AmfUe, accessType models.AccessType)
 		authenticationRequest.AuthenticationParameterAUTN.SetLen(uint8(len(autn)))
 		copy(tmpArray[:], autn[0:16])
 		authenticationRequest.AuthenticationParameterAUTN.SetAUTN(tmpArray)
-	case models.AuthType_EAP_AKA_PRIME:
+	case models.AusfUeAuthenticationAuthType_EAP_AKA_PRIME:
 		eapMsg := ue.AuthenticationCtx.Var5gAuthData.(string)
 		rawEapMsg, err := base64.StdEncoding.DecodeString(eapMsg)
 		if err != nil {
