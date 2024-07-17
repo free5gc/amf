@@ -105,7 +105,7 @@ func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, poli
 }
 
 func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
-	policyUpdate models.PolicyUpdate,
+	policyUpdate models.AmPolicyUpdate,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 

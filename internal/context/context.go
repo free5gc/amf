@@ -492,7 +492,7 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 		context.NfService[name] = models.NfService{
 			ServiceInstanceId: strconv.Itoa(index),
 			ServiceName:       name,
-			Versions: &[]models.NfServiceVersion{
+			Versions: []models.NfServiceVersion{
 				{
 					ApiFullVersion:  version,
 					ApiVersionInUri: versionUri,
@@ -501,10 +501,10 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			Scheme:          context.UriScheme,
 			NfServiceStatus: models.NfServiceStatus_REGISTERED,
 			ApiPrefix:       context.GetIPv4Uri(),
-			IpEndPoints: &[]models.IpEndPoint{
+			IpEndPoints: []models.IpEndPoint{
 				{
 					Ipv4Address: context.RegisterIPv4,
-					Transport:   models.TransportProtocol_TCP,
+					Transport:   models.NrfNfManagementTransportProtocol_TCP,
 					Port:        int32(context.SBIPort),
 				},
 			},
@@ -557,13 +557,13 @@ func GetSelf() *AMFContext {
 	return &amfContext
 }
 
-func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NfType) (
+func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NrfNfManagementNfType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.NfType_AMF, targetNF,
+	return oauth.GetTokenCtx(models.NrfNfManagementNfType_AMF, targetNF,
 		c.NfId, c.NrfUri, string(serviceName))
 }
 
