@@ -37,6 +37,13 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 
 	createdEventSubscription := &models.AmfCreatedEventSubscription{}
 	subscription := createEventSubscription.Subscription
+	if subscription == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "SUBSCRIPTION_EMPTY",
+		}
+		return nil, problemDetails
+	}
 	contextEventSubscription := &context.AMFContextEventSubscription{}
 	contextEventSubscription.EventSubscription = *subscription
 	var isImmediate bool
