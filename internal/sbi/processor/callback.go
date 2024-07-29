@@ -91,7 +91,7 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 	return nil
 }
 
-func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, policyUpdate models.PolicyUpdate) {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, policyUpdate models.PcfAmPolicyControlPolicyUpdate) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	polAssoID := c.Param("polAssoId")
@@ -105,7 +105,7 @@ func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, poli
 }
 
 func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
-	policyUpdate models.AmPolicyUpdate,
+	policyUpdate models.PcfAmPolicyControlPolicyUpdate,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 
@@ -126,7 +126,7 @@ func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 	ue.RequestTriggerLocationChange = false
 
 	for _, trigger := range policyUpdate.Triggers {
-		if trigger == models.RequestTrigger_LOC_CH {
+		if trigger == models.PcfAmPolicyControlRequestTrigger_LOC_CH {
 			ue.RequestTriggerLocationChange = true
 		}
 		// if trigger == models.RequestTrigger_PRA_CH {
@@ -190,7 +190,7 @@ func (p *Processor) AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID string,
 
 // TS 29.507 4.2.4.3
 func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(c *gin.Context,
-	terminationNotification models.TerminationNotification,
+	terminationNotification models.PcfAmPolicyControlTerminationNotification,
 ) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Request for termination of the policy association]")
 
@@ -205,7 +205,7 @@ func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(c *gin.Context,
 }
 
 func (p *Processor) AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID string,
-	terminationNotification models.TerminationNotification,
+	terminationNotification models.PcfAmPolicyControlTerminationNotification,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 
@@ -244,7 +244,7 @@ func (p *Processor) AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID stri
 }
 
 // TS 23.502 4.2.2.2.3 Registration with AMF re-allocation
-func (p *Processor) HandleN1MessageNotify(c *gin.Context, n1MessageNotify models.N1MessageNotify) {
+func (p *Processor) HandleN1MessageNotify(c *gin.Context, n1MessageNotify models.N1MessageNotifyRequest) {
 	logger.ProducerLog.Infoln("[AMF] Handle N1 Message Notify")
 
 	problemDetails := p.N1MessageNotifyProcedure(n1MessageNotify)
@@ -255,7 +255,7 @@ func (p *Processor) HandleN1MessageNotify(c *gin.Context, n1MessageNotify models
 	}
 }
 
-func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotify) *models.ProblemDetails {
+func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNotifyRequest) *models.ProblemDetails {
 	logger.ProducerLog.Debugf("n1MessageNotify: %+v", n1MessageNotify)
 
 	amfSelf := context.GetSelf()

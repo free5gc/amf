@@ -9,8 +9,8 @@ import (
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Nnssf_NSSelection"
 	"github.com/free5gc/openapi/models"
+	Nnssf_NSSelection "github.com/free5gc/openapi/nssf/NSSelection"
 )
 
 type nssfService struct {
@@ -52,7 +52,7 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	}
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NrfNfManagementNfType_NSSF)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	}
 
 	res, httpResp, localErr := client.NetworkSliceInformationDocumentApi.NSSelectionGet(ctx,
-		models.NfType_AMF, amfSelf.NfId, &paramOpt)
+		models.NrfNfManagementNfType_AMF, amfSelf.NfId, &paramOpt)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
@@ -138,12 +138,12 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 		Tai:                           optional.NewInterface(string(tai)), // TS 29.531 R15.3 6.1.3.2.3.1
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NfType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNSSF_NSSELECTION, models.NrfNfManagementNfType_NSSF)
 	if err != nil {
 		return nil, nil, err
 	}
 	res, httpResp, localErr := client.NetworkSliceInformationDocumentApi.NSSelectionGet(ctx,
-		models.NfType_AMF, amfSelf.NfId, &paramOpt)
+		models.NrfNfManagementNfType_AMF, amfSelf.NfId, &paramOpt)
 	defer func() {
 		if httpResp != nil {
 			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
