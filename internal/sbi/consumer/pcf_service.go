@@ -8,8 +8,8 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Npcf_AMPolicy"
 	"github.com/free5gc/openapi/models"
+	Npcf_AMPolicy "github.com/free5gc/openapi/pcf/AMPolicyControl"
 )
 
 type npcfService struct {
@@ -55,7 +55,7 @@ func (s *npcfService) AMPolicyControlCreate(
 		return nil, err
 	}
 
-	policyAssociationRequest := models.PolicyAssociationRequest{
+	policyAssociationRequest := models.PcfAmPolicyControlPolicyAssociationRequest{
 		NotificationUri: amfSelf.GetIPv4Uri() + factory.AmfCallbackResUriPrefix + "/am-policy/",
 		Supi:            ue.Supi,
 		Pei:             ue.Pei,
@@ -93,7 +93,7 @@ func (s *npcfService) AMPolicyControlCreate(
 
 		if res.Triggers != nil {
 			for _, trigger := range res.Triggers {
-				if trigger == models.RequestTrigger_LOC_CH {
+				if trigger == models.PcfAmPolicyControlRequestTrigger_LOC_CH {
 					ue.RequestTriggerLocationChange = true
 				}
 				// if trigger == models.RequestTrigger_PRA_CH {
@@ -117,14 +117,14 @@ func (s *npcfService) AMPolicyControlCreate(
 }
 
 func (s *npcfService) AMPolicyControlUpdate(
-	ue *amf_context.AmfUe, updateRequest models.PolicyAssociationUpdateRequest,
+	ue *amf_context.AmfUe, updateRequest models.PcfAmPolicyControlPolicyAssociationUpdateRequest,
 ) (problemDetails *models.ProblemDetails, err error) {
 	client := s.getAMPolicyClient(ue.PcfUri)
 	if client == nil {
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (s *npcfService) AMPolicyControlUpdate(
 		ue.AmPolicyAssociation.Triggers = res.Triggers
 		ue.RequestTriggerLocationChange = false
 		for _, trigger := range res.Triggers {
-			if trigger == models.RequestTrigger_LOC_CH {
+			if trigger == models.PcfAmPolicyControlRequestTrigger_LOC_CH {
 				ue.RequestTriggerLocationChange = true
 			}
 			// if trigger == models.RequestTrigger_PRA_CH {
@@ -176,7 +176,7 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
 	if err != nil {
 		return nil, err
 	}

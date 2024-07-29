@@ -8,7 +8,9 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Namf_Communication"
+
+	// "github.com/free5gc/openapi/Namf_Communication"
+	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -129,17 +131,17 @@ func (s *namfService) BuildUeContextModel(ue *amf_context.AmfUe) (ueContext mode
 }
 
 func (s *namfService) buildAmPolicyReqTriggers(
-	triggers []models.RequestTrigger,
-) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
+	triggers []models.PcfAmPolicyControlRequestTrigger,
+) (amPolicyReqTriggers []models.PolicyReqTrigger) {
 	for _, trigger := range triggers {
 		switch trigger {
-		case models.RequestTrigger_LOC_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_LOCATION_CHANGE)
-		case models.RequestTrigger_PRA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_PRA_CHANGE)
-		case models.RequestTrigger_SERV_AREA_CH:
+		case models.PcfAmPolicyControlRequestTrigger_LOC_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_LOCATION_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_PRA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_PRA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_SERV_AREA_CH:
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_SARI_CHANGE)
-		case models.RequestTrigger_RFSP_CH:
+		case models.PcfAmPolicyControlRequestTrigger_RFSP_CH:
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE)
 		}
 	}
@@ -157,7 +159,7 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,7 +210,7 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 		ueContextRelease.Supi = ue.Supi
 		ueContextRelease.UnauthenticatedSupi = true
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +269,7 @@ func (s *namfService) UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -306,7 +308,7 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return regStatusTransferComplete, nil, err
 	}

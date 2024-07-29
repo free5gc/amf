@@ -44,7 +44,7 @@ func (s *Server) getHttpCallBackRoutes() []Route {
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
-	var policyUpdate models.AmPolicyUpdate
+	var policyUpdate models.PcfAmPolicyControlPolicyUpdate
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -75,7 +75,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
-	var terminationNotification models.AmPolicyTerminationNotification
+	var terminationNotification models.PcfAmPolicyControlTerminationNotification
 	
 
 	requestBody, err := c.GetRawData()

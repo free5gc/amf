@@ -13,9 +13,10 @@ import (
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
-	"github.com/free5gc/openapi/Nnrf_NFManagement"
 	"github.com/free5gc/openapi/models"
+	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
+	"github.com/free5gc/openapi/nrf/NFManagement"
+	Nnrf_NFManagement "github.com/free5gc/openapi/nrf/NFManagement"
 )
 
 type nnrfService struct {
@@ -72,8 +73,8 @@ func (s *nnrfService) getNFDiscClient(uri string) *Nnrf_NFDiscovery.APIClient {
 	return client
 }
 
-func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
+	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (*models.SearchResult, error) {
 	// Set client and set url
 	client := s.getNFDiscClient(nrfUri)
@@ -81,31 +82,21 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 		return nil, openapi.ReportError("nrf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_DISC, models.NfType_NRF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_DISC, models.NrfNfManagementNfType_NRF)
 	if err != nil {
 		return nil, err
 	}
-
-	result, res, err := client.NFInstancesStoreApi.SearchNFInstances(ctx, targetNfType, requestNfType, param)
-	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
-		return nil, fmt.Errorf("temporary Redirect For Non NRF Consumer")
+	res, err := client.NFInstancesStoreApi.SearchNFInstances(ctx, &param)
+	result := res.SearchResult
+	if err != nil {
+		logger.ConsumerLog.Errorf("SearchNFInstances failed: %+v", err)
 	}
-	if res == nil || res.Body == nil {
-		return &result, err
-	}
-	defer func() {
-		if res != nil {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
-			}
-		}
-	}()
 	return &result, err
 }
 
 func (s *nnrfService) SearchUdmSdmInstance(
 	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -230,7 +221,7 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile 
 
 	defaultNotificationSubscription := models.DefaultNotificationSubscription{
 		CallbackUri:      fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/n1-message-notify", context.GetIPv4Uri()),
-		NotificationType: models.NotificationType_N1_MESSAGES,
+		NotificationType: models.NrfNfManagementNotificationType_N1_MESSAGES,
 		N1MessageClass:   models.N1MessageClass__5_GMM,
 	}
 	profile.DefaultNotificationSubscriptions = append(profile.DefaultNotificationSubscriptions,
@@ -309,29 +300,16 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 		return nil, openapi.ReportError("nrf not found")
 	}
 
-	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_NFM, models.NfType_NRF)
+	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NNRF_NFM, models.NrfNfManagementNfType_NRF)
 	if err != nil {
 		return pd, err
 	}
 
-	var res *http.Response
-
-	res, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(ctx, amfContext.NfId)
-	if err == nil {
-		return problemDetails, err
-	} else if res != nil {
-		defer func() {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
-			}
-		}()
-		if res.Status != err.Error() {
-			return problemDetails, err
-		}
-		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = openapi.ReportError("server no response")
+	request := &NFManagement.DeregisterNFInstanceRequest{
+		NfInstanceID: &amfContext.NfId,
 	}
+
+	_, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(ctx, request)
+
 	return problemDetails, err
 }

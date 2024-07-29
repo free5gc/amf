@@ -411,8 +411,6 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, amfEventType models.Amf
 		report.CmInfoList = ue.GetCmInfo()
 	case models.AmfEventType_REACHABILITY_REPORT:
 		report.Reachability = ue.Reachability
-	case models.AmfEventType_SUBSCRIBED_DATA_REPORT:
-		report.SubscribedData = &ue.SubscribedData
 	case models.AmfEventType_COMMUNICATION_FAILURE_REPORT:
 		// TODO : report.CommFailure
 	case models.AmfEventType_SUBSCRIPTION_ID_CHANGE:

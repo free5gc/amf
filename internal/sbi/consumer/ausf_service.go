@@ -14,7 +14,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Nausf_UEAuthentication"
+	Nausf_UEAuthentication "github.com/free5gc/openapi/ausf/UEAuthentication"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -69,7 +69,7 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	if resynchronizationInfo != nil {
 		authInfo.ResynchronizationInfo = resynchronizationInfo
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -117,7 +117,7 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 			ResStar: resStar,
 		}),
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -178,7 +178,7 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.GetEAPMessage()),
 		}),
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NfType_AUSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
 	if err != nil {
 		return nil, nil, err
 	}

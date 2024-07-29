@@ -97,8 +97,6 @@ type AmfUe struct {
 	NudmSDMUri                        string
 	ContextValid                      bool
 	Reachability                      models.UeReachability
-	// TODO: remove from r17
-	SubscribedData                    models.SubscribedData
 	SmfSelectionData                  *models.SmfSelectionSubscriptionData
 	UeContextInSmfData                *models.UeContextInSmfData
 	TraceData                         *models.TraceData
@@ -756,14 +754,14 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 		}
 		for _, trigger := range ueContext.AmPolicyReqTriggerList {
 			switch trigger {
-			case models.AmPolicyReqTrigger_LOCATION_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_LOC_CH)
-			case models.AmPolicyReqTrigger_PRA_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_PRA_CH)
-			case models.AmPolicyReqTrigger_SARI_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_SERV_AREA_CH)
-			case models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_RFSP_CH)
+			case models.PolicyReqTrigger_LOCATION_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_LOC_CH)
+			case models.PolicyReqTrigger_PRA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_PRA_CH)
+			case models.PolicyReqTrigger_SARI_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_SERV_AREA_CH)
+			case models.PolicyReqTrigger_RFSP_INDEX_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_RFSP_CH)
 			}
 		}
 	}
