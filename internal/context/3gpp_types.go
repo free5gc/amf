@@ -38,7 +38,7 @@ const (
 )
 
 type CauseAll struct {
-	Cause        *models.Cause
+	Cause        *models.SmfPduSessionCause
 	NgapCause    *models.NgApCause
 	Var5GmmCause *int32
 }

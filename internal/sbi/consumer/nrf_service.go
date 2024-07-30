@@ -74,7 +74,7 @@ func (s *nnrfService) getNFDiscClient(uri string) *Nnrf_NFDiscovery.APIClient {
 }
 
 func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (*models.SearchResult, error) {
 	// Set client and set url
 	client := s.getNFDiscClient(nrfUri)
@@ -95,8 +95,8 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 }
 
 func (s *nnrfService) SearchUdmSdmInstance(
-	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
+	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -147,7 +147,7 @@ func (s *nnrfService) SearchNssfNSSelectionInstance(
 }
 
 func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType,
-	requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+	requestNfType models.NrfNfManagementNfType, param Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (err error) {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {

@@ -253,7 +253,7 @@ func (s *nsmfService) SendUpdateSmContextActivateUpCnxState(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, accessType models.AccessType) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.UpCnxState = models.UpCnxState_ACTIVATING
 	if !amf_context.CompareUserLocation(ue.Location, smContext.UserLocation()) {
 		updateData.UeLocation = &ue.Location
@@ -273,7 +273,7 @@ func (s *nsmfService) SendUpdateSmContextDeactivateUpCnxState(ue *amf_context.Am
 	smContext *amf_context.SmContext, cause amf_context.CauseAll) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.UpCnxState = models.UpCnxState_DEACTIVATED
 	updateData.UeLocation = &ue.Location
 	if cause.Cause != nil {
@@ -438,7 +438,7 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, amfid string, guami *models.Guami, activate bool) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.ServingNfId = amfid
 	updateData.ServingNetwork = guami.PlmnId
 	updateData.Guami = guami
@@ -457,7 +457,7 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
 }
 
 func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContext,
-	updateData models.SmContextUpdateData, n1Msg []byte, n2Info []byte) (
+	updateData models.SmfPduSessionSmContextUpdateData, n1Msg []byte, n2Info []byte) (
 	response *models.UpdateSmContextResponse200, errorResponse *models.UpdateSmContextResponse400,
 	problemDetail *models.ProblemDetails, err1 error,
 ) {

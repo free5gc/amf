@@ -67,7 +67,7 @@ func (s *Server) getCommunicationRoutes() []Route {
 			Pattern: "/ue-contexts/:ueContextId/transfer",
 			APIFunc: s.HTTPUEContextTransfer,
 		},
-		{		
+		{
 			Name:    "N1N2MessageUnSubscribe",
 			Method:  http.MethodDelete,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/subscriptions/:subscriptionId",
@@ -80,7 +80,7 @@ func (s *Server) getCommunicationRoutes() []Route {
 			APIFunc: s.HTTPN1N2MessageTransfer,
 		},
 		{
-			Name:	 "N1N2MessageTransferStatus",
+			Name:    "N1N2MessageTransferStatus",
 			Method:  http.MethodGet,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/:n1N2MessageId",
 			APIFunc: s.HTTPN1N2MessageTransferStatus,
@@ -120,7 +120,7 @@ func (s *Server) getCommunicationRoutes() []Route {
 
 // AMFStatusChangeSubscribeModify - Namf_Communication AMF Status Change Subscribe Modify service Operation
 func (s *Server) HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
-	var subscriptionData models.SubscriptionData
+	var subscriptionData models.AmfCommunicationSubscriptionData
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -431,7 +431,7 @@ func (s *Server) HTTPNonUeN2InfoSubscribe(c *gin.Context) {
 }
 
 func (s *Server) HTTPAMFStatusChangeSubscribe(c *gin.Context) {
-	var subscriptionData models.SubscriptionData
+	var subscriptionData models.AmfCommunicationSubscriptionData
 
 	requestBody, err := c.GetRawData()
 	if err != nil {

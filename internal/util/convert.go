@@ -51,6 +51,12 @@ func PlmnIdStringToModels(plmnId string) (plmnID models.PlmnId) {
 	return
 }
 
+func PlmnIdNidToModelsPlmnId(plmnIdNid models.PlmnIdNid) (plmnId models.PlmnId) {
+	plmnIdNid.Mcc = plmnId.Mcc
+	plmnIdNid.Mnc = plmnId.Mnc
+	return
+}
+
 func TACConfigToModels(intString string) (hexString string) {
 	tmp, err := strconv.ParseUint(intString, 10, 32)
 	if err != nil {

@@ -139,10 +139,14 @@ func (s *namfService) buildAmPolicyReqTriggers(
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_LOCATION_CHANGE)
 		case models.PcfAmPolicyControlRequestTrigger_PRA_CH:
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_PRA_CHANGE)
-		case models.PcfAmPolicyControlRequestTrigger_SERV_AREA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_SARI_CHANGE)
-		case models.PcfAmPolicyControlRequestTrigger_RFSP_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_NWDAF_DATA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_SMF_SELECT_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ACCESS_TYPE_CHANGE)
 		}
 	}
 	return
