@@ -61,27 +61,23 @@ func (s *npcfService) AMPolicyControlCreate(
 		Pei:             ue.Pei,
 		Gpsi:            ue.Gpsi,
 		AccessType:      anType,
-		ServingPlmn: &models.NetworkId{
+		ServingPlmn: &models.PlmnIdNid{
 			Mcc: ue.PlmnId.Mcc,
 			Mnc: ue.PlmnId.Mnc,
 		},
 		Guami: &amfSelf.ServedGuamiList[0],
 	}
+	var policyAssociationreq Npcf_AMPolicy.CreateIndividualAMPolicyAssociationRequest
+
+	policyAssociationreq.SetPcfAmPolicyControlPolicyAssociationRequest(policyAssociationRequest)
 
 	if ue.AccessAndMobilitySubscriptionData != nil {
 		policyAssociationRequest.Rfsp = ue.AccessAndMobilitySubscriptionData.RfspIndex
 	}
-	res, httpResp, localErr := client.DefaultApi.PoliciesPost(ctx, policyAssociationRequest)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("PoliciesPost response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+
+	res, localErr := client.AMPolicyAssociationsCollectionApi.CreateIndividualAMPolicyAssociation(ctx, &policyAssociationreq)
 	if localErr == nil {
-		locationHeader := httpResp.Header.Get("Location")
+		locationHeader := res.Location
 		logger.ConsumerLog.Debugf("location header: %+v", locationHeader)
 		ue.AmPolicyUri = locationHeader
 
@@ -89,10 +85,10 @@ func (s *npcfService) AMPolicyControlCreate(
 		match := re.FindStringSubmatch(locationHeader)
 
 		ue.PolicyAssociationId = match[0][10:]
-		ue.AmPolicyAssociation = &res
+		ue.AmPolicyAssociation = &res.PcfAmPolicyControlPolicyAssociation
 
-		if res.Triggers != nil {
-			for _, trigger := range res.Triggers {
+		if res.PcfAmPolicyControlPolicyAssociation.Triggers != nil {
+			for _, trigger := range res.PcfAmPolicyControlPolicyAssociation.Triggers {
 				if trigger == models.PcfAmPolicyControlRequestTrigger_LOC_CH {
 					ue.RequestTriggerLocationChange = true
 				}
@@ -104,12 +100,6 @@ func (s *npcfService) AMPolicyControlCreate(
 
 		logger.ConsumerLog.Debugf("UE AM Policy Association ID: %s", ue.PolicyAssociationId)
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			return nil, localErr
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		return &problem, nil
 	} else {
 		return nil, openapi.ReportError("server no response")
 	}
@@ -129,26 +119,23 @@ func (s *npcfService) AMPolicyControlUpdate(
 		return nil, err
 	}
 
-	res, httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdUpdatePost(
-		ctx, ue.PolicyAssociationId, updateRequest)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("PoliciesPolAssoIdUpdatePost response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+	var policyUpdatereq Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationRequest
+
+	policyUpdatereq.SetPolAssoId(ue.PolicyAssociationId)
+	policyUpdatereq.SetPcfAmPolicyControlPolicyAssociationUpdateRequest(updateRequest)
+
+	res, localErr := client.IndividualAMPolicyAssociationDocumentApi.ReportObservedEventTriggersForIndividualAMPolicyAssociation(
+		ctx, &policyUpdatereq)
 	if localErr == nil {
-		if res.ServAreaRes != nil {
-			ue.AmPolicyAssociation.ServAreaRes = res.ServAreaRes
+		if res.PcfAmPolicyControlPolicyUpdate.ServAreaRes != nil {
+			ue.AmPolicyAssociation.ServAreaRes = res.PcfAmPolicyControlPolicyUpdate.ServAreaRes
 		}
-		if res.Rfsp != 0 {
-			ue.AmPolicyAssociation.Rfsp = res.Rfsp
+		if res.PcfAmPolicyControlPolicyUpdate.Rfsp != 0 {
+			ue.AmPolicyAssociation.Rfsp = res.PcfAmPolicyControlPolicyUpdate.Rfsp
 		}
-		ue.AmPolicyAssociation.Triggers = res.Triggers
+		ue.AmPolicyAssociation.Triggers = res.PcfAmPolicyControlPolicyUpdate.Triggers
 		ue.RequestTriggerLocationChange = false
-		for _, trigger := range res.Triggers {
+		for _, trigger := range res.PcfAmPolicyControlPolicyUpdate.Triggers {
 			if trigger == models.PcfAmPolicyControlRequestTrigger_LOC_CH {
 				ue.RequestTriggerLocationChange = true
 			}
@@ -157,13 +144,6 @@ func (s *npcfService) AMPolicyControlUpdate(
 			// }
 		}
 		return problemDetails, err
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
 		err = openapi.ReportError("server no response")
 	}
@@ -181,24 +161,12 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, err
 	}
 
-	httpResp, localErr := client.DefaultApi.PoliciesPolAssoIdDelete(ctx, ue.PolicyAssociationId)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("PoliciesPolAssoIdDelete response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+	var deletereq Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationRequest
+	deletereq.SetPolAssoId(ue.PolicyAssociationId)
+
+	_, localErr := client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deletereq)
 	if localErr == nil {
 		ue.RemoveAmPolicyAssociation()
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return nil, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
 		err = openapi.ReportError("server no response")
 	}

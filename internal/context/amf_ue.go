@@ -120,7 +120,7 @@ type AmfUe struct {
 	PcfUri                       string
 	PolicyAssociationId          string
 	AmPolicyUri                  string
-	AmPolicyAssociation          *models.AmPolicyAssociation
+	AmPolicyAssociation          *models.PcfAmPolicyControlPolicyAssociation
 	RequestTriggerLocationChange bool // true if AmPolicyAssociation.Trigger contains RequestTrigger_LOC_CH
 	/* UeContextForHandover */
 	HandoverNotifyUri string
@@ -750,7 +750,7 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 
 	if len(ueContext.AmPolicyReqTriggerList) > 0 {
 		if ue.AmPolicyAssociation == nil {
-			ue.AmPolicyAssociation = new(models.AmPolicyAssociation)
+			ue.AmPolicyAssociation = new(models.PcfAmPolicyControlPolicyAssociation)
 		}
 		for _, trigger := range ueContext.AmPolicyReqTriggerList {
 			switch trigger {
