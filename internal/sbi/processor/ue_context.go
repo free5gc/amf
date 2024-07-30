@@ -584,7 +584,7 @@ func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
 	if ueRegStatusUpdateReqData.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
 		// remove the individual ueContext resource and release any PDU session(s)
 		for _, pduSessionId := range ueRegStatusUpdateReqData.ToReleaseSessionList {
-			cause := models.Cause_REL_DUE_TO_SLICE_NOT_AVAILABLE
+			cause := models.SmfPduSessionCause_REL_DUE_TO_SLICE_NOT_AVAILABLE
 			causeAll := &context.CauseAll{
 				Cause: &cause,
 			}

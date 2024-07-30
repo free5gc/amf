@@ -24,7 +24,7 @@ import (
 func FuzzHandleNAS(f *testing.F) {
 	amfSelf := amf_context.GetSelf()
 	amfSelf.ServedGuamiList = []models.Guami{{
-		PlmnId: &models.PlmnId{
+		PlmnId: &models.PlmnIdNid{
 			Mcc: "208",
 			Mnc: "93",
 		},
@@ -118,7 +118,7 @@ func FuzzHandleNAS(f *testing.F) {
 func FuzzHandleNAS2(f *testing.F) {
 	amfSelf := amf_context.GetSelf()
 	amfSelf.ServedGuamiList = []models.Guami{{
-		PlmnId: &models.PlmnId{
+		PlmnId: &models.PlmnIdNid{
 			Mcc: "208",
 			Mnc: "93",
 		},
@@ -238,7 +238,7 @@ func FuzzHandleNAS2(f *testing.F) {
 		amfUe.State[models.AccessType__3_GPP_ACCESS].Set(amf_context.Authentication)
 		amfUe.RequestIdentityType = nasMessage.MobileIdentity5GSTypeSuci
 		amfUe.AuthenticationCtx = &models.UeAuthenticationCtx{
-			AuthType: models.AuthType__5_G_AKA,
+			AuthType: models.AusfUeAuthenticationAuthType__5_G_AKA,
 		}
 		amf_nas.HandleNAS(ue, ngapType.ProcedureCodeUplinkNASTransport, d, false)
 	})

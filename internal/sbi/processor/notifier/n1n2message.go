@@ -58,7 +58,7 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 		if subscription.N1NotifyCallbackUri != "" && subscription.N1MessageClass == n1class {
 			configuration := Namf_Communication.NewConfiguration()
 			client := Namf_Communication.NewAPIClient(configuration)
-			n1MessageNotify := models.N1MessageNotify{
+			n1MessageNotify := models.N1MessageNotifyRequest{
 				JsonData: &models.N1MessageNotification{
 					N1NotifySubscriptionId: strconv.Itoa(int(subscriptionID)),
 					N1MessageContainer: &models.N1MessageContainer{
@@ -93,7 +93,7 @@ func SendN1MessageNotifyAtAMFReAllocation(
 	configuration := Namf_Communication.NewConfiguration()
 	client := Namf_Communication.NewAPIClient(configuration)
 
-	n1MessageNotify := models.N1MessageNotify{
+	n1MessageNotify := models.N1MessageNotifyRequest{
 		JsonData: &models.N1MessageNotification{
 			N1MessageContainer: &models.N1MessageContainer{
 				N1MessageClass: models.N1MessageClass__5_GMM,
@@ -108,7 +108,7 @@ func SendN1MessageNotifyAtAMFReAllocation(
 
 	var callbackUri string
 	for _, subscription := range ue.TargetAmfProfile.DefaultNotificationSubscriptions {
-		if subscription.NotificationType == models.NotificationType_N1_MESSAGES &&
+		if subscription.NotificationType == models.NrfNfManagementNotificationType_N1_MESSAGES &&
 			subscription.N1MessageClass == models.N1MessageClass__5_GMM {
 			callbackUri = subscription.CallbackUri
 			break

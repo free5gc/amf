@@ -50,7 +50,7 @@ func (s *npcfService) AMPolicyControlCreate(
 		return nil, openapi.ReportError("pcf not found")
 	}
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
 	if err != nil {
 		return nil, err
 	}

@@ -758,10 +758,14 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_LOC_CH)
 			case models.PolicyReqTrigger_PRA_CHANGE:
 				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_PRA_CH)
-			case models.PolicyReqTrigger_SARI_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_SERV_AREA_CH)
-			case models.PolicyReqTrigger_RFSP_INDEX_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_RFSP_CH)
+			case models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH)
+			case models.PolicyReqTrigger_NWDAF_DATA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH)
+			case models.PolicyReqTrigger_SMF_SELECT_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH)
+			case models.PolicyReqTrigger_ACCESS_TYPE_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH)
 			}
 		}
 	}

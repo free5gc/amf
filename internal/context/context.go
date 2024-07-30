@@ -241,7 +241,7 @@ func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.Acc
 	}
 }
 
-func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.SubscriptionData) (subscriptionID string) {
+func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.AmfCommunicationSubscriptionData) (subscriptionID string) {
 	id, err := amfStatusSubscriptionIDGenerator.Allocate()
 	if err != nil {
 		logger.CtxLog.Errorf("Allocate subscriptionID error: %+v", err)
@@ -254,9 +254,9 @@ func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.Subs
 }
 
 // Return Value: (subscriptionData *models.SubScriptionData, ok bool)
-func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (*models.SubscriptionData, bool) {
+func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (*models.AmfCommunicationSubscriptionData, bool) {
 	if value, ok := context.AMFStatusSubscriptions.Load(subscriptionID); ok {
-		subscriptionData := value.(models.SubscriptionData)
+		subscriptionData := value.(models.AmfCommunicationSubscriptionData)
 		return &subscriptionData, ok
 	} else {
 		return nil, false
