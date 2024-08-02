@@ -73,8 +73,8 @@ func (s *nsmfService) SelectSmf(
 		if ue.NssfUri == "" {
 			// TODO: Set a timeout of NSSF Selection or will starvation here
 			for {
-				if err := s.consumer.SearchNssfNSSelectionInstance(ue, nrfUri, models.NfType_NSSF,
-					models.NfType_AMF, nil); err != nil {
+				if err := s.consumer.SearchNssfNSSelectionInstance(ue, nrfUri, models.NrfNfManagementNfType_NSSF,
+					models.NrfNfManagementNfType_AMF, nil); err != nil {
 					ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", err)
 					time.Sleep(2 * time.Second)
 				} else {
@@ -202,7 +202,7 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 
 func (s *nsmfService) buildCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
 	requestType *models.RequestType,
-) (smContextCreateData models.SmContextCreateData) {
+) (smContextCreateData models.SmfPduSessionSmContextCreateData) {
 	context := amf_context.GetSelf()
 	smContextCreateData.Supi = ue.Supi
 	smContextCreateData.UnauthenticatedSupi = ue.UnauthenticatedSupi
@@ -292,7 +292,7 @@ func (s *nsmfService) SendUpdateSmContextChangeAccessType(ue *amf_context.AmfUe,
 	smContext *amf_context.SmContext, anTypeCanBeChanged bool) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.AnTypeCanBeChanged = anTypeCanBeChanged
 	return s.consumer.SendUpdateSmContextRequest(smContext, updateData, nil, nil)
 }
@@ -301,7 +301,7 @@ func (s *nsmfService) SendUpdateSmContextN2Info(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.N2SmInfoType = n2SmType
 	updateData.N2SmInfo = new(models.RefToBinaryData)
 	updateData.N2SmInfo.ContentId = n2sminfocon
@@ -313,7 +313,7 @@ func (s *nsmfService) SendUpdateSmContextXnHandover(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
@@ -335,7 +335,7 @@ func (s *nsmfService) SendUpdateSmContextXnHandoverFailed(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
@@ -352,7 +352,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverPreparing(
 	n2SmInfo []byte, amfid string, targetId *models.NgRanTargetId) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
@@ -371,7 +371,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverPrepared(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, n2SmType models.N2SmInfoType, n2SmInfo []byte) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	if n2SmType != "" {
 		updateData.N2SmInfoType = n2SmType
 		updateData.N2SmInfo = new(models.RefToBinaryData)
@@ -385,7 +385,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverComplete(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, amfid string, guami *models.Guami) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.HoState = models.HoState_COMPLETED
 	if amfid != "" {
 		updateData.ServingNfId = amfid
@@ -406,7 +406,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverCanceled(ue *amf_context.AmfU
 	smContext *amf_context.SmContext, cause amf_context.CauseAll) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	// nolint openapi/model misspelling
 	updateData.HoState = models.HoState_CANCELLED
 	if cause.Cause != nil {
@@ -425,7 +425,7 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAccessType(
 	ue *amf_context.AmfUe, smContext *amf_context.SmContext, targetAccessType models.AccessType, n1SmMsg []byte) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
-	updateData := models.SmContextUpdateData{}
+	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.AnType = targetAccessType
 	if n1SmMsg != nil {
 		updateData.N1SmMsg = new(models.RefToBinaryData)
@@ -554,7 +554,7 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 
 func (s *nsmfService) buildReleaseSmContextRequest(
 	ue *amf_context.AmfUe, cause *amf_context.CauseAll, n2SmInfoType models.N2SmInfoType, n2Info []byte) (
-	releaseData models.SmContextReleaseData,
+	releaseData models.SmfPduSessionSmContextReleaseData,
 ) {
 	if cause != nil {
 		if cause.Cause != nil {

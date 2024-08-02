@@ -122,8 +122,8 @@ func (s *nnrfService) SearchUdmSdmInstance(
 }
 
 func (s *nnrfService) SearchNssfNSSelectionInstance(
-	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
+	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
+	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -174,20 +174,20 @@ func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfU
 	return
 }
 
-func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile models.NfProfile, err error) {
+func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile models.NrfNfManagementNfProfile, err error) {
 	profile.NfInstanceId = context.NfId
-	profile.NfType = models.NfType_AMF
-	profile.NfStatus = models.NfStatus_REGISTERED
+	profile.NfType = models.NrfNfManagementNfType_AMF
+	profile.NfStatus = models.NrfNfManagementNfStatus_REGISTERED
 	var plmns []models.PlmnId
 	for _, plmnItem := range context.PlmnSupportList {
 		plmns = append(plmns, *plmnItem.PlmnId)
 	}
 	if len(plmns) > 0 {
-		profile.PlmnList = &plmns
+		profile.PlmnList = plmns
 		// TODO: change to Per Plmn Support Snssai List
 		profile.SNssais = &context.PlmnSupportList[0].SNssaiList
 	}
-	amfInfo := models.AmfInfo{}
+	amfInfo := models.NrfNfManagementAmfInfo{}
 	if len(context.ServedGuamiList) == 0 {
 		err = fmt.Errorf("gumai List is Empty in AMF")
 		return profile, err
@@ -199,24 +199,24 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile 
 	}
 	amfInfo.AmfRegionId = regionId
 	amfInfo.AmfSetId = setId
-	amfInfo.GuamiList = &context.ServedGuamiList
+	amfInfo.GuamiList = context.ServedGuamiList
 	if len(context.SupportTaiLists) == 0 {
 		err = fmt.Errorf("SupportTaiList is Empty in AMF")
 		return profile, err
 	}
-	amfInfo.TaiList = &context.SupportTaiLists
+	amfInfo.TaiList = context.SupportTaiLists
 	profile.AmfInfo = &amfInfo
 	if context.RegisterIPv4 == "" {
 		err = fmt.Errorf("AMF Address is empty")
 		return profile, err
 	}
 	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIPv4)
-	service := []models.NfService{}
+	service := []models.NrfNfManagementNfService{}
 	for _, nfService := range context.NfService {
 		service = append(service, nfService)
 	}
 	if len(service) > 0 {
-		profile.NfServices = &service
+		profile.NfServices = service
 	}
 
 	defaultNotificationSubscription := models.DefaultNotificationSubscription{
@@ -229,7 +229,7 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile 
 	return profile, err
 }
 
-func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NfProfile) (
+func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NrfNfManagementNfProfile) (
 	resouceNrfUri string, retrieveNfInstanceId string, err error,
 ) {
 	// Set client and set url
@@ -239,9 +239,13 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 	}
 
 	var res *http.Response
-	var nf models.NfProfile
+	var nf models.NrfNfManagementNfProfile
+	registerNFInstanceRequest := &Nnrf_NFManagement.RegisterNFInstanceRequest{
+		NfInstanceID:             &nfInstanceId,
+		NrfNfManagementNfProfile: &profile,
+	}
 	for {
-		nf, res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
+		res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), registerNFInstanceRequest)
 		if err != nil || res == nil {
 			// TODO : add log
 			fmt.Println(fmt.Errorf("AMF register to NRF Error[%s]", err.Error()))
@@ -259,7 +263,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 		if status == http.StatusOK {
 			// NFUpdate
 			break
-		} else if status == http.StatusCreated {
+		} else {
 			// NFRegister
 			resourceUri := res.Header.Get("Location")
 			index := strings.Index(resourceUri, "/nnrf-nfm/")
@@ -283,10 +287,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 			}
 
 			break
-		} else {
-			fmt.Println(fmt.Errorf("handler returned wrong status code %d", status))
-			fmt.Println(fmt.Errorf("NRF return wrong status code %d", status))
-		}
+		} 
 	}
 	return resouceNrfUri, retrieveNfInstanceId, err
 }
