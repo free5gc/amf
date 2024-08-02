@@ -38,7 +38,7 @@ func init() {
 	GetSelf().RelativeCapacity = 0xff
 	GetSelf().ServedGuamiList = make([]models.Guami, 0, MaxNumOfServedGuamiList)
 	GetSelf().PlmnSupportList = make([]factory.PlmnSupportItem, 0, MaxNumOfPLMNs)
-	GetSelf().NfService = make(map[models.ServiceName]models.NfService)
+	GetSelf().NfService = make(map[models.ServiceName]models.NrfNfManagementNfService)
 	GetSelf().NetworkName.Full = "free5GC"
 	tmsiGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
 	amfStatusSubscriptionIDGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
@@ -64,7 +64,7 @@ type AMFContext struct {
 	RelativeCapacity             int64
 	NfId                         string
 	Name                         string
-	NfService                    map[models.ServiceName]models.NfService // nfservice that amf support
+	NfService                    map[models.ServiceName]models.NrfNfManagementNfService // nfservice that amf support
 	UriScheme                    models.UriScheme
 	BindingIPv4                  string
 	SBIPort                      int
@@ -489,7 +489,7 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 	versionUri := "v" + tmpVersion[0]
 	for index, nameString := range serivceName {
 		name := models.ServiceName(nameString)
-		context.NfService[name] = models.NfService{
+		context.NfService[name] = models.NrfNfManagementNfService{
 			ServiceInstanceId: strconv.Itoa(index),
 			ServiceName:       name,
 			Versions: []models.NfServiceVersion{

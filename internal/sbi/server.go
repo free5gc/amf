@@ -120,7 +120,7 @@ func newRouter(s *Server) *gin.Engine {
 }
 
 func (s *Server) Run(traceCtx context.Context, wg *sync.WaitGroup) error {
-	var profile models.NfProfile
+	var profile models.NrfNfManagementNfProfile
 	if profileTmp, err1 := s.Consumer().BuildNFInstance(s.Context()); err1 != nil {
 		logger.InitLog.Error("Build AMF Profile Error")
 	} else {
