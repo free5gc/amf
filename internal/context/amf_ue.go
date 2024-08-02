@@ -70,7 +70,7 @@ type AmfUe struct {
 	RetransmissionOfInitialNASMsg      bool
 	RequestIdentityType                uint8
 	/* Used for AMF relocation */
-	TargetAmfProfile *models.NfProfile
+	TargetAmfProfile *models.NrfNfDiscoveryNfProfile
 	TargetAmfUri     string
 	/* Ue Identity */
 	PlmnId                 models.PlmnId
