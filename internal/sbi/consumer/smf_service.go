@@ -224,10 +224,7 @@ func (s *nsmfService) buildCreateSmContextRequest(ue *amf_context.AmfUe, smConte
 	if ue.RatType != "" {
 		smContextCreateData.RatType = ue.RatType
 	}
-	// TODO: location is used in roaming scenerio
-	// if ue.Location != nil {
-	// 	smContextCreateData.UeLocation = ue.Location
-	// }
+	smContextCreateData.UeLocation = &ue.Location
 	smContextCreateData.UeTimeZone = ue.TimeZone
 	smContextCreateData.SmContextStatusUri = context.GetIPv4Uri() + factory.AmfCallbackResUriPrefix + "/smContextStatus/" +
 		ue.Supi + "/" + strconv.Itoa(int(smContext.PduSessionID()))
