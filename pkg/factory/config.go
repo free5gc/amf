@@ -385,9 +385,11 @@ func (p *PlmnSupportItem) validate() (bool, error) {
 			err := fmt.Errorf("invalid sst: %d, should be in the range of 0~255", sst)
 			errs = append(errs, err)
 		}
-		if result := govalidator.StringMatches(sd, "^[A-Fa-f0-9]{6}$"); !result {
-			err := fmt.Errorf("invalid sd: %s, should be 3 bytes hex string, range: 000000~FFFFFF", sd)
-			errs = append(errs, err)
+		if sd != "" {
+			if result := govalidator.StringMatches(sd, "^[A-Fa-f0-9]{6}$"); !result {
+				err := fmt.Errorf("invalid sd: %s, should be 3 bytes hex string, range: 000000~FFFFFF", sd)
+				errs = append(errs, err)
+			}
 		}
 	}
 
