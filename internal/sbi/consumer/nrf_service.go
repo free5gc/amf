@@ -307,5 +307,12 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 
 	_, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(ctx, request)
 
+	if err != nil {
+		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetails = apiErr.Model().(*models.ProblemDetails)
+		}
+	}
+
 	return problemDetails, err
 }

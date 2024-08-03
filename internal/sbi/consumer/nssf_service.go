@@ -84,6 +84,10 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 		}
 		ue.ConfiguredNssai = res.AuthorizedNetworkSliceInfo.ConfiguredNssai
 	} else {
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			return apiErr.Model().(*models.ProblemDetails), localErr
+		}
 		return nil, localErr
 	}
 
@@ -123,6 +127,10 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	if localErr == nil {
 		return &res.AuthorizedNetworkSliceInfo, nil, nil
 	} else {
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+		}
 		return nil, nil, localErr
 	}
 }

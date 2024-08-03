@@ -101,6 +101,10 @@ func (s *npcfService) AMPolicyControlCreate(
 		logger.ConsumerLog.Debugf("UE AM Policy Association ID: %s", ue.PolicyAssociationId)
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else {
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			return apiErr.Model().(*models.ProblemDetails), localErr
+		}
 		return nil, localErr
 	}
 	return nil, nil
@@ -143,9 +147,11 @@ func (s *npcfService) AMPolicyControlUpdate(
 			// TODO: Presence Reporting Area handling (TS 23.503 6.1.2.5, TS 23.501 5.6.11)
 			// }
 		}
-		return problemDetails, err
 	} else {
-		err = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetails = apiErr.Model().(*models.ProblemDetails)
+		}
 	}
 	return problemDetails, err
 }
@@ -167,6 +173,11 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 	_, err = client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deletereq)
 	if err == nil {
 		ue.RemoveAmPolicyAssociation()
+	} else {
+		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetails = apiErr.Model().(*models.ProblemDetails)
+		}
 	}
 	return problemDetails, err
 }

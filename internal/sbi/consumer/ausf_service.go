@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/antihax/optional"
-
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasType"
@@ -74,25 +72,19 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 		return nil, nil, err
 	}
 
-	ueAuthenticationCtx, httpResponse, err := client.DefaultApi.UeAuthenticationsPost(ctx, authInfo)
-	defer func() {
-		if httpResponse != nil {
-			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("UeAuthenticationsPost response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+	authreq := Nausf_UEAuthentication.UeAuthenticationsPostRequest{
+		AuthenticationInfo: &authInfo,
+	}
+
+	res, localErr := client.DefaultApi.UeAuthenticationsPost(ctx, &authreq)
 	if err == nil {
-		return &ueAuthenticationCtx, nil, nil
-	} else if httpResponse != nil {
-		if httpResponse.Status != err.Error() {
-			return nil, nil, err
-		}
-		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		return nil, &problem, nil
+		return &res.UeAuthenticationCtx, nil, nil
 	} else {
-		return nil, nil, openapi.ReportError("server no response")
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+		}
+		return nil, nil, err
 	}
 }
 
@@ -112,11 +104,6 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 		return nil, nil, openapi.ReportError("ausf not found")
 	}
 
-	confirmData := &Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutParamOpts{
-		ConfirmationData: optional.NewInterface(models.ConfirmationData{
-			ResStar: resStar,
-		}),
-	}
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
 	if err != nil {
 		return nil, nil, err
@@ -132,37 +119,29 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 		return nil, nil, fmt.Errorf("authctxId is nil")
 	}
 
-	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
-		ctx, authctxId, confirmData)
-	defer func() {
-		if httpResponse != nil {
-			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("UeAuthenticationsAuthCtxId5gAkaConfirmationPut response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err == nil {
-		return &confirmResult, nil, nil
-	} else if httpResponse != nil {
-		if httpResponse.Status != err.Error() {
-			return nil, nil, err
-		}
-		switch httpResponse.StatusCode {
-		case 400, 500:
-			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			return nil, &problem, nil
-		}
-		return nil, nil, nil
+	confirmData := &Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutRequest{
+		AuthCtxId: &authctxId,
+		ConfirmationData: &models.ConfirmationData{
+			ResStar: resStar,
+		},
+	}
+	confirmResult, localErr := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
+		ctx, confirmData)
+	if localErr == nil {
+		return &confirmResult.ConfirmationDataResponse, nil, nil
 	} else {
-		return nil, nil, openapi.ReportError("server no response")
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+		}
+		return nil, nil, localErr
 	}
 }
 
 func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
 	response *models.EapSession, problemDetails *models.ProblemDetails, err1 error,
 ) {
-	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["eap-session"].Href)
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["eap-session"][0].Href)
 	if err != nil {
 		logger.ConsumerLog.Errorf("url Parse failed: %+v", err)
 	}
@@ -171,16 +150,6 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 	client := s.getUEAuthenticationClient(ausfUri)
 	if client == nil {
 		return nil, nil, openapi.ReportError("ausf not found")
-	}
-
-	eapSessionReq := &Nausf_UEAuthentication.EapAuthMethodParamOpts{
-		EapSession: optional.NewInterface(models.EapSession{
-			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.GetEAPMessage()),
-		}),
-	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
-	if err != nil {
-		return nil, nil, err
 	}
 
 	// confirmUri.RequestURI() = "/nausf-auth/v1/ue-authentications/{authctxId}/eap-session"
@@ -194,30 +163,28 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		return nil, nil, fmt.Errorf("authctxId is nil")
 	}
 
-	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, authctxId, eapSessionReq)
-	defer func() {
-		if httpResponse != nil {
-			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("EapAuthMethod response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err == nil {
-		response = &eapSession
-	} else if httpResponse != nil {
-		if httpResponse.Status != err.Error() {
-			err1 = err
-			return response, problemDetails, err1
-		}
-		switch httpResponse.StatusCode {
-		case 400, 500:
-			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetails = &problem
-		}
-	} else {
-		err1 = openapi.ReportError("server no response")
+	eapSessionReq := Nausf_UEAuthentication.EapAuthMethodRequest{
+		AuthCtxId: &authctxId,
+		EapSession: &models.EapSession{
+			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.GetEAPMessage()),
+		},
+	}
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAUSF_AUTH, models.NrfNfManagementNfType_AUSF)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return response, problemDetails, err1
+	eapSession, localErr := client.DefaultApi.EapAuthMethod(ctx, &eapSessionReq)
+
+	if localErr == nil {
+		response = &eapSession.EapSession
+	} else {
+		err = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetails = apiErr.Model().(*models.ProblemDetails)
+		}
+	}
+
+	return response, problemDetails, err
 }

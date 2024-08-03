@@ -24,7 +24,7 @@ func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContext
 
 	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
-		c.JSON(int(ueContextCreateError.Error.Status), ueContextCreateError)
+		c.JSON(int(ueContextCreateError.JsonData.Error.Status), ueContextCreateError)
 	} else {
 		c.JSON(http.StatusCreated, createUeContextResponse)
 	}
@@ -39,11 +39,14 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
-		ueContextCreateError := &models.CreateUeContextResponse403{
+		ueCtxCreateError := models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
 				Cause:  "HANDOVER_FAILURE",
 			},
+		}
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &ueCtxCreateError,
 		}
 		return nil, ueContextCreateError
 	}
