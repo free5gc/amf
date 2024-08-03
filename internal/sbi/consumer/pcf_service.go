@@ -101,7 +101,7 @@ func (s *npcfService) AMPolicyControlCreate(
 		logger.ConsumerLog.Debugf("UE AM Policy Association ID: %s", ue.PolicyAssociationId)
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else {
-		return nil, openapi.ReportError("server no response")
+		return nil, localErr
 	}
 	return nil, nil
 }
@@ -145,7 +145,7 @@ func (s *npcfService) AMPolicyControlUpdate(
 		}
 		return problemDetails, err
 	} else {
-		err = openapi.ReportError("server no response")
+		err = localErr
 	}
 	return problemDetails, err
 }
@@ -156,19 +156,17 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
-	if err != nil {
-		return nil, err
+	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
+	if ctxerr != nil {
+		return nil, ctxerr
 	}
 
 	var deletereq Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationRequest
 	deletereq.SetPolAssoId(ue.PolicyAssociationId)
 
-	_, localErr := client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deletereq)
-	if localErr == nil {
+	_, err = client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deletereq)
+	if err == nil {
 		ue.RemoveAmPolicyAssociation()
-	} else {
-		err = openapi.ReportError("server no response")
 	}
 	return problemDetails, err
 }

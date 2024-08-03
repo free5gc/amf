@@ -203,7 +203,7 @@ type AmfUeEventSubscription struct {
 	Timestamp         time.Time
 	AnyUe             bool
 	RemainReports     *int32
-	EventSubscription *models.AmfEventSubscription
+	EventSubscription *models.ExtAmfEventSubscription
 }
 
 type N1N2Message struct {

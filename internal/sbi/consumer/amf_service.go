@@ -167,25 +167,16 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	if err != nil {
 		return nil, nil, err
 	}
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(ctx, ue.Guti, req)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("CreateUEContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+
+	creatuectxreq := Namf_Communication.CreateUEContextRequest{
+		UeContextId:            &ue.Guti,
+		CreateUeContextRequest: &req,
+	}
+
+	res, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(ctx, &creatuectxreq)
 	if localErr == nil {
-		ueContextCreatedData = res.JsonData
+		ueContextCreatedData = res.CreateUeContextResponse201.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return ueContextCreatedData, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
 		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
 	}
@@ -218,28 +209,15 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 	if err != nil {
 		return nil, err
 	}
-	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(
-		ctx, ueContextId, ueContextRelease)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("ReleaseUEContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if localErr == nil {
-		return problemDetails, err
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+
+	ueCtxReleaseReq := Namf_Communication.ReleaseUEContextRequest{
+		UeContextId:      &ueContextId,
+		UeContextRelease: &ueContextRelease,
 	}
+
+	_, err = client.IndividualUeContextDocumentApi.ReleaseUEContext(
+		ctx, &ueCtxReleaseReq)
+
 	return problemDetails, err
 }
 
@@ -277,27 +255,18 @@ func (s *namfService) UEContextTransferRequest(
 	if err != nil {
 		return nil, nil, err
 	}
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, ueContextId, req)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("UEContextTransfer response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+
+	ueCtxTransferReq := Namf_Communication.UEContextTransferRequest{
+		UeContextId:              &ueContextId,
+		UeContextTransferRequest: &req,
+	}
+
+	res, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, &ueCtxTransferReq)
 	if localErr == nil {
-		ueContextTransferRspData = res.JsonData
+		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return ueContextTransferRspData, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+		return nil, nil, localErr
 	}
 	return ueContextTransferRspData, problemDetails, err
 }
@@ -317,27 +286,53 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 		return regStatusTransferComplete, nil, err
 	}
 
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.
-		RegistrationStatusUpdate(ctx, ueContextId, request)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("RegistrationStatusUpdate response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if localErr == nil {
-		regStatusTransferComplete = res.RegStatusTransferComplete
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return regStatusTransferComplete, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+	regStatusUpdateReq := Namf_Communication.RegistrationStatusUpdateRequest{
+		UeContextId:              &ueContextId,
+		UeRegStatusUpdateReqData: &request,
+	}
+
+	var res *Namf_Communication.RegistrationStatusUpdateResponse
+	res, err = client.IndividualUeContextDocumentApi.
+		RegistrationStatusUpdate(ctx, &regStatusUpdateReq)
+	if err == nil {
+		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	}
 	return regStatusTransferComplete, problemDetails, err
+}
+
+func (s *namfService) RelocateUEContext(ue *amf_context.AmfUe, request models.UeContextRelocateData) (
+	problemDetails *models.ProblemDetails, err error) {
+
+	client := s.getComClient(ue.TargetAmfUri)
+	if client == nil {
+		return nil, openapi.ReportError("amf not found")
+	}
+
+	req := models.RelocateUeContextRequest{
+		JsonData: &request,
+	}
+
+	var ueContextId string
+	if ue.Supi != "" {
+		ueContextId = ue.Supi
+	} else {
+		ueContextId = ue.Pei
+	}
+
+	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
+	if ctxerr != nil {
+		return nil, ctxerr
+	}
+
+	ueContextRelocaterequest := Namf_Communication.RelocateUEContextRequest{
+		UeContextId:              &ueContextId,
+		RelocateUeContextRequest: &req,
+	}
+
+	res, err := client.IndividualUeContextDocumentApi.RelocateUEContext(ctx, &ueContextRelocaterequest)
+	if err == nil {
+		ue.TargetAmfUri = res.Location
+		ue.CopyDataFromUeContextModel(*res.UeContextRelocatedData.UeContext)
+	}
+	return nil, err
 }
