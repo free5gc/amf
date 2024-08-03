@@ -178,7 +178,7 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 		ueContextCreatedData = res.CreateUeContextResponse201.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+		err = localErr
 	}
 	return ueContextCreatedData, problemDetails, err
 }
@@ -266,7 +266,7 @@ func (s *namfService) UEContextTransferRequest(
 		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else {
-		return nil, nil, localErr
+		return nil, problemDetails, localErr
 	}
 	return ueContextTransferRspData, problemDetails, err
 }
@@ -334,5 +334,5 @@ func (s *namfService) RelocateUEContext(ue *amf_context.AmfUe, request models.Ue
 		ue.TargetAmfUri = res.Location
 		ue.CopyDataFromUeContextModel(*res.UeContextRelocatedData.UeContext)
 	}
-	return nil, err
+	return problemDetails, err
 }

@@ -3,7 +3,6 @@ package consumer
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -185,7 +184,11 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile 
 	if len(plmns) > 0 {
 		profile.PlmnList = plmns
 		// TODO: change to Per Plmn Support Snssai List
-		profile.SNssais = &context.PlmnSupportList[0].SNssaiList
+		var SnssaiList []models.ExtSnssai
+		for _, snssaiItem := range context.PlmnSupportList[0].SNssaiList {
+			SnssaiList = append(SnssaiList, util.SnssaiModelsToExtSnssai(snssaiItem))
+		}
+		profile.SNssais = SnssaiList
 	}
 	amfInfo := models.NrfNfManagementAmfInfo{}
 	if len(context.ServedGuamiList) == 0 {
@@ -238,7 +241,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 		return "", "", openapi.ReportError("nrf not found")
 	}
 
-	var res *http.Response
+	var res *Nnrf_NFManagement.RegisterNFInstanceResponse
 	var nf models.NrfNfManagementNfProfile
 	registerNFInstanceRequest := &Nnrf_NFManagement.RegisterNFInstanceRequest{
 		NfInstanceID:             &nfInstanceId,
@@ -252,20 +255,12 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		defer func() {
-			if res != nil {
-				if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-					err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
-				}
-			}
-		}()
-		status := res.StatusCode
-		if status == http.StatusOK {
+		if res.Location == "" {
 			// NFUpdate
 			break
 		} else {
 			// NFRegister
-			resourceUri := res.Header.Get("Location")
+			resourceUri := res.Location
 			index := strings.Index(resourceUri, "/nnrf-nfm/")
 			if index >= 0 {
 				resouceNrfUri = resourceUri[:index]
@@ -287,7 +282,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 			}
 
 			break
-		} 
+		}
 	}
 	return resouceNrfUri, retrieveNfInstanceId, err
 }
