@@ -27,7 +27,6 @@ require (
 
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1 // indirect
-	github.com/antonfisher/nested-logrus-formatter v1.3.1 // indirect
 	github.com/bytedance/sonic v1.11.5 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.3 // indirect
@@ -44,7 +43,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/h2non/gock v1.2.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
@@ -79,4 +77,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/free5gc/openapi => /home/timlin/openapi
+replace github.com/free5gc/openapi => github.com/yccodr/openapi v1.0.9-0.20240730144000-d94a13fcf6b4
+
+replace github.com/free5gc/nas => github.com/free5gc/nas v1.1.4-0.20240801045646-998afcbf3811
+
+replace github.com/free5gc/ngap => github.com/free5gc/ngap v1.0.9-0.20240801044503-4db04dae3900
