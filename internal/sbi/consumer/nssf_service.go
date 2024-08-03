@@ -84,7 +84,7 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 		}
 		ue.ConfiguredNssai = res.AuthorizedNetworkSliceInfo.ConfiguredNssai
 	} else {
-		return nil, openapi.ReportError("NSSF No Response")
+		return nil, localErr
 	}
 
 	return nil, nil
@@ -123,6 +123,6 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	if localErr == nil {
 		return &res.AuthorizedNetworkSliceInfo, nil, nil
 	} else {
-		return nil, nil, openapi.ReportError("NSSF No Response")
+		return nil, nil, localErr
 	}
 }
