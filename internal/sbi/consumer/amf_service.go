@@ -178,7 +178,10 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 		ueContextCreatedData = res.CreateUeContextResponse201.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else {
-		err = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+		}
+		return nil, nil, localErr
 	}
 	return ueContextCreatedData, problemDetails, err
 }
@@ -217,6 +220,12 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 
 	_, err = client.IndividualUeContextDocumentApi.ReleaseUEContext(
 		ctx, &ueCtxReleaseReq)
+
+	if err != nil {
+		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
+			problemDetails = apiErr.Model().(*models.ProblemDetails)
+		}
+	}
 
 	return problemDetails, err
 }
@@ -266,7 +275,10 @@ func (s *namfService) UEContextTransferRequest(
 		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else {
-		return nil, problemDetails, localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			return ueContextTransferRspData, apiErr.Model().(*models.ProblemDetails), localErr
+		}
+		return ueContextTransferRspData, nil, localErr
 	}
 	return ueContextTransferRspData, problemDetails, err
 }
@@ -291,48 +303,15 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 		UeRegStatusUpdateReqData: &request,
 	}
 
-	var res *Namf_Communication.RegistrationStatusUpdateResponse
-	res, err = client.IndividualUeContextDocumentApi.
+	res, localErr := client.IndividualUeContextDocumentApi.
 		RegistrationStatusUpdate(ctx, &regStatusUpdateReq)
 	if err == nil {
 		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
+	} else {
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			return regStatusTransferComplete, apiErr.Model().(*models.ProblemDetails), localErr
+		}
+		return regStatusTransferComplete, nil, localErr
 	}
 	return regStatusTransferComplete, problemDetails, err
-}
-
-func (s *namfService) RelocateUEContext(ue *amf_context.AmfUe, request models.UeContextRelocateData) (
-	problemDetails *models.ProblemDetails, err error) {
-
-	client := s.getComClient(ue.TargetAmfUri)
-	if client == nil {
-		return nil, openapi.ReportError("amf not found")
-	}
-
-	req := models.RelocateUeContextRequest{
-		JsonData: &request,
-	}
-
-	var ueContextId string
-	if ue.Supi != "" {
-		ueContextId = ue.Supi
-	} else {
-		ueContextId = ue.Pei
-	}
-
-	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
-	if ctxerr != nil {
-		return nil, ctxerr
-	}
-
-	ueContextRelocaterequest := Namf_Communication.RelocateUEContextRequest{
-		UeContextId:              &ueContextId,
-		RelocateUeContextRequest: &req,
-	}
-
-	res, err := client.IndividualUeContextDocumentApi.RelocateUEContext(ctx, &ueContextRelocaterequest)
-	if err == nil {
-		ue.TargetAmfUri = res.Location
-		ue.CopyDataFromUeContextModel(*res.UeContextRelocatedData.UeContext)
-	}
-	return problemDetails, err
 }
