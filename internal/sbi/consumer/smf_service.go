@@ -7,10 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/antihax/optional"
-
 	amf_context "github.com/free5gc/amf/internal/context"
-	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasMessage"
@@ -73,8 +70,9 @@ func (s *nsmfService) SelectSmf(
 		if ue.NssfUri == "" {
 			// TODO: Set a timeout of NSSF Selection or will starvation here
 			for {
+				searchReq := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
 				if err := s.consumer.SearchNssfNSSelectionInstance(ue, nrfUri, models.NrfNfManagementNfType_NSSF,
-					models.NrfNfManagementNfType_AMF, nil); err != nil {
+					models.NrfNfManagementNfType_AMF, searchReq); err != nil {
 					ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", err)
 					time.Sleep(2 * time.Second)
 				} else {
@@ -111,21 +109,21 @@ func (s *nsmfService) SelectSmf(
 		}
 	}
 
-	param := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
-		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NSMF_PDUSESSION}),
-		Dnn:          optional.NewString(dnn),
-		Snssais:      optional.NewInterface(openapi.MarshToJsonString([]models.Snssai{snssai})),
+	param := Nnrf_NFDiscovery.SearchNFInstancesRequest{
+		ServiceNames: []models.ServiceName{models.ServiceName_NSMF_PDUSESSION},
+		Dnn:          &dnn,
+		Snssais:      []models.Snssai{snssai},
 	}
 	if ue.PlmnId.Mcc != "" {
-		param.TargetPlmnList = optional.NewInterface(openapi.MarshToJsonString(ue.PlmnId))
+		param.TargetPlmnList = append(param.TargetPlmnList, ue.PlmnId)
 	}
 	if amf_context.GetSelf().Locality != "" {
-		param.PreferredLocality = optional.NewString(amf_context.GetSelf().Locality)
+		param.PreferredLocality = &amf_context.GetSelf().Locality
 	}
 
 	ue.GmmLog.Debugf("Search SMF from NRF[%s]", nrfUri)
 
-	result, err := s.consumer.SendSearchNFInstances(nrfUri, models.NrfNfManagementNfType_SMF, models.NrfNfManagementNfType_AMF, &param)
+	result, err := s.consumer.SendSearchNFInstances(nrfUri, models.NrfNfManagementNfType_SMF, models.NrfNfManagementNfType_AMF, param)
 	if err != nil {
 		return nil, nasMessage.Cause5GMMPayloadWasNotForwarded, err
 	}
@@ -154,9 +152,11 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 ) {
 	smContextCreateData := s.buildCreateSmContextRequest(ue, smContext, nil)
 
-	postSmContextsRequest := models.PostSmContextsRequest{
-		JsonData:              &smContextCreateData,
-		BinaryDataN1SmMessage: nasPdu,
+	postSmContextsRequest := Nsmf_PDUSession.PostSmContextsRequest{
+		PostSmContextsRequest: &models.PostSmContextsRequest{
+			JsonData:              &smContextCreateData,
+			BinaryDataN1SmMessage: nasPdu,
+		},
 	}
 
 	client := s.getPDUSessionClient(smContext.SmfUri())
@@ -168,34 +168,17 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	if err != nil {
 		return nil, "", nil, nil, err
 	}
-	postSmContextReponse, httpResponse, err := client.SMContextsCollectionApi.
-		PostSmContexts(ctx, postSmContextsRequest)
-	defer func() {
-		if httpResponse != nil {
-			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("PostSmContexts response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err == nil {
-		response = &postSmContextReponse
-		smContextRef = httpResponse.Header.Get("Location")
-	} else if httpResponse != nil {
-		if httpResponse.Status != err.Error() {
-			err1 = err
-			return response, smContextRef, errorResponse, problemDetail, err1
-		}
-		switch httpResponse.StatusCode {
-		case 400, 403, 404, 500, 503, 504:
-			errResponse := err.(openapi.GenericOpenAPIError).Model().(models.PostSmContextsResponse400)
-			errorResponse = &errResponse
-		case 411, 413, 415, 429:
-			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetail = &problem
-		}
+	postSmContextReponse, localErr := client.SMContextsCollectionApi.
+		PostSmContexts(ctx, &postSmContextsRequest)
+	if localErr == nil {
+		response = &postSmContextReponse.PostSmContextsResponse201
+		smContextRef = postSmContextReponse.Location
 	} else {
-		err1 = openapi.ReportError("server no response")
+		err1 = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetail = apiErr.Model().(*models.ProblemDetails)
+		}
 	}
 	return response, smContextRef, errorResponse, problemDetail, err1
 }
@@ -466,43 +449,30 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		return nil, nil, nil, openapi.ReportError("smf not found")
 	}
 
-	var updateSmContextRequest models.UpdateSmContextRequest
-	updateSmContextRequest.JsonData = &updateData
-	updateSmContextRequest.BinaryDataN1SmMessage = n1Msg
-	updateSmContextRequest.BinaryDataN2SmInformation = n2Info
+	smCtxRef := smContext.SmContextRef()
+	updateSmContextRequest := Nsmf_PDUSession.UpdateSmContextRequest{
+		SmContextRef: &smCtxRef,
+		UpdateSmContextRequest: &models.UpdateSmContextRequest{
+			JsonData:                  &updateData,
+			BinaryDataN1SmMessage:     n1Msg,
+			BinaryDataN2SmInformation: n2Info,
+		},
+	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NrfNfManagementNfType_SMF)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	updateSmContextReponse, httpResponse, err := client.IndividualSMContextApi.
-		UpdateSmContext(ctx, smContext.SmContextRef(),
-			updateSmContextRequest)
-	defer func() {
-		if httpResponse != nil {
-			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("UpdateSmContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err == nil {
-		response = &updateSmContextReponse
-	} else if httpResponse != nil {
-		if httpResponse.Status != err.Error() {
-			err1 = err
-			return response, errorResponse, problemDetail, err1
-		}
-		switch httpResponse.StatusCode {
-		case 400, 403, 404, 500, 503:
-			errResponse := err.(openapi.GenericOpenAPIError).Model().(models.UpdateSmContextResponse400)
-			errorResponse = &errResponse
-		case 411, 413, 415, 429:
-			problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			problemDetail = &problem
-		}
+	updateSmContextReponse, localErr := client.IndividualSMContextApi.
+		UpdateSmContext(ctx, &updateSmContextRequest)
+	if localErr == nil {
+		response = &updateSmContextReponse.UpdateSmContextResponse200
 	} else {
-		err1 = openapi.ReportError("server no response")
+		err1 = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			problemDetail = apiErr.Model().(*models.ProblemDetails)
+		}
 	}
 	return response, errorResponse, problemDetail, err1
 }
@@ -519,35 +489,30 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 	}
 
 	releaseData := s.buildReleaseSmContextRequest(ue, cause, n2SmInfoType, n2Info)
-	releaseSmContextRequest := models.ReleaseSmContextRequest{
-		JsonData: &releaseData,
+
+	smCtxRef := smContext.SmContextRef()
+	releaseSmContextRequest := Nsmf_PDUSession.ReleaseSmContextRequest{
+		SmContextRef: &smCtxRef,
+		ReleaseSmContextRequest: &models.ReleaseSmContextRequest{
+			JsonData: &releaseData,
+		},
 	}
+
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NrfNfManagementNfType_SMF)
 	if err != nil {
 		return nil, err
 	}
-	response, err1 := client.IndividualSMContextApi.ReleaseSmContext(
-		ctx, smContext.SmContextRef(), releaseSmContextRequest)
-	defer func() {
-		if response != nil {
-			if rspCloseErr := response.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("ReleaseSmContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if err1 == nil {
+	_, localErr := client.IndividualSMContextApi.ReleaseSmContext(
+		ctx, &releaseSmContextRequest)
+
+	if localErr == nil {
 		ue.SmContextList.Delete(smContext.PduSessionID())
-	} else if response != nil && response.Status == err1.Error() {
-		if response.StatusCode == 404 {
-			// assume succeeded to release SmContext
-			ue.SmContextList.Delete(smContext.PduSessionID())
-		} else {
-			problem := err1.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-			detail = &problem
-		}
 	} else {
-		err = err1
+		err = localErr
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			// API error
+			detail = apiErr.Model().(*models.ProblemDetails)
+		}
 	}
 	return detail, err
 }
