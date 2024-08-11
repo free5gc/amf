@@ -113,6 +113,22 @@ func newRouter(s *Server) *gin.Engine {
 				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
 			})
 			applyRoutes(amfOAMGroup, amfOAMRoutes)
+		case models.ServiceName_NAMF_MBS_COMM:
+			amfMbsComGroup := router.Group(factory.AmfMbsComResUriPrefix)
+			amfMbsComRoutes := s.getMbsCommunicationRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MBS_COMM)
+			amfMbsComGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfMbsComGroup, amfMbsComRoutes)
+		case models.ServiceName_NAMF_MBS_BC:
+			amfMbsBCGroup := router.Group(factory.AmfMbsBCResUriPrefix)
+			amfMbsBCRoutes := s.getMbsBroadcastRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MBS_BC)
+			amfMbsBCGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfMbsBCGroup, amfMbsBCRoutes)
 		}
 	}
 

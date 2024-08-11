@@ -68,6 +68,18 @@ func (s *Server) getCommunicationRoutes() []Route {
 			APIFunc: s.HTTPUEContextTransfer,
 		},
 		{
+			Name:    "RelocateUEContext",
+			Method:  http.MethodPost,
+			Pattern: "/ue-contexts/:ueContextId/relocate",
+			APIFunc: s.HTTPRelocateUEContext,
+		},
+		{
+			Name:    "CancelRelocateUEContext",
+			Method:  http.MethodPost,
+			Pattern: "/ue-contexts/:ueContextId/cancel-relocate",
+			APIFunc: s.HTTPCancelRelocateUEContext,
+		},
+		{
 			Name:    "N1N2MessageUnSubscribe",
 			Method:  http.MethodDelete,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/subscriptions/:subscriptionId",
@@ -332,6 +344,14 @@ func (s *Server) HTTPUEContextTransfer(c *gin.Context) {
 		return
 	}
 	s.Processor().HandleUEContextTransferRequest(c, ueContextTransferRequest)
+}
+
+func (s *Server) HTTPRelocateUEContext(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{})
+}
+
+func (s *Server) HTTPCancelRelocateUEContext(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{})
 }
 
 func (s *Server) HTTPN1N2MessageUnSubscribe(c *gin.Context) {

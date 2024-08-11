@@ -29,14 +29,22 @@ func (s *Server) getLocationRoutes() []Route {
 			},
 		},
 		{
+			Name:    "ProvideLocationInfo",
 			Method:  http.MethodPost,
 			Pattern: "/:ueContextId/provide-loc-info",
 			APIFunc: s.HTTPProvideLocationInfo,
 		},
 		{
+			Name:    "ProvidePositioningInfo",
 			Method:  http.MethodPost,
 			Pattern: "/:ueContextId/provide-pos-info",
 			APIFunc: s.HTTPProvidePositioningInfo,
+		},
+		{
+			Name:    "CancelLocation",
+			Method:  http.MethodPost,
+			Pattern: "/:ueContextId/cancel-loc-info",
+			APIFunc: s.HTTPCancelLocation,
 		},
 	}
 }
@@ -76,5 +84,9 @@ func (s *Server) HTTPProvideLocationInfo(c *gin.Context) {
 // ProvidePositioningInfo - Namf_Location ProvidePositioningInfo service Operation
 func (s *Server) HTTPProvidePositioningInfo(c *gin.Context) {
 	logger.LocationLog.Warnf("Handle Provide Positioning Info is not implemented.")
+	c.JSON(http.StatusNotImplemented, gin.H{})
+}
+
+func (s *Server) HTTPCancelLocation(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{})
 }
