@@ -16,11 +16,13 @@ func (s *Server) getOAMRoutes() []Route {
 			},
 		},
 		{
+			Name:    "RegisteredUEContext",
 			Method:  http.MethodGet,
 			Pattern: "/registered-ue-context",
 			APIFunc: s.HTTPRegisteredUEContext,
 		},
 		{
+			Name:    "RegisteredUEContext",
 			Method:  http.MethodGet,
 			Pattern: "/registered-ue-context/:supi",
 			APIFunc: s.HTTPRegisteredUEContext,
