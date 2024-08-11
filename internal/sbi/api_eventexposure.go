@@ -20,16 +20,19 @@ func (s *Server) getEventexposureRoutes() []Route {
 			},
 		},
 		{
+			Name:    "DeleteSubscription",
 			Method:  http.MethodDelete,
 			Pattern: "/subscriptions/:subscriptionId",
 			APIFunc: s.HTTPDeleteSubscription,
 		},
 		{
+			Name:    "ModifySubscription",
 			Method:  http.MethodPatch,
 			Pattern: "/subscriptions/:subscriptionId",
 			APIFunc: s.HTTPModifySubscription,
 		},
 		{
+			Name:    "CreateSubscription",
 			Method:  http.MethodPost,
 			Pattern: "/subscriptions",
 			APIFunc: s.HTTPCreateSubscription,

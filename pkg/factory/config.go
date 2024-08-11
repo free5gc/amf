@@ -38,6 +38,8 @@ const (
 	AmfLocResUriPrefix        = "/namf-loc/v1"
 	AmfMtResUriPrefix         = "/namf-mt/v1"
 	AmfOamResUriPrefix        = "/namf-oam/v1"
+	AmfMbsComResUriPrefix     = "/namf-mbs-comm/v1"
+	AmfMbsBCResUriPrefix      = "/namf-mbs-bc/v1"
 )
 
 type Config struct {
