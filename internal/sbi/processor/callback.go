@@ -19,7 +19,7 @@ import (
 )
 
 func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
-	smContextStatusNotification models.SmContextStatusNotification,
+	smContextStatusNotification models.SmfPduSessionSmContextStatusNotification,
 ) {
 	logger.ProducerLog.Infoln("[AMF] Handle SmContext Status Notify")
 
@@ -41,7 +41,7 @@ func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
 }
 
 func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int32,
-	smContextStatusNotification models.SmContextStatusNotification,
+	smContextStatusNotification models.SmfPduSessionSmContextStatusNotification,
 ) *models.ProblemDetails {
 	amfSelf := context.GetSelf()
 

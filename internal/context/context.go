@@ -101,7 +101,7 @@ type AMFContextEventSubscription struct {
 	IsGroupUe         bool
 	UeSupiList        []string
 	Expiry            *time.Time
-	EventSubscription models.AmfEventSubscription
+	EventSubscription models.ExtAmfEventSubscription
 }
 
 type SecurityAlgorithm struct {
