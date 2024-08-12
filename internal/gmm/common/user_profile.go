@@ -70,11 +70,15 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(ue *context.AmfUe, ranUe *context.RanU
 }
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {
-	ranUe.DetachAmfUe()
-	ranUe.Log.Error("Clear Holding RanUE")
-	causeGroup := ngapType.CausePresentRadioNetwork
-	causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
-	ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+	if ranUe != nil {
+		ranUe.DetachAmfUe()
+		ranUe.Log.Infof("Clear Holding RanUE")
+		causeGroup := ngapType.CausePresentRadioNetwork
+		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
+		ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+	} else {
+		logger.GmmLog.Warnf("RanUE is nil")
+	}
 }
 
 func PurgeSubscriberData(ue *context.AmfUe, accessType models.AccessType) error {
