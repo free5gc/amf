@@ -47,8 +47,9 @@ type RanUe struct {
 	LastActTime       *time.Time
 
 	/* Related Context*/
-	AmfUe *AmfUe
-	Ran   *AmfRan
+	AmfUe     *AmfUe
+	Ran       *AmfRan
+	FindAmfUe *AmfUe
 
 	/* Routing ID */
 	RoutingID string
