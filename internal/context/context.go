@@ -101,7 +101,7 @@ type AMFContextEventSubscription struct {
 	IsGroupUe         bool
 	UeSupiList        []string
 	Expiry            *time.Time
-	EventSubscription models.ExtAmfEventSubscription
+	EventSubscription models.AmfEventSubscription
 }
 
 type SecurityAlgorithm struct {
@@ -241,7 +241,9 @@ func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.Acc
 	}
 }
 
-func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.AmfCommunicationSubscriptionData) (subscriptionID string) {
+func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.AmfCommunicationSubscriptionData) (
+	subscriptionID string,
+) {
 	id, err := amfStatusSubscriptionIDGenerator.Allocate()
 	if err != nil {
 		logger.CtxLog.Errorf("Allocate subscriptionID error: %+v", err)
@@ -254,7 +256,9 @@ func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.AmfC
 }
 
 // Return Value: (subscriptionData *models.SubScriptionData, ok bool)
-func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (*models.AmfCommunicationSubscriptionData, bool) {
+func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (
+	*models.AmfCommunicationSubscriptionData, bool,
+) {
 	if value, ok := context.AMFStatusSubscriptions.Load(subscriptionID); ok {
 		subscriptionData := value.(models.AmfCommunicationSubscriptionData)
 		return &subscriptionData, ok

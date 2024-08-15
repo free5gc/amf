@@ -50,7 +50,8 @@ func (s *npcfService) AMPolicyControlCreate(
 		return nil, openapi.ReportError("pcf not found")
 	}
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL,
+		models.NrfNfManagementNfType_PCF)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,8 @@ func (s *npcfService) AMPolicyControlCreate(
 		policyAssociationRequest.Rfsp = ue.AccessAndMobilitySubscriptionData.RfspIndex
 	}
 
-	res, localErr := client.AMPolicyAssociationsCollectionApi.CreateIndividualAMPolicyAssociation(ctx, &policyAssociationreq)
+	res, localErr := client.AMPolicyAssociationsCollectionApi.
+		CreateIndividualAMPolicyAssociation(ctx, &policyAssociationreq)
 	if localErr == nil {
 		locationHeader := res.Location
 		logger.ConsumerLog.Debugf("location header: %+v", locationHeader)
@@ -118,7 +120,8 @@ func (s *npcfService) AMPolicyControlUpdate(
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL,
+		models.NrfNfManagementNfType_PCF)
 	if err != nil {
 		return nil, err
 	}
@@ -128,8 +131,8 @@ func (s *npcfService) AMPolicyControlUpdate(
 	policyUpdatereq.SetPolAssoId(ue.PolicyAssociationId)
 	policyUpdatereq.SetPcfAmPolicyControlPolicyAssociationUpdateRequest(updateRequest)
 
-	res, localErr := client.IndividualAMPolicyAssociationDocumentApi.ReportObservedEventTriggersForIndividualAMPolicyAssociation(
-		ctx, &policyUpdatereq)
+	res, localErr := client.IndividualAMPolicyAssociationDocumentApi.
+		ReportObservedEventTriggersForIndividualAMPolicyAssociation(ctx, &policyUpdatereq)
 	if localErr == nil {
 		if res.PcfAmPolicyControlPolicyUpdate.ServAreaRes != nil {
 			ue.AmPolicyAssociation.ServAreaRes = res.PcfAmPolicyControlPolicyUpdate.ServAreaRes
@@ -162,7 +165,8 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL, models.NrfNfManagementNfType_PCF)
+	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL,
+		models.NrfNfManagementNfType_PCF)
 	if ctxerr != nil {
 		return nil, ctxerr
 	}

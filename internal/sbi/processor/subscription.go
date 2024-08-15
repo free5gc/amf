@@ -12,7 +12,9 @@ import (
 )
 
 // TS 29.518 5.2.2.5.1
-func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context, subscriptionDataReq models.AmfCommunicationSubscriptionData) {
+func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context,
+	subscriptionDataReq models.AmfCommunicationSubscriptionData,
+) {
 	logger.CommLog.Info("Handle AMF Status Change Subscribe Request")
 
 	subscriptionDataRsp, locationHeader, problemDetails := p.AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
@@ -26,7 +28,8 @@ func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context, subscr
 }
 
 func (p *Processor) AMFStatusChangeSubscribeProcedure(subscriptionDataReq models.AmfCommunicationSubscriptionData) (
-	subscriptionDataRsp models.AmfCommunicationSubscriptionData, locationHeader string, problemDetails *models.ProblemDetails,
+	subscriptionDataRsp models.AmfCommunicationSubscriptionData, locationHeader string,
+	problemDetails *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
 
