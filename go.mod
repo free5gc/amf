@@ -3,7 +3,6 @@ module github.com/free5gc/amf
 go 1.21
 
 require (
-	github.com/antihax/optional v1.0.0
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/free5gc/aper v1.0.5
@@ -43,6 +42,7 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
+	github.com/h2non/gock v1.2.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
@@ -73,11 +73,10 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/h2non/gock.v1 v1.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/free5gc/openapi => github.com/yccodr/openapi v1.0.9-0.20240730144000-d94a13fcf6b4
+replace github.com/free5gc/openapi => github.com/free5gc/openapi v1.0.9-0.20240815044523-d494170a5c3a
 
 replace github.com/free5gc/nas => github.com/free5gc/nas v1.1.4-0.20240801045646-998afcbf3811
 

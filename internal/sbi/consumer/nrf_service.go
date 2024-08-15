@@ -73,7 +73,7 @@ func (s *nnrfService) getNFDiscClient(uri string) *Nnrf_NFDiscovery.APIClient {
 }
 
 func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
-	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (*models.SearchResult, error) {
 	// Set client and set url
 	client := s.getNFDiscClient(nrfUri)
@@ -85,17 +85,20 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 	if err != nil {
 		return nil, err
 	}
-	res, err := client.NFInstancesStoreApi.SearchNFInstances(ctx, &param)
-	result := res.SearchResult
+	res, err := client.NFInstancesStoreApi.SearchNFInstances(ctx, param)
+	var result *models.SearchResult
+	if res != nil {
+		result = &res.SearchResult
+	}
 	if err != nil {
 		logger.ConsumerLog.Errorf("SearchNFInstances failed: %+v", err)
 	}
-	return &result, err
+	return result, err
 }
 
 func (s *nnrfService) SearchUdmSdmInstance(
 	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
-	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -104,9 +107,10 @@ func (s *nnrfService) SearchUdmSdmInstance(
 
 	// select the first UDM_SDM, TODO: select base on other info
 	var sdmUri string
-	for _, nfProfile := range resp.NfInstances {
-		ue.UdmId = nfProfile.NfInstanceId
-		sdmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
+	for index := range resp.NfInstances {
+		ue.UdmId = resp.NfInstances[index].NfInstanceId
+		sdmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NUDM_SDM,
+			models.NfServiceStatus_REGISTERED)
 		if sdmUri != "" {
 			break
 		}
@@ -122,7 +126,7 @@ func (s *nnrfService) SearchUdmSdmInstance(
 
 func (s *nnrfService) SearchNssfNSSelectionInstance(
 	ue *amf_context.AmfUe, nrfUri string, targetNfType, requestNfType models.NrfNfManagementNfType,
-	param Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) error {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -131,9 +135,10 @@ func (s *nnrfService) SearchNssfNSSelectionInstance(
 
 	// select the first NSSF, TODO: select base on other info
 	var nssfUri string
-	for _, nfProfile := range resp.NfInstances {
-		ue.NssfId = nfProfile.NfInstanceId
-		nssfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NNSSF_NSSELECTION, models.NfServiceStatus_REGISTERED)
+	for index := range resp.NfInstances {
+		ue.NssfId = resp.NfInstances[index].NfInstanceId
+		nssfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NNSSF_NSSELECTION,
+			models.NfServiceStatus_REGISTERED)
 		if nssfUri != "" {
 			break
 		}
@@ -146,7 +151,7 @@ func (s *nnrfService) SearchNssfNSSelectionInstance(
 }
 
 func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfUri string, targetNfType,
-	requestNfType models.NrfNfManagementNfType, param Nnrf_NFDiscovery.SearchNFInstancesRequest,
+	requestNfType models.NrfNfManagementNfType, param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (err error) {
 	resp, localErr := s.SendSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	if localErr != nil {
@@ -156,12 +161,13 @@ func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfU
 
 	// select the first AMF, TODO: select base on other info
 	var amfUri string
-	for _, nfProfile := range resp.NfInstances {
-		if nfProfile.NfInstanceId == amf_context.GetSelf().NfId {
+	for index := range resp.NfInstances {
+		if resp.NfInstances[index].NfInstanceId == amf_context.GetSelf().NfId {
 			continue
 		}
-		ue.TargetAmfProfile = &nfProfile
-		amfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NAMF_COMM, models.NfServiceStatus_REGISTERED)
+		ue.TargetAmfProfile = &resp.NfInstances[index]
+		amfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NAMF_COMM,
+			models.NfServiceStatus_REGISTERED)
 		if amfUri != "" {
 			break
 		}
@@ -173,7 +179,9 @@ func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfU
 	return
 }
 
-func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile models.NrfNfManagementNfProfile, err error) {
+func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (
+	profile models.NrfNfManagementNfProfile, err error,
+) {
 	profile.NfInstanceId = context.NfId
 	profile.NfType = models.NrfNfManagementNfType_AMF
 	profile.NfStatus = models.NrfNfManagementNfStatus_REGISTERED
@@ -232,7 +240,7 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (profile 
 	return profile, err
 }
 
-func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profile models.NrfNfManagementNfProfile) (
+func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profile *models.NrfNfManagementNfProfile) (
 	resouceNrfUri string, retrieveNfInstanceId string, err error,
 ) {
 	// Set client and set url
@@ -245,7 +253,7 @@ func (s *nnrfService) SendRegisterNFInstance(nrfUri, nfInstanceId string, profil
 	var nf models.NrfNfManagementNfProfile
 	registerNFInstanceRequest := &Nnrf_NFManagement.RegisterNFInstanceRequest{
 		NfInstanceID:             &nfInstanceId,
-		NrfNfManagementNfProfile: &profile,
+		NrfNfManagementNfProfile: profile,
 	}
 	for {
 		res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), registerNFInstanceRequest)
@@ -306,7 +314,6 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 	}
 
 	_, err = client.NFInstanceIDDocumentApi.DeregisterNFInstance(ctx, request)
-
 	if err != nil {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			// API error

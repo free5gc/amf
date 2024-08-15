@@ -8,7 +8,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi"
-
 	// "github.com/free5gc/openapi/Namf_Communication"
 	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
@@ -220,7 +219,6 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 
 	_, err = client.IndividualUeContextDocumentApi.ReleaseUEContext(
 		ctx, &ueCtxReleaseReq)
-
 	if err != nil {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			problemDetails = apiErr.Model().(*models.ProblemDetails)

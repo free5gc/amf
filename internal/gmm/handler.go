@@ -131,7 +131,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
-				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, updateData, nil, nil)
+				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 				if err != nil {
 					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
 					ue.SmContextList.Delete(pduSessionID)
@@ -314,7 +314,7 @@ func forward5GSMMessageToSMF(
 	}
 
 	response, errResponse, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext,
-		smContextUpdateData, smMessage, nil)
+		&smContextUpdateData, smMessage, nil)
 
 	if err != nil {
 		// TODO: error handling
@@ -580,7 +580,7 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 		Guami: &oldAmfGuami,
 	}
 	if err := consumer.GetConsumer().SearchAmfCommunicationInstance(ue, amfSelf.NrfUri, models.NrfNfManagementNfType_AMF,
-		models.NrfNfManagementNfType_AMF, searchOpt); err != nil {
+		models.NrfNfManagementNfType_AMF, &searchOpt); err != nil {
 		return err
 	}
 
@@ -610,7 +610,7 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 		ue.MacFailed = false
 	}
 
-	ue.CopyDataFromUeContextModel(*ueContextTransferRspData.UeContext)
+	ue.CopyDataFromUeContextModel(ueContextTransferRspData.UeContext)
 	if ue.SecurityContextAvailable {
 		ue.DerivateAlgKey()
 	}
@@ -703,17 +703,17 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 	// }
 	for {
 		resp, err := consumer.GetConsumer().SendSearchNFInstances(
-			amfSelf.NrfUri, models.NrfNfManagementNfType_PCF, models.NrfNfManagementNfType_AMF, param)
+			amfSelf.NrfUri, models.NrfNfManagementNfType_PCF, models.NrfNfManagementNfType_AMF, &param)
 		if err != nil {
 			ue.GmmLog.Error("AMF can not select an PCF by NRF")
 		} else {
 			// select the first PCF, TODO: select base on other info
 			var pcfUri string
-			for _, nfProfile := range resp.NfInstances {
-				pcfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NPCF_AM_POLICY_CONTROL,
+			for index := range resp.NfInstances {
+				pcfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NPCF_AM_POLICY_CONTROL,
 					models.NfServiceStatus_REGISTERED)
 				if pcfUri != "" {
-					ue.PcfId = nfProfile.NfInstanceId
+					ue.PcfId = resp.NfInstances[index].NfInstanceId
 					break
 				}
 			}
@@ -1007,16 +1007,18 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 		Supi: &ue.Supi,
 	}
 	resp, err := consumer.GetConsumer().SendSearchNFInstances(
-		amfSelf.NrfUri, models.NrfNfManagementNfType_UDM, models.NrfNfManagementNfType_AMF, param)
+		amfSelf.NrfUri, models.NrfNfManagementNfType_UDM, models.NrfNfManagementNfType_AMF, &param)
 	if err != nil {
 		return errors.Errorf("AMF can not select an UDM by NRF: SendSearchNFInstances failed")
 	}
 
 	var uecmUri, sdmUri string
-	for _, nfProfile := range resp.NfInstances {
-		ue.UdmId = nfProfile.NfInstanceId
-		uecmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_UECM, models.NfServiceStatus_REGISTERED)
-		sdmUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NUDM_SDM, models.NfServiceStatus_REGISTERED)
+	for index := range resp.NfInstances {
+		ue.UdmId = resp.NfInstances[index].NfInstanceId
+		uecmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NUDM_UECM,
+			models.NfServiceStatus_REGISTERED)
+		sdmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NUDM_SDM,
+			models.NfServiceStatus_REGISTERED)
 		if uecmUri != "" && sdmUri != "" {
 			break
 		}
@@ -1076,7 +1078,7 @@ func getSubscribedNssai(ue *context.AmfUe) {
 		}
 		for {
 			err := consumer.GetConsumer().SearchUdmSdmInstance(
-				ue, amfSelf.NrfUri, models.NrfNfManagementNfType_UDM, models.NrfNfManagementNfType_AMF, param)
+				ue, amfSelf.NrfUri, models.NrfNfManagementNfType_UDM, models.NrfNfManagementNfType_AMF, &param)
 			if err != nil {
 				ue.GmmLog.Errorf("AMF can not select an Nudm_SDM Instance by NRF[Error: %+v]", err)
 				time.Sleep(2 * time.Second)
@@ -1141,7 +1143,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				for {
 					reqparam := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
 					errSearchNssf := consumer.GetConsumer().SearchNssfNSSelectionInstance(
-						ue, amfSelf.NrfUri, models.NrfNfManagementNfType_NSSF, models.NrfNfManagementNfType_AMF, reqparam)
+						ue, amfSelf.NrfUri, models.NrfNfManagementNfType_NSSF, models.NrfNfManagementNfType_AMF, &reqparam)
 					if errSearchNssf != nil {
 						ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", errSearchNssf)
 						time.Sleep(2 * time.Second)
@@ -1204,7 +1206,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 
 			sendReroute := true
 			err = consumer.GetConsumer().SearchAmfCommunicationInstance(ue, amfSelf.NrfUri,
-				models.NrfNfManagementNfType_AMF, models.NrfNfManagementNfType_AMF, searchTargetAmfQueryParam)
+				models.NrfNfManagementNfType_AMF, models.NrfNfManagementNfType_AMF, &searchTargetAmfQueryParam)
 			if err == nil {
 				// Condition (A) Step 7: initial AMF find Target AMF via NRF ->
 				// Send Namf_Communication_N1MessageNotify to Target AMF
@@ -1649,7 +1651,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	// TODO: consider ausf group id, Routing ID part of SUCI
 	param := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
 	resp, err := consumer.GetConsumer().SendSearchNFInstances(
-		amfSelf.NrfUri, models.NrfNfManagementNfType_AUSF, models.NrfNfManagementNfType_AMF, param)
+		amfSelf.NrfUri, models.NrfNfManagementNfType_AUSF, models.NrfNfManagementNfType_AMF, &param)
 	if err != nil {
 		ue.GmmLog.Error("AMF can not select an AUSF by NRF")
 		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
@@ -1658,9 +1660,10 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 
 	// select the first AUSF, TODO: select base on other info
 	var ausfUri string
-	for _, nfProfile := range resp.NfInstances {
-		ue.AusfId = nfProfile.NfInstanceId
-		ausfUri = util.SearchNFServiceUri(nfProfile, models.ServiceName_NAUSF_AUTH, models.NfServiceStatus_REGISTERED)
+	for index := range resp.NfInstances {
+		ue.AusfId = resp.NfInstances[index].NfInstanceId
+		ausfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.ServiceName_NAUSF_AUTH,
+			models.NfServiceStatus_REGISTERED)
 		if ausfUri != "" {
 			break
 		}
