@@ -14,7 +14,6 @@ import (
 func (s *Server) getHttpCallBackRoutes() []Route {
 	return []Route{
 		{
-
 			Method:  http.MethodGet,
 			Pattern: "/",
 			APIFunc: func(c *gin.Context) {

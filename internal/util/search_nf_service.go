@@ -6,7 +6,7 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func SearchNFServiceUri(nfProfile models.NrfNfDiscoveryNfProfile, serviceName models.ServiceName,
+func SearchNFServiceUri(nfProfile *models.NrfNfDiscoveryNfProfile, serviceName models.ServiceName,
 	nfServiceStatus models.NfServiceStatus,
 ) (nfUri string) {
 	if nfProfile.NfServices != nil {

@@ -142,7 +142,7 @@ func (s *Server) Run(traceCtx context.Context, wg *sync.WaitGroup) error {
 	} else {
 		profile = profileTmp
 	}
-	_, nfId, err_reg := s.Consumer().SendRegisterNFInstance(s.Context().NrfUri, s.Context().NfId, profile)
+	_, nfId, err_reg := s.Consumer().SendRegisterNFInstance(s.Context().NrfUri, s.Context().NfId, &profile)
 	if err_reg != nil {
 		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
 	} else {

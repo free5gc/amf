@@ -657,7 +657,7 @@ func (ue *AmfUe) RemoveAmPolicyAssociation() {
 	ue.PolicyAssociationId = ""
 }
 
-func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
+func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.UeContext) {
 	if ueContext.Supi != "" {
 		ue.Supi = ueContext.Supi
 		ue.UnauthenticatedSupi = ueContext.SupiUnauthInd
@@ -683,9 +683,9 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 		if ue.AccessAndMobilitySubscriptionData == nil {
 			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
 		}
-		if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
-			ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
-		}
+		// if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
+		// 	ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
+		// }
 
 		subAmbr := ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr
 		subAmbr.Uplink = ueContext.SubUeAmbr.Uplink
@@ -755,34 +755,40 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 		for _, trigger := range ueContext.AmPolicyReqTriggerList {
 			switch trigger {
 			case models.PolicyReqTrigger_LOCATION_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_LOC_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_LOC_CH)
 			case models.PolicyReqTrigger_PRA_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_PRA_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_PRA_CH)
 			case models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH)
 			case models.PolicyReqTrigger_NWDAF_DATA_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH)
 			case models.PolicyReqTrigger_SMF_SELECT_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH)
 			case models.PolicyReqTrigger_ACCESS_TYPE_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH)
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH)
 			}
 		}
 	}
 
 	if len(ueContext.SessionContextList) > 0 {
-		for _, pduSessionContext := range ueContext.SessionContextList {
+		for index := range ueContext.SessionContextList {
 			smContext := SmContext{
-				pduSessionID: pduSessionContext.PduSessionId,
-				smContextRef: pduSessionContext.SmContextRef,
-				snssai:       *pduSessionContext.SNssai,
-				dnn:          pduSessionContext.Dnn,
-				accessType:   pduSessionContext.AccessType,
-				hSmfID:       pduSessionContext.HsmfId,
-				vSmfID:       pduSessionContext.VsmfId,
-				nsInstance:   pduSessionContext.NsInstance,
+				pduSessionID: ueContext.SessionContextList[index].PduSessionId,
+				smContextRef: ueContext.SessionContextList[index].SmContextRef,
+				snssai:       *ueContext.SessionContextList[index].SNssai,
+				dnn:          ueContext.SessionContextList[index].Dnn,
+				accessType:   ueContext.SessionContextList[index].AccessType,
+				hSmfID:       ueContext.SessionContextList[index].HsmfId,
+				vSmfID:       ueContext.SessionContextList[index].VsmfId,
+				nsInstance:   ueContext.SessionContextList[index].NsInstance,
 			}
-			ue.StoreSmContext(pduSessionContext.PduSessionId, &smContext)
+			ue.StoreSmContext(ueContext.SessionContextList[index].PduSessionId, &smContext)
 		}
 	}
 

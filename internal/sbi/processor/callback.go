@@ -91,7 +91,9 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 	return nil
 }
 
-func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context, policyUpdate models.PcfAmPolicyControlPolicyUpdate) {
+func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context,
+	policyUpdate models.PcfAmPolicyControlPolicyUpdate,
+) {
 	logger.ProducerLog.Infoln("Handle AM Policy Control Update Notify [Policy update notification]")
 
 	polAssoID := c.Param("polAssoId")
@@ -299,7 +301,7 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 		amfUe.Lock.Lock()
 		defer amfUe.Lock.Unlock()
 
-		amfUe.CopyDataFromUeContextModel(*ueContext)
+		amfUe.CopyDataFromUeContextModel(ueContext)
 
 		ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
 
