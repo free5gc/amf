@@ -7,9 +7,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/free5gc/aper v1.0.5
-	github.com/free5gc/nas v1.1.3
+	github.com/free5gc/nas v1.1.4-0.20240807053650-6775d72a73b6
 	github.com/free5gc/ngap v1.0.9-0.20240414165820-453b0aa37228
-	github.com/free5gc/openapi v1.0.8
+	github.com/free5gc/openapi v1.0.9-0.20240730084323-449098e08462
 	github.com/free5gc/sctp v1.0.1
 	github.com/free5gc/util v1.0.6
 	github.com/gin-gonic/gin v1.9.1
@@ -39,7 +39,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.19.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
