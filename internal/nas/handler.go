@@ -11,8 +11,6 @@ import (
 )
 
 func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
-	logger.NasLog.Error("HandleNAS")
-
 	amfSelf := amf_context.GetSelf()
 
 	if ranUe == nil {
@@ -28,13 +26,13 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	if ranUe.AmfUe == nil {
 		if ranUe.FindAmfUe != nil && !ranUe.FindAmfUe.CmConnect(ranUe.Ran.AnType) {
 			// models.CmState_IDLE
-			logger.NasLog.Errorln("FindAmfUe", ranUe.FindAmfUe.RanUe)
 			gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
 
 			ranUe.AmfUe = ranUe.FindAmfUe
 			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 			ranUe.FindAmfUe = nil
 		} else {
+			// New AmfUe
 			ranUe.AmfUe = amfSelf.NewAmfUe("")
 			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 		}
@@ -48,8 +46,7 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	ranUe.AmfUe.NasPduValue = nasPdu
 	ranUe.AmfUe.MacFailed = !integrityProtected
 
-	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.FindAmfUe != nil &&
-		msg.GmmHeader.GetMessageType() == nas.MsgTypeRegistrationRequest {
+	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.FindAmfUe != nil {
 		gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
 		ranUe.FindAmfUe = nil
 	}
