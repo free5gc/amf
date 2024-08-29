@@ -10,39 +10,52 @@ import (
 	"github.com/free5gc/nas"
 )
 
-func HandleNAS(ue *amf_context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
+func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, initialMessage bool) {
+	logger.NasLog.Error("HandleNAS")
+
 	amfSelf := amf_context.GetSelf()
 
-	if ue == nil {
+	if ranUe == nil {
 		logger.NasLog.Error("RanUe is nil")
 		return
 	}
 
 	if nasPdu == nil {
-		ue.Log.Error("nasPdu is nil")
+		ranUe.Log.Error("nasPdu is nil")
 		return
 	}
 
-	if ue.AmfUe == nil {
-		ue.AmfUe = amfSelf.NewAmfUe("")
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ue.AmfUe, ue)
+	if ranUe.AmfUe == nil {
+		if ranUe.FindAmfUe != nil && !ranUe.FindAmfUe.CmConnect(ranUe.Ran.AnType) {
+			// models.CmState_IDLE
+			logger.NasLog.Errorln("FindAmfUe", ranUe.FindAmfUe.RanUe)
+			gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
+
+			ranUe.AmfUe = ranUe.FindAmfUe
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
+			ranUe.FindAmfUe = nil
+		} else {
+			ranUe.AmfUe = amfSelf.NewAmfUe("")
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
+		}
 	}
 
-	msg, integrityProtected, err := nas_security.Decode(ue.AmfUe, ue.Ran.AnType, nasPdu, initialMessage)
+	msg, integrityProtected, err := nas_security.Decode(ranUe.AmfUe, ranUe.Ran.AnType, nasPdu, initialMessage)
 	if err != nil {
-		ue.AmfUe.NASLog.Errorln(err)
+		ranUe.AmfUe.NASLog.Errorln(err)
 		return
 	}
-	ue.AmfUe.NasPduValue = nasPdu
-	ue.AmfUe.MacFailed = !integrityProtected
+	ranUe.AmfUe.NasPduValue = nasPdu
+	ranUe.AmfUe.MacFailed = !integrityProtected
 
-	if ue.AmfUe.SecurityContextIsValid() && ue.FindAmfUe != nil {
-		gmm_common.ClearHoldingRanUe(ue.FindAmfUe.RanUe[ue.Ran.AnType])
-		ue.FindAmfUe = nil
+	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.FindAmfUe != nil &&
+		msg.GmmHeader.GetMessageType() == nas.MsgTypeRegistrationRequest {
+		gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
+		ranUe.FindAmfUe = nil
 	}
 
-	if errDispatch := Dispatch(ue.AmfUe, ue.Ran.AnType, procedureCode, msg); errDispatch != nil {
-		ue.AmfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
+	if errDispatch := Dispatch(ranUe.AmfUe, ranUe.Ran.AnType, procedureCode, msg); errDispatch != nil {
+		ranUe.AmfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
 	}
 }
 

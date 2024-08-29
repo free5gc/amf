@@ -54,19 +54,19 @@ func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
 	}
 }
 
-func AttachRanUeToAmfUeAndReleaseOldIfAny(ue *context.AmfUe, ranUe *context.RanUe) {
-	if oldRanUe := ue.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.RanUe) {
+	if oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
 		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
 		oldRanUe.DetachAmfUe()
-		if ue.T3550 != nil {
-			ue.State[ranUe.Ran.AnType].Set(context.Registered)
+		if amfUe.T3550 != nil {
+			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
 		}
-		StopAll5GSMMTimers(ue)
+		StopAll5GSMMTimers(amfUe)
 		causeGroup := ngapType.CausePresentRadioNetwork
 		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
 		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
 	}
-	ue.AttachRanUe(ranUe)
+	amfUe.AttachRanUe(ranUe)
 }
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {
