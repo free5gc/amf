@@ -24,15 +24,15 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	}
 
 	if ranUe.AmfUe == nil {
-		if ranUe.FindAmfUe != nil && !ranUe.FindAmfUe.CmConnect(ranUe.Ran.AnType) {
-			// models.CmState_IDLE
-			gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
+		// Only the New created RanUE will have no AmfUe in it
 
-			ranUe.AmfUe = ranUe.FindAmfUe
-			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
-			ranUe.FindAmfUe = nil
+		if ranUe.HoldingAmfUe != nil && !ranUe.HoldingAmfUe.CmConnect(ranUe.Ran.AnType) {
+			// If the UE is CM-IDLE, there is no RanUE in AmfUe, so here we attach new RanUe to AmfUe.
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.HoldingAmfUe, ranUe)
+			ranUe.HoldingAmfUe = nil
 		} else {
-			// New AmfUe
+			// Assume we have an existing UE context in CM-CONNECTED state. (RanUe <-> AmfUe)
+			// We will release it if the new UE context has a valid security context(Authenticated) in line 50.
 			ranUe.AmfUe = amfSelf.NewAmfUe("")
 			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 		}
@@ -46,9 +46,9 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	ranUe.AmfUe.NasPduValue = nasPdu
 	ranUe.AmfUe.MacFailed = !integrityProtected
 
-	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.FindAmfUe != nil {
-		gmm_common.ClearHoldingRanUe(ranUe.FindAmfUe.RanUe[ranUe.Ran.AnType])
-		ranUe.FindAmfUe = nil
+	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.HoldingAmfUe != nil {
+		gmm_common.ClearHoldingRanUe(ranUe.HoldingAmfUe.RanUe[ranUe.Ran.AnType])
+		ranUe.HoldingAmfUe = nil
 	}
 
 	if errDispatch := Dispatch(ranUe.AmfUe, ranUe.Ran.AnType, procedureCode, msg); errDispatch != nil {

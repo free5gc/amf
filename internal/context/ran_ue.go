@@ -47,9 +47,9 @@ type RanUe struct {
 	LastActTime       *time.Time
 
 	/* Related Context*/
-	AmfUe     *AmfUe
-	Ran       *AmfRan
-	FindAmfUe *AmfUe
+	AmfUe        *AmfUe
+	Ran          *AmfRan
+	HoldingAmfUe *AmfUe // The AmfUe that is already exist (CM-Idle, Re-Registration)
 
 	/* Routing ID */
 	RoutingID string
