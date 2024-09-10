@@ -304,7 +304,6 @@ func forward5GSMMessageToSMF(
 		},
 	}
 	smContextUpdateData.Pei = ue.Pei
-	// smContextUpdateData.Gpsi = ue.Gpsi
 	if !context.CompareUserLocation(ue.Location, smContext.UserLocation()) {
 		smContextUpdateData.UeLocation = &ue.Location
 	}

@@ -5,10 +5,10 @@ go 1.21
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/davecgh/go-spew v1.1.1
-	github.com/free5gc/aper v1.0.5
-	github.com/free5gc/nas v1.1.4-0.20240807053650-6775d72a73b6
-	github.com/free5gc/ngap v1.0.9-0.20240414165820-453b0aa37228
-	github.com/free5gc/openapi v1.0.9-0.20240730084323-449098e08462
+	github.com/free5gc/aper v1.0.6-0.20240503143507-2c4c4780b98f
+	github.com/free5gc/nas v1.1.4-0.20240801045646-998afcbf3811
+	github.com/free5gc/ngap v1.0.9-0.20240801044503-4db04dae3900
+	github.com/free5gc/openapi v1.0.9-0.20240823100026-6a9f667e914f
 	github.com/free5gc/sctp v1.0.1
 	github.com/free5gc/util v1.0.6
 	github.com/gin-gonic/gin v1.9.1
@@ -75,9 +75,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/free5gc/openapi => github.com/free5gc/openapi v1.0.9-0.20240815044523-d494170a5c3a
-
-replace github.com/free5gc/nas => github.com/free5gc/nas v1.1.4-0.20240801045646-998afcbf3811
-
-replace github.com/free5gc/ngap => github.com/free5gc/ngap v1.0.9-0.20240801044503-4db04dae3900
