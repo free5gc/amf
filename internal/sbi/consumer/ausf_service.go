@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"sync"
 
@@ -119,9 +120,12 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	if err != nil {
 		return nil, nil, err
 	}
+	re := regexp.MustCompile("/ue-authentications/.*/")
+	match := re.FindStringSubmatch(ue.AuthenticationCtx.Links["5g-aka"].Href)
+	authctxId := match[0][20 : len(match[0])-1]
 
 	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
-		ctx, ue.Suci, confirmData)
+		ctx, authctxId, confirmData)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
@@ -171,7 +175,11 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		return nil, nil, err
 	}
 
-	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, ue.Suci, eapSessionReq)
+	re := regexp.MustCompile("/ue-authentications/.*/")
+	match := re.FindStringSubmatch(ue.AuthenticationCtx.Links["eap-session"].Href)
+	authctxId := match[0][20 : len(match[0])-1]
+
+	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, authctxId, eapSessionReq)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
