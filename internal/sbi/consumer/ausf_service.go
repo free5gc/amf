@@ -121,7 +121,8 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	if err != nil {
 		return nil, nil, err
 	}
-	// splituri = ["","nausf-auth","ue-authentications","{authctxId}","5g-aka-confirmation"]
+	// confirmUri.RequestURI() = "/nausf-auth/v1/ue-authentications/{authctxId}/5g-aka-confirmation"
+	// splituri = ["","nausf-auth","ue-authentications",{authctxId},"5g-aka-confirmation"]
 	// authctxId = {authctxId}
 	splituri := strings.Split(confirmUri.RequestURI(), "/")
 	authctxId := ""
@@ -182,7 +183,8 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		return nil, nil, err
 	}
 
-	// splituri = ["","nausf-auth","ue-authentications","{authctxId}","eap-session"]
+	// confirmUri.RequestURI() = "/nausf-auth/v1/ue-authentications/{authctxId}/eap-session"
+	// splituri = ["","nausf-auth","ue-authentications",{authctxId},"eap-session"]
 	// authctxId = {authctxId}
 	splituri := strings.Split(confirmUri.RequestURI(), "/")
 	authctxId := ""
