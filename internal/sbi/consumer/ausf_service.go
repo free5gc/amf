@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/antihax/optional"
@@ -99,7 +100,8 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error,
 ) {
 	var ausfUri string
-	if confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href); err != nil {
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href)
+	if err != nil {
 		return nil, nil, err
 	} else {
 		ausfUri = fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
@@ -119,9 +121,19 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	if err != nil {
 		return nil, nil, err
 	}
+	// confirmUri.RequestURI() = "/nausf-auth/v1/ue-authentications/{authctxId}/5g-aka-confirmation"
+	// splituri = ["","nausf-auth","ue-authentications",{authctxId},"5g-aka-confirmation"]
+	// authctxId = {authctxId}
+	splituri := strings.Split(confirmUri.RequestURI(), "/")
+	authctxId := ""
+	if len(splituri) > 4 {
+		authctxId = splituri[4]
+	} else {
+		return nil, nil, fmt.Errorf("authctxId is nil")
+	}
 
 	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
-		ctx, ue.Suci, confirmData)
+		ctx, authctxId, confirmData)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
@@ -171,7 +183,18 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		return nil, nil, err
 	}
 
-	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, ue.Suci, eapSessionReq)
+	// confirmUri.RequestURI() = "/nausf-auth/v1/ue-authentications/{authctxId}/eap-session"
+	// splituri = ["","nausf-auth","ue-authentications",{authctxId},"eap-session"]
+	// authctxId = {authctxId}
+	splituri := strings.Split(confirmUri.RequestURI(), "/")
+	authctxId := ""
+	if len(splituri) > 4 {
+		authctxId = splituri[4]
+	} else {
+		return nil, nil, fmt.Errorf("authctxId is nil")
+	}
+
+	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, authctxId, eapSessionReq)
 	defer func() {
 		if httpResponse != nil {
 			if rspCloseErr := httpResponse.Body.Close(); rspCloseErr != nil {
