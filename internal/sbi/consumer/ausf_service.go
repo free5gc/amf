@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/antihax/optional"
@@ -100,7 +100,8 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error,
 ) {
 	var ausfUri string
-	if confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href); err != nil {
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href)
+	if err != nil {
 		return nil, nil, err
 	} else {
 		ausfUri = fmt.Sprintf("%s://%s", confirmUri.Scheme, confirmUri.Host)
@@ -120,9 +121,13 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	if err != nil {
 		return nil, nil, err
 	}
-	re := regexp.MustCompile("/ue-authentications/.*/")
-	match := re.FindStringSubmatch(ue.AuthenticationCtx.Links["5g-aka"].Href)
-	authctxId := match[0][20 : len(match[0])-1]
+	splituri := strings.Split(confirmUri.RequestURI(), "/")
+	authctxId := ""
+	if len(splituri) > 4 {
+		authctxId = splituri[4]
+	} else {
+		return nil, nil, fmt.Errorf("authctxId is nil")
+	}
 
 	confirmResult, httpResponse, err := client.DefaultApi.UeAuthenticationsAuthCtxId5gAkaConfirmationPut(
 		ctx, authctxId, confirmData)
@@ -175,9 +180,13 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		return nil, nil, err
 	}
 
-	re := regexp.MustCompile("/ue-authentications/.*/")
-	match := re.FindStringSubmatch(ue.AuthenticationCtx.Links["eap-session"].Href)
-	authctxId := match[0][20 : len(match[0])-1]
+	splituri := strings.Split(confirmUri.RequestURI(), "/")
+	authctxId := ""
+	if len(splituri) > 4 {
+		authctxId = splituri[4]
+	} else {
+		return nil, nil, fmt.Errorf("authctxId is nil")
+	}
 
 	eapSession, httpResponse, err := client.DefaultApi.EapAuthMethod(ctx, authctxId, eapSessionReq)
 	defer func() {
