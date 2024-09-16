@@ -69,6 +69,20 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 	amfUe.AttachRanUe(ranUe)
 }
 
+func AttachRanUeToAmfUeAndReleaseOldIfHandover(amfUe *context.AmfUe, ranUe *context.RanUe) {
+	if oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+		oldRanUe.DetachAmfUe()
+		if amfUe.T3550 != nil {
+			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
+		}
+		StopAll5GSMMTimers(amfUe)
+		causeGroup := ngapType.CausePresentNas
+		causeValue := ngapType.CauseNasPresentNormalRelease
+		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
+	}
+	amfUe.AttachRanUe(ranUe)
+}
+
 func ClearHoldingRanUe(ranUe *context.RanUe) {
 	if ranUe != nil {
 		ranUe.DetachAmfUe()
