@@ -1212,7 +1212,7 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 			}
 		}
 
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfHandover(amfUe, targetUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldHandover(amfUe, sourceUe, targetUe)
 	}
 
 	// TODO: The UE initiates Mobility Registration Update procedure as described in clause 4.2.2.2.2.

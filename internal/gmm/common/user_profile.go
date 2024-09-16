@@ -69,18 +69,18 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 	amfUe.AttachRanUe(ranUe)
 }
 
-func AttachRanUeToAmfUeAndReleaseOldIfHandover(amfUe *context.AmfUe, ranUe *context.RanUe) {
-	if oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
-		oldRanUe.DetachAmfUe()
+func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.RanUe) {
+	if sourceRanUe != nil {
+		sourceRanUe.DetachAmfUe()
 		if amfUe.T3550 != nil {
-			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
+			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
 		}
 		StopAll5GSMMTimers(amfUe)
 		causeGroup := ngapType.CausePresentNas
 		causeValue := ngapType.CauseNasPresentNormalRelease
-		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
+		ngap_message.SendUEContextReleaseCommand(sourceRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
 	}
-	amfUe.AttachRanUe(ranUe)
+	amfUe.AttachRanUe(targetRanUe)
 }
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {
