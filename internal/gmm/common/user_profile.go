@@ -70,6 +70,8 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 }
 
 func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.RanUe) {
+	logger.GmmLog.Debugln("In AttachRanUeToAmfUeAndReleaseOldHandover")
+
 	if sourceRanUe != nil {
 		sourceRanUe.DetachAmfUe()
 		if amfUe.T3550 != nil {
@@ -79,6 +81,9 @@ func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, 
 		causeGroup := ngapType.CausePresentNas
 		causeValue := ngapType.CauseNasPresentNormalRelease
 		ngap_message.SendUEContextReleaseCommand(sourceRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
+	} else {
+		// This function will be call only by N2 Handover, so we can assume sourceRanUe will not be nil
+		logger.GmmLog.Errorln("AttachRanUeToAmfUeAndReleaseOldHandover() is called but sourceRanUe is nil")
 	}
 	amfUe.AttachRanUe(targetRanUe)
 }
