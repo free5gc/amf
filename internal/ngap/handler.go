@@ -1211,10 +1211,8 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 				ran.Log.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
 			}
 		}
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, targetUe)
 
-		ngap_message.SendUEContextReleaseCommand(sourceUe, context.UeContextReleaseHandover, ngapType.CausePresentNas,
-			ngapType.CauseNasPresentNormalRelease)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldHandover(amfUe, sourceUe, targetUe)
 	}
 
 	// TODO: The UE initiates Mobility Registration Update procedure as described in clause 4.2.2.2.2.

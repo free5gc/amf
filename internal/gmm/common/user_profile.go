@@ -69,6 +69,25 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 	amfUe.AttachRanUe(ranUe)
 }
 
+func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.RanUe) {
+	logger.GmmLog.Debugln("In AttachRanUeToAmfUeAndReleaseOldHandover")
+
+	if sourceRanUe != nil {
+		sourceRanUe.DetachAmfUe()
+		if amfUe.T3550 != nil {
+			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
+		}
+		StopAll5GSMMTimers(amfUe)
+		causeGroup := ngapType.CausePresentRadioNetwork
+		causeValue := ngapType.CauseRadioNetworkPresentSuccessfulHandover
+		ngap_message.SendUEContextReleaseCommand(sourceRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
+	} else {
+		// This function will be call only by N2 Handover, so we can assume sourceRanUe will not be nil
+		logger.GmmLog.Errorln("AttachRanUeToAmfUeAndReleaseOldHandover() is called but sourceRanUe is nil")
+	}
+	amfUe.AttachRanUe(targetRanUe)
+}
+
 func ClearHoldingRanUe(ranUe *context.RanUe) {
 	if ranUe != nil {
 		ranUe.DetachAmfUe()
