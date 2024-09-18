@@ -78,8 +78,8 @@ func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, 
 			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
 		}
 		StopAll5GSMMTimers(amfUe)
-		causeGroup := ngapType.CausePresentNas
-		causeValue := ngapType.CauseNasPresentNormalRelease
+		causeGroup := ngapType.CausePresentRadioNetwork
+		causeValue := ngapType.CauseRadioNetworkPresentSuccessfulHandover
 		ngap_message.SendUEContextReleaseCommand(sourceRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
 	} else {
 		// This function will be call only by N2 Handover, so we can assume sourceRanUe will not be nil
