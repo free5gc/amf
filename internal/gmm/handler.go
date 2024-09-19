@@ -537,6 +537,11 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	if ue.RanUe[anType] != nil {
 		ue.Location = ue.RanUe[anType].Location
 		ue.Tai = ue.RanUe[anType].Tai
+		if ue.RanUe[anType].Ran != nil {
+			// ue.Ratype TS 23.502 4.2.2.1
+			// The AMF determines Access Type and RAT Type as defined in clause 5.3.2.3 of TS 23.501 .
+			ue.RatType = ue.RanUe[anType].Ran.UeRatType()
+		}
 	}
 
 	// Check TAI
@@ -565,6 +570,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			context.GetSelf().AllocateGutiToUe(ue) // refresh 5G-GUTI
 		}
 	}
+
 	return nil
 }
 
