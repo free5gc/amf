@@ -8,7 +8,6 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi"
-	// "github.com/free5gc/openapi/Namf_Communication"
 	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
 )
@@ -303,7 +302,7 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 
 	res, localErr := client.IndividualUeContextDocumentApi.
 		RegistrationStatusUpdate(ctx, &regStatusUpdateReq)
-	if err == nil {
+	if localErr == nil {
 		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {

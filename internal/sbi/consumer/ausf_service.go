@@ -77,7 +77,7 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	}
 
 	res, localErr := client.DefaultApi.UeAuthenticationsPost(ctx, &authreq)
-	if err == nil {
+	if localErr == nil {
 		return &res.UeAuthenticationCtx, nil, nil
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
@@ -92,7 +92,7 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error,
 ) {
 	var ausfUri string
-	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"].Href)
+	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"][0].Href)
 	if err != nil {
 		return nil, nil, err
 	} else {
