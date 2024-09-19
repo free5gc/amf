@@ -60,8 +60,8 @@ func PlmnIdStringToModels(plmnId string) (plmnID models.PlmnId) {
 }
 
 func PlmnIdNidToModelsPlmnId(plmnIdNid models.PlmnIdNid) (plmnId models.PlmnId) {
-	plmnIdNid.Mcc = plmnId.Mcc
-	plmnIdNid.Mnc = plmnId.Mnc
+	plmnId.Mcc = plmnIdNid.Mcc
+	plmnId.Mnc = plmnIdNid.Mnc
 	return
 }
 

@@ -266,7 +266,7 @@ func CreatePDUSession(ulNasTransport *nasMessage.ULNASTransport,
 		ue.Lock.Lock()
 		defer ue.Lock.Unlock()
 
-		_, smContextRef, errResponse, problemDetail, errSendReq := consumer.GetConsumer().SendCreateSmContextRequest(
+		smContextRef, errResponse, problemDetail, errSendReq := consumer.GetConsumer().SendCreateSmContextRequest(
 			ue, newSmContext, nil, smMessage)
 		if errSendReq != nil {
 			ue.GmmLog.Errorf("CreateSmContextRequest Error: %+v", errSendReq)

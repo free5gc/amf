@@ -149,7 +149,7 @@ func (s *nsmfService) SelectSmf(
 
 func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
 	requestType *models.RequestType, nasPdu []byte) (
-	response *models.PostSmContextsResponse201, smContextRef string, errorResponse *models.PostSmContextsError,
+	smContextRef string, errorResponse *models.PostSmContextsError,
 	problemDetail *models.ProblemDetails, err1 error,
 ) {
 	smContextCreateData := s.buildCreateSmContextRequest(ue, smContext, nil)
@@ -163,26 +163,28 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 
 	client := s.getPDUSessionClient(smContext.SmfUri())
 	if client == nil {
-		return nil, "", nil, nil, openapi.ReportError("smf not found")
+		return "", nil, nil, openapi.ReportError("smf not found")
 	}
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NSMF_PDUSESSION, models.NrfNfManagementNfType_SMF)
 	if err != nil {
-		return nil, "", nil, nil, err
+		return "", nil, nil, err
 	}
 	postSmContextReponse, localErr := client.SMContextsCollectionApi.
 		PostSmContexts(ctx, &postSmContextsRequest)
 	if localErr == nil {
-		response = &postSmContextReponse.PostSmContextsResponse201
 		smContextRef = postSmContextReponse.Location
 	} else {
 		err1 = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetail = apiErr.Model().(*models.ProblemDetails)
+			problemDetail, ok = apiErr.Model().(*models.ProblemDetails)
+			if !ok {
+				errorResponse = apiErr.Model().(*models.PostSmContextsError)
+			}
 		}
 	}
-	return response, smContextRef, errorResponse, problemDetail, err1
+	return smContextRef, errorResponse, problemDetail, err1
 }
 
 func (s *nsmfService) buildCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
@@ -473,7 +475,10 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		err1 = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetail = apiErr.Model().(*models.ProblemDetails)
+			problemDetail, ok = apiErr.Model().(*models.ProblemDetails)
+			if !ok {
+				errorResponse = apiErr.Model().(*models.UpdateSmContextResponse400)
+			}
 		}
 	}
 	return response, errorResponse, problemDetail, err1

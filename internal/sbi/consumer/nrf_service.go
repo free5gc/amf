@@ -14,7 +14,6 @@ import (
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
-	"github.com/free5gc/openapi/nrf/NFManagement"
 	Nnrf_NFManagement "github.com/free5gc/openapi/nrf/NFManagement"
 )
 
@@ -87,12 +86,10 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 	}
 	res, err := client.NFInstancesStoreApi.SearchNFInstances(ctx, param)
 	var result *models.SearchResult
-	if res != nil {
-		result = &res.SearchResult
-	}
 	if err != nil {
 		logger.ConsumerLog.Errorf("SearchNFInstances failed: %+v", err)
 	}
+	result = &res.SearchResult
 	return result, err
 }
 
@@ -309,7 +306,7 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 		return pd, err
 	}
 
-	request := &NFManagement.DeregisterNFInstanceRequest{
+	request := &Nnrf_NFManagement.DeregisterNFInstanceRequest{
 		NfInstanceID: &amfContext.NfId,
 	}
 
