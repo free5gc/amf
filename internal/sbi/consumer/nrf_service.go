@@ -89,7 +89,9 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 	if err != nil {
 		logger.ConsumerLog.Errorf("SearchNFInstances failed: %+v", err)
 	}
-	result = &res.SearchResult
+	if res != nil {
+		result = &res.SearchResult
+	}
 	return result, err
 }
 
