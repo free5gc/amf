@@ -17,6 +17,9 @@ const (
 	RanPresentGNbId   = 1
 	RanPresentNgeNbId = 2
 	RanPresentN3IwfId = 3
+	RanPresentTngfId  = 4
+	RanPresentTwifId  = 5
+	RanPresentWagfId  = 6
 )
 
 type AmfRan struct {
@@ -129,5 +132,28 @@ func (ran *AmfRan) RanID() string {
 		return fmt.Sprintf("<PlmnID: %+v, NgeNbID: %s>", *ran.RanId.PlmnId, ran.RanId.NgeNbId)
 	default:
 		return ""
+	}
+}
+
+func (ran *AmfRan) UeRatType() models.RatType {
+	// In TS 23.501 5.3.2.3
+	// For 3GPP access the AMF determines the RAT type the UE is camping on based
+	// on the Global RAN Node IDs associated with the N2 interface and
+	// additionally the Tracking Area indicated by NG-RAN
+	switch ran.RanPresent {
+	case RanPresentGNbId:
+		return models.RatType_NR
+	case RanPresentNgeNbId:
+		return models.RatType_NR
+	case RanPresentN3IwfId:
+		return models.RatType_VIRTUAL
+	case RanPresentTngfId:
+		return models.RatType_TRUSTED_N3_GA
+	case RanPresentTwifId:
+		return models.RatType_TRUSTED_N3_GA
+	case RanPresentWagfId:
+		return models.RatType_WIRELINE
+	default:
+		return models.RatType_NR
 	}
 }
