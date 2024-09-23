@@ -5,6 +5,7 @@ import (
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -175,7 +176,7 @@ func BuildIEMobilityRestrictionList(ue *context.AmfUe) ngapType.MobilityRestrict
 func BuildUnavailableGUAMIList(guamiList []models.Guami) (unavailableGUAMIList ngapType.UnavailableGUAMIList) {
 	for _, guami := range guamiList {
 		item := ngapType.UnavailableGUAMIItem{}
-		item.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*guami.PlmnId)
+		item.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(util.PlmnIdNidToModelsPlmnId(*guami.PlmnId))
 		regionId, setId, ptrId := ngapConvert.AmfIdToNgap(guami.AmfId)
 		item.GUAMI.AMFRegionID.Value = regionId
 		item.GUAMI.AMFSetID.Value = setId

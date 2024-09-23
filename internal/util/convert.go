@@ -26,6 +26,14 @@ func SnssaiModelsToHex(snssai models.Snssai) string {
 	return sst + snssai.Sd
 }
 
+func SnssaiModelsToExtSnssai(snssai models.Snssai) models.ExtSnssai {
+	ExtStssai := models.ExtSnssai{
+		Sst: snssai.Sst,
+		Sd:  snssai.Sd,
+	}
+	return ExtStssai
+}
+
 func SeperateAmfId(amfid string) (regionId, setId, ptrId string, err error) {
 	if len(amfid) != 6 {
 		err = fmt.Errorf("len of amfId[%s] != 6", amfid)
@@ -48,6 +56,12 @@ func SeperateAmfId(amfid string) (regionId, setId, ptrId string, err error) {
 func PlmnIdStringToModels(plmnId string) (plmnID models.PlmnId) {
 	plmnID.Mcc = plmnId[:3]
 	plmnID.Mnc = plmnId[3:]
+	return
+}
+
+func PlmnIdNidToModelsPlmnId(plmnIdNid models.PlmnIdNid) (plmnId models.PlmnId) {
+	plmnId.Mcc = plmnIdNid.Mcc
+	plmnId.Mnc = plmnIdNid.Mnc
 	return
 }
 

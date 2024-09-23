@@ -21,21 +21,25 @@ func (s *Server) getHttpCallBackRoutes() []Route {
 			},
 		},
 		{
+			Name:    "AmPolicyControlUpdateNotifyUpdate",
 			Method:  http.MethodPost,
 			Pattern: "/am-policy/:polAssoId/update",
 			APIFunc: s.HTTPAmPolicyControlUpdateNotifyUpdate,
 		},
 		{
+			Name:    "AmPolicyControlUpdateNotifyTerminate",
 			Method:  http.MethodPost,
 			Pattern: "/am-policy/:polAssoId/terminate",
 			APIFunc: s.HTTPAmPolicyControlUpdateNotifyTerminate,
 		},
 		{
+			Name:    "N1MessageNotify",
 			Method:  http.MethodPost,
 			Pattern: "/n1-message-notify",
 			APIFunc: s.HTTPN1MessageNotify,
 		},
 		{
+			Name:    "HandleDeregistrationNotification",
 			Method:  http.MethodPost,
 			Pattern: "/deregistration/:ueid",
 			APIFunc: s.HTTPHandleDeregistrationNotification,
@@ -44,7 +48,7 @@ func (s *Server) getHttpCallBackRoutes() []Route {
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
-	var policyUpdate models.PolicyUpdate
+	var policyUpdate models.PcfAmPolicyControlPolicyUpdate
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -75,7 +79,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyUpdate(c *gin.Context) {
 }
 
 func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
-	var terminationNotification models.TerminationNotification
+	var terminationNotification models.PcfAmPolicyControlTerminationNotification
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -106,7 +110,7 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 }
 
 func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
-	var n1MessageNotify models.N1MessageNotify
+	var n1MessageNotify models.N1MessageNotifyRequest
 
 	requestBody, err := c.GetRawData()
 	if err != nil {

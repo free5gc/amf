@@ -62,7 +62,26 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 
 	// store subscription in context
 	ueEventSubscription := context.AmfUeEventSubscription{}
-	ueEventSubscription.EventSubscription = &contextEventSubscription.EventSubscription
+	extCtxEventSub := models.ExtAmfEventSubscription{
+		EventList:                     contextEventSubscription.EventSubscription.EventList,
+		EventNotifyUri:                contextEventSubscription.EventSubscription.EventNotifyUri,
+		NotifyCorrelationId:           contextEventSubscription.EventSubscription.NotifyCorrelationId,
+		NfId:                          contextEventSubscription.EventSubscription.NfId,
+		SubsChangeNotifyUri:           contextEventSubscription.EventSubscription.SubsChangeNotifyUri,
+		SubsChangeNotifyCorrelationId: contextEventSubscription.EventSubscription.SubsChangeNotifyCorrelationId,
+		Supi:                          contextEventSubscription.EventSubscription.Supi,
+		GroupId:                       contextEventSubscription.EventSubscription.GroupId,
+		ExcludeSupiList:               contextEventSubscription.EventSubscription.ExcludeSupiList,
+		ExcludeGpsiList:               contextEventSubscription.EventSubscription.ExcludeGpsiList,
+		IncludeSupiList:               contextEventSubscription.EventSubscription.IncludeSupiList,
+		IncludeGpsiList:               contextEventSubscription.EventSubscription.IncludeGpsiList,
+		Gpsi:                          contextEventSubscription.EventSubscription.Gpsi,
+		Pei:                           contextEventSubscription.EventSubscription.Pei,
+		AnyUE:                         contextEventSubscription.EventSubscription.AnyUE,
+		Options:                       contextEventSubscription.EventSubscription.Options,
+		SourceNfType:                  contextEventSubscription.EventSubscription.SourceNfType,
+	}
+	ueEventSubscription.EventSubscription = &extCtxEventSub
 	ueEventSubscription.Timestamp = time.Now().UTC()
 
 	if subscription.Options != nil && subscription.Options.Trigger == models.AmfEventTrigger_CONTINUOUS {
@@ -78,7 +97,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 		return nil, problemDetails
 	}
 
-	for _, events := range *subscription.EventList {
+	for _, events := range subscription.EventList {
 		immediateFlags = append(immediateFlags, events.ImmediateFlag)
 		if events.ImmediateFlag {
 			isImmediate = true
@@ -150,7 +169,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 			}
 			for i, flag := range immediateFlags {
 				if flag {
-					report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+					report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 					if ok {
 						reportlist = append(reportlist, report)
 					}
@@ -174,7 +193,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 			if ue.GroupID == subscription.GroupId {
 				for i, flag := range immediateFlags {
 					if flag {
-						report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+						report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 						if ok {
 							reportlist = append(reportlist, report)
 						}
@@ -197,7 +216,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(createEventSubscription 
 		}
 		for i, flag := range immediateFlags {
 			if flag {
-				report, ok := p.newAmfEventReport(ue, (*subscription.EventList)[i].Type, newSubscriptionID)
+				report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 				if ok {
 					reportlist = append(reportlist, report)
 				}
@@ -293,9 +312,9 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 		return nil, problemDetails
 	}
 
-	if modifySubscriptionRequest.OptionItem != nil {
-		contextSubscription.Expiry = modifySubscriptionRequest.OptionItem.Value
-	} else if modifySubscriptionRequest.SubscriptionItemInner != nil {
+	if len(modifySubscriptionRequest.OptionItem) != 0 {
+		contextSubscription.Expiry = modifySubscriptionRequest.OptionItem[0].Value
+	} else if len(modifySubscriptionRequest.SubscriptionItem) != 0 {
 		subscription := &contextSubscription.EventSubscription
 		if !contextSubscription.IsAnyUe && !contextSubscription.IsGroupUe {
 			if _, okAmfUeFindBySupi := amfSelf.AmfUeFindBySupi(subscription.Supi); !okAmfUeFindBySupi {
@@ -306,8 +325,8 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 				return nil, problemDetails
 			}
 		}
-		op := modifySubscriptionRequest.SubscriptionItemInner.Op
-		index, err := strconv.Atoi(modifySubscriptionRequest.SubscriptionItemInner.Path[11:])
+		op := modifySubscriptionRequest.SubscriptionItem[0].Op
+		index, err := strconv.Atoi(modifySubscriptionRequest.SubscriptionItem[0].Path[11:])
 		if err != nil {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusInternalServerError,
@@ -315,27 +334,27 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 			return nil, problemDetails
 		}
-		lists := (*subscription.EventList)
-		eventlistLen := len(*subscription.EventList)
+		lists := (subscription.EventList)
+		eventlistLen := len(subscription.EventList)
 		switch op {
 		case "replace":
-			event := *modifySubscriptionRequest.SubscriptionItemInner.Value
+			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
 			if index < eventlistLen {
-				(*subscription.EventList)[index] = event
+				(subscription.EventList)[index] = event
 			}
 		case "remove":
 			if index < eventlistLen {
 				eventlist := []models.AmfEvent{}
 				eventlist = append(eventlist, lists[:index]...)
 				eventlist = append(eventlist, lists[index+1:]...)
-				*subscription.EventList = eventlist
+				subscription.EventList = eventlist
 			}
 		case "add":
-			event := *modifySubscriptionRequest.SubscriptionItemInner.Value
+			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
 			eventlist := []models.AmfEvent{}
 			eventlist = append(eventlist, lists...)
 			eventlist = append(eventlist, event)
-			*subscription.EventList = eventlist
+			subscription.EventList = eventlist
 		}
 	}
 
@@ -411,8 +430,6 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, amfEventType models.Amf
 		report.CmInfoList = ue.GetCmInfo()
 	case models.AmfEventType_REACHABILITY_REPORT:
 		report.Reachability = ue.Reachability
-	case models.AmfEventType_SUBSCRIBED_DATA_REPORT:
-		report.SubscribedData = &ue.SubscribedData
 	case models.AmfEventType_COMMUNICATION_FAILURE_REPORT:
 		// TODO : report.CommFailure
 	case models.AmfEventType_SUBSCRIPTION_ID_CHANGE:

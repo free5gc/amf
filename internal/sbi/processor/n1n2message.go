@@ -212,7 +212,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 		if n2Info != nil {
 			smInfo := requestData.N2InfoContainer.SmInfo
 			switch smInfo.N2InfoContent.NgapIeType {
-			case models.NgapIeType_PDU_RES_SETUP_REQ:
+			case models.AmfCommunicationNgapIeType_PDU_RES_SETUP_REQ:
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Setup Request from SMF")
 				if ue.RanUe[anType].InitialContextSetup {
 					list := ngapType.PDUSessionResourceSetupListSUReq{}
@@ -227,7 +227,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				n1n2MessageTransferRspData = new(models.N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
-			case models.NgapIeType_PDU_RES_MOD_REQ:
+			case models.AmfCommunicationNgapIeType_PDU_RES_MOD_REQ:
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Modify Request from SMF")
 				list := ngapType.PDUSessionResourceModifyListModReq{}
 				ngap_message.AppendPDUSessionResourceModifyListModReq(&list, smInfo.PduSessionId, nasPdu, n2Info)
@@ -235,7 +235,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				n1n2MessageTransferRspData = new(models.N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
-			case models.NgapIeType_PDU_RES_REL_CMD:
+			case models.AmfCommunicationNgapIeType_PDU_RES_REL_CMD:
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Release Command from SMF")
 				list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
 				ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, smInfo.PduSessionId, n2Info)
@@ -257,7 +257,8 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	// UE is CM-IDLE
 
 	// 409: transfer a N2 PDU Session Resource Release Command to a 5G-AN and if the UE is in CM-IDLE
-	if n2Info != nil && requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.NgapIeType_PDU_RES_REL_CMD {
+	if n2Info != nil &&
+		requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.AmfCommunicationNgapIeType_PDU_RES_REL_CMD {
 		transferErr = new(models.N1N2MessageTransferError)
 		transferErr.Error = &models.ProblemDetails{
 			Status: http.StatusConflict,
