@@ -136,7 +136,6 @@ func newRouter(s *Server) *gin.Engine {
 }
 
 func (s *Server) Run(traceCtx context.Context, wg *sync.WaitGroup) error {
-
 	wg.Add(1)
 	go s.startServer(wg)
 
