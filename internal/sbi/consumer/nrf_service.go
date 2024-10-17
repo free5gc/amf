@@ -75,6 +75,8 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 	param *Nnrf_NFDiscovery.SearchNFInstancesRequest,
 ) (*models.SearchResult, error) {
 	// Set client and set url
+	param.TargetNfType = &targetNfType
+	param.RequesterNfType = &requestNfType
 	client := s.getNFDiscClient(nrfUri)
 	if client == nil {
 		return nil, openapi.ReportError("nrf not found")
@@ -239,7 +241,8 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (
 	return profile, err
 }
 
-func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInstanceId string, profile *models.NrfNfManagementNfProfile) (
+func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInstanceId string,
+	profile *models.NrfNfManagementNfProfile) (
 	resouceNrfUri string, retrieveNfInstanceId string, err error,
 ) {
 	// Set client and set url
@@ -294,7 +297,6 @@ func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInst
 				}
 				finish = true
 			}
-
 		}
 	}
 	return resouceNrfUri, retrieveNfInstanceId, err
