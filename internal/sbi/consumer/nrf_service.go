@@ -316,7 +316,8 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 	if err != nil {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			derigister_err := apiErr.Model().(Nnrf_NFManagement.DeregisterNFInstanceError)
+			problemDetails = &derigister_err.ProblemDetails
 		}
 	}
 
