@@ -82,7 +82,8 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+			posterr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsPostError)
+			return nil, &posterr.ProblemDetails, localErr
 		}
 		return nil, nil, err
 	}
@@ -92,7 +93,11 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	*models.ConfirmationDataResponse, *models.ProblemDetails, error,
 ) {
 	var ausfUri string
-	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["5g-aka"][0].Href)
+	var confirmUri *url.URL
+	var err error
+	if len(ue.AuthenticationCtx.Links["5g-aka"]) > 0 {
+		confirmUri, err = url.Parse(ue.AuthenticationCtx.Links["5g-aka"][0].Href)
+	}
 	if err != nil {
 		return nil, nil, err
 	} else {
@@ -132,7 +137,8 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+			puterr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutError)
+			return nil, &puterr.ProblemDetails, localErr
 		}
 		return nil, nil, localErr
 	}
@@ -141,7 +147,11 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg nasType.EAPMessage) (
 	response *models.EapSession, problemDetails *models.ProblemDetails, err1 error,
 ) {
-	confirmUri, err := url.Parse(ue.AuthenticationCtx.Links["eap-session"][0].Href)
+	var confirmUri *url.URL
+	var err error
+	if len(ue.AuthenticationCtx.Links["eap-session"]) > 0 {
+		confirmUri, err = url.Parse(ue.AuthenticationCtx.Links["eap-session"][0].Href)
+	}
 	if err != nil {
 		logger.ConsumerLog.Errorf("url Parse failed: %+v", err)
 	}
@@ -182,7 +192,8 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			eaperr := apiErr.Model().(Nausf_UEAuthentication.EapAuthMethodError)
+			problemDetails = &eaperr.ProblemDetails
 		}
 	}
 

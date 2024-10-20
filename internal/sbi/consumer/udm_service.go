@@ -113,12 +113,15 @@ func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *model
 		ctx, &getAmDataParamReq)
 	if localErr == nil {
 		ue.AccessAndMobilitySubscriptionData = &data.AccessAndMobilitySubscriptionData
-		ue.Gpsi = data.AccessAndMobilitySubscriptionData.Gpsis[0] // TODO: select GPSI
+		if len(data.AccessAndMobilitySubscriptionData.Gpsis) > 0 {
+			ue.Gpsi = data.AccessAndMobilitySubscriptionData.Gpsis[0] // TODO: select GPSI
+		}
 	} else {
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			geterr := apiErr.Model().(Nudm_SubscriberDataManagement.GetAmDataError)
+			problemDetails = &geterr.ProblemDetails
 		}
 	}
 	return problemDetails, err
@@ -149,7 +152,8 @@ func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			geterr := apiErr.Model().(Nudm_SubscriberDataManagement.GetSmfSelDataError)
+			problemDetails = &geterr.ProblemDetails
 		}
 	}
 
@@ -181,7 +185,8 @@ func (s *nudmService) SDMGetUeContextInSmfData(
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			geterr := apiErr.Model().(Nudm_SubscriberDataManagement.GetUeCtxInSmfDataError)
+			problemDetails = &geterr.ProblemDetails
 		}
 	}
 
@@ -219,7 +224,8 @@ func (s *nudmService) SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *model
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			subcribeerr := apiErr.Model().(Nudm_SubscriberDataManagement.SubscribeError)
+			problemDetails = &subcribeerr.ProblemDetails
 		}
 	}
 	return problemDetails, err
@@ -271,7 +277,8 @@ func (s *nudmService) SDMGetSliceSelectionSubscriptionData(
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			geterr := apiErr.Model().(Nudm_SubscriberDataManagement.GetNSSAIError)
+			problemDetails = &geterr.ProblemDetails
 		}
 	}
 	return problemDetails, err
@@ -299,7 +306,8 @@ func (s *nudmService) SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *mod
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			unsubcribeerr := apiErr.Model().(Nudm_SubscriberDataManagement.UnsubscribeError)
+			problemDetails = &unsubcribeerr.ProblemDetails
 		}
 	}
 	return problemDetails, err
@@ -348,6 +356,12 @@ func (s *nudmService) UeCmRegistration(
 			ue.UeCmRegistered[accessType] = true
 			return nil, nil
 		} else {
+			if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+				// API error
+				regerr := apiErr.Model().(Nudm_UEContextManagement.Call3GppRegistrationError)
+				problemDetails := &regerr.ProblemDetails
+				return problemDetails, localErr
+			}
 			return nil, localErr
 		}
 	case models.AccessType_NON_3_GPP_ACCESS:
@@ -369,6 +383,12 @@ func (s *nudmService) UeCmRegistration(
 			ue.UeCmRegistered[accessType] = true
 			return nil, nil
 		} else {
+			if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+				// API error
+				regerr := apiErr.Model().(Nudm_UEContextManagement.Non3GppRegistrationError)
+				problemDetails := &regerr.ProblemDetails
+				return problemDetails, localErr
+			}
 			return nil, localErr
 		}
 	}
@@ -410,7 +430,8 @@ func (s *nudmService) UeCmDeregistration(
 		} else {
 			if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 				// API error
-				return apiErr.Model().(*models.ProblemDetails), localErr
+				updateerr := apiErr.Model().(Nudm_UEContextManagement.Update3GppRegistrationError)
+				return &updateerr.ProblemDetails, localErr
 			}
 			return nil, localErr
 		}
@@ -432,7 +453,8 @@ func (s *nudmService) UeCmDeregistration(
 		} else {
 			if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 				// API error
-				return apiErr.Model().(*models.ProblemDetails), localErr
+				updateerr := apiErr.Model().(Nudm_UEContextManagement.UpdateNon3GppRegistrationError)
+				return &updateerr.ProblemDetails, localErr
 			}
 			return nil, localErr
 		}

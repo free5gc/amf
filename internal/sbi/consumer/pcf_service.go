@@ -105,7 +105,8 @@ func (s *npcfService) AMPolicyControlCreate(
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			return apiErr.Model().(*models.ProblemDetails), localErr
+			createrr := apiErr.Model().(Npcf_AMPolicy.CreateIndividualAMPolicyAssociationError)
+			return &createrr.ProblemDetails, localErr
 		}
 		return nil, localErr
 	}
@@ -153,7 +154,8 @@ func (s *npcfService) AMPolicyControlUpdate(
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			reporterr := apiErr.Model().(Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationError)
+			problemDetails = &reporterr.ProblemDetails
 		}
 	}
 	return problemDetails, err
@@ -180,7 +182,8 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 	} else {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			deleteerr := apiErr.Model().(Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError)
+			problemDetails = &deleteerr.ProblemDetails
 		}
 	}
 	return problemDetails, err
