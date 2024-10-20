@@ -87,7 +87,8 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			return apiErr.Model().(*models.ProblemDetails), localErr
+			nsselecterr := apiErr.Model().(Nnssf_NSSelection.NSSelectionGetError)
+			return &nsselecterr.ProblemDetails, localErr
 		}
 		return nil, localErr
 	}
@@ -131,7 +132,8 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+			nsselecterr := apiErr.Model().(Nnssf_NSSelection.NSSelectionGetError)
+			return nil, &nsselecterr.ProblemDetails, localErr
 		}
 		return nil, nil, localErr
 	}

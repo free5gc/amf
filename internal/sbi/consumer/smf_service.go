@@ -178,10 +178,9 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		err1 = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetail, ok = apiErr.Model().(*models.ProblemDetails)
-			if !ok {
-				errorResponse = apiErr.Model().(*models.PostSmContextsError)
-			}
+			posterr := apiErr.Model().(*Nsmf_PDUSession.PostSmContextsError)
+			problemDetail = &posterr.ProblemDetails
+			errorResponse = &posterr.PostSmContextsError
 		}
 	}
 	return smContextRef, errorResponse, problemDetail, err1
@@ -475,10 +474,9 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		err1 = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			problemDetail, ok = apiErr.Model().(*models.ProblemDetails)
-			if !ok {
-				errorResponse = apiErr.Model().(*models.UpdateSmContextResponse400)
-			}
+			updateerr := apiErr.Model().(Nsmf_PDUSession.UpdateSmContextError)
+			problemDetail = &updateerr.ProblemDetails
+			errorResponse = &updateerr.UpdateSmContextResponse400
 		}
 	}
 	return response, errorResponse, problemDetail, err1
@@ -518,7 +516,8 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			detail = apiErr.Model().(*models.ProblemDetails)
+			releaseerr := apiErr.Model().(Nsmf_PDUSession.ReleaseSmContextError)
+			detail = &releaseerr.ProblemDetails
 		}
 	}
 	return detail, err

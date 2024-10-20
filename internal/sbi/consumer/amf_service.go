@@ -177,7 +177,8 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			return nil, apiErr.Model().(*models.ProblemDetails), localErr
+			creatErr := apiErr.Model().(*Namf_Communication.CreateUEContextError)
+			return nil, &creatErr.ProblemDetails, nil
 		}
 		return nil, nil, localErr
 	}
@@ -220,11 +221,13 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 		ctx, &ueCtxReleaseReq)
 	if err != nil {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			problemDetails = apiErr.Model().(*models.ProblemDetails)
+			releaseerr := apiErr.Model().(Namf_Communication.ReleaseUEContextError)
+			problemDetails = &releaseerr.ProblemDetails
+			return problemDetails, nil
 		}
+		return nil, err
 	}
-
-	return problemDetails, err
+	return nil, nil
 }
 
 func (s *namfService) UEContextTransferRequest(
@@ -273,7 +276,9 @@ func (s *namfService) UEContextTransferRequest(
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			return ueContextTransferRspData, apiErr.Model().(*models.ProblemDetails), localErr
+			transerr := apiErr.Model().(Namf_Communication.UEContextTransferError)
+			problemDetails = &transerr.ProblemDetails
+			return ueContextTransferRspData, problemDetails, nil
 		}
 		return ueContextTransferRspData, nil, localErr
 	}
@@ -306,7 +311,9 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			return regStatusTransferComplete, apiErr.Model().(*models.ProblemDetails), localErr
+			updateerr := apiErr.Model().(Namf_Communication.RegistrationStatusUpdateError)
+			problemDetails = &updateerr.ProblemDetails
+			return regStatusTransferComplete, problemDetails, nil
 		}
 		return regStatusTransferComplete, nil, localErr
 	}
