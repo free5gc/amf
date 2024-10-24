@@ -683,9 +683,9 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.UeContext) {
 		if ue.AccessAndMobilitySubscriptionData == nil {
 			ue.AccessAndMobilitySubscriptionData = new(models.AccessAndMobilitySubscriptionData)
 		}
-		// if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
-		// 	ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
-		// }
+		if ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
+			ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr = new(models.AmbrRm)
+		}
 
 		subAmbr := ue.AccessAndMobilitySubscriptionData.SubscribedUeAmbr
 		subAmbr.Uplink = ueContext.SubUeAmbr.Uplink

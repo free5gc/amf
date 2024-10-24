@@ -178,7 +178,7 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		err1 = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			posterr := apiErr.Model().(*Nsmf_PDUSession.PostSmContextsError)
+			posterr := apiErr.Model().(Nsmf_PDUSession.PostSmContextsError)
 			problemDetail = &posterr.ProblemDetails
 			errorResponse = &posterr.PostSmContextsError
 		}

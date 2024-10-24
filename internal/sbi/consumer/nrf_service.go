@@ -276,6 +276,7 @@ func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInst
 			} else {
 				// NFRegister
 				resourceUri := res.Location
+				nf = res.NrfNfManagementNfProfile
 				index := strings.Index(resourceUri, "/nnrf-nfm/")
 				if index >= 0 {
 					resouceNrfUri = resourceUri[:index]
