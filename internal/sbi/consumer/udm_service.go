@@ -152,8 +152,8 @@ func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails
 		err = localErr
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			geterr := apiErr.Model().(Nudm_SubscriberDataManagement.GetSmfSelDataError)
-			problemDetails = &geterr.ProblemDetails
+			getErr := apiErr.Model().(Nudm_SubscriberDataManagement.GetSmfSelDataError)
+			problemDetails = &getErr.ProblemDetails
 		}
 	}
 
