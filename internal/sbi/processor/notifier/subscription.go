@@ -39,12 +39,12 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 		amfStatusNotification.AmfStatusInfoList = append(amfStatusNotification.AmfStatusInfoList, amfStatusInfo)
 		uri := subscriptionData.AmfStatusUri
 
-		amfStatusNotificationReq := Namf_Communication.AmfStatusChangeNOtifyRequest{
+		amfStatusNotificationReq := Namf_Communication.AmfStatusChangeNotifyRequest{
 			AmfStatusChangeNotification: &amfStatusNotification,
 		}
 		logger.ProducerLog.Infof("[AMF] Send Amf Status Change Notify to %s", uri)
 		_, err := client.IndividualSubscriptionDocumentApi.
-			AmfStatusChangeNOtify(context.Background(), uri, &amfStatusNotificationReq)
+			AmfStatusChangeNotify(context.Background(), uri, &amfStatusNotificationReq)
 		if err != nil {
 			HttpLog.Errorln(err.Error())
 		}

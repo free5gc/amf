@@ -67,10 +67,9 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 	var paramOpt Nnssf_NSSelection.NSSelectionGetRequest
 
 	testNfType := models.NrfNfManagementNfType_AMF
-	test := &testNfType
 
 	paramOpt = Nnssf_NSSelection.NSSelectionGetRequest{
-		NfType:                          test,
+		NfType:                          &testNfType,
 		NfId:                            &amfSelf.NfId,
 		SliceInfoRequestForRegistration: &sliceInfo,
 		Tai:                             &ue.Tai, // TS 29.531 R15.3 6.1.3.2.3.1
@@ -111,10 +110,9 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	}
 
 	testNfType := models.NrfNfManagementNfType_AMF
-	test := &testNfType
 
 	paramOpt := Nnssf_NSSelection.NSSelectionGetRequest{
-		NfType:                        test,
+		NfType:                        &testNfType,
 		NfId:                          &amfSelf.NfId,
 		SliceInfoRequestForPduSession: &sliceInfoForPduSession,
 		Tai:                           &ue.Tai, // TS 29.531 R15.3 6.1.3.2.3.1
