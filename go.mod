@@ -8,7 +8,7 @@ require (
 	github.com/free5gc/aper v1.0.6-0.20240503143507-2c4c4780b98f
 	github.com/free5gc/nas v1.1.4-0.20240801045646-998afcbf3811
 	github.com/free5gc/ngap v1.0.9-0.20240801044503-4db04dae3900
-	github.com/free5gc/openapi v1.0.9-0.20241024114001-1414ef920de2
+	github.com/free5gc/openapi v1.0.9-0.20241105014927-c376b9f16133
 	github.com/free5gc/sctp v1.0.1
 	github.com/free5gc/util v1.0.6
 	github.com/gin-gonic/gin v1.9.1
