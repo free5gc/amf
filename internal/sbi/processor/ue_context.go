@@ -534,8 +534,9 @@ func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData mod
 
 	// TODO: AssignEbiError not used, check it!
 	if _, okSmContextFind := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); okSmContextFind {
-		var assignedEbiData *models.AssignedEbiData
-		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
+		assignedEbiData := &models.AssignedEbiData{
+			PduSessionId: assignEbiData.PduSessionId,
+		}
 		return assignedEbiData, nil, nil
 	}
 	logger.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", assignEbiData.PduSessionId)
