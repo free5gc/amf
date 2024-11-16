@@ -263,7 +263,7 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 	amfSelf := context.GetSelf()
 
 	registrationCtxtContainer := n1MessageNotify.JsonData.RegistrationCtxtContainer
-	if registrationCtxtContainer.UeContext == nil {
+	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING", // Defined in TS 29.500 5.2.7.2
@@ -274,6 +274,8 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 
 	ran, ok := amfSelf.AmfRanFindByRanID(*registrationCtxtContainer.RanNodeId)
 	if !ok {
+		logger.CallbackLog.Warnln("AmfRanFindByRanID not found: ", *registrationCtxtContainer.RanNodeId)
+
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_INCORRECT",
