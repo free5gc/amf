@@ -111,21 +111,9 @@ func (s *Server) HTTPAmPolicyControlUpdateNotifyTerminate(c *gin.Context) {
 
 func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 	var n1MessageNotify models.N1MessageNotifyRequest
+	n1MessageNotify.JsonData = new(models.N1MessageNotification)
 
-	requestBody, err := c.GetRawData()
-	if err != nil {
-		logger.CallbackLog.Errorf("Get Request Body error: %+v", err)
-		problemDetail := models.ProblemDetails{
-			Title:  "System failure",
-			Status: http.StatusInternalServerError,
-			Detail: err.Error(),
-			Cause:  "SYSTEM_FAILURE",
-		}
-		c.JSON(http.StatusInternalServerError, problemDetail)
-		return
-	}
-
-	err = openapi.Deserialize(&n1MessageNotify, requestBody, "application/json")
+	err := c.ShouldBindWith(&n1MessageNotify, openapi.MultipartRelatedBinding{})
 	if err != nil {
 		problemDetail := reqbody + err.Error()
 		rsp := models.ProblemDetails{
