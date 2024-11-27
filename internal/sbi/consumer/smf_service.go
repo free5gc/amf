@@ -177,8 +177,8 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	} else {
 		err1 = localErr
 		switch errType := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errModel := errType.Model().(type) {
 			case Nsmf_PDUSession.PostSmContextsError:
 				problemDetail = &errModel.ProblemDetails
@@ -191,11 +191,7 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		case error:
 			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
 		default:
-			problemDetail = &models.ProblemDetails{
-				Title:  "Service Error",
-				Status: 500,
-				Detail: "An error occurred while processing the request",
-			}
+			err1 = openapi.ReportError("server no response")
 		}
 	}
 	return smContextRef, errorResponse, problemDetail, err1
@@ -488,8 +484,8 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 	} else {
 		err1 = localErr
 		switch errType := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errModel := errType.Model().(type) {
 			case Nsmf_PDUSession.UpdateSmContextError:
 				problemDetail = &errModel.ProblemDetails
@@ -502,11 +498,7 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		case error:
 			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
 		default:
-			problemDetail = &models.ProblemDetails{
-				Title:  "Service Error",
-				Status: 500,
-				Detail: "An error occurred while processing the request",
-			}
+			err1 = openapi.ReportError("server no response")
 		}
 	}
 	return response, errorResponse, problemDetail, err1
@@ -545,20 +537,20 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 	} else {
 		err = localErr
 		switch apiErr := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errorModel := apiErr.Model().(type) {
 			case Nsmf_PDUSession.ReleaseSmContextError:
 				detail = &errorModel.ProblemDetails
 			case error:
-				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+				detail = openapi.ProblemDetailsSystemFailure(errorModel.Error())
 			default:
-				return nil, openapi.ReportError("openapi error")
+				err = openapi.ReportError("openapi error")
 			}
 		case error:
-			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+			detail = openapi.ProblemDetailsSystemFailure(apiErr.Error())
 		default:
-			return nil, openapi.ReportError("openapi error")
+			err = openapi.ReportError("openapi error")
 		}
 	}
 	return detail, err

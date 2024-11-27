@@ -220,12 +220,22 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 	_, err = client.IndividualUeContextDocumentApi.ReleaseUEContext(
 		ctx, &ueCtxReleaseReq)
 	if err != nil {
-		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			releaseErr := apiErr.Model().(Namf_Communication.ReleaseUEContextError)
-			problemDetails = &releaseErr.ProblemDetails
-			return problemDetails, nil
+		switch apiErr := err.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.ReleaseUEContextError:
+				return &errModel.ProblemDetails, nil
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
+		default:
+			return nil, openapi.ReportError("server no response")
 		}
-		return nil, err
 	}
 	return nil, nil
 }
@@ -275,12 +285,22 @@ func (s *namfService) UEContextTransferRequest(
 		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			transerr := apiErr.Model().(Namf_Communication.UEContextTransferError)
-			problemDetails = &transerr.ProblemDetails
-			return ueContextTransferRspData, problemDetails, nil
+		switch apiErr := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.UEContextTransferError:
+				problemDetails = &errModel.ProblemDetails
+			case error:
+				problemDetails = openapi.ProblemDetailsSystemFailure(errModel.Error())
+			default:
+				err = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetails = openapi.ProblemDetailsSystemFailure(apiErr.Error())
+		default:
+			err = openapi.ReportError("server no response")
 		}
-		return ueContextTransferRspData, nil, localErr
 	}
 	return ueContextTransferRspData, problemDetails, err
 }
@@ -310,12 +330,22 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 	if localErr == nil {
 		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			updateErr := apiErr.Model().(Namf_Communication.RegistrationStatusUpdateError)
-			problemDetails = &updateErr.ProblemDetails
-			return regStatusTransferComplete, problemDetails, nil
+		switch apiErr := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.RegistrationStatusUpdateError:
+				problemDetails = &errModel.ProblemDetails
+			case error:
+				problemDetails = openapi.ProblemDetailsSystemFailure(errModel.Error())
+			default:
+				err = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetails = openapi.ProblemDetailsSystemFailure(apiErr.Error())
+		default:
+			err = openapi.ReportError("server no response")
 		}
-		return regStatusTransferComplete, nil, localErr
 	}
 	return regStatusTransferComplete, problemDetails, err
 }
