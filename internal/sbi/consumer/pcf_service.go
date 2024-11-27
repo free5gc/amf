@@ -103,12 +103,23 @@ func (s *npcfService) AMPolicyControlCreate(
 		logger.ConsumerLog.Debugf("UE AM Policy Association ID: %s", ue.PolicyAssociationId)
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+		switch apiErr := localErr.(type) {
+		case openapi.GenericOpenAPIError:
 			// API error
-			createrr := apiErr.Model().(Npcf_AMPolicy.CreateIndividualAMPolicyAssociationError)
-			return &createrr.ProblemDetails, localErr
+			switch errorModel := apiErr.Model().(type) {
+			case Npcf_AMPolicy.CreateIndividualAMPolicyAssociationError:
+				return &errorModel.ProblemDetails, localErr
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+		default:
+			return nil, openapi.ReportError("openapi error")
 		}
-		return nil, localErr
+
 	}
 	return nil, nil
 }
@@ -127,13 +138,13 @@ func (s *npcfService) AMPolicyControlUpdate(
 		return nil, err
 	}
 
-	var policyUpdatereq Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationRequest
+	var policyUpdateReq Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationRequest
 
-	policyUpdatereq.SetPolAssoId(ue.PolicyAssociationId)
-	policyUpdatereq.SetPcfAmPolicyControlPolicyAssociationUpdateRequest(updateRequest)
+	policyUpdateReq.SetPolAssoId(ue.PolicyAssociationId)
+	policyUpdateReq.SetPcfAmPolicyControlPolicyAssociationUpdateRequest(updateRequest)
 
 	res, localErr := client.IndividualAMPolicyAssociationDocumentApi.
-		ReportObservedEventTriggersForIndividualAMPolicyAssociation(ctx, &policyUpdatereq)
+		ReportObservedEventTriggersForIndividualAMPolicyAssociation(ctx, &policyUpdateReq)
 	if localErr == nil {
 		if res.PcfAmPolicyControlPolicyUpdate.ServAreaRes != nil {
 			ue.AmPolicyAssociation.ServAreaRes = res.PcfAmPolicyControlPolicyUpdate.ServAreaRes
@@ -152,13 +163,24 @@ func (s *npcfService) AMPolicyControlUpdate(
 			// }
 		}
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+		switch apiErr := localErr.(type) {
+		case openapi.GenericOpenAPIError:
 			// API error
-			reporterr := apiErr.Model().(Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationError)
-			problemDetails = &reporterr.ProblemDetails
+			switch errorModel := apiErr.Model().(type) {
+			case Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationError:
+				return &errorModel.ProblemDetails, localErr
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+		default:
+			return nil, openapi.ReportError("openapi error")
 		}
 	}
-	return problemDetails, err
+	return nil, err
 }
 
 func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetails *models.ProblemDetails, err error) {
@@ -167,24 +189,35 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, ctxerr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL,
+	ctx, _, ctxErr := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NPCF_AM_POLICY_CONTROL,
 		models.NrfNfManagementNfType_PCF)
-	if ctxerr != nil {
-		return nil, ctxerr
+	if ctxErr != nil {
+		return nil, ctxErr
 	}
 
-	var deletereq Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationRequest
-	deletereq.SetPolAssoId(ue.PolicyAssociationId)
+	var deleteReq Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationRequest
+	deleteReq.SetPolAssoId(ue.PolicyAssociationId)
 
-	_, err = client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deletereq)
+	_, err = client.IndividualAMPolicyAssociationDocumentApi.DeleteIndividualAMPolicyAssociation(ctx, &deleteReq)
 	if err == nil {
 		ue.RemoveAmPolicyAssociation()
 	} else {
-		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			// API error
-			deleteerr := apiErr.Model().(Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError)
-			problemDetails = &deleteerr.ProblemDetails
+		switch apiErr := err.(type) {
+			case openapi.GenericOpenAPIError:
+				// API error
+				switch errorModel := apiErr.Model().(type) {
+				case Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError:
+					return &errorModel.ProblemDetails, err
+				case error:
+					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), err
+				default:
+					return nil, openapi.ReportError("openapi error")
+				}
+			case error:
+				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+			default:
+				return nil, openapi.ReportError("openapi error")		
 		}
 	}
-	return problemDetails, err
+	return nil, err
 }

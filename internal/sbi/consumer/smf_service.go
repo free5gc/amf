@@ -176,11 +176,26 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		smContextRef = postSmContextReponse.Location
 	} else {
 		err1 = localErr
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+		switch errType := localErr.(type) {
+		case openapi.GenericOpenAPIError:
 			// API error
-			posterr := apiErr.Model().(Nsmf_PDUSession.PostSmContextsError)
-			problemDetail = &posterr.ProblemDetails
-			errorResponse = &posterr.PostSmContextsError
+			switch errModel := errType.Model().(type) {
+				case Nsmf_PDUSession.PostSmContextsError:
+					problemDetail = &errModel.ProblemDetails
+					errorResponse = &errModel.PostSmContextsError
+				case error:
+					err1 = errModel
+				default:
+					err1 = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
+		default:
+			problemDetail = &models.ProblemDetails{
+				Title:  "Service Error",
+				Status: 500,
+				Detail: "An error occurred while processing the request",
+			}
 		}
 	}
 	return smContextRef, errorResponse, problemDetail, err1
@@ -472,11 +487,26 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		response = &updateSmContextReponse.UpdateSmContextResponse200
 	} else {
 		err1 = localErr
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+		switch errType := localErr.(type) {
+		case openapi.GenericOpenAPIError:
 			// API error
-			updateerr := apiErr.Model().(Nsmf_PDUSession.UpdateSmContextError)
-			problemDetail = &updateerr.ProblemDetails
-			errorResponse = &updateerr.UpdateSmContextResponse400
+			switch errModel := errType.Model().(type) {
+				case Nsmf_PDUSession.UpdateSmContextError:
+					problemDetail = &errModel.ProblemDetails
+					errorResponse = &errModel.UpdateSmContextResponse400
+				case error:
+					err1 = errModel
+				default:
+					err1 = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
+		default:
+			problemDetail = &models.ProblemDetails{
+				Title:  "Service Error",
+				Status: 500,
+				Detail: "An error occurred while processing the request",
+			}
 		}
 	}
 	return response, errorResponse, problemDetail, err1
@@ -514,10 +544,21 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 		ue.SmContextList.Delete(smContext.PduSessionID())
 	} else {
 		err = localErr
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+		switch apiErr := localErr.(type) {
+		case openapi.GenericOpenAPIError:
 			// API error
-			releaseerr := apiErr.Model().(Nsmf_PDUSession.ReleaseSmContextError)
-			detail = &releaseerr.ProblemDetails
+			switch errorModel := apiErr.Model().(type) {
+			case Nsmf_PDUSession.ReleaseSmContextError:
+				detail = &errorModel.ProblemDetails
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+		default:
+			return nil, openapi.ReportError("openapi error")
 		}
 	}
 	return detail, err

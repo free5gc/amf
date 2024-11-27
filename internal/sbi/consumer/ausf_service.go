@@ -72,18 +72,18 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 		return nil, nil, err
 	}
 
-	authreq := Nausf_UEAuthentication.UeAuthenticationsPostRequest{
+	authReq := Nausf_UEAuthentication.UeAuthenticationsPostRequest{
 		AuthenticationInfo: &authInfo,
 	}
 
-	res, localErr := client.DefaultApi.UeAuthenticationsPost(ctx, &authreq)
+	res, localErr := client.DefaultApi.UeAuthenticationsPost(ctx, &authReq)
 	if localErr == nil {
 		return &res.UeAuthenticationCtx, nil, nil
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			// API error
-			posterr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsPostError)
-			return nil, &posterr.ProblemDetails, localErr
+			postErr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsPostError)
+			return nil, &postErr.ProblemDetails, localErr
 		}
 		return nil, nil, err
 	}

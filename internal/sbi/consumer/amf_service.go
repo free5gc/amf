@@ -221,8 +221,8 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 		ctx, &ueCtxReleaseReq)
 	if err != nil {
 		if apiErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			releaseerr := apiErr.Model().(Namf_Communication.ReleaseUEContextError)
-			problemDetails = &releaseerr.ProblemDetails
+			releaseErr := apiErr.Model().(Namf_Communication.ReleaseUEContextError)
+			problemDetails = &releaseErr.ProblemDetails
 			return problemDetails, nil
 		}
 		return nil, err
@@ -311,8 +311,8 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			updateerr := apiErr.Model().(Namf_Communication.RegistrationStatusUpdateError)
-			problemDetails = &updateerr.ProblemDetails
+			updateErr := apiErr.Model().(Namf_Communication.RegistrationStatusUpdateError)
+			problemDetails = &updateErr.ProblemDetails
 			return regStatusTransferComplete, problemDetails, nil
 		}
 		return regStatusTransferComplete, nil, localErr
