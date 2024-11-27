@@ -24,14 +24,14 @@ func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContext
 
 	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
-		c.JSON(int(ueContextCreateError.Error.Status), ueContextCreateError)
+		c.JSON(int(ueContextCreateError.JsonData.Error.Status), ueContextCreateError)
 	} else {
 		c.JSON(http.StatusCreated, createUeContextResponse)
 	}
 }
 
 func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
-	*models.CreateUeContextResponse, *models.UeContextCreateError,
+	*models.CreateUeContextResponse201, *models.CreateUeContextResponse403,
 ) {
 	amfSelf := context.GetSelf()
 	ueContextCreateData := createUeContextRequest.JsonData
@@ -39,11 +39,14 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
-		ueContextCreateError := &models.UeContextCreateError{
+		ueCtxCreateError := models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
 				Cause:  "HANDOVER_FAILURE",
 			},
+		}
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &ueCtxCreateError,
 		}
 		return nil, ueContextCreateError
 	}
@@ -109,7 +112,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// ueContextCreateData.UeContext.MmContextList
 	// ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
 	// ue.TraceData = ueContextCreateData.UeContext.TraceData
-	createUeContextResponse := new(models.CreateUeContextResponse)
+	createUeContextResponse := new(models.CreateUeContextResponse201)
 	createUeContextResponse.JsonData = &models.UeContextCreatedData{
 		UeContext: &models.UeContext{
 			Supi: ueContextCreateData.UeContext.Supi,
@@ -196,11 +199,11 @@ func (p *Processor) ReleaseUEContextProcedure(ueContextID string,
 }
 
 func (p *Processor) HandleMobiRegUe(ue *context.AmfUe, ueContextTransferRspData *models.UeContextTransferRspData,
-	ueContextTransferResponse *models.UeContextTransferResponse,
+	ueContextTransferResponse *models.UeContextTransferResponse200,
 ) {
 	ueContextTransferRspData.UeRadioCapability = &models.N2InfoContent{
 		NgapMessageType: 0,
-		NgapIeType:      models.NgapIeType_UE_RADIO_CAPABILITY,
+		NgapIeType:      models.AmfCommunicationNgapIeType_UE_RADIO_CAPABILITY,
 		NgapData: &models.RefToBinaryData{
 			ContentId: "n2Info",
 		},
@@ -227,7 +230,7 @@ func (p *Processor) HandleUEContextTransferRequest(c *gin.Context,
 
 func (p *Processor) UEContextTransferProcedure(ueContextID string,
 	ueContextTransferRequest models.UeContextTransferRequest) (
-	*models.UeContextTransferResponse, *models.ProblemDetails,
+	*models.UeContextTransferResponse200, *models.ProblemDetails,
 ) {
 	amfSelf := context.GetSelf()
 
@@ -262,7 +265,7 @@ func (p *Processor) UEContextTransferProcedure(ueContextID string,
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	ueContextTransferResponse := &models.UeContextTransferResponse{
+	ueContextTransferResponse := &models.UeContextTransferResponse200{
 		JsonData: new(models.UeContextTransferRspData),
 	}
 	ueContextTransferRspData := ueContextTransferResponse.JsonData
@@ -473,19 +476,23 @@ func (p *Processor) buildUEContextModel(ue *context.AmfUe, reason models.Transfe
 	return ueContext
 }
 
-func (p *Processor) buildAmPolicyReqTriggers(triggers []models.RequestTrigger) (
-	amPolicyReqTriggers []models.AmPolicyReqTrigger,
+func (p *Processor) buildAmPolicyReqTriggers(triggers []models.PcfAmPolicyControlRequestTrigger) (
+	amPolicyReqTriggers []models.PolicyReqTrigger,
 ) {
 	for _, trigger := range triggers {
 		switch trigger {
-		case models.RequestTrigger_LOC_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_LOCATION_CHANGE)
-		case models.RequestTrigger_PRA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_PRA_CHANGE)
-		case models.RequestTrigger_SERV_AREA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_SARI_CHANGE)
-		case models.RequestTrigger_RFSP_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_LOC_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_LOCATION_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_PRA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_PRA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_NWDAF_DATA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_SMF_SELECT_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ACCESS_TYPE_CHANGE)
 		}
 	}
 	return
@@ -527,8 +534,9 @@ func (p *Processor) AssignEbiDataProcedure(ueContextID string, assignEbiData mod
 
 	// TODO: AssignEbiError not used, check it!
 	if _, okSmContextFind := ue.SmContextFindByPDUSessionID(assignEbiData.PduSessionId); okSmContextFind {
-		var assignedEbiData *models.AssignedEbiData
-		assignedEbiData.PduSessionId = assignEbiData.PduSessionId
+		assignedEbiData := &models.AssignedEbiData{
+			PduSessionId: assignEbiData.PduSessionId,
+		}
 		return assignedEbiData, nil, nil
 	}
 	logger.ProducerLog.Errorf("SmContext[PDU Session ID:%d] not found", assignEbiData.PduSessionId)
@@ -584,7 +592,7 @@ func (p *Processor) RegistrationStatusUpdateProcedure(ueContextID string,
 	if ueRegStatusUpdateReqData.TransferStatus == models.UeContextTransferStatus_TRANSFERRED {
 		// remove the individual ueContext resource and release any PDU session(s)
 		for _, pduSessionId := range ueRegStatusUpdateReqData.ToReleaseSessionList {
-			cause := models.Cause_REL_DUE_TO_SLICE_NOT_AVAILABLE
+			cause := models.SmfPduSessionCause_REL_DUE_TO_SLICE_NOT_AVAILABLE
 			causeAll := &context.CauseAll{
 				Cause: &cause,
 			}

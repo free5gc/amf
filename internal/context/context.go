@@ -38,7 +38,7 @@ func init() {
 	GetSelf().RelativeCapacity = 0xff
 	GetSelf().ServedGuamiList = make([]models.Guami, 0, MaxNumOfServedGuamiList)
 	GetSelf().PlmnSupportList = make([]factory.PlmnSupportItem, 0, MaxNumOfPLMNs)
-	GetSelf().NfService = make(map[models.ServiceName]models.NfService)
+	GetSelf().NfService = make(map[models.ServiceName]models.NrfNfManagementNfService)
 	GetSelf().NetworkName.Full = "free5GC"
 	tmsiGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
 	amfStatusSubscriptionIDGenerator = idgenerator.NewGenerator(1, math.MaxInt32)
@@ -64,7 +64,7 @@ type AMFContext struct {
 	RelativeCapacity             int64
 	NfId                         string
 	Name                         string
-	NfService                    map[models.ServiceName]models.NfService // nfservice that amf support
+	NfService                    map[models.ServiceName]models.NrfNfManagementNfService // nfservice that amf support
 	UriScheme                    models.UriScheme
 	BindingIPv4                  string
 	SBIPort                      int
@@ -241,7 +241,9 @@ func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.Acc
 	}
 }
 
-func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.SubscriptionData) (subscriptionID string) {
+func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.AmfCommunicationSubscriptionData) (
+	subscriptionID string,
+) {
 	id, err := amfStatusSubscriptionIDGenerator.Allocate()
 	if err != nil {
 		logger.CtxLog.Errorf("Allocate subscriptionID error: %+v", err)
@@ -254,9 +256,11 @@ func (context *AMFContext) NewAMFStatusSubscription(subscriptionData models.Subs
 }
 
 // Return Value: (subscriptionData *models.SubScriptionData, ok bool)
-func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (*models.SubscriptionData, bool) {
+func (context *AMFContext) FindAMFStatusSubscription(subscriptionID string) (
+	*models.AmfCommunicationSubscriptionData, bool,
+) {
 	if value, ok := context.AMFStatusSubscriptions.Load(subscriptionID); ok {
-		subscriptionData := value.(models.SubscriptionData)
+		subscriptionData := value.(models.AmfCommunicationSubscriptionData)
 		return &subscriptionData, ok
 	} else {
 		return nil, false
@@ -489,10 +493,10 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 	versionUri := "v" + tmpVersion[0]
 	for index, nameString := range serivceName {
 		name := models.ServiceName(nameString)
-		context.NfService[name] = models.NfService{
+		context.NfService[name] = models.NrfNfManagementNfService{
 			ServiceInstanceId: strconv.Itoa(index),
 			ServiceName:       name,
-			Versions: &[]models.NfServiceVersion{
+			Versions: []models.NfServiceVersion{
 				{
 					ApiFullVersion:  version,
 					ApiVersionInUri: versionUri,
@@ -501,10 +505,10 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			Scheme:          context.UriScheme,
 			NfServiceStatus: models.NfServiceStatus_REGISTERED,
 			ApiPrefix:       context.GetIPv4Uri(),
-			IpEndPoints: &[]models.IpEndPoint{
+			IpEndPoints: []models.IpEndPoint{
 				{
 					Ipv4Address: context.RegisterIPv4,
-					Transport:   models.TransportProtocol_TCP,
+					Transport:   models.NrfNfManagementTransportProtocol_TCP,
 					Port:        int32(context.SBIPort),
 				},
 			},
@@ -557,13 +561,13 @@ func GetSelf() *AMFContext {
 	return &amfContext
 }
 
-func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NfType) (
+func (c *AMFContext) GetTokenCtx(serviceName models.ServiceName, targetNF models.NrfNfManagementNfType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.NfType_AMF, targetNF,
+	return oauth.GetTokenCtx(models.NrfNfManagementNfType_AMF, targetNF,
 		c.NfId, c.NrfUri, string(serviceName))
 }
 

@@ -2,15 +2,15 @@ package consumer
 
 import (
 	"github.com/free5gc/amf/pkg/app"
-	"github.com/free5gc/openapi/Namf_Communication"
-	"github.com/free5gc/openapi/Nausf_UEAuthentication"
-	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
-	"github.com/free5gc/openapi/Nnrf_NFManagement"
-	"github.com/free5gc/openapi/Nnssf_NSSelection"
-	"github.com/free5gc/openapi/Npcf_AMPolicy"
-	"github.com/free5gc/openapi/Nsmf_PDUSession"
-	"github.com/free5gc/openapi/Nudm_SubscriberDataManagement"
-	"github.com/free5gc/openapi/Nudm_UEContextManagement"
+	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
+	Nausf_UEAuthentication "github.com/free5gc/openapi/ausf/UEAuthentication"
+	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
+	Nnrf_NFManagement "github.com/free5gc/openapi/nrf/NFManagement"
+	Nnssf_NSSelection "github.com/free5gc/openapi/nssf/NSSelection"
+	Npcf_AMPolicy "github.com/free5gc/openapi/pcf/AMPolicyControl"
+	Nsmf_PDUSession "github.com/free5gc/openapi/smf/PDUSession"
+	Nudm_SubscriberDataManagement "github.com/free5gc/openapi/udm/SubscriberDataManagement"
+	Nudm_UEContextManagement "github.com/free5gc/openapi/udm/UEContextManagement"
 )
 
 var consumer *Consumer
