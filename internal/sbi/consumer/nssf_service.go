@@ -84,12 +84,22 @@ func (s *nssfService) NSSelectionGetForRegistration(ue *amf_context.AmfUe, reque
 		}
 		ue.ConfiguredNssai = res.AuthorizedNetworkSliceInfo.ConfiguredNssai
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			// API error
-			nsselecterr := apiErr.Model().(Nnssf_NSSelection.NSSelectionGetError)
-			return &nsselecterr.ProblemDetails, localErr
+		switch apiErr := err.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Nnssf_NSSelection.NSSelectionGetError:
+				return &errModel.ProblemDetails, localErr
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
+		default:
+			return nil, openapi.ReportError("openapi error")
 		}
-		return nil, localErr
 	}
 
 	return nil, nil
@@ -128,11 +138,21 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 	if localErr == nil {
 		return &res.AuthorizedNetworkSliceInfo, nil, nil
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			// API error
-			nsselecterr := apiErr.Model().(Nnssf_NSSelection.NSSelectionGetError)
-			return nil, &nsselecterr.ProblemDetails, localErr
+		switch apiErr := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Nnssf_NSSelection.NSSelectionGetError:
+				return nil, &errModel.ProblemDetails, localErr
+			case error:
+				return nil, openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return nil, openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
+		default:
+			return nil, nil, openapi.ReportError("server no response")
 		}
-		return nil, nil, localErr
 	}
 }

@@ -104,18 +104,18 @@ func (s *npcfService) AMPolicyControlCreate(
 		logger.ConsumerLog.Debugf("AmPolicyAssociation: %+v", ue.AmPolicyAssociation)
 	} else {
 		switch apiErr := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errorModel := apiErr.Model().(type) {
 			case Npcf_AMPolicy.CreateIndividualAMPolicyAssociationError:
-				return &errorModel.ProblemDetails, localErr
+				return &errorModel.ProblemDetails, nil
 			case error:
-				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 			default:
 				return nil, openapi.ReportError("openapi error")
 			}
 		case error:
-			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 		default:
 			return nil, openapi.ReportError("openapi error")
 		}
@@ -163,20 +163,20 @@ func (s *npcfService) AMPolicyControlUpdate(
 		}
 	} else {
 		switch apiErr := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errorModel := apiErr.Model().(type) {
 			case Npcf_AMPolicy.ReportObservedEventTriggersForIndividualAMPolicyAssociationError:
-				return &errorModel.ProblemDetails, localErr
+				return &errorModel.ProblemDetails, nil
 			case error:
-				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 			default:
-				return nil, openapi.ReportError("openapi error")
+				err = openapi.ReportError("openapi error")
 			}
 		case error:
-			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 		default:
-			return nil, openapi.ReportError("openapi error")
+			err = openapi.ReportError("server no response")
 		}
 	}
 	return nil, err
@@ -202,20 +202,20 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		ue.RemoveAmPolicyAssociation()
 	} else {
 		switch apiErr := err.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
-			// API error
 			switch errorModel := apiErr.Model().(type) {
 			case Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError:
-				return &errorModel.ProblemDetails, err
+				return &errorModel.ProblemDetails, nil
 			case error:
-				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), err
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 			default:
-				return nil, openapi.ReportError("openapi error")
+				err = openapi.ReportError("openapi error")
 			}
 		case error:
-			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 		default:
-			return nil, openapi.ReportError("openapi error")
+			err = openapi.ReportError("server no response")
 		}
 	}
 	return nil, err

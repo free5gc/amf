@@ -118,21 +118,21 @@ func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *model
 		}
 	} else {
 		err = localErr
-		// API error
 		switch apiErr := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
 			switch errorModel := apiErr.Model().(type) {
 			case Nudm_SubscriberDataManagement.GetAmDataError:
 				problemDetails = &errorModel.ProblemDetails
 			case error:
-				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+				problemDetails = openapi.ProblemDetailsSystemFailure(errorModel.Error())
 			default:
-				return nil, openapi.ReportError("openapi error")
+				err = openapi.ReportError("openapi error")
 			}
 		case error:
-			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), localErr
+			problemDetails = openapi.ProblemDetailsSystemFailure(apiErr.Error())
 		default:
-			return nil, openapi.ReportError("openapi error")
+			err = openapi.ReportError("openapi error")
 		}
 	}
 	return problemDetails, err
@@ -175,7 +175,7 @@ func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails
 		case error:
 			problemDetails = openapi.ProblemDetailsSystemFailure(err.Error())
 		default:
-			return nil, openapi.ReportError("openapi error")
+			err = openapi.ReportError("openapi error")
 		}
 	}
 
@@ -358,6 +358,7 @@ func (s *nudmService) SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *mod
 	if localErr != nil {
 		err = localErr
 		switch errType := localErr.(type) {
+		// API error
 		case openapi.GenericOpenAPIError:
 			switch errModel := errType.Model().(type) {
 			case Nudm_SubscriberDataManagement.UnsubscribeError:
@@ -419,13 +420,22 @@ func (s *nudmService) UeCmRegistration(
 			ue.UeCmRegistered[accessType] = true
 			return nil, nil
 		} else {
-			if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-				// API error
-				regerr := apiErr.Model().(Nudm_UEContextManagement.Call3GppRegistrationError)
-				problemDetails := &regerr.ProblemDetails
-				return problemDetails, localErr
+			switch apiErr := localErr.(type) {
+			// API error
+			case openapi.GenericOpenAPIError:
+				switch errorModel := apiErr.Model().(type) {
+				case Nudm_UEContextManagement.Call3GppRegistrationError:
+					return &errorModel.ProblemDetails, nil
+				case error:
+					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
+				default:
+					return nil, openapi.ReportError("openapi error")
+				}
+			case error:
+				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
+			default:
+				return nil, openapi.ReportError("openapi error")
 			}
-			return nil, localErr
 		}
 	case models.AccessType_NON_3_GPP_ACCESS:
 		registrationData := models.AmfNon3GppAccessRegistration{
@@ -450,14 +460,14 @@ func (s *nudmService) UeCmRegistration(
 			case openapi.GenericOpenAPIError:
 				switch errorModel := apiErr.Model().(type) {
 				case Nudm_UEContextManagement.Non3GppRegistrationError:
-					return &errorModel.ProblemDetails, localErr
+					return &errorModel.ProblemDetails, nil
 				case error:
-					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 				default:
 					return nil, openapi.ReportError("openapi error")
 				}
 			case error:
-				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), localErr
+				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 			default:
 				return nil, openapi.ReportError("openapi error")
 			}
@@ -500,18 +510,18 @@ func (s *nudmService) UeCmDeregistration(
 			return nil, nil
 		} else {
 			switch apiErr := localErr.(type) {
+			// API error
 			case openapi.GenericOpenAPIError:
-				// API error
 				switch errorModel := apiErr.Model().(type) {
 				case Nudm_UEContextManagement.Update3GppRegistrationError:
-					return &errorModel.ProblemDetails, localErr
+					return &errorModel.ProblemDetails, nil
 				case error:
-					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 				default:
 					return nil, openapi.ReportError("openapi error")
 				}
 			case error:
-				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), localErr
+				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 			default:
 				return nil, openapi.ReportError("openapi error")
 			}
@@ -533,18 +543,18 @@ func (s *nudmService) UeCmDeregistration(
 			return nil, nil
 		} else {
 			switch apiErr := localErr.(type) {
+			// API error
 			case openapi.GenericOpenAPIError:
-				// API error
 				switch errorModel := apiErr.Model().(type) {
 				case Nudm_UEContextManagement.UpdateNon3GppRegistrationError:
-					return &errorModel.ProblemDetails, localErr
+					return &errorModel.ProblemDetails, nil
 				case error:
-					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), localErr
+					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), nil
 				default:
 					return nil, openapi.ReportError("openapi error")
 				}
 			case error:
-				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), localErr
+				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
 			default:
 				return nil, openapi.ReportError("openapi error")
 			}

@@ -80,12 +80,22 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	if localErr == nil {
 		return &res.UeAuthenticationCtx, nil, nil
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			// API error
-			postErr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsPostError)
-			return nil, &postErr.ProblemDetails, localErr
+		switch errType := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := errType.Model().(type) {
+			case Nausf_UEAuthentication.UeAuthenticationsPostError:
+				return nil, &errModel.ProblemDetails, localErr
+			case error:
+				return nil, openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return nil, openapi.ProblemDetailsSystemFailure(errType.Error()), err
+		default:
+			return nil, nil, openapi.ReportError("server no response")
 		}
-		return nil, nil, err
 	}
 }
 
@@ -135,12 +145,22 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 	if localErr == nil {
 		return &confirmResult.ConfirmationDataResponse, nil, nil
 	} else {
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			// API error
-			puterr := apiErr.Model().(Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutError)
-			return nil, &puterr.ProblemDetails, localErr
+		switch err := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := err.Model().(type) {
+			case Nausf_UEAuthentication.UeAuthenticationsAuthCtxId5gAkaConfirmationPutError:
+				return nil, &errModel.ProblemDetails, localErr
+			case error:
+				return nil, openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return nil, openapi.ProblemDetailsSystemFailure(err.Error()), nil
+		default:
+			return nil, nil, openapi.ReportError("server no response")
 		}
-		return nil, nil, localErr
 	}
 }
 
@@ -190,10 +210,21 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg n
 		response = &eapSession.EapSession
 	} else {
 		err = localErr
-		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
-			// API error
-			eaperr := apiErr.Model().(Nausf_UEAuthentication.EapAuthMethodError)
-			problemDetails = &eaperr.ProblemDetails
+		switch errType := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := errType.Model().(type) {
+			case Nausf_UEAuthentication.EapAuthMethodError:
+				problemDetails = &errModel.ProblemDetails
+			case error:
+				problemDetails = openapi.ProblemDetailsSystemFailure(errModel.Error())
+			default:
+				err = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetails = openapi.ProblemDetailsSystemFailure(errType.Error())
+		default:
+			err = openapi.ReportError("server no response")
 		}
 	}
 
