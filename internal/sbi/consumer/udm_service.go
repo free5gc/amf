@@ -118,8 +118,8 @@ func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *model
 		}
 	} else {
 		err = localErr
-		// API error 
-		switch apiErr := localErr.(type){
+		// API error
+		switch apiErr := localErr.(type) {
 		case openapi.GenericOpenAPIError:
 			switch errorModel := apiErr.Model().(type) {
 			case Nudm_SubscriberDataManagement.GetAmDataError:

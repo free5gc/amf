@@ -119,7 +119,6 @@ func (s *npcfService) AMPolicyControlCreate(
 		default:
 			return nil, openapi.ReportError("openapi error")
 		}
-
 	}
 	return nil, nil
 }
@@ -203,20 +202,20 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		ue.RemoveAmPolicyAssociation()
 	} else {
 		switch apiErr := err.(type) {
-			case openapi.GenericOpenAPIError:
-				// API error
-				switch errorModel := apiErr.Model().(type) {
-				case Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError:
-					return &errorModel.ProblemDetails, err
-				case error:
-					return openapi.ProblemDetailsSystemFailure(errorModel.Error()), err
-				default:
-					return nil, openapi.ReportError("openapi error")
-				}
+		case openapi.GenericOpenAPIError:
+			// API error
+			switch errorModel := apiErr.Model().(type) {
+			case Npcf_AMPolicy.DeleteIndividualAMPolicyAssociationError:
+				return &errorModel.ProblemDetails, err
 			case error:
-				return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+				return openapi.ProblemDetailsSystemFailure(errorModel.Error()), err
 			default:
-				return nil, openapi.ReportError("openapi error")		
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), apiErr
+		default:
+			return nil, openapi.ReportError("openapi error")
 		}
 	}
 	return nil, err
