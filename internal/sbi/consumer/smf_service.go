@@ -180,13 +180,13 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		case openapi.GenericOpenAPIError:
 			// API error
 			switch errModel := errType.Model().(type) {
-				case Nsmf_PDUSession.PostSmContextsError:
-					problemDetail = &errModel.ProblemDetails
-					errorResponse = &errModel.PostSmContextsError
-				case error:
-					err1 = errModel
-				default:
-					err1 = openapi.ReportError("openapi error")
+			case Nsmf_PDUSession.PostSmContextsError:
+				problemDetail = &errModel.ProblemDetails
+				errorResponse = &errModel.PostSmContextsError
+			case error:
+				err1 = errModel
+			default:
+				err1 = openapi.ReportError("openapi error")
 			}
 		case error:
 			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
@@ -491,13 +491,13 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		case openapi.GenericOpenAPIError:
 			// API error
 			switch errModel := errType.Model().(type) {
-				case Nsmf_PDUSession.UpdateSmContextError:
-					problemDetail = &errModel.ProblemDetails
-					errorResponse = &errModel.UpdateSmContextResponse400
-				case error:
-					err1 = errModel
-				default:
-					err1 = openapi.ReportError("openapi error")
+			case Nsmf_PDUSession.UpdateSmContextError:
+				problemDetail = &errModel.ProblemDetails
+				errorResponse = &errModel.UpdateSmContextResponse400
+			case error:
+				err1 = errModel
+			default:
+				err1 = openapi.ReportError("openapi error")
 			}
 		case error:
 			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
