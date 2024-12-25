@@ -26,76 +26,103 @@ func (s *Server) getCommunicationRoutes() []Route {
 			},
 		},
 		{
+			Name:    "AMFStatusChangeSubscribeModfy",
 			Method:  http.MethodPut,
 			Pattern: "/subscriptions/:subscriptionId",
 			APIFunc: s.HTTPAMFStatusChangeSubscribeModify,
 		},
 		{
+			Name:    "AMFStatusChangeUnSubscribe",
 			Method:  http.MethodDelete,
 			Pattern: "/subscriptions/:subscriptionId",
 			APIFunc: s.HTTPAMFStatusChangeUnSubscribe,
 		},
 		{
+			Name:    "CreateUEContext",
 			Method:  http.MethodPut,
 			Pattern: "/ue-contexts/:ueContextId",
 			APIFunc: s.HTTPCreateUEContext,
 		},
 		{
+			Name:    "EBIAssignment",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/assign-ebi",
 			APIFunc: s.HTTPEBIAssignment,
 		},
 		{
+			Name:    "RegistrationStatusUpdate",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/transfer-update",
 			APIFunc: s.HTTPRegistrationStatusUpdate,
 		},
 		{
+			Name:    "ReleaseUEContext",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/release",
 			APIFunc: s.HTTPReleaseUEContext,
 		},
 		{
+			Name:    "UEContextTransfer",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/transfer",
 			APIFunc: s.HTTPUEContextTransfer,
 		},
 		{
+			Name:    "RelocateUEContext",
+			Method:  http.MethodPost,
+			Pattern: "/ue-contexts/:ueContextId/relocate",
+			APIFunc: s.HTTPRelocateUEContext,
+		},
+		{
+			Name:    "CancelRelocateUEContext",
+			Method:  http.MethodPost,
+			Pattern: "/ue-contexts/:ueContextId/cancel-relocate",
+			APIFunc: s.HTTPCancelRelocateUEContext,
+		},
+		{
+			Name:    "N1N2MessageUnSubscribe",
 			Method:  http.MethodDelete,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/subscriptions/:subscriptionId",
 			APIFunc: s.HTTPN1N2MessageUnSubscribe,
 		},
 		{
+			Name:    "N1N2MessageTransfer",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages",
 			APIFunc: s.HTTPN1N2MessageTransfer,
 		},
 		{
+			Name:    "N1N2MessageTransferStatus",
 			Method:  http.MethodGet,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/:n1N2MessageId",
 			APIFunc: s.HTTPN1N2MessageTransferStatus,
 		},
 		{
+			Name:    "N1N2MessageSubscribe",
 			Method:  http.MethodPost,
 			Pattern: "/ue-contexts/:ueContextId/n1-n2-messages/subscriptions",
 			APIFunc: s.HTTPN1N2MessageSubscribe,
 		},
 		{
+			Name:    "NonUeN2InfoUnSubscribe",
 			Method:  http.MethodDelete,
 			Pattern: "/non-ue-n2-messages/subscriptions/:n2NotifySubscriptionId",
 			APIFunc: s.HTTPNonUeN2InfoUnSubscribe,
 		},
 		{
+			Name:    "NonUeN2MessageTransfer",
 			Method:  http.MethodPost,
 			Pattern: "/non-ue-n2-messages/transfer",
 			APIFunc: s.HTTPNonUeN2MessageTransfer,
 		},
 		{
+			Name:    "NonUeN2InfoSubscribe",
 			Method:  http.MethodPost,
 			Pattern: "/non-ue-n2-messages/subscriptions",
 			APIFunc: s.HTTPNonUeN2InfoSubscribe,
 		},
 		{
+			Name:    "AMFStatusChangeSubscribe",
 			Method:  http.MethodPost,
 			Pattern: "/subscriptions",
 			APIFunc: s.HTTPAMFStatusChangeSubscribe,
@@ -105,7 +132,7 @@ func (s *Server) getCommunicationRoutes() []Route {
 
 // AMFStatusChangeSubscribeModify - Namf_Communication AMF Status Change Subscribe Modify service Operation
 func (s *Server) HTTPAMFStatusChangeSubscribeModify(c *gin.Context) {
-	var subscriptionData models.SubscriptionData
+	var subscriptionData models.AmfCommunicationSubscriptionData
 
 	requestBody, err := c.GetRawData()
 	if err != nil {
@@ -319,6 +346,14 @@ func (s *Server) HTTPUEContextTransfer(c *gin.Context) {
 	s.Processor().HandleUEContextTransferRequest(c, ueContextTransferRequest)
 }
 
+func (s *Server) HTTPRelocateUEContext(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{})
+}
+
+func (s *Server) HTTPCancelRelocateUEContext(c *gin.Context) {
+	c.JSON(http.StatusNotImplemented, gin.H{})
+}
+
 func (s *Server) HTTPN1N2MessageUnSubscribe(c *gin.Context) {
 	s.Processor().HandleN1N2MessageUnSubscribeRequest(c)
 }
@@ -416,7 +451,7 @@ func (s *Server) HTTPNonUeN2InfoSubscribe(c *gin.Context) {
 }
 
 func (s *Server) HTTPAMFStatusChangeSubscribe(c *gin.Context) {
-	var subscriptionData models.SubscriptionData
+	var subscriptionData models.AmfCommunicationSubscriptionData
 
 	requestBody, err := c.GetRawData()
 	if err != nil {

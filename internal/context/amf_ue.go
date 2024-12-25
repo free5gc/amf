@@ -70,7 +70,7 @@ type AmfUe struct {
 	RetransmissionOfInitialNASMsg      bool
 	RequestIdentityType                uint8
 	/* Used for AMF relocation */
-	TargetAmfProfile *models.NfProfile
+	TargetAmfProfile *models.NrfNfDiscoveryNfProfile
 	TargetAmfUri     string
 	/* Ue Identity */
 	PlmnId                 models.PlmnId
@@ -97,7 +97,6 @@ type AmfUe struct {
 	NudmSDMUri                        string
 	ContextValid                      bool
 	Reachability                      models.UeReachability
-	SubscribedData                    models.SubscribedData
 	SmfSelectionData                  *models.SmfSelectionSubscriptionData
 	UeContextInSmfData                *models.UeContextInSmfData
 	TraceData                         *models.TraceData
@@ -121,7 +120,7 @@ type AmfUe struct {
 	PcfUri                       string
 	PolicyAssociationId          string
 	AmPolicyUri                  string
-	AmPolicyAssociation          *models.PolicyAssociation
+	AmPolicyAssociation          *models.PcfAmPolicyControlPolicyAssociation
 	RequestTriggerLocationChange bool // true if AmPolicyAssociation.Trigger contains RequestTrigger_LOC_CH
 	/* UeContextForHandover */
 	HandoverNotifyUri string
@@ -204,7 +203,7 @@ type AmfUeEventSubscription struct {
 	Timestamp         time.Time
 	AnyUe             bool
 	RemainReports     *int32
-	EventSubscription *models.AmfEventSubscription
+	EventSubscription *models.ExtAmfEventSubscription
 }
 
 type N1N2Message struct {
@@ -658,7 +657,7 @@ func (ue *AmfUe) RemoveAmPolicyAssociation() {
 	ue.PolicyAssociationId = ""
 }
 
-func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
+func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.UeContext) {
 	if ueContext.Supi != "" {
 		ue.Supi = ueContext.Supi
 		ue.UnauthenticatedSupi = ueContext.SupiUnauthInd
@@ -751,35 +750,45 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext models.UeContext) {
 
 	if len(ueContext.AmPolicyReqTriggerList) > 0 {
 		if ue.AmPolicyAssociation == nil {
-			ue.AmPolicyAssociation = new(models.PolicyAssociation)
+			ue.AmPolicyAssociation = new(models.PcfAmPolicyControlPolicyAssociation)
 		}
 		for _, trigger := range ueContext.AmPolicyReqTriggerList {
 			switch trigger {
-			case models.AmPolicyReqTrigger_LOCATION_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_LOC_CH)
-			case models.AmPolicyReqTrigger_PRA_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_PRA_CH)
-			case models.AmPolicyReqTrigger_SARI_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_SERV_AREA_CH)
-			case models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE:
-				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers, models.RequestTrigger_RFSP_CH)
+			case models.PolicyReqTrigger_LOCATION_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_LOC_CH)
+			case models.PolicyReqTrigger_PRA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_PRA_CH)
+			case models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH)
+			case models.PolicyReqTrigger_NWDAF_DATA_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH)
+			case models.PolicyReqTrigger_SMF_SELECT_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH)
+			case models.PolicyReqTrigger_ACCESS_TYPE_CHANGE:
+				ue.AmPolicyAssociation.Triggers = append(ue.AmPolicyAssociation.Triggers,
+					models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH)
 			}
 		}
 	}
 
 	if len(ueContext.SessionContextList) > 0 {
-		for _, pduSessionContext := range ueContext.SessionContextList {
+		for index := range ueContext.SessionContextList {
 			smContext := SmContext{
-				pduSessionID: pduSessionContext.PduSessionId,
-				smContextRef: pduSessionContext.SmContextRef,
-				snssai:       *pduSessionContext.SNssai,
-				dnn:          pduSessionContext.Dnn,
-				accessType:   pduSessionContext.AccessType,
-				hSmfID:       pduSessionContext.HsmfId,
-				vSmfID:       pduSessionContext.VsmfId,
-				nsInstance:   pduSessionContext.NsInstance,
+				pduSessionID: ueContext.SessionContextList[index].PduSessionId,
+				smContextRef: ueContext.SessionContextList[index].SmContextRef,
+				snssai:       *ueContext.SessionContextList[index].SNssai,
+				dnn:          ueContext.SessionContextList[index].Dnn,
+				accessType:   ueContext.SessionContextList[index].AccessType,
+				hSmfID:       ueContext.SessionContextList[index].HsmfId,
+				vSmfID:       ueContext.SessionContextList[index].VsmfId,
+				nsInstance:   ueContext.SessionContextList[index].NsInstance,
 			}
-			ue.StoreSmContext(pduSessionContext.PduSessionId, &smContext)
+			ue.StoreSmContext(ueContext.SessionContextList[index].PduSessionId, &smContext)
 		}
 	}
 

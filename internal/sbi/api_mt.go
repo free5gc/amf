@@ -18,14 +18,22 @@ func (s *Server) getMTRoutes() []Route {
 			},
 		},
 		{
+			Name:    "ProvideDomainSelectionInfo",
 			Method:  http.MethodGet,
 			Pattern: "/ue-contexts/:ueContextId",
 			APIFunc: s.HTTPProvideDomainSelectionInfo,
 		},
 		{
-			Method:  http.MethodPost,
+			Name:    "EnableUeReachability",
+			Method:  http.MethodPut,
 			Pattern: "/ue-contexts/:ueContextId/ue-reachind",
 			APIFunc: s.HTTPEnableUeReachability,
+		},
+		{
+			Name:    "EnableGroupReachability",
+			Method:  http.MethodPost,
+			Pattern: "/ue-contexts/enable-group-reachability",
+			APIFunc: s.HTTPEnableGroupReachability,
 		},
 	}
 }
@@ -37,5 +45,9 @@ func (s *Server) HTTPProvideDomainSelectionInfo(c *gin.Context) {
 
 func (s *Server) HTTPEnableUeReachability(c *gin.Context) {
 	logger.MtLog.Warnf("Handle Enable Ue Reachability is not implemented.")
+	c.JSON(http.StatusNotImplemented, gin.H{})
+}
+
+func (s *Server) HTTPEnableGroupReachability(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{})
 }
