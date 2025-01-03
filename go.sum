@@ -29,6 +29,8 @@ github.com/free5gc/ngap v1.0.9-0.20241107082718-d359a67ebfa2 h1:LMqqxvoDZAoG9xtf
 github.com/free5gc/ngap v1.0.9-0.20241107082718-d359a67ebfa2/go.mod h1:uw13NF8Zdqp9LXlQCn9Xp2Ju3LSyki0GTyWEUAbUDbk=
 github.com/free5gc/openapi v1.0.9-0.20241116070448-943255152229 h1:w3pvwFI5XABoj2J22Hrnn5rIbe0hJFzvsJCIsv8AX44=
 github.com/free5gc/openapi v1.0.9-0.20241116070448-943255152229/go.mod h1:aKw6uGzEibGDrn9++w4/JpWxaaUBo7GaqsvuFKU9fl4=
+github.com/free5gc/openapi v1.0.9-0.20250102055216-bb5814d1e736 h1:TIEUa/PaEdzXh47vQEMV7jOSmKd2ugP/4NjeBDPK0OM=
+github.com/free5gc/openapi v1.0.9-0.20250102055216-bb5814d1e736/go.mod h1:ATF7/Id4loKIDCX3DYwePBUxIdOBixxNKBVL1s5xYlU=
 github.com/free5gc/sctp v1.0.1 h1:g8WDO97r8B9ubkT5Hyk9b4I1fZUOii9Z39gQ2eRaASo=
 github.com/free5gc/sctp v1.0.1/go.mod h1:7QXfRWCmlkBGD0EIu3qL5o71bslfIakydz4h2QDZdjQ=
 github.com/free5gc/util v1.0.6 h1:dBt9drcXtYKE/cY5XuQcuffgsYclPIpIArhSeS6M+DQ=
@@ -157,6 +159,8 @@ golang.org/x/net v0.33.0 h1:74SYHlV8BIgHIFC/LrYkOGIwL19eTYXQ5wc6TBuO36I=
 golang.org/x/net v0.33.0/go.mod h1:HXLR5J+9DxmrqMwG9qjGCxZ+zKXxBru04zlTvWlWuN4=
 golang.org/x/oauth2 v0.19.0 h1:9+E/EZBCbTLNrbN35fHv/a/d/mOBatymz1zbtQrXpIg=
 golang.org/x/oauth2 v0.19.0/go.mod h1:vYi7skDa1x015PmRRYZ7+s1cWyPgrPiSYRe4rnsexc8=
+golang.org/x/oauth2 v0.21.0 h1:tsimM75w1tF/uws5rbeHzIWxEqElMehnc+iW793zsZs=
+golang.org/x/oauth2 v0.21.0/go.mod h1:XYTD2NtWslqkgxebSiOHnXEap4TF09sJSc7H1sXbhtI=
 golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
