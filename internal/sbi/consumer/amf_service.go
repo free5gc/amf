@@ -167,7 +167,7 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	}
 
 	creatuectxreq := Namf_Communication.CreateUEContextRequest{
-		UeContextId:            &ue.Guti,
+		UeContextId:            &ue.Supi,
 		CreateUeContextRequest: &req,
 	}
 
