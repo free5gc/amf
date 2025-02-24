@@ -177,7 +177,10 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		location := postSmContextReponse.Location
 
 		parts := strings.Split(location, "/")
-		location = parts[len(parts)-1]
+
+		if len(parts) > 0 {
+			location = parts[len(parts)-1]
+		}
 
 		smContextRef = "urn:uuid:" + location
 	} else {
