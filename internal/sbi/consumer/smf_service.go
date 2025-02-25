@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -173,7 +174,15 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	postSmContextReponse, localErr := client.SMContextsCollectionApi.
 		PostSmContexts(ctx, &postSmContextsRequest)
 	if localErr == nil {
-		smContextRef = postSmContextReponse.Location
+		location := postSmContextReponse.Location
+
+		parts := strings.Split(location, "/")
+
+		if len(parts) > 0 {
+			location = parts[len(parts)-1]
+		}
+
+		smContextRef = "urn:uuid:" + location
 	} else {
 		err1 = localErr
 		switch errType := localErr.(type) {
