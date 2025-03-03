@@ -137,6 +137,19 @@ func (a *AmfApp) Start() {
 	a.wg.Add(1)
 	go a.listenShutdownEvent()
 
+	var profile models.NrfNfManagementNfProfile
+	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
+		logger.InitLog.Error("Build AMF Profile Error")
+	} else {
+		profile = profileTmp
+	}
+	_, nfId, err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, a.Context().NrfUri, a.Context().NfId, &profile)
+	if err_reg != nil {
+		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
+	} else {
+		a.Context().NfId = nfId
+	}
+
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
 		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
 	}

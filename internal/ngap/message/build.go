@@ -7,6 +7,7 @@ import (
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/ngap"
@@ -116,7 +117,7 @@ func BuildNGSetupResponse() ([]byte, error) {
 	servedGUAMIList := ie.Value.ServedGUAMIList
 	for _, guami := range amfSelf.ServedGuamiList {
 		servedGUAMIItem := ngapType.ServedGUAMIItem{}
-		servedGUAMIItem.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*guami.PlmnId)
+		servedGUAMIItem.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(util.PlmnIdNidToModelsPlmnId(*guami.PlmnId))
 		regionId, setId, prtId := ngapConvert.AmfIdToNgap(guami.AmfId)
 		servedGUAMIItem.GUAMI.AMFRegionID.Value = regionId
 		servedGUAMIItem.GUAMI.AMFSetID.Value = setId
@@ -1004,7 +1005,7 @@ func BuildInitialContextSetupRequest(
 
 	servedGuami := amfSelf.ServedGuamiList[0]
 
-	*plmnID = ngapConvert.PlmnIdToNgap(*servedGuami.PlmnId)
+	*plmnID = ngapConvert.PlmnIdToNgap(util.PlmnIdNidToModelsPlmnId(*servedGuami.PlmnId))
 	amfRegionID.Value, amfSetID.Value, amfPtrID.Value = ngapConvert.AmfIdToNgap(servedGuami.AmfId)
 
 	initialContextSetupRequestIEs.List = append(initialContextSetupRequestIEs.List, ie)
@@ -1801,7 +1802,7 @@ func BuildHandoverRequest(ue *context.RanUe, cause ngapType.Cause,
 
 	servedGuami := amfSelf.ServedGuamiList[0]
 
-	*plmnID = ngapConvert.PlmnIdToNgap(*servedGuami.PlmnId)
+	*plmnID = ngapConvert.PlmnIdToNgap(util.PlmnIdNidToModelsPlmnId(*servedGuami.PlmnId))
 	amfRegionID.Value, amfSetID.Value, amfPtrID.Value = ngapConvert.AmfIdToNgap(servedGuami.AmfId)
 
 	handoverRequestIEs.List = append(handoverRequestIEs.List, ie)
@@ -2996,7 +2997,7 @@ func BuildAMFConfigurationUpdate(tNLassociationUsage ngapType.TNLAssociationUsag
 	servedGUAMIList := ie.Value.ServedGUAMIList
 	for _, guami := range amfSelf.ServedGuamiList {
 		servedGUAMIItem := ngapType.ServedGUAMIItem{}
-		servedGUAMIItem.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(*guami.PlmnId)
+		servedGUAMIItem.GUAMI.PLMNIdentity = ngapConvert.PlmnIdToNgap(util.PlmnIdNidToModelsPlmnId(*guami.PlmnId))
 		regionId, setId, prtId := ngapConvert.AmfIdToNgap(guami.AmfId)
 		servedGUAMIItem.GUAMI.AMFRegionID.Value = regionId
 		servedGUAMIItem.GUAMI.AMFSetID.Value = setId

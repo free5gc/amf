@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
-	"github.com/free5gc/openapi/Namf_Communication"
+	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -22,17 +22,18 @@ func SendN2InfoNotifyN2Handover(ue *amf_context.AmfUe, releaseList []int32) erro
 		NotifyReason:           models.N2InfoNotifyReason_HANDOVER_COMPLETED,
 	}
 
-	_, httpResponse, err := client.N2MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.
-		N2InfoNotify(context.Background(), ue.HandoverNotifyUri, n2InformationNotification)
+	n2InformationNotificationReq := Namf_Communication.N2InfoNotifyHandoverCompleteRequest{
+		N2InformationNotification: &n2InformationNotification,
+	}
+
+	_, err := client.IndividualUeContextDocumentApi.
+		N2InfoNotifyHandoverComplete(context.Background(), ue.HandoverNotifyUri, &n2InformationNotificationReq)
 
 	if err == nil {
 		// TODO: handle Msg
 	} else {
-		if httpResponse == nil {
-			HttpLog.Errorln(err.Error())
-		} else if err.Error() != httpResponse.Status {
-			HttpLog.Errorln(err.Error())
-		}
+		HttpLog.Errorln(err.Error())
+		return err
 	}
 	return nil
 }

@@ -79,7 +79,7 @@ func NewAmfContext(amfCtx *amf_context.AMFContext) {
 		SBIPort:      8000,
 		ServedGuamiList: []models.Guami{
 			{
-				PlmnId: &models.PlmnId{
+				PlmnId: &models.PlmnIdNid{
 					Mcc: "208",
 					Mnc: "93",
 				},

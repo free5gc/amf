@@ -8,7 +8,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Namf_Communication"
+	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -129,18 +129,22 @@ func (s *namfService) BuildUeContextModel(ue *amf_context.AmfUe) (ueContext mode
 }
 
 func (s *namfService) buildAmPolicyReqTriggers(
-	triggers []models.RequestTrigger,
-) (amPolicyReqTriggers []models.AmPolicyReqTrigger) {
+	triggers []models.PcfAmPolicyControlRequestTrigger,
+) (amPolicyReqTriggers []models.PolicyReqTrigger) {
 	for _, trigger := range triggers {
 		switch trigger {
-		case models.RequestTrigger_LOC_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_LOCATION_CHANGE)
-		case models.RequestTrigger_PRA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_PRA_CHANGE)
-		case models.RequestTrigger_SERV_AREA_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_SARI_CHANGE)
-		case models.RequestTrigger_RFSP_CH:
-			amPolicyReqTriggers = append(amPolicyReqTriggers, models.AmPolicyReqTrigger_RFSP_INDEX_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_LOC_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_LOCATION_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_PRA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_PRA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ALLOWED_NSSAI_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ALLOWED_NSSAI_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_NWDAF_DATA_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_NWDAF_DATA_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_SMF_SELECT_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_SMF_SELECT_CHANGE)
+		case models.PcfAmPolicyControlRequestTrigger_ACCESS_TYPE_CH:
+			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ACCESS_TYPE_CHANGE)
 		}
 	}
 	return
@@ -157,31 +161,26 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	req := models.CreateUeContextRequest{
 		JsonData: &ueContextCreateData,
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(ctx, ue.Supi, req)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("CreateUEContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+
+	creatuectxreq := Namf_Communication.CreateUEContextRequest{
+		UeContextId:            &ue.Supi,
+		CreateUeContextRequest: &req,
+	}
+
+	res, localErr := client.IndividualUeContextDocumentApi.CreateUEContext(ctx, &creatuectxreq)
 	if localErr == nil {
-		ueContextCreatedData = res.JsonData
+		ueContextCreatedData = res.CreateUeContextResponse201.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return ueContextCreatedData, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
+			creatErr := apiErr.Model().(*Namf_Communication.CreateUEContextError)
+			return nil, &creatErr.ProblemDetails, nil
+		}
+		return nil, nil, localErr
 	}
 	return ueContextCreatedData, problemDetails, err
 }
@@ -208,33 +207,37 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 		ueContextRelease.Supi = ue.Supi
 		ueContextRelease.UnauthenticatedSupi = true
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, err
 	}
-	httpResp, localErr := client.IndividualUeContextDocumentApi.ReleaseUEContext(
-		ctx, ueContextId, ueContextRelease)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("ReleaseUEContext response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
-	if localErr == nil {
-		return problemDetails, err
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+
+	ueCtxReleaseReq := Namf_Communication.ReleaseUEContextRequest{
+		UeContextId:      &ueContextId,
+		UeContextRelease: &ueContextRelease,
 	}
-	return problemDetails, err
+
+	_, err = client.IndividualUeContextDocumentApi.ReleaseUEContext(
+		ctx, &ueCtxReleaseReq)
+	if err != nil {
+		switch apiErr := err.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.ReleaseUEContextError:
+				return &errModel.ProblemDetails, nil
+			case error:
+				return openapi.ProblemDetailsSystemFailure(errModel.Error()), nil
+			default:
+				return nil, openapi.ReportError("openapi error")
+			}
+		case error:
+			return openapi.ProblemDetailsSystemFailure(apiErr.Error()), nil
+		default:
+			return nil, openapi.ReportError("server no response")
+		}
+	}
+	return nil, nil
 }
 
 func (s *namfService) UEContextTransferRequest(
@@ -267,31 +270,37 @@ func (s *namfService) UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return nil, nil, err
 	}
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, ueContextId, req)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("UEContextTransfer response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+
+	ueCtxTransferReq := Namf_Communication.UEContextTransferRequest{
+		UeContextId:              &ueContextId,
+		UeContextTransferRequest: &req,
+	}
+
+	res, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, &ueCtxTransferReq)
 	if localErr == nil {
-		ueContextTransferRspData = res.JsonData
+		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return ueContextTransferRspData, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
 	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+		switch apiErr := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.UEContextTransferError:
+				problemDetails = &errModel.ProblemDetails
+			case error:
+				problemDetails = openapi.ProblemDetailsSystemFailure(errModel.Error())
+			default:
+				err = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetails = openapi.ProblemDetailsSystemFailure(apiErr.Error())
+		default:
+			err = openapi.ReportError("server no response")
+		}
 	}
 	return ueContextTransferRspData, problemDetails, err
 }
@@ -306,32 +315,37 @@ func (s *namfService) RegistrationStatusUpdate(ue *amf_context.AmfUe, request mo
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NfType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
 		return regStatusTransferComplete, nil, err
 	}
 
-	res, httpResp, localErr := client.IndividualUeContextDocumentApi.
-		RegistrationStatusUpdate(ctx, ueContextId, request)
-	defer func() {
-		if httpResp != nil {
-			if rspCloseErr := httpResp.Body.Close(); rspCloseErr != nil {
-				logger.ConsumerLog.Errorf("RegistrationStatusUpdate response body cannot close: %+v",
-					rspCloseErr)
-			}
-		}
-	}()
+	regStatusUpdateReq := Namf_Communication.RegistrationStatusUpdateRequest{
+		UeContextId:              &ueContextId,
+		UeRegStatusUpdateReqData: &request,
+	}
+
+	res, localErr := client.IndividualUeContextDocumentApi.
+		RegistrationStatusUpdate(ctx, &regStatusUpdateReq)
 	if localErr == nil {
-		regStatusTransferComplete = res.RegStatusTransferComplete
-	} else if httpResp != nil {
-		if httpResp.Status != localErr.Error() {
-			err = localErr
-			return regStatusTransferComplete, problemDetails, err
-		}
-		problem := localErr.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
+		regStatusTransferComplete = res.UeRegStatusUpdateRspData.RegStatusTransferComplete
 	} else {
-		err = openapi.ReportError("%s: server no response", ue.TargetAmfUri)
+		switch apiErr := localErr.(type) {
+		// API error
+		case openapi.GenericOpenAPIError:
+			switch errModel := apiErr.Model().(type) {
+			case Namf_Communication.RegistrationStatusUpdateError:
+				problemDetails = &errModel.ProblemDetails
+			case error:
+				problemDetails = openapi.ProblemDetailsSystemFailure(errModel.Error())
+			default:
+				err = openapi.ReportError("openapi error")
+			}
+		case error:
+			problemDetails = openapi.ProblemDetailsSystemFailure(apiErr.Error())
+		default:
+			err = openapi.ReportError("server no response")
+		}
 	}
 	return regStatusTransferComplete, problemDetails, err
 }

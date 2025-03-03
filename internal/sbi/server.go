@@ -113,6 +113,22 @@ func newRouter(s *Server) *gin.Engine {
 				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
 			})
 			applyRoutes(amfOAMGroup, amfOAMRoutes)
+		case models.ServiceName_NAMF_MBS_COMM:
+			amfMbsComGroup := router.Group(factory.AmfMbsComResUriPrefix)
+			amfMbsComRoutes := s.getMbsCommunicationRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MBS_COMM)
+			amfMbsComGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfMbsComGroup, amfMbsComRoutes)
+		case models.ServiceName_NAMF_MBS_BC:
+			amfMbsBCGroup := router.Group(factory.AmfMbsBCResUriPrefix)
+			amfMbsBCRoutes := s.getMbsBroadcastRoutes()
+			routerAuthorizationCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName_NAMF_MBS_BC)
+			amfMbsBCGroup.Use(func(c *gin.Context) {
+				routerAuthorizationCheck.Check(c, amf_context.GetSelf())
+			})
+			applyRoutes(amfMbsBCGroup, amfMbsBCRoutes)
 		}
 	}
 
@@ -120,19 +136,6 @@ func newRouter(s *Server) *gin.Engine {
 }
 
 func (s *Server) Run(traceCtx context.Context, wg *sync.WaitGroup) error {
-	var profile models.NfProfile
-	if profileTmp, err1 := s.Consumer().BuildNFInstance(s.Context()); err1 != nil {
-		logger.InitLog.Error("Build AMF Profile Error")
-	} else {
-		profile = profileTmp
-	}
-	_, nfId, err_reg := s.Consumer().SendRegisterNFInstance(s.Context().NrfUri, s.Context().NfId, profile)
-	if err_reg != nil {
-		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
-	} else {
-		s.Context().NfId = nfId
-	}
-
 	wg.Add(1)
 	go s.startServer(wg)
 

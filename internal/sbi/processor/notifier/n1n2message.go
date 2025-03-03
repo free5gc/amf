@@ -8,7 +8,7 @@ import (
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
-	"github.com/free5gc/openapi/Namf_Communication"
+	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -28,20 +28,18 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.N1N
 		configuration := Namf_Communication.NewConfiguration()
 		client := Namf_Communication.NewAPIClient(configuration)
 
-		n1N2MsgTxfrFailureNotification := models.N1N2MsgTxfrFailureNotification{
-			Cause:          cause,
-			N1n2MsgDataUri: n1n2Message.ResourceUri,
+		n1N2MsgTxfrFailureNotificationReq := Namf_Communication.N1N2TransferFailureNotificationRequest{
+			N1N2MsgTxfrFailureNotification: &models.N1N2MsgTxfrFailureNotification{
+				Cause:          cause,
+				N1n2MsgDataUri: n1n2Message.ResourceUri,
+			},
 		}
 
-		httpResponse, err := client.N1N2MessageTransferStatusNotificationCallbackDocumentApi.
-			N1N2TransferFailureNotification(context.Background(), uri, n1N2MsgTxfrFailureNotification)
+		_, err := client.N1N2MessageCollectionCollectionApi.
+			N1N2TransferFailureNotification(context.Background(), uri, &n1N2MsgTxfrFailureNotificationReq)
 
 		if err != nil {
-			if httpResponse == nil {
-				HttpLog.Errorln(err.Error())
-			} else if err.Error() != httpResponse.Status {
-				HttpLog.Errorln(err.Error())
-			}
+			HttpLog.Errorln(err.Error())
 		} else {
 			ue.N1N2Message = nil
 		}
@@ -58,7 +56,7 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 		if subscription.N1NotifyCallbackUri != "" && subscription.N1MessageClass == n1class {
 			configuration := Namf_Communication.NewConfiguration()
 			client := Namf_Communication.NewAPIClient(configuration)
-			n1MessageNotify := models.N1MessageNotify{
+			n1MessageNotify := models.N1MessageNotifyRequest{
 				JsonData: &models.N1MessageNotification{
 					N1NotifySubscriptionId: strconv.Itoa(int(subscriptionID)),
 					N1MessageContainer: &models.N1MessageContainer{
@@ -71,14 +69,14 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.N1MessageClass, n
 				},
 				BinaryDataN1Message: n1Msg,
 			}
-			httpResponse, err := client.N1MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.
-				N1MessageNotify(context.Background(), subscription.N1NotifyCallbackUri, n1MessageNotify)
+
+			n1MessageNotifyReq := Namf_Communication.N1MessageNotifyRequest{
+				N1MessageNotifyRequest: &n1MessageNotify,
+			}
+			_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+				N1MessageNotify(context.Background(), subscription.N1NotifyCallbackUri, &n1MessageNotifyReq)
 			if err != nil {
-				if httpResponse == nil {
-					HttpLog.Errorln(err.Error())
-				} else if err.Error() != httpResponse.Status {
-					HttpLog.Errorln(err.Error())
-				}
+				HttpLog.Errorln(err.Error())
 			}
 		}
 		return true
@@ -93,7 +91,7 @@ func SendN1MessageNotifyAtAMFReAllocation(
 	configuration := Namf_Communication.NewConfiguration()
 	client := Namf_Communication.NewAPIClient(configuration)
 
-	n1MessageNotify := models.N1MessageNotify{
+	n1MessageNotify := models.N1MessageNotifyRequest{
 		JsonData: &models.N1MessageNotification{
 			N1MessageContainer: &models.N1MessageContainer{
 				N1MessageClass: models.N1MessageClass__5_GMM,
@@ -106,23 +104,23 @@ func SendN1MessageNotifyAtAMFReAllocation(
 		BinaryDataN1Message: n1Msg,
 	}
 
+	n1MessageNotifyReq := Namf_Communication.N1MessageNotifyRequest{
+		N1MessageNotifyRequest: &n1MessageNotify,
+	}
+
 	var callbackUri string
 	for _, subscription := range ue.TargetAmfProfile.DefaultNotificationSubscriptions {
-		if subscription.NotificationType == models.NotificationType_N1_MESSAGES &&
+		if subscription.NotificationType == models.NrfNfManagementNotificationType_N1_MESSAGES &&
 			subscription.N1MessageClass == models.N1MessageClass__5_GMM {
 			callbackUri = subscription.CallbackUri
 			break
 		}
 	}
 
-	httpResp, err := client.N1MessageNotifyCallbackDocumentApiServiceCallbackDocumentApi.
-		N1MessageNotify(context.Background(), callbackUri, n1MessageNotify)
+	_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+		N1MessageNotify(context.Background(), callbackUri, &n1MessageNotifyReq)
 	if err != nil {
-		if httpResp == nil {
-			HttpLog.Errorln(err.Error())
-		} else if err.Error() != httpResp.Status {
-			HttpLog.Errorln(err.Error())
-		}
+		HttpLog.Errorln(err.Error())
 		return err
 	}
 	return nil
@@ -185,14 +183,14 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.N2InformationClass, 
 				}
 			}
 
-			httpResponse, err := client.N2InfoNotifyCallbackDocumentApiServiceCallbackDocumentApi.
-				N2InfoNotify(context.Background(), subscription.N2NotifyCallbackUri, n2InformationNotify)
+			n2InformationNotifyReq := Namf_Communication.N2InfoNotifyRequest{
+				N2InfoNotifyRequest: &n2InformationNotify,
+			}
+
+			_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+				N2InfoNotify(context.Background(), subscription.N2NotifyCallbackUri, &n2InformationNotifyReq)
 			if err != nil {
-				if httpResponse == nil {
-					HttpLog.Errorln(err.Error())
-				} else if err.Error() != httpResponse.Status {
-					HttpLog.Errorln(err.Error())
-				}
+				HttpLog.Errorln(err.Error())
 			}
 		}
 		return true
