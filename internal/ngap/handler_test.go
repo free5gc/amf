@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/google/uuid"
@@ -71,12 +72,12 @@ func NewAmfContext(amfCtx *amf_context.AMFContext) {
 	*amfCtx = amf_context.AMFContext{
 		NfId: uuid.New().String(),
 
-		NgapIpList:   []string{"127.0.0.1"},
-		NgapPort:     38412,
-		UriScheme:    "http",
-		RegisterIPv4: "127.0.0.18",
-		BindingIPv4:  "127.0.0.18",
-		SBIPort:      8000,
+		NgapIpList: []string{"127.0.0.1"},
+		NgapPort:   38412,
+		UriScheme:  "http",
+		RegisterIP: netip.MustParseAddr("127.0.0.18"),
+		BindingIP:  netip.MustParseAddr("127.0.0.18"),
+		SBIPort:    8000,
 		ServedGuamiList: []models.Guami{
 			{
 				PlmnId: &models.PlmnIdNid{
