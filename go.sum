@@ -25,6 +25,8 @@ github.com/free5gc/aper v1.0.6-0.20240503143507-2c4c4780b98f h1:sO8FFwAq7feSw/vK
 github.com/free5gc/aper v1.0.6-0.20240503143507-2c4c4780b98f/go.mod h1:oh3dtNsje2W4/q3pfidMWQKXbXIehXK3t6CD9tXmHx0=
 github.com/free5gc/nas v1.1.4-0.20241107083120-4605e0d39ece h1:IC+OGynaXwurS2RIfno+2aKjlaFRQ6koZrC2QQu5yJ0=
 github.com/free5gc/nas v1.1.4-0.20241107083120-4605e0d39ece/go.mod h1:/k8oW94r7D+lKAIFSIxZz0Qg/0tod/+oCJbsVZ2E7SU=
+github.com/free5gc/nas v1.1.4-0.20241108015659-5bf3ac6cb3e9 h1:46gF4Zv+j6kT2DivaZ3eK/prEXDD/GHGjUQD7VPh/hA=
+github.com/free5gc/nas v1.1.4-0.20241108015659-5bf3ac6cb3e9/go.mod h1:uhfoCLa/HKa975hKfob3wmdUiFMU2omTIWiRtYgn6XQ=
 github.com/free5gc/ngap v1.0.9-0.20241107082718-d359a67ebfa2 h1:LMqqxvoDZAoG9xtfd5hhOiIDnPawSVcYof1nb6IkoWE=
 github.com/free5gc/ngap v1.0.9-0.20241107082718-d359a67ebfa2/go.mod h1:uw13NF8Zdqp9LXlQCn9Xp2Ju3LSyki0GTyWEUAbUDbk=
 github.com/free5gc/openapi v1.0.9-0.20241116070448-943255152229 h1:w3pvwFI5XABoj2J22Hrnn5rIbe0hJFzvsJCIsv8AX44=
