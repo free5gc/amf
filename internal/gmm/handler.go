@@ -1213,45 +1213,36 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				// Send Namf_Communication_N1MessageNotify to Target AMF
 				ueContext := consumer.GetConsumer().BuildUeContextModel(ue)
 
-				var registerContext models.RegistrationContextContainer
 				AnN2IPAddr := ue.RanUe[anType].Ran.Conn.RemoteAddr().String()
 				ran_host, _, ran_err := net.SplitHostPort(AnN2IPAddr)
 				if ran_err != nil {
 					logger.GmmLog.Errorf("Can't split AnN2IPAddr %+v", ran_err)
+					return fmt.Errorf("Send Namf_Communication_N1MessageNotify to Target AMF failed")
 				}
-				ran_addr := netip.MustParseAddr(ran_host)
+				ran_addr, ran_addr_err := netip.ParseAddr(ran_host)
+				if ran_addr_err != nil {
+					logger.GmmLog.Errorf("Can't parse AnN2IPAddr Host %+v", ran_addr_err)
+					return fmt.Errorf("Send Namf_Communication_N1MessageNotify to Target AMF failed")
+				}
+
+				var registerContext models.RegistrationContextContainer = models.RegistrationContextContainer{
+					UeContext:        &ueContext,
+					AnType:           anType,
+					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
+					RanNodeId:        ue.RanUe[anType].Ran.RanId,
+					InitialAmfName:   amfSelf.Name,
+					UserLocation:     &ue.Location,
+					RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
+					UeContextRequest: ue.RanUe[anType].UeContextRequest,
+					AllowedNssai: &models.AllowedNssai{
+						AllowedSnssaiList: ue.AllowedNssai[anType],
+						AccessType:        anType,
+					},
+				}
 				if ran_addr.Is6() {
-					registerContext = models.RegistrationContextContainer{
-						UeContext:        &ueContext,
-						AnType:           anType,
-						AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
-						RanNodeId:        ue.RanUe[anType].Ran.RanId,
-						InitialAmfName:   amfSelf.Name,
-						UserLocation:     &ue.Location,
-						RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
-						UeContextRequest: ue.RanUe[anType].UeContextRequest,
-						AnN2IPv6Addr:     AnN2IPAddr,
-						AllowedNssai: &models.AllowedNssai{
-							AllowedSnssaiList: ue.AllowedNssai[anType],
-							AccessType:        anType,
-						},
-					}
+					registerContext.AnN2IPv6Addr = AnN2IPAddr
 				} else if ran_addr.Is4() {
-					registerContext = models.RegistrationContextContainer{
-						UeContext:        &ueContext,
-						AnType:           anType,
-						AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
-						RanNodeId:        ue.RanUe[anType].Ran.RanId,
-						InitialAmfName:   amfSelf.Name,
-						UserLocation:     &ue.Location,
-						RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
-						UeContextRequest: ue.RanUe[anType].UeContextRequest,
-						AnN2IPv4Addr:     AnN2IPAddr,
-						AllowedNssai: &models.AllowedNssai{
-							AllowedSnssaiList: ue.AllowedNssai[anType],
-							AccessType:        anType,
-						},
-					}
+					registerContext.AnN2IPv4Addr = AnN2IPAddr
 				}
 				if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) > 0 {
 					registerContext.RejectedNssaiInPlmn = ue.NetworkSliceInfo.RejectedNssaiInPlmn
