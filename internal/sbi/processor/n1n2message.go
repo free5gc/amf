@@ -292,7 +292,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	} else {
 		n1n2MessageID = n1n2MessageIDTmp
 	}
-	locationHeader = context.GetSelf().GetIPv4Uri() + reqUri + "/" + strconv.Itoa(int(n1n2MessageID))
+	locationHeader = context.GetSelf().GetIPUri() + reqUri + "/" + strconv.Itoa(int(n1n2MessageID))
 
 	// Case A (UE is CM-IDLE in 3GPP access and the associated access type is 3GPP access)
 	// in subclause 5.2.2.3.1.2 of TS29518
@@ -411,7 +411,7 @@ func (p *Processor) N1N2MessageTransferStatusProcedure(ueContextID string,
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	resourceUri := amfSelf.GetIPv4Uri() + reqUri
+	resourceUri := amfSelf.GetIPUri() + reqUri
 	n1n2Message := ue.N1N2Message
 	if n1n2Message == nil || n1n2Message.ResourceUri != resourceUri {
 		problemDetails := &models.ProblemDetails{
