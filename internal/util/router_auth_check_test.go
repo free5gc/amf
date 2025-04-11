@@ -102,7 +102,9 @@ type mockProcessor struct {
 	called bool
 }
 
-func (m *mockProcessor) HandleSmContextStatusNotify(c *gin.Context, notif models.SmfPduSessionSmContextStatusNotification) {
+func (m *mockProcessor) HandleSmContextStatusNotify(c *gin.Context,
+	notif models.SmfPduSessionSmContextStatusNotification,
+) {
 	m.called = true
 	c.JSON(http.StatusNoContent, nil)
 }
@@ -149,14 +151,16 @@ func TestHTTPSmContextStatusNotify(t *testing.T) {
 		}
 	}`
 
-	req, err := http.NewRequest("POST", "/sm-context-status-notify", strings.NewReader(jsonBody))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	c, _ := gin.CreateTestContext(w)
+	var err error
+	c.Request, err = http.NewRequest("POST", "/sm-context-status-notify", strings.NewReader(jsonBody))
+	if err != nil {
+		t.Errorf("error on http request: %+v", err)
+	}
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(w, c.Request)
 
 	if w.Code != http.StatusNoContent {
 		t.Errorf("StatusCode should be %d, but got %d", http.StatusNoContent, w.Code)
