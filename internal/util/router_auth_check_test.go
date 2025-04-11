@@ -3,12 +3,14 @@ package util_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
 	"github.com/free5gc/amf/internal/util"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -92,5 +94,74 @@ func TestRouterAuthorizationCheck_Check(t *testing.T) {
 				t.Errorf("StatusCode should be %d, but got %d", tt.want.statusCode, w.Code)
 			}
 		})
+	}
+}
+
+// Test for smContextStatusNotify
+type mockProcessor struct {
+	called bool
+}
+
+func (m *mockProcessor) HandleSmContextStatusNotify(c *gin.Context, notif models.SmfPduSessionSmContextStatusNotification) {
+	m.called = true
+	c.JSON(http.StatusNoContent, nil)
+}
+
+type mockServer struct {
+	processor *mockProcessor
+}
+
+func (s *mockServer) Processor() *mockProcessor {
+	return s.processor
+}
+
+func (s *mockServer) HTTPSmContextStatusNotify(c *gin.Context) {
+	var smContextStatusNotification models.SmfPduSessionSmContextStatusNotification
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = openapi.Deserialize(&smContextStatusNotification, requestBody, "application/json")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	s.Processor().HandleSmContextStatusNotify(c, smContextStatusNotification)
+}
+
+func TestHTTPSmContextStatusNotify(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	processor := &mockProcessor{}
+	server := &mockServer{processor: processor}
+
+	router.POST("/sm-context-status-notify", server.HTTPSmContextStatusNotify)
+
+	jsonBody := `{
+		"pduSessionId": "1",
+		"statusInfo": {
+			"cause": "RELEASED_DUE_TO_5GSM_CAUSE"
+		}
+	}`
+
+	req, err := http.NewRequest("POST", "/sm-context-status-notify", strings.NewReader(jsonBody))
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Errorf("StatusCode should be %d, but got %d", http.StatusNoContent, w.Code)
+	}
+	if !processor.called {
+		t.Errorf("Expected HandleSmContextStatusNotify to be called")
 	}
 }
