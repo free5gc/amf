@@ -394,7 +394,7 @@ func (s *nudmService) UeCmRegistration(
 	switch accessType {
 	case models.AccessType__3_GPP_ACCESS:
 		deregCallbackUri := fmt.Sprintf("%s%s/deregistration/%s",
-			amfSelf.GetIPv4Uri(),
+			amfSelf.GetIPUri(),
 			factory.AmfCallbackResUriPrefix,
 			ue.Supi,
 		)
