@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -180,11 +179,11 @@ func initAMFConfig() {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-func buildHandoverRequiredNGAPBinaryData() []byte {
+func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 	targetGNBID := []byte{0x00, 0x01, 0x02}
 	targetCellID := []byte{0x01, 0x20}
-	handoverRequiredTransfer := getHandoverRequiredTransfer()
-	sourceToTargetTransparentContainer := getSourceToTargetTransparentTransfer(targetGNBID, targetCellID)
+	handoverRequiredTransfer := getHandoverRequiredTransfer(t)
+	sourceToTargetTransparentContainer := getSourceToTargetTransparentTransfer(targetGNBID, targetCellID, t)
 
 	pdu := ngapType.NGAPPDU{
 		Present: ngapType.NGAPPDUPresentInitiatingMessage,
@@ -341,7 +340,7 @@ func buildHandoverRequiredNGAPBinaryData() []byte {
 	}
 	binaryData, err := ngap.Encoder(pdu)
 	if err != nil {
-		logrus.Errorf("NGAP Binary data encoding failure. (%+v)\n", err)
+		t.Fatalf("NGAP Binary data encoding failure. (%+v)\n", err)
 		panic(err)
 	}
 
@@ -406,7 +405,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			NgapCause:         nil,
 			SupportedFeatures: "",
 		},
-		BinaryDataN2Information: buildHandoverRequiredNGAPBinaryData(),
+		BinaryDataN2Information: buildHandoverRequiredNGAPBinaryData(t),
 	}
 	testCases := []struct {
 		testDescription   string
@@ -503,12 +502,11 @@ func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
 	return data
 }
 
-func getHandoverRequiredTransfer() []byte {
+func getHandoverRequiredTransfer(t *testing.T) []byte {
 	data := buildHandoverRequiredTransfer()
 	encodeData, err := aper.MarshalWithParams(data, "valueExt")
 	if err != nil {
-		// fatal.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
-		logrus.Errorf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
+		t.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
 	}
 	return encodeData
 }
@@ -560,11 +558,11 @@ func buildSourceToTargetTransparentTransfer(
 	return data
 }
 
-func getSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byte) []byte {
+func getSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byte, t *testing.T) []byte {
 	data := buildSourceToTargetTransparentTransfer(targetGNBID, targetCellID)
 	encodeData, err := aper.MarshalWithParams(data, "valueExt")
 	if err != nil {
-		logrus.Errorf("aper MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
+		t.Fatalf("aper MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
 	}
 	return encodeData
 }
