@@ -5,10 +5,10 @@ go 1.21
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/davecgh/go-spew v1.1.1
-	github.com/free5gc/aper v1.0.6-0.20240503143507-2c4c4780b98f
-	github.com/free5gc/nas v1.1.4-0.20241107083120-4605e0d39ece
-	github.com/free5gc/ngap v1.0.9-0.20241107082718-d359a67ebfa2
-	github.com/free5gc/openapi v1.0.9-0.20250102055216-bb5814d1e736
+	github.com/free5gc/aper v1.0.6-0.20250102035630-3ddc831eed6a
+	github.com/free5gc/nas v1.1.5
+	github.com/free5gc/ngap v1.0.10
+	github.com/free5gc/openapi v1.1.0
 	github.com/free5gc/sctp v1.0.1
 	github.com/free5gc/util v1.0.6
 	github.com/gin-gonic/gin v1.9.1
@@ -40,7 +40,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.19.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/h2non/gock v1.2.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect

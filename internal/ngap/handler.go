@@ -1772,7 +1772,7 @@ func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 	if sONConfigurationTransferUL != nil {
 		targetRanNodeID := ngapConvert.RanIdToModels(sONConfigurationTransferUL.TargetRANNodeID.GlobalRANNodeID)
 
-		if targetRanNodeID.GNbId.GNBValue != "" {
+		if targetRanNodeID.GNbId != nil && targetRanNodeID.GNbId.GNBValue != "" {
 			ran.Log.Tracef("targerRanID [%s]", targetRanNodeID.GNbId.GNBValue)
 		}
 

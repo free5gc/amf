@@ -357,7 +357,7 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 	const SecurityHeaderTypeMask uint8 = 0x0f
 
-	if payload == nil {
+	if len(payload) == 0 {
 		return nil, fmt.Errorf("nas payload is empty")
 	}
 

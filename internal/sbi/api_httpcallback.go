@@ -33,6 +33,12 @@ func (s *Server) getHttpCallBackRoutes() []Route {
 			APIFunc: s.HTTPAmPolicyControlUpdateNotifyTerminate,
 		},
 		{
+			Name:    "SmContextStatusNotify",
+			Method:  http.MethodPost,
+			Pattern: "/smContextStatus/:supi/:pduSessionId",
+			APIFunc: s.HTTPSmContextStatusNotify,
+		},
+		{
 			Name:    "N1MessageNotify",
 			Method:  http.MethodPost,
 			Pattern: "/n1-message-notify",
@@ -126,6 +132,38 @@ func (s *Server) HTTPN1MessageNotify(c *gin.Context) {
 		return
 	}
 	s.Processor().HandleN1MessageNotify(c, n1MessageNotify)
+}
+
+func (s *Server) HTTPSmContextStatusNotify(c *gin.Context) {
+	var smContextStatusNotification models.SmfPduSessionSmContextStatusNotification
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		logger.CallbackLog.Errorf("Get Request Body error: %+v", err)
+		problemDetail := models.ProblemDetails{
+			Title:  "System failure",
+			Status: http.StatusInternalServerError,
+			Detail: err.Error(),
+			Cause:  "SYSTEM_FAILURE",
+		}
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Deserialize(&smContextStatusNotification, requestBody, "application/json")
+	if err != nil {
+		problemDetail := "[Request Body] " + err.Error()
+		rsp := models.ProblemDetails{
+			Title:  "Malformed request syntax",
+			Status: http.StatusBadRequest,
+			Detail: problemDetail,
+		}
+		logger.CallbackLog.Errorln(problemDetail)
+		c.JSON(http.StatusBadRequest, rsp)
+		return
+	}
+
+	s.Processor().HandleSmContextStatusNotify(c, smContextStatusNotification)
 }
 
 func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {
