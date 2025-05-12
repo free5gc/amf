@@ -7,8 +7,6 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/ngap"
@@ -21,6 +19,7 @@ import (
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"
+	"github.com/sirupsen/logrus"
 )
 
 type AmfAppInterface interface {

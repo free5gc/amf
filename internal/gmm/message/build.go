@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
@@ -17,6 +15,7 @@ import (
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/openapi/models"
+	"github.com/mitchellh/mapstructure"
 )
 
 func BuildDLNASTransport(ue *context.AmfUe, accessType models.AccessType, payloadContainerType uint8, nasPdu []byte,

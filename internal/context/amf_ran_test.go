@@ -3,9 +3,8 @@ package context
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRemoveAndRemoveAllRanUeRaceCondition(t *testing.T) {

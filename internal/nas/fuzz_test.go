@@ -6,9 +6,6 @@ package nas_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
-
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
@@ -19,6 +16,8 @@ import (
 	"github.com/free5gc/nas/nasType"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func FuzzHandleNAS(f *testing.F) {

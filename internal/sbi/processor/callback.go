@@ -6,8 +6,6 @@ import (
 	"runtime/debug"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
@@ -16,6 +14,7 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
+	"github.com/gin-gonic/gin"
 )
 
 func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,

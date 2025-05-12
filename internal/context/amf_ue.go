@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasMessage"
@@ -22,6 +20,7 @@ import (
 	"github.com/free5gc/util/fsm"
 	"github.com/free5gc/util/idgenerator"
 	"github.com/free5gc/util/ueauth"
+	"github.com/sirupsen/logrus"
 )
 
 type OnGoingProcedure string

@@ -3,9 +3,8 @@ package sbi
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) getMTRoutes() []Route {

@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
+	"github.com/gin-gonic/gin"
 )
 
 // TS 29.518 5.2.2.2.3

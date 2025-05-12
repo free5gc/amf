@@ -8,13 +8,12 @@ import (
 	"runtime/debug"
 	"syscall"
 
-	"github.com/urfave/cli"
-
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/pkg/service"
 	logger_util "github.com/free5gc/util/logger"
 	"github.com/free5gc/util/version"
+	"github.com/urfave/cli"
 )
 
 var AMF *service.AmfApp

@@ -4,12 +4,11 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
-
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
+	"github.com/sirupsen/logrus"
 )
 
 var HttpLog *logrus.Entry

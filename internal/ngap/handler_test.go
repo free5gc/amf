@@ -7,10 +7,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/google/uuid"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/stretchr/testify/require"
-
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	nastesting "github.com/free5gc/amf/internal/nas/testing"
@@ -22,6 +18,9 @@ import (
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
+	"github.com/google/uuid"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/require"
 )
 
 func NewAmfRan(conn net.Conn) *amf_context.AmfRan {

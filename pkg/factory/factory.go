@@ -9,9 +9,8 @@ import (
 	"os"
 
 	"github.com/asaskevich/govalidator"
-	"gopkg.in/yaml.v2"
-
 	"github.com/free5gc/amf/internal/logger"
+	"gopkg.in/yaml.v2"
 )
 
 var AmfConfig *Config

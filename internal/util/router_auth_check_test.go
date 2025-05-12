@@ -6,12 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-
 	"github.com/free5gc/amf/internal/util"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 const (
