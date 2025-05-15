@@ -477,9 +477,24 @@ func (context *AMFContext) AmfUeFindByPolicyAssociationID(polAssoId string) (*Am
 	return ue, ok
 }
 
-func (context *AMFContext) RanUeFindByAmfUeNgapID(amfUeNgapID int64) *RanUe {
+func (context *AMFContext) RanUeFindSourceByAmfUeNgapID(amfUeNgapID int64) *RanUe {
 	if value, ok := context.RanUePool.Load(amfUeNgapID); ok {
-		return value.(*RanUe)
+		r := value.(*RanUe)
+		if r.SourceUe != nil {
+			return r.SourceUe
+		}
+		return r
+	}
+	return nil
+}
+
+func (context *AMFContext) RanUeFindTargetByAmfUeNgapID(amfUeNgapID int64) *RanUe {
+	if value, ok := context.RanUePool.Load(amfUeNgapID); ok {
+		r := value.(*RanUe)
+		if r.TargetUe != nil {
+			return r.TargetUe
+		}
+		return r
 	}
 	return nil
 }
