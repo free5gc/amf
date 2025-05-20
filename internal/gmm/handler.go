@@ -1224,7 +1224,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 					logger.GmmLog.Errorf("Can't parse AnN2IPAddr Host %+v", ran_addr_err)
 					return fmt.Errorf("Send Namf_Communication_N1MessageNotify to Target AMF failed")
 				}
-                 var registerContext models.RegistrationContextContainer = models.RegistrationContextContainer{
+				var registerContext models.RegistrationContextContainer = models.RegistrationContextContainer{
 					UeContext:        &ueContext,
 					AnType:           anType,
 					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
@@ -1239,10 +1239,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 					},
 				}
 				if ran_addr.Is6() {
-	                registerContext.AnN2IPv6Addr = AnN2IPAddr
-                } else if ran_addr.Is4() {
-                    registerContext.AnN2IPv4Addr = AnN2IPAddr
-                }
+					registerContext.AnN2IPv6Addr = AnN2IPAddr
+				} else if ran_addr.Is4() {
+					registerContext.AnN2IPv4Addr = AnN2IPAddr
+				}
 				if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) > 0 {
 					registerContext.RejectedNssaiInPlmn = ue.NetworkSliceInfo.RejectedNssaiInPlmn
 				}

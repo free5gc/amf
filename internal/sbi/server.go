@@ -55,9 +55,9 @@ func NewServer(amf ServerAmf, tlsKeyLogPath string) (*Server, error) {
 
 	amf_context.InitAmfContext(amf.Context())
 
-    port := amf.Context().SBIPort
-    addr := amf.Context().BindingIP
-    bindAddr := netip.AddrPortFrom(addr, uint16(port)).String()
+	port := amf.Context().SBIPort
+	addr := amf.Context().BindingIP
+	bindAddr := netip.AddrPortFrom(addr, uint16(port)).String()
 
 	logger.SBILog.Infof("Binding addr: [%s]", bindAddr)
 	var err error

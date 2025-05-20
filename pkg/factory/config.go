@@ -385,8 +385,8 @@ func (s *Sbi) validate() (bool, error) {
 		}
 	}
 
-    result, err := govalidator.ValidateStruct(s)
-    return result, err
+	result, err := govalidator.ValidateStruct(s)
+	return result, err
 }
 
 type Tls struct {

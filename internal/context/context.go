@@ -127,21 +127,20 @@ func InitAmfContext(context *AMFContext) {
 	}
 	context.NgapPort = config.GetNgapPort()
 
-    context.SBIPort = sbi.Port
+	context.SBIPort = sbi.Port
 
-    context.UriScheme = models.UriScheme(sbi.Scheme)
+	context.UriScheme = models.UriScheme(sbi.Scheme)
 
-    if bindingIP := os.Getenv(sbi.BindingIP); bindingIP != "" {
-            logger.UtilLog.Info("Parsing BindingIP address from ENV Variable.")
-            sbi.BindingIP = bindingIP
-    }
-    if registerIP := os.Getenv(sbi.RegisterIP); registerIP != "" {
-            logger.UtilLog.Info("Parsing RegisterIP address from ENV Variable.")
-            sbi.RegisterIP = registerIP
-    }
-    context.BindingIP = resolveIP(sbi.BindingIP)
-    context.RegisterIP = resolveIP(sbi.RegisterIP)
- 
+	if bindingIP := os.Getenv(sbi.BindingIP); bindingIP != "" {
+		logger.UtilLog.Info("Parsing BindingIP address from ENV Variable.")
+		sbi.BindingIP = bindingIP
+	}
+	if registerIP := os.Getenv(sbi.RegisterIP); registerIP != "" {
+		logger.UtilLog.Info("Parsing RegisterIP address from ENV Variable.")
+		sbi.RegisterIP = registerIP
+	}
+	context.BindingIP = resolveIP(sbi.BindingIP)
+	context.RegisterIP = resolveIP(sbi.RegisterIP)
 
 	context.InitNFService(config.GetServiceNameList(), config.GetVersion())
 	context.ServedGuamiList = configuration.ServedGumaiList
