@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/netip"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -66,9 +68,9 @@ type AMFContext struct {
 	Name                         string
 	NfService                    map[models.ServiceName]models.NrfNfManagementNfService // nfservice that amf support
 	UriScheme                    models.UriScheme
-	BindingIPv4                  string
+	BindingIP                    netip.Addr
 	SBIPort                      int
-	RegisterIPv4                 string
+	RegisterIP                   netip.Addr
 	HttpIPv6Address              string
 	TNLWeightFactor              int64
 	SupportDnnLists              []string
@@ -114,6 +116,7 @@ func InitAmfContext(context *AMFContext) {
 	logger.UtilLog.Infof("amfconfig Info: Version[%s]", config.GetVersion())
 	configuration := config.Configuration
 	context.NfId = uuid.New().String()
+	sbi := configuration.Sbi
 	if configuration.AmfName != "" {
 		context.Name = configuration.AmfName
 	}
@@ -123,10 +126,22 @@ func InitAmfContext(context *AMFContext) {
 		context.NgapIpList = []string{"127.0.0.1"} // default localhost
 	}
 	context.NgapPort = config.GetNgapPort()
-	context.UriScheme = models.UriScheme(config.GetSbiScheme())
-	context.RegisterIPv4 = config.GetSbiRegisterIP()
-	context.SBIPort = config.GetSbiPort()
-	context.BindingIPv4 = config.GetSbiBindingIP()
+
+    context.SBIPort = sbi.Port
+
+    context.UriScheme = models.UriScheme(sbi.Scheme)
+
+    if bindingIP := os.Getenv(sbi.BindingIP); bindingIP != "" {
+            logger.UtilLog.Info("Parsing BindingIP address from ENV Variable.")
+            sbi.BindingIP = bindingIP
+    }
+    if registerIP := os.Getenv(sbi.RegisterIP); registerIP != "" {
+            logger.UtilLog.Info("Parsing RegisterIP address from ENV Variable.")
+            sbi.RegisterIP = registerIP
+    }
+    context.BindingIP = resolveIP(sbi.BindingIP)
+    context.RegisterIP = resolveIP(sbi.RegisterIP)
+ 
 
 	context.InitNFService(config.GetServiceNameList(), config.GetVersion())
 	context.ServedGuamiList = configuration.ServedGumaiList
@@ -484,8 +499,44 @@ func (context *AMFContext) RanUeFindByAmfUeNgapID(amfUeNgapID int64) *RanUe {
 	return nil
 }
 
-func (context *AMFContext) GetIPv4Uri() string {
-	return fmt.Sprintf("%s://%s:%d", context.UriScheme, context.RegisterIPv4, context.SBIPort)
+func (context *AMFContext) GetIPUri() string {
+	addr := context.RegisterIP
+	port := context.SBIPort
+
+	return fmt.Sprintf("%s://%s", context.UriScheme, netip.AddrPortFrom(addr, uint16(port)).String())
+}
+
+func resolveIP(ip string) netip.Addr {
+	resolvedIPs, err := net.DefaultResolver.LookupNetIP(context.Background(), "ip", ip)
+	if err != nil {
+		logger.InitLog.Errorf("Lookup failed with %s: %+v", ip, err)
+	}
+	resolvedIP := resolvedIPs[0].Unmap()
+	if resolvedIP := resolvedIP.String(); resolvedIP != ip {
+		logger.UtilLog.Infof("Lookup revolved %s into %s", ip, resolvedIP)
+	}
+	return resolvedIP
+}
+
+func GetIpEndPoint(context *AMFContext) []models.IpEndPoint {
+	if context.RegisterIP.Is6() {
+		return []models.IpEndPoint{
+			{
+				Ipv6Address: context.RegisterIP.String(),
+				Transport:   models.NrfNfManagementTransportProtocol_TCP,
+				Port:        int32(context.SBIPort),
+			},
+		}
+	} else if context.RegisterIP.Is4() {
+		return []models.IpEndPoint{
+			{
+				Ipv4Address: context.RegisterIP.String(),
+				Transport:   models.NrfNfManagementTransportProtocol_TCP,
+				Port:        int32(context.SBIPort),
+			},
+		}
+	}
+	return nil
 }
 
 func (context *AMFContext) InitNFService(serivceName []string, version string) {
@@ -504,14 +555,8 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			},
 			Scheme:          context.UriScheme,
 			NfServiceStatus: models.NfServiceStatus_REGISTERED,
-			ApiPrefix:       context.GetIPv4Uri(),
-			IpEndPoints: []models.IpEndPoint{
-				{
-					Ipv4Address: context.RegisterIPv4,
-					Transport:   models.NrfNfManagementTransportProtocol_TCP,
-					Port:        int32(context.SBIPort),
-				},
-			},
+			ApiPrefix:       context.GetIPUri(),
+			IpEndPoints:     GetIpEndPoint(context),
 		}
 	}
 }
@@ -547,13 +592,15 @@ func (context *AMFContext) Reset() {
 	context.NfId = ""
 	context.UriScheme = models.UriScheme_HTTPS
 	context.SBIPort = 0
-	context.BindingIPv4 = ""
-	context.RegisterIPv4 = ""
 	context.HttpIPv6Address = ""
 	context.Name = "amf"
 	context.NrfUri = ""
 	context.NrfCertPem = ""
 	context.OAuth2Required = false
+
+	var zeroAddr netip.Addr
+	context.BindingIP = zeroAddr
+	context.RegisterIP = zeroAddr
 }
 
 // Create new AMF context

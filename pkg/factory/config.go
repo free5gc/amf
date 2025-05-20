@@ -6,8 +6,6 @@ package factory
 
 import (
 	"fmt"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -23,7 +21,7 @@ const (
 	AmfDefaultCertPemPath      = "./cert/amf.pem"
 	AmfDefaultPrivateKeyPath   = "./cert/amf.key"
 	AmfDefaultConfigPath       = "./config/amfcfg.yaml"
-	AmfSbiDefaultIPv4          = "127.0.0.18"
+	AmfSbiDefaultIP            = "127.0.0.18"
 	AmfSbiDefaultPort          = 8000
 	AmfSbiDefaultScheme        = "https"
 	AmfMetricsDefaultEnabled   = false
@@ -340,25 +338,55 @@ func (m *Metrics) validate() (bool, error) {
 }
 
 type Sbi struct {
-	Scheme       string `yaml:"scheme" valid:"required,scheme"`
-	RegisterIPv4 string `yaml:"registerIPv4,omitempty" valid:"required,host"` // IP that is registered at NRF.
-	BindingIPv4  string `yaml:"bindingIPv4,omitempty" valid:"required,host"`  // IP used to run the server in the node.
-	Port         int    `yaml:"port,omitempty" valid:"required,port"`
+	Scheme       string `yaml:"scheme" valid:"in(http|https),optional"`
+	RegisterIPv4 string `yaml:"registerIPv4,omitempty" valid:"host,optional"` // IP that is registered at NRF.
+	RegisterIP   string `yaml:"registerIP,omitempty" valid:"host,optional"`   // IP that is registered at NRF.
+	BindingIPv4  string `yaml:"bindingIPv4,omitempty" valid:"host,optional"`  // IP used to run the server in the node.
+	BindingIP    string `yaml:"bindingIP,omitempty" valid:"host,optional"`    // IP used to run the server in the node.
+	Port         int    `yaml:"port,omitempty" valid:"port,optional"`
 	Tls          *Tls   `yaml:"tls,omitempty" valid:"optional"`
 }
 
 func (s *Sbi) validate() (bool, error) {
+	// Set a default Schme if the Configuration does not provides one
+	if s.Scheme == "" {
+		s.Scheme = AmfSbiDefaultScheme
+	}
+
+	// Set BindingIP/RegisterIP from deprecated BindingIPv4/RegisterIPv4
+	if s.BindingIP == "" && s.BindingIPv4 != "" {
+		s.BindingIP = s.BindingIPv4
+	}
+	if s.RegisterIP == "" && s.RegisterIPv4 != "" {
+		s.RegisterIP = s.RegisterIPv4
+	}
+
+	// Set a default BindingIP/RegisterIP if the Configuration does not provides them
+	if s.BindingIP == "" && s.RegisterIP == "" {
+		s.BindingIP = AmfSbiDefaultIP
+		s.RegisterIP = AmfSbiDefaultIP
+	} else {
+		// Complete any missing BindingIP/RegisterIP from RegisterIP/BindingIP
+		if s.BindingIP == "" {
+			s.BindingIP = s.RegisterIP
+		} else if s.RegisterIP == "" {
+			s.RegisterIP = s.BindingIP
+		}
+	}
+
+	// Set a default Port if the Configuration does not provides one
+	if s.Port == 0 {
+		s.Port = AmfSbiDefaultPort
+	}
+
 	if tls := s.Tls; tls != nil {
 		if result, err := tls.validate(); err != nil {
 			return result, err
 		}
 	}
 
-	if _, err := govalidator.ValidateStruct(s); err != nil {
-		return false, appendInvalid(err)
-	}
-
-	return true, nil
+    result, err := govalidator.ValidateStruct(s)
+    return result, err
 }
 
 type Tls struct {
@@ -891,40 +919,6 @@ func (c *Config) GetSbiPort() int {
 		return c.Configuration.Sbi.Port
 	}
 	return AmfSbiDefaultPort
-}
-
-func (c *Config) GetSbiBindingIP() string {
-	bindIP := "0.0.0.0"
-	if c.Configuration == nil || c.Configuration.Sbi == nil {
-		return bindIP
-	}
-	if c.Configuration.Sbi.BindingIPv4 != "" {
-		if bindIP = os.Getenv(c.Configuration.Sbi.BindingIPv4); bindIP != "" {
-			logger.CfgLog.Infof("Parsing ServerIPv4 [%s] from ENV Variable", bindIP)
-		} else {
-			bindIP = c.Configuration.Sbi.BindingIPv4
-		}
-	}
-	return bindIP
-}
-
-func (c *Config) GetSbiBindingAddr() string {
-	return c.GetSbiBindingIP() + ":" + strconv.Itoa(c.GetSbiPort())
-}
-
-func (c *Config) GetSbiRegisterIP() string {
-	if c.Configuration != nil && c.Configuration.Sbi != nil && c.Configuration.Sbi.RegisterIPv4 != "" {
-		return c.Configuration.Sbi.RegisterIPv4
-	}
-	return AmfSbiDefaultIPv4
-}
-
-func (c *Config) GetSbiRegisterAddr() string {
-	return c.GetSbiRegisterIP() + ":" + strconv.Itoa(c.GetSbiPort())
-}
-
-func (c *Config) GetSbiUri() string {
-	return c.GetSbiScheme() + "://" + c.GetSbiRegisterAddr()
 }
 
 func (c *Config) GetNrfUri() string {

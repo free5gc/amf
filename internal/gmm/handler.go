@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
+	"net/netip"
 	"reflect"
 	"strconv"
 	"strings"
@@ -128,7 +130,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 					Release: true,
 					Cause:   models.SmfPduSessionCause_REL_DUE_TO_DUPLICATE_SESSION_ID,
 					SmContextStatusUri: fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/smContextStatus/%s/%d",
-						ue.ServingAMF().GetIPv4Uri(), ue.Guti, pduSessionID),
+						ue.ServingAMF().GetIPUri(), ue.Guti, pduSessionID),
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
@@ -1211,7 +1213,18 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				// Condition (A) Step 7: initial AMF find Target AMF via NRF ->
 				// Send Namf_Communication_N1MessageNotify to Target AMF
 				ueContext := consumer.GetConsumer().BuildUeContextModel(ue)
-				registerContext := models.RegistrationContextContainer{
+				AnN2IPAddr := ue.RanUe[anType].Ran.Conn.RemoteAddr().String()
+				ran_host, _, ran_err := net.SplitHostPort(AnN2IPAddr)
+				if ran_err != nil {
+					logger.GmmLog.Errorf("Can't split AnN2IPAddr %+v", ran_err)
+					return fmt.Errorf("Send Namf_Communication_N1MessageNotify to Target AMF failed")
+				}
+				ran_addr, ran_addr_err := netip.ParseAddr(ran_host)
+				if ran_addr_err != nil {
+					logger.GmmLog.Errorf("Can't parse AnN2IPAddr Host %+v", ran_addr_err)
+					return fmt.Errorf("Send Namf_Communication_N1MessageNotify to Target AMF failed")
+				}
+                 var registerContext models.RegistrationContextContainer = models.RegistrationContextContainer{
 					UeContext:        &ueContext,
 					AnType:           anType,
 					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
@@ -1220,12 +1233,16 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 					UserLocation:     &ue.Location,
 					RrcEstCause:      ue.RanUe[anType].RRCEstablishmentCause,
 					UeContextRequest: ue.RanUe[anType].UeContextRequest,
-					AnN2IPv4Addr:     ue.RanUe[anType].Ran.Conn.RemoteAddr().String(),
 					AllowedNssai: &models.AllowedNssai{
 						AllowedSnssaiList: ue.AllowedNssai[anType],
 						AccessType:        anType,
 					},
 				}
+				if ran_addr.Is6() {
+	                registerContext.AnN2IPv6Addr = AnN2IPAddr
+                } else if ran_addr.Is4() {
+                    registerContext.AnN2IPv4Addr = AnN2IPAddr
+                }
 				if len(ue.NetworkSliceInfo.RejectedNssaiInPlmn) > 0 {
 					registerContext.RejectedNssaiInPlmn = ue.NetworkSliceInfo.RejectedNssaiInPlmn
 				}

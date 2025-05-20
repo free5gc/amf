@@ -221,11 +221,15 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (
 	}
 	amfInfo.TaiList = context.SupportTaiLists
 	profile.AmfInfo = &amfInfo
-	if context.RegisterIPv4 == "" {
+	if !context.RegisterIP.IsValid() {
 		err = fmt.Errorf("AMF Address is empty")
 		return profile, err
 	}
-	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIPv4)
+	if context.RegisterIP.Is6() {
+		profile.Ipv6Addresses = append(profile.Ipv6Addresses, context.RegisterIP.String())
+	} else if context.RegisterIP.Is4() {
+		profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIP.String())
+	}
 	service := []models.NrfNfManagementNfService{}
 	for _, nfService := range context.NfService {
 		service = append(service, nfService)
@@ -235,7 +239,7 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (
 	}
 
 	defaultNotificationSubscription := models.DefaultNotificationSubscription{
-		CallbackUri:      fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/n1-message-notify", context.GetIPv4Uri()),
+		CallbackUri:      fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/n1-message-notify", context.GetIPUri()),
 		NotificationType: models.NrfNfManagementNotificationType_N1_MESSAGES,
 		N1MessageClass:   models.N1MessageClass__5_GMM,
 	}
