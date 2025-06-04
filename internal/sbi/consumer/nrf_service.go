@@ -243,7 +243,7 @@ func (s *nnrfService) BuildNFInstance(context *amf_context.AMFContext) (
 
 func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInstanceId string,
 	profile *models.NrfNfManagementNfProfile) (
-	resouceNrfUri string, retrieveNfInstanceId string, err error,
+	resourceNrfUri string, retrieveNfInstanceId string, err error,
 ) {
 	// Set client and set url
 	client := s.getNFManagementClient(nrfUri)
@@ -279,9 +279,9 @@ func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInst
 				nf = res.NrfNfManagementNfProfile
 				index := strings.Index(resourceUri, "/nnrf-nfm/")
 				if index >= 0 {
-					resouceNrfUri = resourceUri[:index]
+					resourceNrfUri = resourceUri[:index]
 				}
-				// resouceNrfUri = resourceUri[:strings.Index(resourceUri, "/nnrf-nfm/")]
+				// resourceNrfUri = resourceUri[:strings.Index(resourceUri, "/nnrf-nfm/")]
 				retrieveNfInstanceId = resourceUri[strings.LastIndex(resourceUri, "/")+1:]
 
 				oauth2 := false
@@ -300,7 +300,7 @@ func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, nrfUri, nfInst
 			}
 		}
 	}
-	return resouceNrfUri, retrieveNfInstanceId, err
+	return resourceNrfUri, retrieveNfInstanceId, err
 }
 
 func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.ProblemDetails, err error) {
