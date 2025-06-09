@@ -15,6 +15,7 @@ import (
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
@@ -30,9 +31,11 @@ func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
 		ueContextID, reqUri, n1n2MessageTransferRequest)
 
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 		return
 	} else if transferErr != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, transferErr.Error.Cause)
 		c.JSON(int(transferErr.Error.Status), transferErr)
 		return
 	} else if n1n2MessageTransferRspData != nil {
@@ -55,6 +58,7 @@ func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
+	c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 	c.JSON(http.StatusForbidden, problemDetails)
 }
 
@@ -386,6 +390,7 @@ func (p *Processor) HandleN1N2MessageTransferStatusRequest(c *gin.Context) {
 
 	status, problemDetails := p.N1N2MessageTransferStatusProcedure(ueContextID, reqUri)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, status)
@@ -433,6 +438,7 @@ func (p *Processor) HandleN1N2MessageSubscribeRequest(c *gin.Context,
 	ueN1N2InfoSubscriptionCreatedData, problemDetails := p.
 		N1N2MessageSubscribeProcedure(ueContextID, ueN1N2InfoSubscriptionCreateData)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusCreated, ueN1N2InfoSubscriptionCreatedData)
@@ -482,6 +488,7 @@ func (p *Processor) HandleN1N2MessageUnSubscribeRequest(c *gin.Context) {
 
 	problemDetails := p.N1N2MessageUnSubscribeProcedure(ueContextID, subscriptionID)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)

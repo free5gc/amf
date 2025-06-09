@@ -16,6 +16,7 @@ import (
 	"github.com/free5gc/openapi/models"
 	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
 	Nsmf_PDUSession "github.com/free5gc/openapi/smf/PDUSession"
+	sbi_metrics "github.com/free5gc/util/metrics/sbi"
 )
 
 var n2sminfocon = "N2SmInfo"
@@ -41,6 +42,7 @@ func (s *nsmfService) getPDUSessionClient(uri string) *Nsmf_PDUSession.APIClient
 
 	configuration := Nsmf_PDUSession.NewConfiguration()
 	configuration.SetBasePath(uri)
+	configuration.SetMetrics(sbi_metrics.SbiMetricHook)
 	client = Nsmf_PDUSession.NewAPIClient(configuration)
 
 	s.PDUSessionMu.RUnlock()
