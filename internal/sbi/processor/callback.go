@@ -16,6 +16,7 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
@@ -34,6 +35,7 @@ func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
 
 	problemDetails := p.SmContextStatusNotifyProcedure(supi, int32(pduSessionID), smContextStatusNotification)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)
@@ -100,6 +102,7 @@ func (p *Processor) HandleAmPolicyControlUpdateNotifyUpdate(c *gin.Context,
 	problemDetails := p.AmPolicyControlUpdateNotifyUpdateProcedure(polAssoID, policyUpdate)
 
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)
@@ -200,6 +203,7 @@ func (p *Processor) HandleAmPolicyControlUpdateNotifyTerminate(c *gin.Context,
 
 	problemDetails := p.AmPolicyControlUpdateNotifyTerminateProcedure(polAssoID, terminationNotification)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)
@@ -251,6 +255,7 @@ func (p *Processor) HandleN1MessageNotify(c *gin.Context, n1MessageNotify models
 
 	problemDetails := p.N1MessageNotifyProcedure(n1MessageNotify)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)

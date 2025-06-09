@@ -14,6 +14,7 @@ import (
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/nas/security"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 // TS 29.518 5.2.2.2.3
@@ -24,6 +25,7 @@ func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContext
 
 	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, ueContextCreateError.JsonData.Error.Cause)
 		c.JSON(int(ueContextCreateError.JsonData.Error.Status), ueContextCreateError)
 	} else {
 		c.JSON(http.StatusCreated, createUeContextResponse)
@@ -143,6 +145,7 @@ func (p *Processor) HandleReleaseUEContextRequest(c *gin.Context, ueContextRelea
 
 	problemDetails := p.ReleaseUEContextProcedure(ueContextID, ueContextRelease)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)
@@ -222,6 +225,7 @@ func (p *Processor) HandleUEContextTransferRequest(c *gin.Context,
 
 	ueContextTransferResponse, problemDetails := p.UEContextTransferProcedure(ueContextID, ueContextTransferRequest)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, ueContextTransferResponse)
@@ -506,8 +510,10 @@ func (p *Processor) HandleAssignEbiDataRequest(c *gin.Context, assignEbiData mod
 
 	assignedEbiData, assignEbiError, problemDetails := p.AssignEbiDataProcedure(ueContextID, assignEbiData)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else if assignEbiError != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, assignEbiError.Error.Cause)
 		c.JSON(int(assignEbiError.Error.Status), assignEbiError)
 	} else {
 		c.JSON(http.StatusOK, assignedEbiData)
@@ -553,6 +559,7 @@ func (p *Processor) HandleRegistrationStatusUpdateRequest(c *gin.Context,
 
 	ueRegStatusUpdateRspData, problemDetails := p.RegistrationStatusUpdateProcedure(ueContextID, ueRegStatusUpdateReqData)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, ueRegStatusUpdateRspData)
