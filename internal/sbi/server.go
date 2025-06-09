@@ -22,6 +22,7 @@ import (
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/httpwrapper"
 	logger_util "github.com/free5gc/util/logger"
+	"github.com/free5gc/util/metrics"
 )
 
 var (
@@ -67,6 +68,7 @@ func NewServer(amf ServerAmf, tlsKeyLogPath string) (*Server, error) {
 func newRouter(s *Server) *gin.Engine {
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 
+	router.Use(metrics.InboundMetrics())
 	amfHttpCallBackGroup := router.Group(factory.AmfCallbackResUriPrefix)
 	amfHttpCallBackRoutes := s.getHttpCallBackRoutes()
 	applyRoutes(amfHttpCallBackGroup, amfHttpCallBackRoutes)
