@@ -79,7 +79,7 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 
 	// We launch the server only if the user specified it, but we still defined the metrics to avoid checking if
 	// the metrics are enabled each time the prometheus collector are called.
-	features := map[utils.MetricTypeEnabled]bool{utils.SBI: true}
+	features := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true}
 	customMetrics := make(map[utils.MetricTypeEnabled][]prometheus.Collector)
 	if cfg.AreMetricsEnabled() {
 		if amf.metricsServer, err = metrics.NewServer(
