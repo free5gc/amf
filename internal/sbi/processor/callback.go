@@ -79,7 +79,7 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 			ue.ProducerLog.Infof("Release SmContext[%d] (Cause: %s)", pduSessionID,
 				smContextStatusNotification.StatusInfo.Cause)
 		}
-		ue.SmContextList.Delete(pduSessionID)
+		ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 	} else {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,

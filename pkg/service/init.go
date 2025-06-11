@@ -12,6 +12,7 @@ import (
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	"github.com/free5gc/amf/internal/ngap"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	ngap_service "github.com/free5gc/amf/internal/ngap/service"
@@ -79,11 +80,10 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 
 	// We launch the server only if the user specified it, but we still defined the metrics to avoid checking if
 	// the metrics are enabled each time the prometheus collector are called.
-	features := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true, utils.NGAP: true}
-	customMetrics := make(map[utils.MetricTypeEnabled][]prometheus.Collector)
+	commonMetrics := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true, utils.NGAP: true}
 	if cfg.AreMetricsEnabled() {
 		if amf.metricsServer, err = metrics.NewServer(
-			getInitMetrics(cfg, features, customMetrics), tlsKeyLogPath, logger.InitLog); err != nil {
+			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog); err != nil {
 			return nil, err
 		}
 	}
@@ -93,9 +93,40 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 	return amf, nil
 }
 
+func getCustomMetrics(cfg *factory.Config) map[utils.MetricTypeEnabled][]prometheus.Collector {
+	customMetrics := make(map[utils.MetricTypeEnabled][]prometheus.Collector)
+
+	customMetrics[business_metrics.CM_STATE_METRICS] = business_metrics.GetUECMHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableUeCmMetrics()
+
+	customMetrics[business_metrics.HANDOVER_METRICS] = business_metrics.GetHandoverHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableHandoverMetrics()
+
+	customMetrics[business_metrics.PDU_METRICS] = business_metrics.GetPDUHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnablePduMetrics()
+
+	customMetrics[business_metrics.GMM_STATE_METRICS] = business_metrics.GetGMMStatesHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableGmmStateMetrics()
+
+	customMetrics[business_metrics.UE_CONNECTIVITY_METRICS] = business_metrics.GetUEHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableUeConnectivityMetrics()
+
+	return customMetrics
+}
+
 func getInitMetrics(
 	cfg *factory.Config,
-	features map[utils.MetricTypeEnabled]bool,
+	commonMetrics map[utils.MetricTypeEnabled]bool,
 	customMetrics map[utils.MetricTypeEnabled][]prometheus.Collector,
 ) metrics.InitMetrics {
 	metricsInfo := metrics.Metrics{
@@ -109,7 +140,7 @@ func getInitMetrics(
 		},
 	}
 
-	return metrics.NewInitMetrics(metricsInfo, "amf", features, customMetrics)
+	return metrics.NewInitMetrics(metricsInfo, "amf", commonMetrics, customMetrics)
 }
 
 func (a *AmfApp) SetLogEnable(enable bool) {
