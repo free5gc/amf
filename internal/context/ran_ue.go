@@ -33,6 +33,7 @@ type RanUe struct {
 
 	/* HandOver Info*/
 	HandOverType        ngapType.HandoverType
+	HandOverStartTime   time.Time
 	SuccessPduSessionId []int32
 	SourceUe            *RanUe
 	TargetUe            *RanUe

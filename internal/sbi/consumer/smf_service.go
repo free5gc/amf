@@ -544,7 +544,7 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 		ctx, &releaseSmContextRequest)
 
 	if localErr == nil {
-		ue.SmContextList.Delete(smContext.PduSessionID())
+		ue.DeleteSmContext(smContext.PduSessionID(), smContext.AccessType())
 	} else {
 		err = localErr
 		switch apiErr := localErr.(type) {

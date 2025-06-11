@@ -3,6 +3,7 @@ package gmm
 import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	"github.com/free5gc/util/fsm"
 )
 
@@ -64,7 +65,7 @@ var callbacks = fsm.Callbacks{
 var GmmFSM *fsm.FSM
 
 func init() {
-	if f, err := fsm.NewFSM(transitions, callbacks); err != nil {
+	if f, err := fsm.NewFSM(transitions, callbacks, business_metrics.IncrGmmTransitionCounter); err != nil {
 		logger.GmmLog.Errorf("Initialize Gmm FSM Error: %+v", err)
 	} else {
 		GmmFSM = f

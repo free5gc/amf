@@ -135,11 +135,11 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 				if err != nil {
 					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
-					ue.SmContextList.Delete(pduSessionID)
+					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 					return err
 				} else if response == nil {
 					ue.GmmLog.Errorf("Response to update smContext is nil, local release SmContext[%d]", pduSessionID)
-					ue.SmContextList.Delete(pduSessionID)
+					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 				} else if response != nil {
 					smContext.SetUserLocation(ue.Location)
 					responseData := response.JsonData

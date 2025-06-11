@@ -1,13 +1,17 @@
 package message
 
 import (
+	"time"
+
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	ngap_metrics "github.com/free5gc/util/metrics/ngap"
+	"github.com/free5gc/util/metrics/utils"
 )
 
 var emptyCause = ngapType.Cause{Present: 0}
@@ -263,7 +267,13 @@ func SendErrorIndication(ran *context.AmfRan, amfUeNgapId *ngapType.AMFUENGAPID,
 ) {
 	isErrorIndicationSent := false
 	additionalCause := ""
-	defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.ERROR_INDICATION, &isErrorIndicationSent, *cause, &additionalCause)
+	if cause == nil {
+		defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.ERROR_INDICATION, &isErrorIndicationSent,
+			emptyCause, &additionalCause)
+	} else {
+		defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.ERROR_INDICATION, &isErrorIndicationSent, *cause,
+			&additionalCause)
+	}
 
 	if ran == nil {
 		additionalCause = ngap_metrics.RAN_NIL_ERR
@@ -615,6 +625,18 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cau
 	additionalCause := ""
 	defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.HANDOVER_REQUEST, &isHoReqSent, cause, &additionalCause)
 
+	defer func(msgSent *bool, cause ngapType.Cause) {
+		hoCause := ngap_metrics.GetCauseErrorStr(&cause)
+		if hoCause == "unknown ngapType.Cause" {
+			hoCause = additionalCause
+		}
+
+		if msgSent != nil && !*msgSent {
+			business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
+				utils.FailureMetric, hoCause, sourceUe.HandOverStartTime)
+		}
+	}(&isHoReqSent, cause)
+
 	if sourceUe == nil {
 		additionalCause = ngap_metrics.SOURCE_UE_NIL_ERR
 		logger.NgapLog.Error("sourceUe is nil")
@@ -696,8 +718,11 @@ func SendPathSwitchRequestAcknowledge(
 	coreNetworkAssistanceInformation *ngapType.CoreNetworkAssistanceInformation,
 	rrcInactiveTransitionReportRequest *ngapType.RRCInactiveTransitionReportRequest,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+	hoStartTime time.Time,
 ) {
 	isPathSwitchReqAckSent := false
+	business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_XN_VALUE,
+		utils.SuccessMetric, business_metrics.HANDOVER_EMPTY_CAUSE, hoStartTime)
 	additionalCause := ""
 	defer ngap_metrics.IncrMetricsSentMsg(
 		ngap_metrics.PATH_SWITCH_REQUEST_ACKNOWLEDGE, &isPathSwitchReqAckSent, emptyCause, &additionalCause)
@@ -741,7 +766,12 @@ func SendPathSwitchRequestFailure(
 	ranUeNgapId int64,
 	pduSessionResourceReleasedList *ngapType.PDUSessionResourceReleasedListPSFail,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+	commonError string,
+	hoStartTime time.Time,
 ) {
+	business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_XN_VALUE, utils.FailureMetric, commonError,
+		hoStartTime)
+
 	isPathSwitchReqFailSent := false
 	additionalCause := ""
 	defer ngap_metrics.IncrMetricsSentMsg(
