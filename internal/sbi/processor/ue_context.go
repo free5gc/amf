@@ -14,11 +14,7 @@ import (
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/aper"
-	ngap_message "github.com/free5gc/amf/internal/ngap/message"
-	"github.com/free5gc/aper"
 	"github.com/free5gc/nas/security"
-	"github.com/free5gc/ngap"
-	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -30,16 +26,16 @@ func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContext
 
 	ueContextID := c.Param("ueContextId")
 
-	_, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
+	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
 		c.JSON(int(ueContextCreateError.JsonData.Error.Status), ueContextCreateError)
-	} // else {
-	//	    c.JSON(http.StatusCreated, createUeContextResponse)
-	//  }
+	} else {
+		c.JSON(http.StatusCreated, createUeContextResponse)
+	}
 }
 
 func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
-	bool, *models.CreateUeContextResponse403,
+	*models.CreateUeContextResponse201, *models.CreateUeContextResponse403,
 ) {
 	amfSelf := context.GetSelf()
 	ueContextCreateData := createUeContextRequest.JsonData
@@ -56,7 +52,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 		ueContextCreateError := &models.CreateUeContextResponse403{
 			JsonData: &ueCtxCreateError,
 		}
-		return false, ueContextCreateError
+		return nil, ueContextCreateError
 	}
 	// create the UE context in target amf
 	ue := amfSelf.NewAmfUe(ueContextID)
@@ -74,10 +70,6 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
-	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
-	if !ok {
-		// internal error.
-	}
 	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	if !ok {
 		// internal error.
@@ -516,9 +508,9 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 			// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
 			return createUeContextResponse, nil
 	*/
-			// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-			return createUeContextResponse, nil
-	*/
+	// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
+	//		return createUeContextResponse, nil
+
 }
 
 // TS 29.518 5.2.2.2.4
