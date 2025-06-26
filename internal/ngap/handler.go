@@ -1450,6 +1450,65 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	if sourceUe == nil {
 		// TODO: Send Namf_Communication_CreateUEContext Response to S-AMF
 		ran.Log.Error("handover between different Ue has not been implement yet")
+		var ueContextCreatedData models.UeContextCreatedData
+		ueContextCreatedData.UeContext.Supi = amfUe.Supi
+		ueContextCreatedData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
+		if amfUe.Gpsi != "" {
+			ueContextCreatedData.UeContext.GpsiList = append(ueContextCreatedData.UeContext.GpsiList, amfUe.Gpsi)
+		}
+		if amfUe.Pei != "" {
+			ueContextCreatedData.UeContext.Pei = amfUe.Pei
+		}
+		if amfUe.UdmGroupId != "" {
+			ueContextCreatedData.UeContext.UdmGroupId = amfUe.UdmGroupId
+		}
+		if amfUe.AusfGroupId != "" {
+			ueContextCreatedData.UeContext.AusfGroupId = amfUe.AusfGroupId
+		}
+		if amfUe.AccessAndMobilitySubscriptionData != nil {
+			if amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr != nil {
+				ueContextCreatedData.UeContext.SubUeAmbr = &models.Ambr{
+					Uplink:   amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Uplink,
+					Downlink: amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Downlink,
+				}
+			}
+			if amfUe.AccessAndMobilitySubscriptionData.RfspIndex != 0 {
+				ueContextCreatedData.UeContext.SubRfsp = amfUe.AccessAndMobilitySubscriptionData.RfspIndex
+			}
+		}
+		if amfUe.PcfId != "" {
+			ueContextCreatedData.UeContext.PcfId = amfUe.PcfId
+		}
+		if amfUe.AmPolicyUri != "" {
+			ueContextCreatedData.UeContext.PcfAmPolicyUri = amfUe.AmPolicyUri
+		}
+		for _, eventSub := range amfUe.EventSubscriptionsInfo {
+			if eventSub.EventSubscription != nil {
+				ueContextCreatedData.UeContext.EventSubscriptionList = append(ueContextCreatedData.UeContext.EventSubscriptionList, *eventSub.EventSubscription)
+			}
+		}
+		if amfUe.TraceData != nil {
+			ueContextCreatedData.UeContext.TraceData = amfUe.TraceData
+		}
+
+		ueContextCreatedData.TargetToSourceData.NgapIeType = models.AmfCommunicationNgapIeType_TAR_TO_SRC_CONTAINER
+		ueContextCreatedData.TargetToSourceData.NgapData.ContentId = "N2InfoContent"
+
+		for _, pduSessionResourceHandoverItem := range pduSessionResourceHandoverList.List {
+			ueContextCreatedData.PduSessionList = append(ueContextCreatedData.PduSessionList, models.N2SmInformation{
+				PduSessionId: int32(pduSessionResourceHandoverItem.PDUSessionID.Value),
+			})
+		}
+
+		resp201 := models.CreateUeContextResponse201{
+			JsonData:                &ueContextCreatedData,
+			BinaryDataN2Information: targetToSourceTransparentContainer.Value,
+		}
+
+		amfSelf := amfUe.ServingAMF()
+		amfSelf.PendingHandovers.Store(amfUe.Supi, context.PendingHandoverResponse{
+			response201: resp201,
+		})
 	} else {
 		ran.Log.Tracef("Source: RanUeNgapID[%d] AmfUeNgapID[%d]", sourceUe.RanUeNgapId, sourceUe.AmfUeNgapId)
 		ran.Log.Tracef("Target: RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
@@ -1568,9 +1627,157 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		// handover between different AMF
 		sourceUe.Log.Warnf("Handover required : cannot find target Ran Node Id[%+v] in this AMF", targetRanNodeId)
 		sourceUe.Log.Error("Handover between different AMF has not been implemented yet")
-		return
+		// return
 		// TODO: Send to T-AMF
 		// Described in (23.502 4.9.1.3.2) step 3.Namf_Communication_CreateUEContext Request
+		var ueContextCreateData models.UeContextCreateData
+		ueContextCreateData.UeContext.Supi = amfUe.Supi
+		ueContextCreateData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
+		ueContextCreateData.UeContext.UdmGroupId = amfUe.UdmGroupId
+		ueContextCreateData.UeContext.AusfGroupId = amfUe.AusfGroupId
+		ueContextCreateData.UeContext.RestrictedPrimaryRatList[0] = amfUe.RatType
+
+		ueContextCreateData.TargetId.RanNodeId = &targetRanNodeId
+		ueContextCreateData.TargetId.Tai = &amfUe.Tai
+
+		ueContextCreateData.PduSessionList = make([]models.N2SmInformation, 0)
+		for _, pDUSessionResourceHoItem := range pDUSessionResourceListHORqd.List {
+			pduSessionID := int32(pDUSessionResourceHoItem.PDUSessionID.Value)
+			smContext, okSmContextFindByPDUSessionID := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+			if !okSmContextFindByPDUSessionID {
+				sourceUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+				// TODO: Check if doing error handling here
+				continue
+			}
+			snssai := smContext.Snssai()
+			ueContextCreateData.PduSessionList = append(ueContextCreateData.PduSessionList, models.N2SmInformation{
+				PduSessionId: pduSessionID,
+				SNssai:       &snssai,
+			})
+		}
+
+		ueContextCreateData.SourceToTargetData.NgapIeType = models.AmfCommunicationNgapIeType_HANDOVER_REQUIRED
+		ueContextCreateData.SourceToTargetData.NgapData.ContentId = "N2SmInfo"
+
+		ueContextCreateData.N2NotifyUri = ""
+		ueContextCreatedData, targetToSourceTransparentContainer, problemDetails, err := consumer.GetConsumer().CreateUEContextRequest(amfUe, ueContextCreateData)
+
+		if problemDetails != nil {
+			// get UeContextCreateError (HANDOVER FAILURE) from target AMF.
+			// Send Handover Preparation Failure to source RAN (described in TS 38.413 8.4.1.3).
+			sourceUe.Log.Info("Handle Handover Preparation Failure [HoFailure In Target5GC NgranNode Or TargetSystem]")
+			cause = &ngapType.Cause{
+				Present: ngapType.CausePresentRadioNetwork,
+				RadioNetwork: &ngapType.CauseRadioNetwork{
+					Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
+				},
+			}
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+			return
+		} else if err != nil {
+			// error occurred in S-AMF.
+			sourceUe.Log.Errorf("CreateUEContextRequest Error in source AMF: %s", err.Error())
+			cause = &ngapType.Cause{
+				Present: ngapType.CausePresentRadioNetwork,
+				RadioNetwork: &ngapType.CauseRadioNetwork{
+					Value: ngapType.CauseRadioNetworkPresentUnspecified,
+				},
+			}
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+		} else {
+			// Get UeContextCreatedData from T-AMF.
+			// Send HandoverCommand to S-RAN.
+			var pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList
+			var pduSessionResourceToReleaseList ngapType.PDUSessionResourceToReleaseListHOCmd
+
+			for _, N2SmInfo := range ueContextCreatedData.PduSessionList {
+				var item ngapType.PDUSessionResourceHandoverItem
+				item.PDUSessionID.Value = int64(N2SmInfo.PduSessionId)
+			}
+
+			ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
+				*targetToSourceTransparentContainer, nil)
+			/*
+				// describe in 23.502 4.9.1.3.2 step11
+				if pDUSessionResourceAdmittedList != nil {
+					targetUe.Log.Infof("Send HandoverRequestAcknowledgeTransfer to SMF")
+					for _, item := range pDUSessionResourceAdmittedList.List { /*
+							pduSessionID := int32(item.PDUSessionID.Value)
+							transfer := item.HandoverRequestAcknowledgeTransfer
+							smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+							if !ok {
+								targetUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+								// TODO: Check if doing error handling here
+								continue
+							}
+						resp, errResponse, problemDetails, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
+							smContext, models.N2SmInfoType_HANDOVER_REQ_ACK, transfer)
+						if err != nil {
+							targetUe.Log.Errorf("Send HandoverRequestAcknowledgeTransfer error: %v", err)
+						}
+						if problemDetails != nil {
+							targetUe.Log.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
+						}
+						if resp != nil && resp.BinaryDataN2SmInformation != nil {
+							handoverItem := ngapType.PDUSessionResourceHandoverItem{}
+							handoverItem.PDUSessionID = item.PDUSessionID
+							handoverItem.HandoverCommandTransfer = resp.BinaryDataN2SmInformation
+							pduSessionResourceHandoverList.List = append(pduSessionResourceHandoverList.List, handoverItem)
+							targetUe.SuccessPduSessionId = append(targetUe.SuccessPduSessionId, pduSessionID)
+						}
+						if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
+							releaseItem := ngapType.PDUSessionResourceToReleaseItemHOCmd{}
+							releaseItem.PDUSessionID = item.PDUSessionID
+							releaseItem.HandoverPreparationUnsuccessfulTransfer = errResponse.BinaryDataN2SmInformation
+							pduSessionResourceToReleaseList.List = append(pduSessionResourceToReleaseList.List, releaseItem)
+						}
+					}
+				}
+
+				if pDUSessionResourceFailedToSetupListHOAck != nil {
+					targetUe.Log.Infof("Send HandoverResourceAllocationUnsuccessfulTransfer to SMF")
+					for _, item := range pDUSessionResourceFailedToSetupListHOAck.List {
+						pduSessionID := int32(item.PDUSessionID.Value)
+						transfer := item.HandoverResourceAllocationUnsuccessfulTransfer
+						smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
+						if !ok {
+							targetUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+							// TODO: Check if doing error handling here
+							continue
+						}
+						_, _, problemDetails, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPrepared(amfUe, smContext,
+							models.N2SmInfoType_HANDOVER_RES_ALLOC_FAIL, transfer)
+						if err != nil {
+							targetUe.Log.Errorf("Send HandoverResourceAllocationUnsuccessfulTransfer error: %v", err)
+						}
+						if problemDetails != nil {
+							targetUe.Log.Warnf("ProblemDetails[status: %d, Cause: %s]", problemDetails.Status, problemDetails.Cause)
+						}
+					}
+				}
+
+				sourceUe := targetUe.SourceUe
+				if sourceUe == nil {
+					// TODO: Send Namf_Communication_CreateUEContext Response to S-AMF
+					ran.Log.Error("handover between different Ue has not been implement yet")
+				} else {
+					ran.Log.Tracef("Source: RanUeNgapID[%d] AmfUeNgapID[%d]", sourceUe.RanUeNgapId, sourceUe.AmfUeNgapId)
+					ran.Log.Tracef("Target: RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
+					if len(pduSessionResourceHandoverList.List) == 0 {
+						targetUe.Log.Info("Handle Handover Preparation Failure [HoFailure In Target5GC NgranNode Or TargetSystem]")
+						cause := &ngapType.Cause{
+							Present: ngapType.CausePresentRadioNetwork,
+							RadioNetwork: &ngapType.CauseRadioNetwork{
+								Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
+							},
+						}
+						ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+						return
+					}
+					ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
+						*targetToSourceTransparentContainer, nil)
+				} */
+		}
 	} else {
 		// Handover in same AMF
 		sourceUe.HandOverType.Value = handoverType.Value

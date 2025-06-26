@@ -79,10 +79,11 @@ type AMFContext struct {
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
 	NgapPort                     int
-	T3502Value                   int    // unit is second
-	T3512Value                   int    // unit is second
-	Non3gppDeregTimerValue       int    // unit is second
-	TimeZone                     string // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	T3502Value                   int      // unit is second
+	T3512Value                   int      // unit is second
+	Non3gppDeregTimerValue       int      // unit is second
+	TimeZone                     string   // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	PendingHandovers             sync.Map // map[supi]*PendingHandoverResponse
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
@@ -94,6 +95,11 @@ type AMFContext struct {
 	Locality string
 
 	OAuth2Required bool
+}
+
+type PendingHandoverResponse struct {
+	response201 models.CreateUeContextResponse201
+	response403 models.CreateUeContextResponse403
 }
 
 type AMFContextEventSubscription struct {
