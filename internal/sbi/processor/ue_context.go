@@ -14,7 +14,11 @@ import (
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/aper"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	"github.com/free5gc/aper"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
@@ -26,16 +30,16 @@ func (p *Processor) HandleCreateUEContextRequest(c *gin.Context, createUeContext
 
 	ueContextID := c.Param("ueContextId")
 
-	createUeContextResponse, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
+	_, ueContextCreateError := p.CreateUEContextProcedure(ueContextID, createUeContextRequest)
 	if ueContextCreateError != nil {
 		c.JSON(int(ueContextCreateError.JsonData.Error.Status), ueContextCreateError)
-	} else {
-		c.JSON(http.StatusCreated, createUeContextResponse)
-	}
+	} // else {
+	//	    c.JSON(http.StatusCreated, createUeContextResponse)
+	//  }
 }
 
 func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContextRequest models.CreateUeContextRequest) (
-	*models.CreateUeContextResponse201, *models.CreateUeContextResponse403,
+	bool, *models.CreateUeContextResponse403,
 ) {
 	amfSelf := context.GetSelf()
 	ueContextCreateData := createUeContextRequest.JsonData
@@ -52,7 +56,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 		ueContextCreateError := &models.CreateUeContextResponse403{
 			JsonData: &ueCtxCreateError,
 		}
-		return nil, ueContextCreateError
+		return false, ueContextCreateError
 	}
 	// create the UE context in target amf
 	ue := amfSelf.NewAmfUe(ueContextID)
@@ -70,6 +74,10 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
+	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
+	if !ok {
+		// internal error.
+	}
 	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	if !ok {
 		// internal error.
@@ -488,13 +496,26 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 			createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
 			createUeContextResponse.JsonData.PcfReselectedInd = false
 			// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+			// response.JsonData.TargetToSourceData =
+			// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
+			createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
+			createUeContextResponse.JsonData.PcfReselectedInd = false
+			// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 
 			//	response.UeContext = ueContextCreateData.UeContext
 			//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
 			//	response.PduSessionList = ueContextCreateData.PduSessionList
 			//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 			//
+			//	response.UeContext = ueContextCreateData.UeContext
+			//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
+			//	response.PduSessionList = ueContextCreateData.PduSessionList
+			//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+			//
 
+			// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
+			return createUeContextResponse, nil
+	*/
 			// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
 			return createUeContextResponse, nil
 	*/
