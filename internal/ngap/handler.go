@@ -1507,7 +1507,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 
 		amfSelf := amfUe.ServingAMF()
 		amfSelf.PendingHandovers.Store(amfUe.Supi, context.PendingHandoverResponse{
-			response201: resp201,
+			Response201: &resp201,
 		})
 	} else {
 		ran.Log.Tracef("Source: RanUeNgapID[%d] AmfUeNgapID[%d]", sourceUe.RanUeNgapId, sourceUe.AmfUeNgapId)

@@ -99,8 +99,8 @@ type AMFContext struct {
 }
 
 type PendingHandoverResponse struct {
-	response201 models.CreateUeContextResponse201
-	response403 models.CreateUeContextResponse403
+	Response201 *models.CreateUeContextResponse201
+	Response403 *models.CreateUeContextResponse403
 }
 
 type AMFContextEventSubscription struct {

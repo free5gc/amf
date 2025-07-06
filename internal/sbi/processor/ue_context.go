@@ -456,10 +456,10 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	createUeContextResponse, ok := amfSelf.PendingHandovers.Load(ue.Supi)
 	createUeContextResp, ok := createUeContextResponse.(context.PendingHandoverResponse)
 	if ok {
-		if createUeContextResp.response201 != nil {
-			return createUeContextResp.response201, nil
-		} else if createUeContextResp.response403 != nil {
-			return nil, createUeContextResp.response403
+		if createUeContextResp.Response201 != nil {
+			return createUeContextResp.Response201, nil
+		} else if createUeContextResp.Response403 != nil {
+			return nil, createUeContextResp.Response403
 		}
 	}
 
