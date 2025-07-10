@@ -26,6 +26,14 @@ jobs:
     - name: Test
       run: go test -v ./...
 
+    - name: Install Syft
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+        
+    - name: Generate SBOM
+      run: |
+        syft . -o table=sbom-table.txt
+
     - name: Install Grype
       run: |
         curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
