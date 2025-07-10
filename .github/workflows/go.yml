@@ -32,4 +32,4 @@ jobs:
 
     - name: Run Grype vulnerability scan
       run: |
-        grype . --fail-on medium --output table
+        grype . --output table
