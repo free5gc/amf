@@ -51,30 +51,3 @@ jobs:
           sbom-table.txt
           grype-report.*
         retention-days: 10
-    
-    - name: Generate Security Summary
-      run: |
-          echo "# Security Scan Summary" > security-summary.md
-          echo "## SBOM Generation" >> security-summary.md
-          echo "- SBOM table: sbom-table.txt" >> security-summary.md
-          echo "" >> security-summary.md
-          echo "## Vulnerability Scan Results" >> security-summary.md
-          echo "### Summary" >> security-summary.md
-          echo "- Grype report: grype-report.txt" >> security-summary.md
-          echo "" >> security-summary.md
-          echo "### Detailed Report" >> security-summary.md
-          echo "See artifacts for full reports" >> security-summary.md
-
-    - name: Comment PR with Security Summary
-      uses: actions/github-script@v6
-      if: github.event_name == 'pull_request'
-      with:
-        script: |
-          const fs = require('fs');
-          const summary = fs.readFileSync('security-summary.md', 'utf8');
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: summary
-          });
