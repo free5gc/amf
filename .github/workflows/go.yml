@@ -29,7 +29,7 @@ jobs:
     - name: Install Syft
       run: |
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-        
+
     - name: Generate SBOM
       run: |
         syft . -o table=sbom-table.txt
@@ -40,4 +40,14 @@ jobs:
 
     - name: Run Grype vulnerability scan
       run: |
-        grype . --output table
+        grype . --output table --file grype-report.txt
+    
+    - name: Upload Security Reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports-${{ github.sha }}
+        path: |
+          sbom-table.txt
+          grype-report.*
+        retention-days: 10
