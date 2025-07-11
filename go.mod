@@ -24,6 +24,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
+replace github.com/free5gc/amf => ../amf
+
 require (
 	github.com/aead/cmac v0.0.0-20160719120800-7af84192f0b1 // indirect
 	github.com/bytedance/sonic v1.11.5 // indirect

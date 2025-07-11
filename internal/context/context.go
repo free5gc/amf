@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/free5gc/amf/internal/logger"
@@ -79,10 +80,11 @@ type AMFContext struct {
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
 	NgapPort                     int
-	T3502Value                   int    // unit is second
-	T3512Value                   int    // unit is second
-	Non3gppDeregTimerValue       int    // unit is second
-	TimeZone                     string // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	T3502Value                   int      // unit is second
+	T3512Value                   int      // unit is second
+	Non3gppDeregTimerValue       int      // unit is second
+	TimeZone                     string   // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	PendingHandovers             sync.Map // map[supi]*chan PendingHandoverResponse
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
@@ -96,6 +98,11 @@ type AMFContext struct {
 	OAuth2Required bool
 }
 
+type PendingHandoverResponse struct {
+	Response201 *models.CreateUeContextResponse201
+	Response403 *models.CreateUeContextResponse403
+}
+
 type AMFContextEventSubscription struct {
 	IsAnyUe           bool
 	IsGroupUe         bool
@@ -107,6 +114,11 @@ type AMFContextEventSubscription struct {
 type SecurityAlgorithm struct {
 	IntegrityOrder []uint8 // slice of security.AlgIntegrityXXX
 	CipheringOrder []uint8 // slice of security.AlgCipheringXXX
+}
+
+type PendingHandoverContext struct {
+	ResponseChan chan *models.CreateUeContextResponse201
+	GinContext   *gin.Context
 }
 
 func InitAmfContext(context *AMFContext) {
