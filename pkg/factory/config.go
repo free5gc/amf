@@ -19,27 +19,31 @@ import (
 )
 
 const (
-	AmfDefaultTLSKeyLogPath   = "./log/amfsslkey.log"
-	AmfDefaultCertPemPath     = "./cert/amf.pem"
-	AmfDefaultPrivateKeyPath  = "./cert/amf.key"
-	AmfDefaultConfigPath      = "./config/amfcfg.yaml"
-	AmfSbiDefaultIPv4         = "127.0.0.18"
-	AmfSbiDefaultPort         = 8000
-	AmfSbiDefaultScheme       = "https"
-	AmfDefaultNrfUri          = "https://127.0.0.10:8000"
-	sctpDefaultNumOstreams    = 3
-	sctpDefaultMaxInstreams   = 5
-	sctpDefaultMaxAttempts    = 2
-	sctpDefaultMaxInitTimeout = 2
-	ngapDefaultPort           = 38412
-	AmfCallbackResUriPrefix   = "/namf-callback/v1"
-	AmfCommResUriPrefix       = "/namf-comm/v1"
-	AmfEvtsResUriPrefix       = "/namf-evts/v1"
-	AmfLocResUriPrefix        = "/namf-loc/v1"
-	AmfMtResUriPrefix         = "/namf-mt/v1"
-	AmfOamResUriPrefix        = "/namf-oam/v1"
-	AmfMbsComResUriPrefix     = "/namf-mbs-comm/v1"
-	AmfMbsBCResUriPrefix      = "/namf-mbs-bc/v1"
+	AmfDefaultTLSKeyLogPath    = "./log/amfsslkey.log"
+	AmfDefaultCertPemPath      = "./cert/amf.pem"
+	AmfDefaultPrivateKeyPath   = "./cert/amf.key"
+	AmfDefaultConfigPath       = "./config/amfcfg.yaml"
+	AmfSbiDefaultIPv4          = "127.0.0.18"
+	AmfSbiDefaultPort          = 8000
+	AmfSbiDefaultScheme        = "https"
+	AmfMetricsDefaultEnabled   = false
+	AmfMetricsDefaultPort      = 9091
+	AmfMetricsDefaultScheme    = "https"
+	AmfMetricsDefaultNamespace = "free5gc"
+	AmfDefaultNrfUri           = "https://127.0.0.10:8000"
+	sctpDefaultNumOstreams     = 3
+	sctpDefaultMaxInstreams    = 5
+	sctpDefaultMaxAttempts     = 2
+	sctpDefaultMaxInitTimeout  = 2
+	ngapDefaultPort            = 38412
+	AmfCallbackResUriPrefix    = "/namf-callback/v1"
+	AmfCommResUriPrefix        = "/namf-comm/v1"
+	AmfEvtsResUriPrefix        = "/namf-evts/v1"
+	AmfLocResUriPrefix         = "/namf-loc/v1"
+	AmfMtResUriPrefix          = "/namf-mt/v1"
+	AmfOamResUriPrefix         = "/namf-oam/v1"
+	AmfMbsComResUriPrefix      = "/namf-mbs-comm/v1"
+	AmfMbsBCResUriPrefix       = "/namf-mbs-bc/v1"
 )
 
 type Config struct {
@@ -50,6 +54,10 @@ type Config struct {
 }
 
 func (c *Config) Validate() (bool, error) {
+	govalidator.TagMap["scheme"] = func(str string) bool {
+		return str == "https" || str == "http"
+	}
+
 	if configuration := c.Configuration; configuration != nil {
 		if result, err := configuration.validate(); err != nil {
 			return result, err
@@ -70,6 +78,7 @@ type Configuration struct {
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
 	NgapPort               int               `yaml:"ngapPort,omitempty" valid:"optional,port"`
 	Sbi                    *Sbi              `yaml:"sbi,omitempty" valid:"required"`
+	Metrics                *Metrics          `yaml:"metrics,omitempty" valid:"optional"`
 	ServiceNameList        []string          `yaml:"serviceNameList,omitempty" valid:"required"`
 	ServedGumaiList        []models.Guami    `yaml:"servedGuamiList,omitempty" valid:"required"`
 	SupportTAIList         []models.Tai      `yaml:"supportTaiList,omitempty" valid:"required"`
@@ -120,6 +129,20 @@ func (c *Configuration) validate() (bool, error) {
 	if c.Sbi != nil {
 		if _, err := c.Sbi.validate(); err != nil {
 			return false, err
+		}
+	}
+
+	if c.Metrics != nil {
+		if _, err := c.Metrics.validate(); err != nil {
+			return false, err
+		}
+
+		if c.Sbi != nil && c.Metrics.Port == c.Sbi.Port && c.Sbi.BindingIPv4 == c.Metrics.BindingIPv4 {
+			var errs govalidator.Errors
+			err := fmt.Errorf("sbi and metrics bindings IPv4: %s and port: %d cannot be the same, "+
+				"please provide at least another port for the metrics", c.Sbi.BindingIPv4, c.Sbi.Port)
+			errs = append(errs, err)
+			return false, error(errs)
 		}
 	}
 
@@ -288,6 +311,34 @@ func (c *Configuration) validate() (bool, error) {
 	return true, nil
 }
 
+type Metrics struct {
+	Enable      bool   `yaml:"enable" valid:"optional"`
+	Scheme      string `yaml:"scheme" valid:"required,scheme"`
+	BindingIPv4 string `yaml:"bindingIPv4,omitempty" valid:"required,host"` // IP used to run the server in the node.
+	Port        int    `yaml:"port,omitempty" valid:"required,port"`
+	Tls         *Tls   `yaml:"tls,omitempty" valid:"optional"`
+	Namespace   string `yaml:"namespace" valid:"optional"`
+}
+
+// This function is the mirror of the SBI one, I decided not to factor the code as it could in the future diverge.
+// And it will reduce the cognitive overload when reading the function by not hiding the logic elsewhere.
+func (m *Metrics) validate() (bool, error) {
+	var errs govalidator.Errors
+
+	if tls := m.Tls; tls != nil {
+		if _, err := tls.validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if _, err := govalidator.ValidateStruct(m); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return false, error(errs)
+	}
+	return true, nil
+}
+
 type Sbi struct {
 	Scheme       string `yaml:"scheme" valid:"required,scheme"`
 	RegisterIPv4 string `yaml:"registerIPv4,omitempty" valid:"required,host"` // IP that is registered at NRF.
@@ -297,10 +348,6 @@ type Sbi struct {
 }
 
 func (s *Sbi) validate() (bool, error) {
-	govalidator.TagMap["scheme"] = govalidator.Validator(func(str string) bool {
-		return str == "https" || str == "http"
-	})
-
 	if tls := s.Tls; tls != nil {
 		if result, err := tls.validate(); err != nil {
 			return result, err
@@ -748,6 +795,88 @@ func (c *Config) GetLogReportCaller() bool {
 		return false
 	}
 	return c.Logger.ReportCaller
+}
+
+func (c *Config) AreMetricsEnabled() bool {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil {
+		return c.Configuration.Metrics.Enable
+	}
+	return AmfMetricsDefaultEnabled
+}
+
+func (c *Config) GetMetricsScheme() string {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil && c.Configuration.Metrics.Scheme != "" {
+		return c.Configuration.Metrics.Scheme
+	}
+	return AmfMetricsDefaultScheme
+}
+
+func (c *Config) GetMetricsPort() int {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil && c.Configuration.Metrics.Port != 0 {
+		return c.Configuration.Metrics.Port
+	}
+	return AmfMetricsDefaultPort
+}
+
+func (c *Config) GetMetricsBindingIP() string {
+	c.RLock()
+	defer c.RUnlock()
+	bindIP := "0.0.0.0"
+
+	if c.Configuration == nil || c.Configuration.Metrics == nil {
+		return bindIP
+	}
+
+	if c.Configuration.Metrics.BindingIPv4 != "" {
+		if bindIP = os.Getenv(c.Configuration.Metrics.BindingIPv4); bindIP != "" {
+			logger.CfgLog.Infof("Parsing ServerIPv4 [%s] from ENV Variable", bindIP)
+		} else {
+			bindIP = c.Configuration.Metrics.BindingIPv4
+		}
+	}
+	return bindIP
+}
+
+func (c *Config) GetMetricsBindingAddr() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.GetMetricsBindingIP() + ":" + strconv.Itoa(c.GetMetricsPort())
+}
+
+func (c *Config) GetMetricsCertPemPath() string {
+	// We can see if there is a benefit to factor this tls key/pem with the sbi ones
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Tls != nil {
+		return c.Configuration.Metrics.Tls.Pem
+	}
+	return ""
+}
+
+func (c *Config) GetMetricsCertKeyPath() string {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Tls != nil {
+		return c.Configuration.Metrics.Tls.Key
+	}
+	return ""
+}
+
+func (c *Config) GetMetricsNamespace() string {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Namespace != "" {
+		return c.Configuration.Metrics.Namespace
+	}
+	return AmfMetricsDefaultNamespace
 }
 
 func (c *Config) GetSbiScheme() string {

@@ -14,6 +14,7 @@ import (
 	"github.com/free5gc/openapi"
 	Nausf_UEAuthentication "github.com/free5gc/openapi/ausf/UEAuthentication"
 	"github.com/free5gc/openapi/models"
+	sbi_metrics "github.com/free5gc/util/metrics/sbi"
 )
 
 type nausfService struct {
@@ -37,6 +38,7 @@ func (s *nausfService) getUEAuthenticationClient(uri string) *Nausf_UEAuthentica
 
 	configuration := Nausf_UEAuthentication.NewConfiguration()
 	configuration.SetBasePath(uri)
+	configuration.SetMetrics(sbi_metrics.SbiMetricHook)
 	client = Nausf_UEAuthentication.NewAPIClient(configuration)
 
 	s.UEAuthenticationMu.RUnlock()

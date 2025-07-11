@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/ngap/ngapType"
@@ -65,7 +66,15 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 		causeGroup := ngapType.CausePresentRadioNetwork
 		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
 		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+	} else {
+		// We don't increase in AttachRanUe because we don't want to fidle with the counters in a ngap handover procedure
+		if amfUe.AnTypeFlags[ranUe.Ran.AnType] {
+			business_metrics.DecrUeCmIdleStateGauge(ranUe.Ran.AnType)
+		}
+		business_metrics.IncrUeCmConnectedStateGauge(ranUe.Ran.AnType)
+		amfUe.AnTypeFlags[ranUe.Ran.AnType] = true
 	}
+
 	amfUe.AttachRanUe(ranUe)
 }
 

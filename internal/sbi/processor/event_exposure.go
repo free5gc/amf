@@ -10,6 +10,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context,
@@ -19,12 +20,14 @@ func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context,
 	if createdEventSubscription != nil {
 		c.JSON(http.StatusCreated, createdEventSubscription)
 	} else if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		problemDetails = &models.ProblemDetails{
 			Status: http.StatusInternalServerError,
 			Cause:  "UNSPECIFIED_NF_FAILURE",
 		}
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	}
 }
@@ -245,6 +248,7 @@ func (p *Processor) HandleDeleteAMFEventSubscription(c *gin.Context) {
 
 	problemDetails := p.DeleteAMFEventSubscriptionProcedure(subscriptionID)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, nil)
@@ -286,12 +290,14 @@ func (p *Processor) HandleModifyAMFEventSubscription(c *gin.Context,
 	if updatedEventSubscription != nil {
 		c.JSON(http.StatusOK, updatedEventSubscription)
 	} else if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		problemDetails = &models.ProblemDetails{
 			Status: http.StatusInternalServerError,
 			Cause:  "UNSPECIFIED_NF_FAILURE",
 		}
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	}
 }

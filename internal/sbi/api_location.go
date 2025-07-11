@@ -17,6 +17,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 func (s *Server) getLocationRoutes() []Route {
@@ -62,6 +63,7 @@ func (s *Server) HTTPProvideLocationInfo(c *gin.Context) {
 			Cause:  "SYSTEM_FAILURE",
 		}
 		logger.LocationLog.Errorf("Get Request Body error: %+v", err)
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetail.Cause)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
@@ -75,6 +77,7 @@ func (s *Server) HTTPProvideLocationInfo(c *gin.Context) {
 			Detail: problemDetail,
 		}
 		logger.LocationLog.Errorln(problemDetail)
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, http.StatusText(http.StatusBadRequest))
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}

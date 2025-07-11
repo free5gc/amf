@@ -7,10 +7,12 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	"github.com/free5gc/amf/internal/ngap"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	ngap_service "github.com/free5gc/amf/internal/ngap/service"
@@ -21,6 +23,8 @@ import (
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics"
+	"github.com/free5gc/util/metrics/utils"
 )
 
 type AmfAppInterface interface {
@@ -41,9 +45,10 @@ type AmfApp struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	processor *processor.Processor
-	consumer  *consumer.Consumer
-	sbiServer *sbi.Server
+	processor     *processor.Processor
+	consumer      *consumer.Consumer
+	sbiServer     *sbi.Server
+	metricsServer *metrics.Server
 }
 
 func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*AmfApp, error) {
@@ -73,9 +78,69 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 		return nil, err
 	}
 
+	// We launch the server only if the user specified it, but we still defined the metrics to avoid checking if
+	// the metrics are enabled each time the prometheus collector are called.
+	commonMetrics := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true, utils.NGAP: true}
+	if cfg.AreMetricsEnabled() {
+		if amf.metricsServer, err = metrics.NewServer(
+			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog); err != nil {
+			return nil, err
+		}
+	}
+
 	AMF = amf
 
 	return amf, nil
+}
+
+func getCustomMetrics(cfg *factory.Config) map[utils.MetricTypeEnabled][]prometheus.Collector {
+	customMetrics := make(map[utils.MetricTypeEnabled][]prometheus.Collector)
+
+	customMetrics[business_metrics.CM_STATE_METRICS] = business_metrics.GetUECMHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableUeCmMetrics()
+
+	customMetrics[business_metrics.HANDOVER_METRICS] = business_metrics.GetHandoverHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableHandoverMetrics()
+
+	customMetrics[business_metrics.PDU_METRICS] = business_metrics.GetPDUHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnablePduMetrics()
+
+	customMetrics[business_metrics.GMM_STATE_METRICS] = business_metrics.GetGMMStatesHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableGmmStateMetrics()
+
+	customMetrics[business_metrics.UE_CONNECTIVITY_METRICS] = business_metrics.GetUEHandlerMetrics(
+		cfg.GetMetricsNamespace())
+
+	business_metrics.EnableUeConnectivityMetrics()
+
+	return customMetrics
+}
+
+func getInitMetrics(
+	cfg *factory.Config,
+	commonMetrics map[utils.MetricTypeEnabled]bool,
+	customMetrics map[utils.MetricTypeEnabled][]prometheus.Collector,
+) metrics.InitMetrics {
+	metricsInfo := metrics.Metrics{
+		BindingIPv4: cfg.GetMetricsBindingAddr(),
+		Scheme:      cfg.GetMetricsScheme(),
+		Namespace:   cfg.GetMetricsNamespace(),
+		Port:        cfg.GetMetricsPort(),
+		Tls: metrics.Tls{
+			Key: cfg.GetMetricsCertKeyPath(),
+			Pem: cfg.GetMetricsCertPemPath(),
+		},
+	}
+
+	return metrics.NewInitMetrics(metricsInfo, "amf", commonMetrics, customMetrics)
 }
 
 func (a *AmfApp) SetLogEnable(enable bool) {
@@ -137,6 +202,12 @@ func (a *AmfApp) Start() {
 	a.wg.Add(1)
 	go a.listenShutdownEvent()
 
+	if a.cfg.AreMetricsEnabled() && a.metricsServer != nil {
+		go func() {
+			a.metricsServer.Run(&a.wg)
+		}()
+	}
+
 	var profile models.NrfNfManagementNfProfile
 	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
 		logger.InitLog.Error("Build AMF Profile Error")
@@ -197,6 +268,9 @@ func (a *AmfApp) listenShutdownEvent() {
 func (a *AmfApp) CallServerStop() {
 	if a.sbiServer != nil {
 		a.sbiServer.Stop()
+	}
+	if a.metricsServer != nil {
+		a.metricsServer.Stop()
 	}
 }
 
