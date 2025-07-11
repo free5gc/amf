@@ -1506,9 +1506,14 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 
 		amfSelf := amfUe.ServingAMF()
-		amfSelf.PendingHandovers.Store(amfUe.Supi, context.PendingHandoverResponse{
+		pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+		value, loaded := amfSelf.PendingHandovers.LoadOrStore(amfUe.Supi, pendingHOResponseChan)
+		if loaded {
+			pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
+		}
+		pendingHOResponseChan <- context.PendingHandoverResponse{
 			Response201: &resp201,
-		})
+		}
 	} else {
 		ran.Log.Tracef("Source: RanUeNgapID[%d] AmfUeNgapID[%d]", sourceUe.RanUeNgapId, sourceUe.AmfUeNgapId)
 		ran.Log.Tracef("Target: RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)

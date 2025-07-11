@@ -165,9 +165,11 @@ var testConfig = factory.Config{
 			ExpireTime:    6 * time.Second,
 			MaxRetryTimes: 4,
 		},
-		// NrfCertPem: "", "Optional"
-		// SCTP: &factory.Sctp{}, "Optional"
-		// DefaultUECtxReq: false, "Optional"
+	},
+	Logger: &factory.Logger{
+		Enable:       true,
+		Level:        "trace",
+		ReportCaller: false,
 	},
 }
 

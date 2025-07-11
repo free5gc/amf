@@ -43,6 +43,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
+		logger.CommLog.Errorf("Missing mandatory fields in UeContextCreateData: %+v", ueContextCreateData)
 		ueCtxCreateError := models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
@@ -59,20 +60,20 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	// amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
-	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
-	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
-	// 	N2InfoContainer: &models.N2InfoContainer{
-	// 		SmInfo: &models.N2SmInformation{
-	// 			N2InfoContent: ueContextCreateData.SourceToTargetData,
-	// 		},
-	// 	},
-	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
 	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	if !ok {
-		// internal error.
+		logger.CommLog.Errorf("Target RAN Node ID not found, TargetRanNodeId: %+v", *ueContextCreateData.TargetId.RanNodeId)
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
 	}
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
@@ -125,10 +126,30 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	pdu, err := ngap.Decoder(createUeContextRequest.BinaryDataN2Information)
 	if err != nil {
 		// internal error
+		logger.CommLog.Errorf("N2 Information Decode Error: %+v", err)
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
 	}
 	if pdu.Present != ngapType.NGAPPDUPresentInitiatingMessage || pdu.
 		InitiatingMessage.ProcedureCode.Value != ngapType.ProcedureCodeHandoverPreparation {
 		// internal error
+		logger.CommLog.Errorf("Wrong NGAP message type in N2 Information.")
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
 	}
 
 	// extract IEs from message.
@@ -149,7 +170,14 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	handoverRequiredMessage := pdu.InitiatingMessage.Value.HandoverRequired
 	if handoverRequiredMessage == nil {
 		logger.CommLog.Errorf("HandoverRequired is nil")
-		// return
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
 	}
 
 	// Refer to buildCriticalityDiagnosticsIEItem() in ngap/handler.go
@@ -342,58 +370,26 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	}
 
 	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
-		logger.CommLog.Trace("Has IE error") /*
-			procedureCode := ngapType.ProcedureCodeHandoverPreparation
-			triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
-			procedureCriticality := ngapType.CriticalityPresentReject
-			var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList
-			if len(iesCriticalityDiagnostics.List) > 0 {
-				pIesCriticalityDiagnostics = &iesCriticalityDiagnostics
-			} /*
-			criticalityDiagnostics := func (
-				procedureCode *int64,
-				triggeringMessage *aper.Enumerated,
-				procedureCriticality *aper.Enumerated,
-				iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) (
-				criticalityDiagnostics ngapType.CriticalityDiagnostics,
-			) {
-				if procedureCode != nil {
-					criticalityDiagnostics.ProcedureCode = new(ngapType.ProcedureCode)
-					criticalityDiagnostics.ProcedureCode.Value = *procedureCode
-				}
-
-				if triggeringMessage != nil {
-					criticalityDiagnostics.TriggeringMessage = new(ngapType.TriggeringMessage)
-					criticalityDiagnostics.TriggeringMessage.Value = *triggeringMessage
-				}
-
-				if procedureCriticality != nil {
-					criticalityDiagnostics.ProcedureCriticality = new(ngapType.Criticality)
-					criticalityDiagnostics.ProcedureCriticality.Value = *procedureCriticality
-				}
-
-				if iesCriticalityDiagnostics != nil {
-					criticalityDiagnostics.IEsCriticalityDiagnostics = iesCriticalityDiagnostics
-				}
-
-				return criticalityDiagnostics
-			} (&procedureCode, &triggeringMessage, &procedureCriticality, pIesCriticalityDiagnostics) */
-		if aMFUENGAPID != nil && rANUENGAPID != nil {
-			if syntaxCause == nil {
-				syntaxCause = &ngapType.Cause{
-					Present: ngapType.CausePresentProtocol,
-					Protocol: &ngapType.CauseProtocol{
-						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
-					},
-				}
-			}
-			// rawSendHandoverPreparationFailure(ran, *aMFUENGAPID, *rANUENGAPID, *syntaxCause, &criticalityDiagnostics)
-		} else {
-			// ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, syntaxCause, &criticalityDiagnostics)
+		logger.CommLog.Error("Duplicated or missing IEs in HandoverRequiredMessage.")
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
 		}
+		return nil, ueContextCreateError
 	}
 	if abort {
-		// return
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
 	}
 
 	// TS 23.502 4.9.1.3.2 step 4
@@ -405,7 +401,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 			// Check if the S-NSSAI associated with the PDU session is available in the AMF.
 			// If not, the T-AMF does not invoke Nsmf_PDUSession_UpdateSMContext for this PDU session.
 			pduSessionID := n2SmInfo.PduSessionId
-			if amfSelf.InPlmnSupportList(*n2SmInfo.SNssai) {
+			if n2SmInfo.SNssai != nil && amfSelf.InPlmnSupportList(*n2SmInfo.SNssai) {
 				continue
 			}
 
@@ -432,14 +428,14 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	}
 	if len(pduSessionReqList.List) == 0 {
 		logger.CommLog.Info("Handle Handover Preparation Failure [HoFailure In Target5GC NgranNode Or TargetSystem]")
-		cause = &ngapType.Cause{
-			Present: ngapType.CausePresentRadioNetwork,
-			RadioNetwork: &ngapType.CauseRadioNetwork{
-				Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
 			},
 		}
-		// ngap_message.SendHandoverPreparationFailure(ranUe, *cause, nil)
-		// return
 	}
 	// Update NH
 	ue.UpdateNH()
@@ -453,14 +449,23 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	}
 	ngap_message.SendHandoverRequest(ue.RanUe[ue.GetAnType()], targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
 
-	createUeContextResponse, ok := amfSelf.PendingHandovers.Load(ue.Supi)
-	createUeContextResp, ok := createUeContextResponse.(context.PendingHandoverResponse)
+	// waiting for handover request acknowledge handler to finish.
+	var createUeContextResponse context.PendingHandoverResponse
+	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+	value, loaded := amfSelf.PendingHandovers.LoadOrStore(ue.Supi, pendingHOResponseChan)
+	if loaded {
+		logger.CommLog.Info("PendingHandoverResponse channel created by HandoverRequestAcknowledge handler.")
+		pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
+	}
+	createUeContextResponse, ok = <-pendingHOResponseChan
 	if ok {
-		if createUeContextResp.Response201 != nil {
-			return createUeContextResp.Response201, nil
-		} else if createUeContextResp.Response403 != nil {
-			return nil, createUeContextResp.Response403
+		if createUeContextResponse.Response201 != nil {
+			return createUeContextResponse.Response201, nil
+		} else if createUeContextResponse.Response403 != nil {
+			return nil, createUeContextResponse.Response403
 		}
+	} else {
+		logger.CommLog.Info("PendingHandoverResponse channel closed.")
 	}
 
 	ueCtxCreateError := models.UeContextCreateError{
@@ -473,44 +478,6 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 		JsonData: &ueCtxCreateError,
 	}
 	return nil, ueContextCreateError
-
-	/*
-		 move to HandoverRequestAcknowledge handler (ngap/handler.go: handleHandoverRequestAcknowledgeMain() ).
-			createUeContextResponse := new(models.CreateUeContextResponse201)
-			createUeContextResponse.JsonData = &models.UeContextCreatedData{
-				UeContext: &models.UeContext{
-					Supi: ueContextCreateData.UeContext.Supi,
-				},
-			}
-
-			// response.JsonData.TargetToSourceData =
-			// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-			createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-			createUeContextResponse.JsonData.PcfReselectedInd = false
-			// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-			// response.JsonData.TargetToSourceData =
-			// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-			createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-			createUeContextResponse.JsonData.PcfReselectedInd = false
-			// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-
-			//	response.UeContext = ueContextCreateData.UeContext
-			//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-			//	response.PduSessionList = ueContextCreateData.PduSessionList
-			//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-			//
-			//	response.UeContext = ueContextCreateData.UeContext
-			//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-			//	response.PduSessionList = ueContextCreateData.PduSessionList
-			//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-			//
-
-			// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-			return createUeContextResponse, nil
-	*/
-	// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-	//		return createUeContextResponse, nil
-
 }
 
 // TS 29.518 5.2.2.2.4
