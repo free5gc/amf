@@ -79,6 +79,20 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	return &ranUe, nil
 }
 
+func (ran *AmfRan) NewRanUeFromAmfUeNgapID(amfUeNgapID int64) (*RanUe, error) {
+	ranUe := RanUe{}
+	self := GetSelf()
+	ranUe.AmfUeNgapId = amfUeNgapID
+	ranUe.RanUeNgapId = RanUeNgapIdUnspecified
+	ranUe.Ran = ran
+	ranUe.Log = ran.Log
+	ranUe.HoldingAmfUe = nil
+	ranUe.UpdateLogFields()
+	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
+	ranUe.Log.Infof("New RanUe [RanUeNgapID:%d][AmfUeNgapID:%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+	return &ranUe, nil
+}
+
 func (ran *AmfRan) RemoveAllRanUe(removeAmfUe bool) {
 	// Using revered removal since ranUe.Remove() will also modify the slice r.RanUeList
 	ran.RanUeList.Range(func(k, v interface{}) bool {
