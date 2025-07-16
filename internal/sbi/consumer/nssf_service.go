@@ -7,6 +7,7 @@ import (
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	Nnssf_NSSelection "github.com/free5gc/openapi/nssf/NSSelection"
+	sbi_metrics "github.com/free5gc/util/metrics/sbi"
 )
 
 type nssfService struct {
@@ -30,6 +31,7 @@ func (s *nssfService) getNSSelectionClient(uri string) *Nnssf_NSSelection.APICli
 
 	configuration := Nnssf_NSSelection.NewConfiguration()
 	configuration.SetBasePath(uri)
+	configuration.SetMetrics(sbi_metrics.SbiMetricHook)
 	client = Nnssf_NSSelection.NewAPIClient(configuration)
 
 	s.NSSelectionMu.RUnlock()

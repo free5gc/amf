@@ -8,6 +8,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 func (p *Processor) HandleProvideDomainSelectionInfoRequest(c *gin.Context) {
@@ -20,6 +21,7 @@ func (p *Processor) HandleProvideDomainSelectionInfoRequest(c *gin.Context) {
 	ueContextInfo, problemDetails := p.ProvideDomainSelectionInfoProcedure(ueContextID,
 		infoClassQuery, supportedFeaturesQuery)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, ueContextInfo)

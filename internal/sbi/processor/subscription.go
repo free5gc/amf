@@ -9,6 +9,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 // TS 29.518 5.2.2.5.1
@@ -19,6 +20,7 @@ func (p *Processor) HandleAMFStatusChangeSubscribeRequest(c *gin.Context,
 
 	subscriptionDataRsp, locationHeader, problemDetails := p.AMFStatusChangeSubscribeProcedure(subscriptionDataReq)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 		return
 	}
@@ -64,6 +66,7 @@ func (p *Processor) HandleAMFStatusChangeUnSubscribeRequest(c *gin.Context) {
 
 	problemDetails := p.AMFStatusChangeUnSubscribeProcedure(subscriptionID)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.Status(http.StatusNoContent)
@@ -96,6 +99,7 @@ func (p *Processor) HandleAMFStatusChangeSubscribeModify(c *gin.Context,
 	updatedSubscriptionData, problemDetails := p.
 		AMFStatusChangeSubscribeModifyProcedure(subscriptionID, updateSubscriptionData)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 		return
 	}
