@@ -54,8 +54,6 @@ output:
   print-issued-lines: true
   # print linter name in the end of issue text, default is true
   print-linter-name: true
-  # make issues output unique by line, default is true
-  uniq-by-line: true
 
   # Sort results by the order defined in `sort-order`.
   # Default: false
@@ -202,9 +200,6 @@ linters-settings:
     # Treat IncDec statement (e.g. `i++` or `i--`) as both read and write operation instead of just write.
     # Default: false
     post-statements-are-reads: true
-    # Mark all exported identifiers as used.
-    # Default: true
-    exported-is-used: true
     # Mark all exported fields as used.
     # default: true
     exported-fields-are-used: true
