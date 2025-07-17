@@ -1040,28 +1040,28 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 	// 		using Nudm_SDM_Subscribe when the data requested is modified"
 	problemDetails, err = consumer.GetConsumer().SDMGetAmData(ue)
 	if problemDetails != nil {
-		return errors.Errorf(problemDetails.Cause)
+		return errors.Errorf("%s", problemDetails.Cause)
 	} else if err != nil {
 		return errors.Wrap(err, "SDM_Get AmData Error")
 	}
 
 	problemDetails, err = consumer.GetConsumer().SDMGetSmfSelectData(ue)
 	if problemDetails != nil {
-		return errors.Errorf(problemDetails.Cause)
+		return errors.Errorf("%s", problemDetails.Cause)
 	} else if err != nil {
 		return errors.Wrap(err, "SDM_Get SmfSelectData Error")
 	}
 
 	problemDetails, err = consumer.GetConsumer().SDMGetUeContextInSmfData(ue)
 	if problemDetails != nil {
-		return errors.Errorf(problemDetails.Cause)
+		return errors.Errorf("%s", problemDetails.Cause)
 	} else if err != nil {
 		return errors.Wrap(err, "SDM_Get UeContextInSmfData Error")
 	}
 
 	problemDetails, err = consumer.GetConsumer().SDMSubscribe(ue)
 	if problemDetails != nil {
-		return errors.Errorf(problemDetails.Cause)
+		return errors.Errorf("%s", problemDetails.Cause)
 	} else if err != nil {
 		return errors.Wrap(err, "SDM Subscribe Error")
 	}
@@ -1669,7 +1669,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	}
 	if ausfUri == "" {
 		err = fmt.Errorf("AMF can not select an AUSF by NRF")
-		ue.GmmLog.Errorf(err.Error())
+		ue.GmmLog.Error(err)
 		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
 		return false, err
 	}
@@ -1680,7 +1680,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error: %+v", err)
 		gmm_message.SendRegistrationReject(ue.RanUe[accessType], nasMessage.Cause5GMMCongestion, "")
 		err = fmt.Errorf("Authentication procedure failed")
-		ue.GmmLog.Errorf(err.Error())
+		ue.GmmLog.Error(err)
 		return false, err
 	} else if problemDetails != nil {
 		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
@@ -1693,7 +1693,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		}
 		gmm_message.SendRegistrationReject(ue.RanUe[accessType], cause, "")
 		err = fmt.Errorf("Authentication procedure failed")
-		ue.GmmLog.Warnf(err.Error())
+		ue.GmmLog.Warn(err)
 		return false, err
 	}
 	ue.AuthenticationCtx = response

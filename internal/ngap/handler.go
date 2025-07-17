@@ -106,7 +106,7 @@ func handleUplinkNASTransportMain(ran *context.AmfRan,
 	if amfUe == nil {
 		err := ranUe.Remove()
 		if err != nil {
-			ran.Log.Errorf(err.Error())
+			ran.Log.Error(err)
 		}
 		ran.Log.Errorf("No UE Context of RanUe with RANUENGAPID[%d] AMFUENGAPID[%d] ",
 			ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
