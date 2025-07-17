@@ -145,19 +145,19 @@ func (c *Configuration) validate() (bool, error) {
 			}
 			mcc := v.PlmnId.Mcc
 			if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-				err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+				err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 				errs = append(errs, err)
 			}
 
 			mnc := v.PlmnId.Mnc
 			if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-				err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+				err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 				errs = append(errs, err)
 			}
 
 			amfId := v.AmfId
 			if result := govalidator.StringMatches(amfId, "^[A-Fa-f0-9]{6}$"); !result {
-				err := fmt.Errorf("Invalid amfId: %s,"+
+				err := fmt.Errorf("invalid amfId: %s,"+
 					" should be 3 bytes hex string, range: 000000~FFFFFF", amfId)
 				errs = append(errs, err)
 			}
@@ -175,19 +175,19 @@ func (c *Configuration) validate() (bool, error) {
 			}
 			mcc := v.PlmnId.Mcc
 			if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-				err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+				err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 				errs = append(errs, err)
 			}
 
 			mnc := v.PlmnId.Mnc
 			if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-				err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+				err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 				errs = append(errs, err)
 			}
 
 			tac := v.Tac
 			if result := govalidator.StringMatches(tac, "^[A-Fa-f0-9]{6}$"); !result {
-				err := fmt.Errorf("Invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
+				err := fmt.Errorf("invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
 				errs = append(errs, err)
 			}
 		}
@@ -335,7 +335,7 @@ func (s *Security) validate() (bool, error) {
 	if s.IntegrityOrder != nil {
 		for _, val := range s.IntegrityOrder {
 			if result := govalidator.Contains(val, "NIA"); !result {
-				err := fmt.Errorf("Invalid integrityOrder: %s, should be NIA-series integrity algorithms", val)
+				err := fmt.Errorf("invalid integrityOrder: %s, should be NIA-series integrity algorithms", val)
 				errs = append(errs, err)
 			}
 		}
@@ -343,7 +343,7 @@ func (s *Security) validate() (bool, error) {
 	if s.CipheringOrder != nil {
 		for _, val := range s.CipheringOrder {
 			if result := govalidator.Contains(val, "NEA"); !result {
-				err := fmt.Errorf("Invalid cipheringOrder: %s, should be NEA-series ciphering algorithms", val)
+				err := fmt.Errorf("invalid cipheringOrder: %s, should be NEA-series ciphering algorithms", val)
 				errs = append(errs, err)
 			}
 		}
@@ -370,7 +370,7 @@ func (p *PlmnSupportItem) validate() (bool, error) {
 
 	mcc := p.PlmnId.Mcc
 	if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-		err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+		err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 		errs = append(errs, err)
 	}
 
@@ -419,19 +419,19 @@ func (l *Ladn) validate() (bool, error) {
 		}
 		mcc := v.PlmnId.Mcc
 		if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-			err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+			err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 			errs = append(errs, err)
 		}
 
 		mnc := v.PlmnId.Mnc
 		if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-			err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+			err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 			errs = append(errs, err)
 		}
 
 		tac := v.Tac
 		if result := govalidator.StringMatches(tac, "^[A-Fa-f0-9]{6}$"); !result {
-			err := fmt.Errorf("Invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
+			err := fmt.Errorf("invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
 			errs = append(errs, err)
 		}
 	}
@@ -587,35 +587,35 @@ func (f *NetworkFeatureSupport5GS) validate() (bool, error) {
 	var errs govalidator.Errors
 
 	if result := govalidator.InRangeInt(f.Length, 1, 3); !result {
-		err := fmt.Errorf("Invalid length: %d, should be in the range of 1~3", f.Length)
+		err := fmt.Errorf("invalid length: %d, should be in the range of 1~3", f.Length)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.ImsVoPS, 0, 1); !result {
-		err := fmt.Errorf("Invalid imsVoPS: %d, should be in the range of 0~1", f.ImsVoPS)
+		err := fmt.Errorf("invalid imsVoPS: %d, should be in the range of 0~1", f.ImsVoPS)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Emc, 0, 3); !result {
-		err := fmt.Errorf("Invalid emc: %d, should be in the range of 0~3", f.Emc)
+		err := fmt.Errorf("invalid emc: %d, should be in the range of 0~3", f.Emc)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Emf, 0, 3); !result {
-		err := fmt.Errorf("Invalid emf: %d, should be in the range of 0~3", f.Emf)
+		err := fmt.Errorf("invalid emf: %d, should be in the range of 0~3", f.Emf)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.IwkN26, 0, 1); !result {
-		err := fmt.Errorf("Invalid iwkN26: %d, should be in the range of 0~1", f.IwkN26)
+		err := fmt.Errorf("invalid iwkN26: %d, should be in the range of 0~1", f.IwkN26)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Mpsi, 0, 1); !result {
-		err := fmt.Errorf("Invalid mpsi: %d, should be in the range of 0~1", f.Mpsi)
+		err := fmt.Errorf("invalid mpsi: %d, should be in the range of 0~1", f.Mpsi)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.EmcN3, 0, 1); !result {
-		err := fmt.Errorf("Invalid emcN3: %d, should be in the range of 0~1", f.EmcN3)
+		err := fmt.Errorf("invalid emcN3: %d, should be in the range of 0~1", f.EmcN3)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Mcsi, 0, 1); !result {
-		err := fmt.Errorf("Invalid mcsi: %d, should be in the range of 0~1", f.Mcsi)
+		err := fmt.Errorf("invalid mcsi: %d, should be in the range of 0~1", f.Mcsi)
 		errs = append(errs, err)
 	}
 	if _, err := govalidator.ValidateStruct(f); err != nil {
@@ -652,7 +652,7 @@ func appendInvalid(err error) error {
 
 	es := err.(govalidator.Errors).Errors()
 	for _, e := range es {
-		errs = append(errs, fmt.Errorf("Invalid %w", e))
+		errs = append(errs, fmt.Errorf("invalid %w", e))
 	}
 
 	return error(errs)

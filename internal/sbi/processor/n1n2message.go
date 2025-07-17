@@ -73,15 +73,15 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	transferErr *models.N1N2MessageTransferError,
 ) {
 	var (
-		requestData *models.N1N2MessageTransferReqData = n1n2MessageTransferRequest.JsonData
-		n2Info      []byte                             = n1n2MessageTransferRequest.BinaryDataN2Information
-		n1Msg       []byte                             = n1n2MessageTransferRequest.BinaryDataN1Message
+		requestData = n1n2MessageTransferRequest.JsonData
+		n2Info      = n1n2MessageTransferRequest.BinaryDataN2Information
+		n1Msg       = n1n2MessageTransferRequest.BinaryDataN1Message
 
 		ue        *context.AmfUe
 		ok        bool
 		smContext *context.SmContext
 		n1MsgType uint8
-		anType    models.AccessType = models.AccessType__3_GPP_ACCESS
+		anType    = models.AccessType__3_GPP_ACCESS
 	)
 
 	amfSelf := context.GetSelf()

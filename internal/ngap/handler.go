@@ -490,7 +490,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 
 	// If id type is GUTI, since MAC can't be checked here (no amfUe context), the GUTI may not direct to the right amfUe.
 	// In this case, create a new amfUe to handle the following registration procedure.
-	var isInvalidGUTI bool = (idType == "5G-GUTI")
+	isInvalidGUTI := (idType == "5G-GUTI")
 	amfUe, ok := findAmfUe(ran, id, idType)
 	if ok && !isInvalidGUTI {
 		// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since

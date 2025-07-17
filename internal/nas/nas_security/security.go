@@ -381,11 +381,12 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 }
 
 func GetBearerType(accessType models.AccessType) uint8 {
-	if accessType == models.AccessType__3_GPP_ACCESS {
+	switch accessType {
+	case models.AccessType__3_GPP_ACCESS:
 		return security.Bearer3GPP
-	} else if accessType == models.AccessType_NON_3_GPP_ACCESS {
+	case models.AccessType_NON_3_GPP_ACCESS:
 		return security.BearerNon3GPP
-	} else {
+	default:
 		return security.OnlyOneBearer
 	}
 }
