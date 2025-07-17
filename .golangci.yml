@@ -61,7 +61,14 @@ linters:
     goconst:
       min-len: 5
       min-occurrences: 3
-      ignore-string-values: get|post|put|delete|patch|options|head
+      ignore-string-values:
+        - get
+        - post
+        - put
+        - delete
+        - patch
+        - options
+        - head
     gocritic:
       disabled-checks:
         - regexpMust
