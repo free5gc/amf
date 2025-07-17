@@ -1030,7 +1030,7 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 
 	problemDetails, err := consumer.GetConsumer().UeCmRegistration(ue, accessType, true)
 	if problemDetails != nil {
-		return errors.Errorf(problemDetails.Cause)
+		return errors.Errorf("%s", problemDetails.Cause)
 	} else if err != nil {
 		return errors.Wrap(err, "UECM_Registration Error")
 	}
