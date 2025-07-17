@@ -28,8 +28,8 @@ github.com/free5gc/openapi v1.2.0 h1:AOPqkkiWK7XJPdzWVohWsoGkLBt8OrVkQkU7xzvzbek
 github.com/free5gc/openapi v1.2.0/go.mod h1:pGVJ27QZk4UGG4/1IioBtxwIKNdqOk7L9qcrXvdTjYU=
 github.com/free5gc/sctp v1.1.0 h1:erxOTR49VOc8cc/fuqi8sscnCpl2/EvWG4CrFsbRoVc=
 github.com/free5gc/sctp v1.1.0/go.mod h1:3pNCIh4roncSgvzIcBhSSsvZGRrMZNiqAVW3qzSE+cw=
-github.com/free5gc/util v1.1.0 h1:W0gz5+9X/CdVv7VHAC2eU5mGsO8jsztvX3T+z3xXHhI=
-github.com/free5gc/util v1.1.0/go.mod h1:33k3sojN/Vg+BbVmjfN3V8/5G/sboXS6OEOWWk7blqg=
+github.com/free5gc/util v1.1.1 h1:gsjyI/XbHC9EChoMayHvV5kd92vDmp5/TvmBsOuHto4=
+github.com/free5gc/util v1.1.1/go.mod h1:numtzcUQDVMpotUjwAXgGHqHHyPWKiicZhQtW4Ijk18=
 github.com/gabriel-vasile/mimetype v1.4.3 h1:in2uUcidCuFcDKtdcBxlR0rJ1+fsokWf+uqxgUFjbI0=
 github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcPfT7nKyLpA0lbSSk=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
