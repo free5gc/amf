@@ -321,7 +321,7 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		// TODO: it's a workaround, need to fix it.
-		targetRanUe := context.GetSelf().RanUeFindByAmfUeNgapID(ranUe.TargetUe.AmfUeNgapId)
+		targetRanUe := context.GetSelf().RanUeFindTargetByAmfUeNgapID(ranUe.TargetUe.AmfUeNgapId)
 
 		context.DetachSourceUeTargetUe(ranUe)
 		err := ranUe.Remove()
@@ -1227,7 +1227,7 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	pduSessionResourceToBeSwitchedInDLList *ngapType.PDUSessionResourceToBeSwitchedDLList,
 	pduSessionResourceFailedToSetupList *ngapType.PDUSessionResourceFailedToSetupListPSReq,
 ) {
-	ranUe := context.GetSelf().RanUeFindByAmfUeNgapID(sourceAMFUENGAPID.Value)
+	ranUe := context.GetSelf().RanUeFindSourceByAmfUeNgapID(sourceAMFUENGAPID.Value)
 	if ranUe == nil {
 		ran.Log.Errorf("Cannot find UE from sourceAMfUeNgapID[%d]", sourceAMFUENGAPID.Value)
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value, nil, nil)
@@ -1946,7 +1946,7 @@ func handleErrorIndicationMain(ran *context.AmfRan,
 		//  > AP ID as either the local or remote identifier.
 		// So we think that these Cause codes that represent incorrect AP ID(s) need to trigger local release.
 		if aMFUENGAPID != nil {
-			ranUe := context.GetSelf().RanUeFindByAmfUeNgapID(aMFUENGAPID.Value)
+			ranUe := context.GetSelf().RanUeFindTargetByAmfUeNgapID(aMFUENGAPID.Value)
 			if ranUe != nil && ranUe.Ran == ran {
 				removeRanUeByInvalidId(ran, ranUe, fmt.Sprintf("ErrorIndication (AmfUeNgapID: %d)", aMFUENGAPID.Value))
 			}
@@ -2142,7 +2142,7 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 //	> having the erroneous AP ID as either the local or remote identifier.
 func removeRanUeByInvalidUE(ran *context.AmfRan, aMFUENGAPID *ngapType.AMFUENGAPID, rANUENGAPID *ngapType.RANUENGAPID) {
 	if aMFUENGAPID != nil {
-		ranUe := context.GetSelf().RanUeFindByAmfUeNgapID(aMFUENGAPID.Value)
+		ranUe := context.GetSelf().RanUeFindTargetByAmfUeNgapID(aMFUENGAPID.Value)
 		if ranUe != nil && ranUe.Ran == ran {
 			removeRanUeByInvalidId(ran, ranUe, fmt.Sprintf("Invalid UE ID (AmfUeNgapID: %d)", aMFUENGAPID.Value))
 		}
@@ -2175,7 +2175,7 @@ func ranUeFind(ran *context.AmfRan,
 		rANUENGAPID_string = fmt.Sprintf("%d", rANUENGAPID.Value)
 	}
 
-	ranUe = context.GetSelf().RanUeFindByAmfUeNgapID(aMFUENGAPID.Value)
+	ranUe = context.GetSelf().RanUeFindTargetByAmfUeNgapID(aMFUENGAPID.Value)
 	if ranUe == nil {
 		cause := &ngapType.Cause{
 			Present: ngapType.CausePresentRadioNetwork,
