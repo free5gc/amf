@@ -390,13 +390,14 @@ func SendDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrati
 		}, func() {
 			amfUe.GmmLog.Warnf("T3522 Expires %d times, abort deregistration procedure", cfg.MaxRetryTimes)
 			amfUe.T3522 = nil // clear the timer
-			if accessType == nasMessage.AccessType3GPP {
+			switch accessType {
+			case nasMessage.AccessType3GPP:
 				amfUe.GmmLog.Warnln("UE accessType[3GPP] transfer to Deregistered state")
 				amfUe.State[models.AccessType__3_GPP_ACCESS].Set(context.Deregistered)
-			} else if accessType == nasMessage.AccessTypeNon3GPP {
+			case nasMessage.AccessTypeNon3GPP:
 				amfUe.GmmLog.Warnln("UE accessType[Non3GPP] transfer to Deregistered state")
 				amfUe.State[models.AccessType_NON_3_GPP_ACCESS].Set(context.Deregistered)
-			} else {
+			default:
 				amfUe.GmmLog.Warnln("UE accessType[3GPP] transfer to Deregistered state")
 				amfUe.State[models.AccessType__3_GPP_ACCESS].Set(context.Deregistered)
 				amfUe.GmmLog.Warnln("UE accessType[Non3GPP] transfer to Deregistered state")

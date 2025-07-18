@@ -313,7 +313,7 @@ func BuildInitialUEMessage(ranUeNgapID int64, nasPdu []byte, fiveGSTmsi string) 
 func TestHandleInitialUEMessage(t *testing.T) {
 	var message *ngapType.NGAPPDU
 	var ranUeNgapID int64 = 1
-	var fiveGSTmsi string = "fe0000000001"
+	fiveGSTmsi := "fe0000000001"
 	var msg ngapType.NGAPPDU
 
 	testCases := []struct {

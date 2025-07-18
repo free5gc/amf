@@ -340,9 +340,10 @@ func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 
 func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
 	anTypeStr := ""
-	if accessType == models.AccessType__3_GPP_ACCESS {
+	switch accessType {
+	case models.AccessType__3_GPP_ACCESS:
 		anTypeStr = "3GPP"
-	} else if accessType == models.AccessType_NON_3_GPP_ACCESS {
+	case models.AccessType_NON_3_GPP_ACCESS:
 		anTypeStr = "Non3GPP"
 	}
 	if ranUe, ok := ue.RanUe[accessType]; ok {

@@ -133,9 +133,10 @@ func (ranUe *RanUe) UpdateLogFields() {
 		}
 
 		anTypeStr := ""
-		if ranUe.Ran.AnType == models.AccessType__3_GPP_ACCESS {
+		switch ranUe.Ran.AnType {
+		case models.AccessType__3_GPP_ACCESS:
 			anTypeStr = "3GPP"
-		} else if ranUe.Ran.AnType == models.AccessType_NON_3_GPP_ACCESS {
+		case models.AccessType_NON_3_GPP_ACCESS:
 			anTypeStr = "Non3GPP"
 		}
 		ranUe.Log = ranUe.Log.WithField(logger.FieldAmfUeNgapID,
