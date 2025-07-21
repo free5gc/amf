@@ -323,7 +323,8 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 				logger.CommLog.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
 			}
 			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
-				item := buildCriticalityDiagnosticsIEItem(ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				item := buildCriticalityDiagnosticsIEItem(
+					ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
 				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
 					abort = true
@@ -334,37 +335,43 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 	if aMFUENGAPID == nil {
 		logger.CommLog.Error("Missing IE AMF-UE-NGAP-ID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
 	if rANUENGAPID == nil {
 		logger.CommLog.Error("Missing IE RAN-UE-NGAP-ID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
 	if handoverType == nil {
 		logger.CommLog.Error("Missing IE HandoverType")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
 	if targetID == nil {
 		logger.CommLog.Error("Missing IE TargetID")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDTargetID, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDTargetID, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
 	if pDUSessionResourceListHORqd == nil {
 		logger.CommLog.Error("Missing IE PDUSessionResourceListHORqd")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDPDUSessionResourceListHORqd, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDPDUSessionResourceListHORqd, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
 	if sourceToTargetTransparentContainer == nil {
 		logger.CommLog.Error("Missing IE SourceToTarget-TransparentContainer")
-		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject, ngapType.ProtocolIEIDSourceToTargetTransparentContainer, ngapType.TypeOfErrorPresentMissing)
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDSourceToTargetTransparentContainer, ngapType.TypeOfErrorPresentMissing)
 		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
 		abort = true
 	}
@@ -405,16 +412,16 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 				continue
 			}
 
-			smContext, ok := ue.SmContextFindByPDUSessionID(pduSessionID)
-			if !ok {
+			smContext, okSmContextFound := ue.SmContextFindByPDUSessionID(pduSessionID)
+			if !okSmContextFound {
 				logger.CommLog.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				// TODO: Check if doing error handling here
 				continue
 			}
 
-			updateSmContextResponse200, _, _, err := p.Consumer().
+			updateSmContextResponse200, _, _, errSendUpdateSmContext := p.Consumer().
 				SendUpdateSmContextHandoverBetweenAMF(ue, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false)
-			if err != nil {
+			if errSendUpdateSmContext != nil {
 				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", err)
 			}
 			if updateSmContextResponse200 == nil {
@@ -447,7 +454,8 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 			},
 		}
 	}
-	ngap_message.SendHandoverRequest(ue.RanUe[ue.GetAnType()], targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
+	ngap_message.SendHandoverRequest(
+		ue.RanUe[ue.GetAnType()], targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
 
 	// waiting for handover request acknowledge handler to finish.
 	var createUeContextResponse context.PendingHandoverResponse

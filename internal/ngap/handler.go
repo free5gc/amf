@@ -1484,7 +1484,8 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 		for _, eventSub := range amfUe.EventSubscriptionsInfo {
 			if eventSub.EventSubscription != nil {
-				ueContextCreatedData.UeContext.EventSubscriptionList = append(ueContextCreatedData.UeContext.EventSubscriptionList, *eventSub.EventSubscription)
+				ueContextCreatedData.UeContext.EventSubscriptionList = append(
+					ueContextCreatedData.UeContext.EventSubscriptionList, *eventSub.EventSubscription)
 			}
 		}
 		if amfUe.TraceData != nil {
@@ -1664,7 +1665,8 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		ueContextCreateData.SourceToTargetData.NgapData.ContentId = "N2SmInfo"
 
 		ueContextCreateData.N2NotifyUri = ""
-		ueContextCreatedData, targetToSourceTransparentContainer, problemDetails, err := consumer.GetConsumer().CreateUEContextRequest(amfUe, ueContextCreateData)
+		ueContextCreatedData, targetToSourceTransparentContainer,
+			problemDetails, err := consumer.GetConsumer().CreateUEContextRequest(amfUe, ueContextCreateData)
 
 		if problemDetails != nil {
 			// get UeContextCreateError (HANDOVER FAILURE) from target AMF.

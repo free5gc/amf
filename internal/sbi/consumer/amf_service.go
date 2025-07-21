@@ -153,7 +153,10 @@ func (s *namfService) buildAmPolicyReqTriggers(
 }
 
 func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
-	ueContextCreatedData *models.UeContextCreatedData, targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer, problemDetails *models.ProblemDetails, err error,
+	ueContextCreatedData *models.UeContextCreatedData,
+	targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer,
+	problemDetails *models.ProblemDetails,
+	err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
 	if client == nil {
@@ -179,19 +182,18 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
 
 		if res.CreateUeContextResponse201.BinaryDataN2Information != nil {
-			pdu, err := ngap.Decoder(res.CreateUeContextResponse201.BinaryDataN2Information)
-			if err != nil &&
+			pdu, errNgapDecoder := ngap.Decoder(res.CreateUeContextResponse201.BinaryDataN2Information)
+			if errNgapDecoder != nil &&
 				pdu.Present == ngapType.NGAPPDUPresentSuccessfulOutcome &&
 				pdu.SuccessfulOutcome.ProcedureCode.Value == ngapType.ProcedureCodeHandoverResourceAllocation {
 				handoverRequestAcknowledge := pdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge
 				for _, ie := range handoverRequestAcknowledge.ProtocolIEs.List {
-					switch ie.Id.Value {
-					case ngapType.ProtocolIEIDTargetToSourceTransparentContainer:
+					if ie.Id.Value == ngapType.ProtocolIEIDTargetToSourceTransparentContainer {
 						targetToSourceTransparentContainer = ie.Value.TargetToSourceTransparentContainer
 					}
 				}
-			} else if err != nil {
-				return nil, nil, nil, err
+			} else if errNgapDecoder != nil {
+				return nil, nil, nil, errNgapDecoder
 			}
 		}
 	} else {
