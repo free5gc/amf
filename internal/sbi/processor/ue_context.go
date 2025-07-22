@@ -12,7 +12,11 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	"github.com/free5gc/aper"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -39,6 +43,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
+		logger.CommLog.Errorf("Missing mandatory fields in UeContextCreateData: %+v", ueContextCreateData)
 		ueCtxCreateError := models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
@@ -55,18 +60,21 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	// amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
-	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
-	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
-	// 	N2InfoContainer: &models.N2InfoContainer{
-	// 		SmInfo: &models.N2SmInformation{
-	// 			N2InfoContent: ueContextCreateData.SourceToTargetData,
-	// 		},
-	// 	},
-	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
-	amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
+	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
+	if !ok {
+		logger.CommLog.Errorf("Target RAN Node ID not found, TargetRanNodeId: %+v", *ueContextCreateData.TargetId.RanNodeId)
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
+	}
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
@@ -112,27 +120,372 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// ueContextCreateData.UeContext.MmContextList
 	// ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
 	// ue.TraceData = ueContextCreateData.UeContext.TraceData
-	createUeContextResponse := new(models.CreateUeContextResponse201)
-	createUeContextResponse.JsonData = &models.UeContextCreatedData{
-		UeContext: &models.UeContext{
-			Supi: ueContextCreateData.UeContext.Supi,
-		},
+
+	// decode HandoverRequiredMessage.
+	// refer to ngap/dispatcher.go and ngap/dispatcher_generated.go.
+	pdu, err := ngap.Decoder(createUeContextRequest.BinaryDataN2Information)
+	if err != nil {
+		// internal error
+		logger.CommLog.Errorf("N2 Information Decode Error: %+v", err)
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
+	}
+	if pdu.Present != ngapType.NGAPPDUPresentInitiatingMessage || pdu.
+		InitiatingMessage.ProcedureCode.Value != ngapType.ProcedureCodeHandoverPreparation {
+		// internal error
+		logger.CommLog.Errorf("Wrong NGAP message type in N2 Information.")
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
 	}
 
-	// response.JsonData.TargetToSourceData =
-	// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-	createUeContextResponse.JsonData.PcfReselectedInd = false
-	// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+	// extract IEs from message.
+	// refer to ngap/handler_generated.go handlerHandoverRequired().
+	var aMFUENGAPID *ngapType.AMFUENGAPID
+	var rANUENGAPID *ngapType.RANUENGAPID
+	var handoverType *ngapType.HandoverType
+	var cause *ngapType.Cause
+	var targetID *ngapType.TargetID
+	var directForwardingPathAvailability *ngapType.DirectForwardingPathAvailability
+	var pDUSessionResourceListHORqd *ngapType.PDUSessionResourceListHORqd
+	var sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer
 
-	//	response.UeContext = ueContextCreateData.UeContext
-	//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	//	response.PduSessionList = ueContextCreateData.PduSessionList
-	//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-	//
+	var syntaxCause *ngapType.Cause
+	var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
+	abort := false
 
-	// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-	return createUeContextResponse, nil
+	handoverRequiredMessage := pdu.InitiatingMessage.Value.HandoverRequired
+	if handoverRequiredMessage == nil {
+		logger.CommLog.Errorf("HandoverRequired is nil")
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+	}
+
+	// Refer to buildCriticalityDiagnosticsIEItem() in ngap/handler.go
+	buildCriticalityDiagnosticsIEItem := func(ieCriticality aper.Enumerated, ieID int64, typeOfErr aper.Enumerated) (
+		item ngapType.CriticalityDiagnosticsIEItem,
+	) {
+		item = ngapType.CriticalityDiagnosticsIEItem{
+			IECriticality: ngapType.Criticality{
+				Value: ieCriticality,
+			},
+			IEID: ngapType.ProtocolIEID{
+				Value: ieID,
+			},
+			TypeOfError: ngapType.TypeOfError{
+				Value: typeOfErr,
+			},
+		}
+
+		return item
+	}
+
+	for _, ie := range handoverRequiredMessage.ProtocolIEs.List {
+		switch ie.Id.Value {
+		case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, reject
+			if aMFUENGAPID != nil {
+				logger.CommLog.Errorf("Duplicate IE AMF-UE-NGAP-ID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			aMFUENGAPID = ie.Value.AMFUENGAPID
+			logger.CommLog.Trace("Decode IE AMF-UE-NGAP-ID")
+		case ngapType.ProtocolIEIDRANUENGAPID: // mandatory, reject
+			if rANUENGAPID != nil {
+				logger.CommLog.Error("Duplicate IE RAN-UE-NGAP-ID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			rANUENGAPID = ie.Value.RANUENGAPID
+			logger.CommLog.Trace("Decode IE RAN-UE-NGAP-ID")
+		case ngapType.ProtocolIEIDHandoverType: // mandatory, reject
+			if handoverType != nil {
+				logger.CommLog.Error("Duplicate IE HandoverType")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			handoverType = ie.Value.HandoverType
+			logger.CommLog.Trace("Decode IE HandoverType")
+		case ngapType.ProtocolIEIDCause: // mandatory, ignore
+			if cause != nil {
+				logger.CommLog.Error("Duplicate IE Cause")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			cause = ie.Value.Cause
+			logger.CommLog.Trace("Decode IE Cause")
+		case ngapType.ProtocolIEIDTargetID: // mandatory, reject
+			if targetID != nil {
+				logger.CommLog.Error("Duplicate IE TargetID")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			targetID = ie.Value.TargetID
+			logger.CommLog.Trace("Decode IE TargetID")
+		case ngapType.ProtocolIEIDDirectForwardingPathAvailability: // optional, ignore
+			if directForwardingPathAvailability != nil {
+				logger.CommLog.Error("Duplicate IE DirectForwardingPathAvailability")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			directForwardingPathAvailability = ie.Value.DirectForwardingPathAvailability
+			logger.CommLog.Trace("Decode IE DirectForwardingPathAvailability")
+		case ngapType.ProtocolIEIDPDUSessionResourceListHORqd: // mandatory, reject
+			if pDUSessionResourceListHORqd != nil {
+				logger.CommLog.Error("Duplicate IE PDUSessionResourceListHORqd")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			pDUSessionResourceListHORqd = ie.Value.PDUSessionResourceListHORqd
+			logger.CommLog.Trace("Decode IE PDUSessionResourceListHORqd")
+		case ngapType.ProtocolIEIDSourceToTargetTransparentContainer: // mandatory, reject
+			if sourceToTargetTransparentContainer != nil {
+				logger.CommLog.Error("Duplicate IE SourceToTarget-TransparentContainer")
+				syntaxCause = &ngapType.Cause{
+					Present: ngapType.CausePresentProtocol,
+					Protocol: &ngapType.CauseProtocol{
+						Value: ngapType.CauseProtocolPresentAbstractSyntaxErrorFalselyConstructedMessage,
+					},
+				}
+				abort = true
+				break
+			}
+			sourceToTargetTransparentContainer = ie.Value.SourceToTargetTransparentContainer
+			logger.CommLog.Trace("Decode IE SourceToTarget-TransparentContainer")
+		default:
+			switch ie.Criticality.Value {
+			case ngapType.CriticalityPresentReject:
+				logger.CommLog.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+			case ngapType.CriticalityPresentIgnore:
+				logger.CommLog.Infof("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+			case ngapType.CriticalityPresentNotify:
+				logger.CommLog.Warnf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+			}
+			if ie.Criticality.Value != ngapType.CriticalityPresentIgnore {
+				item := buildCriticalityDiagnosticsIEItem(
+					ie.Criticality.Value, ie.Id.Value, ngapType.TypeOfErrorPresentNotUnderstood)
+				iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+				if ie.Criticality.Value == ngapType.CriticalityPresentReject {
+					abort = true
+				}
+			}
+		}
+	} // end of extracting IEs from message.
+
+	if aMFUENGAPID == nil {
+		logger.CommLog.Error("Missing IE AMF-UE-NGAP-ID")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDAMFUENGAPID, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+	if rANUENGAPID == nil {
+		logger.CommLog.Error("Missing IE RAN-UE-NGAP-ID")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDRANUENGAPID, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+	if handoverType == nil {
+		logger.CommLog.Error("Missing IE HandoverType")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDHandoverType, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+	if targetID == nil {
+		logger.CommLog.Error("Missing IE TargetID")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDTargetID, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+	if pDUSessionResourceListHORqd == nil {
+		logger.CommLog.Error("Missing IE PDUSessionResourceListHORqd")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDPDUSessionResourceListHORqd, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+	if sourceToTargetTransparentContainer == nil {
+		logger.CommLog.Error("Missing IE SourceToTarget-TransparentContainer")
+		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
+			ngapType.ProtocolIEIDSourceToTargetTransparentContainer, ngapType.TypeOfErrorPresentMissing)
+		iesCriticalityDiagnostics.List = append(iesCriticalityDiagnostics.List, item)
+		abort = true
+	}
+
+	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+		logger.CommLog.Error("Duplicated or missing IEs in HandoverRequiredMessage.")
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
+	}
+	if abort {
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+	}
+
+	// TS 23.502 4.9.1.3.2 step 4
+	var pduSessionReqList ngapType.PDUSessionResourceSetupListHOReq
+
+	if pDUSessionResourceListHORqd != nil {
+		logger.CommLog.Infof("Send HandoverRequiredTransfer to SMF")
+		for _, n2SmInfo := range ueContextCreateData.PduSessionList {
+			// Check if the S-NSSAI associated with the PDU session is available in the AMF.
+			// If not, the T-AMF does not invoke Nsmf_PDUSession_UpdateSMContext for this PDU session.
+			pduSessionID := n2SmInfo.PduSessionId
+			if n2SmInfo.SNssai != nil && amfSelf.InPlmnSupportList(*n2SmInfo.SNssai) {
+				continue
+			}
+
+			smContext, okSmContextFound := ue.SmContextFindByPDUSessionID(pduSessionID)
+			if !okSmContextFound {
+				logger.CommLog.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+				// TODO: Check if doing error handling here
+				continue
+			}
+
+			updateSmContextResponse200, _, _, errSendUpdateSmContext := p.Consumer().
+				SendUpdateSmContextHandoverBetweenAMF(ue, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false)
+			if errSendUpdateSmContext != nil {
+				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", err)
+			}
+			if updateSmContextResponse200 == nil {
+				logger.CommLog.Errorf("SendUpdateSmContextN2HandoverPreparing Error for pduSessionID[%d]", pduSessionID)
+				continue
+			} else if updateSmContextResponse200.BinaryDataN2SmInformation != nil {
+				ngap_message.AppendPDUSessionResourceSetupListHOReq(&pduSessionReqList, pduSessionID,
+					smContext.Snssai(), updateSmContextResponse200.BinaryDataN2SmInformation)
+			}
+		}
+	}
+	if len(pduSessionReqList.List) == 0 {
+		logger.CommLog.Info("Handle Handover Preparation Failure [HoFailure In Target5GC NgranNode Or TargetSystem]")
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+	}
+	// Update NH
+	ue.UpdateNH()
+	if cause == nil {
+		cause = &ngapType.Cause{
+			Present: ngapType.CausePresentMisc,
+			Misc: &ngapType.CauseMisc{
+				Value: ngapType.CauseMiscPresentUnspecified,
+			},
+		}
+	}
+	ngap_message.SendHandoverRequest(
+		ue.RanUe[ue.GetAnType()], targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
+
+	// waiting for handover request acknowledge handler to finish.
+	var createUeContextResponse context.PendingHandoverResponse
+	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+	value, loaded := amfSelf.PendingHandovers.LoadOrStore(ue.Supi, pendingHOResponseChan)
+	if loaded {
+		logger.CommLog.Info("PendingHandoverResponse channel created by HandoverRequestAcknowledge handler.")
+		pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
+	}
+	createUeContextResponse, ok = <-pendingHOResponseChan
+	if ok {
+		if createUeContextResponse.Response201 != nil {
+			return createUeContextResponse.Response201, nil
+		} else if createUeContextResponse.Response403 != nil {
+			return nil, createUeContextResponse.Response403
+		}
+	} else {
+		logger.CommLog.Info("PendingHandoverResponse channel closed.")
+	}
+
+	ueCtxCreateError := models.UeContextCreateError{
+		Error: &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "HANDOVER_FAILURE",
+		},
+	}
+	ueContextCreateError := &models.CreateUeContextResponse403{
+		JsonData: &ueCtxCreateError,
+	}
+	return nil, ueContextCreateError
 }
 
 // TS 29.518 5.2.2.2.4
