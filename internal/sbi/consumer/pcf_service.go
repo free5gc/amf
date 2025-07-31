@@ -10,6 +10,7 @@ import (
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	Npcf_AMPolicy "github.com/free5gc/openapi/pcf/AMPolicyControl"
+	sbi_metrics "github.com/free5gc/util/metrics/sbi"
 )
 
 type npcfService struct {
@@ -33,6 +34,7 @@ func (s *npcfService) getAMPolicyClient(uri string) *Npcf_AMPolicy.APIClient {
 
 	configuration := Npcf_AMPolicy.NewConfiguration()
 	configuration.SetBasePath(uri)
+	configuration.SetMetrics(sbi_metrics.SbiMetricHook)
 	client = Npcf_AMPolicy.NewAPIClient(configuration)
 
 	s.AMPolicyMu.RUnlock()

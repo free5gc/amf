@@ -9,6 +9,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 type PduSession struct {
@@ -42,6 +43,7 @@ func (p *Processor) HandleOAMRegisteredUEContext(c *gin.Context) {
 
 	ueContexts, problemDetails := p.OAMRegisteredUEContextProcedure(supi)
 	if problemDetails != nil {
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
 		c.JSON(http.StatusOK, ueContexts)

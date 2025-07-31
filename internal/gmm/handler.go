@@ -34,6 +34,7 @@ import (
 	"github.com/free5gc/openapi/models"
 	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
 	"github.com/free5gc/util/fsm"
+	nasMetrics "github.com/free5gc/util/metrics/nas"
 )
 
 const psiArraySize = 16
@@ -134,11 +135,11 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 				if err != nil {
 					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
-					ue.SmContextList.Delete(pduSessionID)
+					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 					return err
 				} else if response == nil {
 					ue.GmmLog.Errorf("Response to update smContext is nil, local release SmContext[%d]", pduSessionID)
-					ue.SmContextList.Delete(pduSessionID)
+					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 				} else if response != nil {
 					smContext.SetUserLocation(ue.Location)
 					responseData := response.JsonData
@@ -1981,7 +1982,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
-				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], "")
+				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], "", 0, nasMetrics.HRES_AUTH_ERR)
 				return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
 					ArgAmfUe:      ue,
 					ArgAccessType: accessType,
@@ -2016,7 +2017,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
-				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], "")
+				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], "", 0, nasMetrics.AUSF_AUTH_ERR)
 				return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
 					ArgAmfUe:      ue,
 					ArgAccessType: accessType,
@@ -2053,7 +2054,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				gmm_message.SendIdentityRequest(ue.RanUe[accessType], accessType, nasMessage.MobileIdentity5GSTypeSuci)
 				return nil
 			} else {
-				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], response.EapPayload)
+				gmm_message.SendAuthenticationReject(ue.RanUe[accessType], response.EapPayload, 0, nasMetrics.AUSF_AUTH_ERR)
 				return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
 					ArgAmfUe:      ue,
 					ArgAccessType: accessType,
@@ -2094,7 +2095,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 		switch cause5GMM {
 		case nasMessage.Cause5GMMMACFailure:
 			ue.GmmLog.Warnln("Authentication Failure Cause: Mac Failure")
-			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
+			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "", cause5GMM, "")
 			return GmmFSM.SendEvent(
 				ue.State[anType],
 				AuthFailEvent,
@@ -2106,7 +2107,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 			)
 		case nasMessage.Cause5GMMNon5GAuthenticationUnacceptable:
 			ue.GmmLog.Warnln("Authentication Failure Cause: Non-5G Authentication Unacceptable")
-			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
+			gmm_message.SendAuthenticationReject(ue.RanUe[anType], "", cause5GMM, "")
 			return GmmFSM.SendEvent(
 				ue.State[anType],
 				AuthFailEvent,
@@ -2133,7 +2134,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 			ue.AuthFailureCauseSynchFailureTimes++
 			if ue.AuthFailureCauseSynchFailureTimes >= 2 {
 				ue.GmmLog.Warnf("2 consecutive Synch Failure, terminate authentication procedure")
-				gmm_message.SendAuthenticationReject(ue.RanUe[anType], "")
+				gmm_message.SendAuthenticationReject(ue.RanUe[anType], "", cause5GMM, "")
 				return GmmFSM.SendEvent(
 					ue.State[anType],
 					AuthFailEvent,
