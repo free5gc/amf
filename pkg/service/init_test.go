@@ -13,7 +13,7 @@ import (
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-  "github.com/free5gc/openapi/models"
+         "github.com/free5gc/openapi/models"
 )
 
 func TestSetLogLevel(t *testing.T) {
