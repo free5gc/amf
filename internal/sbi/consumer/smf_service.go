@@ -234,7 +234,7 @@ func (s *nsmfService) buildCreateSmContextRequest(ue *amf_context.AmfUe, smConte
 	}
 	smContextCreateData.UeLocation = &ue.Location
 	smContextCreateData.UeTimeZone = ue.TimeZone
-	smContextCreateData.SmContextStatusUri = context.GetIPv4Uri() + factory.AmfCallbackResUriPrefix + "/smContextStatus/" +
+	smContextCreateData.SmContextStatusUri = context.GetIPUri() + factory.AmfCallbackResUriPrefix + "/smContextStatus/" +
 		ue.Supi + "/" + strconv.Itoa(int(smContext.PduSessionID()))
 
 	return smContextCreateData
