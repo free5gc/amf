@@ -136,8 +136,8 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	msg.ProtocolDiscriminator = payload[0]
 
 	if len(payload) < 2 {
-        return nil, false, fmt.Errorf("malformed NAS PDU")
-    }
+		return nil, false, fmt.Errorf("malformed NAS PDU")
+	}
 
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
@@ -369,8 +369,8 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 	msg := new(nas.Message)
 
 	if len(payload) < 2 {
-        return nil, fmt.Errorf("malformed NAS PDU")
-    }
+		return nil, fmt.Errorf("malformed NAS PDU")
+	}
 
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & SecurityHeaderTypeMask
 	if msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCiphered ||
