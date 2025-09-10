@@ -366,7 +366,7 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 
 	// A plain NAS message must have a minimum length of 2 bytes.
 	if len(payload) < 2 {
-		return nil, false, fmt.Errorf("NAS payload is too short")
+		return nil, fmt.Errorf("NAS payload is too short")
 	}
 
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & SecurityHeaderTypeMask
