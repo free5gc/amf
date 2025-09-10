@@ -405,14 +405,18 @@ func (context *AMFContext) AmfRanFindByConn(conn net.Conn) (*AmfRan, bool) {
 func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (*AmfRan, bool) {
 	var ran *AmfRan
 	var ok bool
+	isEmpty := true
 	context.AmfRanPool.Range(func(key, value interface{}) bool {
+		isEmpty = false
 		amfRan := value.(*AmfRan)
 		if amfRan.RanId == nil {
+			logger.CommLog.Warnf("RAN Node ID is nil")
 			return true
 		}
 
 		switch amfRan.RanPresent {
 		case RanPresentGNbId:
+			logger.CommLog.Debugf("%+v", amfRan.RanId.GNbId)
 			if amfRan.RanId.GNbId != nil && ranNodeID.GNbId != nil &&
 				amfRan.RanId.GNbId.GNBValue == ranNodeID.GNbId.GNBValue {
 				ran = amfRan
@@ -434,6 +438,9 @@ func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (
 		}
 		return true
 	})
+	if isEmpty {
+		logger.CommLog.Warnf("AmfRanPool is empty\n")
+	}
 	return ran, ok
 }
 

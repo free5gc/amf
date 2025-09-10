@@ -64,7 +64,12 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	if !ok {
-		logger.CommLog.Errorf("Target RAN Node ID not found, TargetRanNodeId: %+v", *ueContextCreateData.TargetId.RanNodeId)
+		logger.CommLog.Errorf("Target RAN Node ID not found, TargetRanNodeId: %+v",
+			ueContextCreateData.TargetId.RanNodeId)
+		logger.CommLog.Errorf("TargetRanNodeId.PlmnId: %+v",
+			ueContextCreateData.TargetId.RanNodeId.PlmnId)
+		logger.CommLog.Errorf("TargetRanNodeId.GNbId: %+v",
+			ueContextCreateData.TargetId.RanNodeId.GNbId)
 		ueContextCreateError := &models.CreateUeContextResponse403{
 			JsonData: &models.UeContextCreateError{
 				Error: &models.ProblemDetails{
@@ -434,7 +439,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 		}
 	}
 	if len(pduSessionReqList.List) == 0 {
-		logger.CommLog.Info("Handle Handover Preparation Failure [HoFailure In Target5GC NgranNode Or TargetSystem]")
+		logger.CommLog.Info("Handle Handover Preparation Failure. No PDU Session in the list.")
 		return nil, &models.CreateUeContextResponse403{
 			JsonData: &models.UeContextCreateError{
 				Error: &models.ProblemDetails{

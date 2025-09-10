@@ -2,6 +2,8 @@ package processor_test
 
 import (
 	"encoding/json"
+	"syscall"
+
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,9 +21,11 @@ import (
 	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
 	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/sctp"
 	"github.com/free5gc/util/httpwrapper"
 )
 
@@ -173,10 +177,109 @@ var testConfig = factory.Config{
 	},
 }
 
-func initAMFConfig() {
+var mockRAN *amf_context.AmfRan
+var RanId = models.GlobalRanNodeId{
+	PlmnId: &models.PlmnId{
+		Mcc: "208",
+		Mnc: "93",
+	},
+	N3IwfId: "123",
+	GNbId: &models.GNbId{
+		BitLength: 22,
+		GNBValue:  "2a3f44",
+	},
+	NgeNbId: "2a3f44",
+}
+
+func initAMFConfig(t *testing.T) {
 	factory.AmfConfig = &testConfig
 	amfContext := amf_context.GetSelf()
 	amf_context.InitAmfContext(amfContext)
+
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET, syscall.IPPROTO_SCTP) // Initialize SCTP socket
+	if err != nil {
+		t.Errorf("initAMFConfig: create socket error: %+v", err)
+	}
+	mockRAN = amfContext.NewAmfRan(sctp.NewSCTPConn(fd, nil)) // Add a dummy RAN context
+
+	// targetGNBID := []byte("string")
+	mockRanId := ngapConvert.RanIDToNgap(RanId)
+	t.Logf("mockRanId: %x (bit length: %d)", mockRanId.GlobalGNBID.GNBID.GNBID.Bytes, mockRanId.GlobalGNBID.GNBID.GNBID.BitLength)
+	mockRAN.SetRanId(&mockRanId)
+	t.Logf("mockRAN ID: %s", mockRAN.RanID())
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
+	data.DirectForwardingPathAvailability = new(ngapType.DirectForwardingPathAvailability)
+	data.DirectForwardingPathAvailability.Value = ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
+	return data
+}
+
+func getHandoverRequiredTransfer(t *testing.T) []byte {
+	data := buildHandoverRequiredTransfer()
+	encodeData, err := aper.MarshalWithParams(data, "valueExt")
+	if err != nil {
+		t.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
+	}
+	return encodeData
+}
+
+func buildSourceToTargetTransparentTransfer(
+	targetGNBID []byte, targetCellID []byte,
+) (data ngapType.SourceNGRANNodeToTargetNGRANNodeTransparentContainer) {
+	var TestPlmn ngapType.PLMNIdentity
+	TestPlmn.Value = aper.OctetString("\x02\xf8\x39")
+
+	// RRC Container
+	data.RRCContainer.Value = aper.OctetString("\x00\x00\x11")
+
+	// PDU Session Resource Information List
+	data.PDUSessionResourceInformationList = new(ngapType.PDUSessionResourceInformationList)
+	infoItem := ngapType.PDUSessionResourceInformationItem{}
+	infoItem.PDUSessionID.Value = 10
+	qosItem := ngapType.QosFlowInformationItem{}
+	qosItem.QosFlowIdentifier.Value = 1
+	infoItem.QosFlowInformationList.List = append(infoItem.QosFlowInformationList.List, qosItem)
+	data.PDUSessionResourceInformationList.List = append(data.PDUSessionResourceInformationList.List, infoItem)
+
+	// Target Cell ID
+	data.TargetCellID.Present = ngapType.TargetIDPresentTargetRANNodeID
+	data.TargetCellID.NRCGI = new(ngapType.NRCGI)
+	data.TargetCellID.NRCGI.PLMNIdentity = TestPlmn
+	data.TargetCellID.NRCGI.NRCellIdentity.Value = aper.BitString{
+		Bytes:     append(targetGNBID, targetCellID...),
+		BitLength: 36,
+	}
+
+	// UE History Information
+	lastVisitedCellItem := ngapType.LastVisitedCellItem{}
+	lastVisitedCellInfo := &lastVisitedCellItem.LastVisitedCellInformation
+	lastVisitedCellInfo.Present = ngapType.LastVisitedCellInformationPresentNGRANCell
+	lastVisitedCellInfo.NGRANCell = new(ngapType.LastVisitedNGRANCellInformation)
+	ngRanCell := lastVisitedCellInfo.NGRANCell
+	ngRanCell.GlobalCellID.Present = ngapType.NGRANCGIPresentNRCGI
+	ngRanCell.GlobalCellID.NRCGI = new(ngapType.NRCGI)
+	ngRanCell.GlobalCellID.NRCGI.PLMNIdentity = TestPlmn
+	ngRanCell.GlobalCellID.NRCGI.NRCellIdentity.Value = aper.BitString{
+		Bytes:     []byte{0x00, 0x00, 0x00, 0x00, 0x10},
+		BitLength: 36,
+	}
+	ngRanCell.CellType.CellSize.Value = ngapType.CellSizePresentVerysmall
+	ngRanCell.TimeUEStayedInCell.Value = 10
+
+	data.UEHistoryInformation.List = append(data.UEHistoryInformation.List, lastVisitedCellItem)
+	return data
+}
+
+func getSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byte, t *testing.T) []byte {
+	data := buildSourceToTargetTransparentTransfer(targetGNBID, targetCellID)
+	encodeData, err := aper.MarshalWithParams(data, "valueExt")
+	if err != nil {
+		t.Fatalf("aper MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
+	}
+	return encodeData
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -272,21 +375,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 									TargetID: &ngapType.TargetID{
 										Present: ngapType.TargetIDPresentTargetRANNodeID,
 										TargetRANNodeID: &ngapType.TargetRANNodeID{
-											GlobalRANNodeID: ngapType.GlobalRANNodeID{
-												Present: ngapType.GlobalRANNodeIDPresentGlobalGNBID,
-												GlobalGNBID: &ngapType.GlobalGNBID{
-													PLMNIdentity: ngapType.PLMNIdentity{
-														Value: aper.OctetString("\x02\xf8\x39"),
-													},
-													GNBID: ngapType.GNBID{
-														Present: ngapType.GNBIDPresentGNBID,
-														GNBID: &aper.BitString{
-															Bytes:     targetGNBID,
-															BitLength: uint64(len(targetGNBID) * 8),
-														},
-													},
-												},
-											},
+											GlobalRANNodeID: ngapConvert.RanIDToNgap(RanId),
 											SelectedTAI: ngapType.TAI{
 												PLMNIdentity: ngapType.PLMNIdentity{
 													Value: aper.OctetString("\x02\xf8\x39"),
@@ -349,10 +438,31 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 	return binaryData
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 func TestHandleCreateUEContextRequest(t *testing.T) {
 	openapi.InterceptH2CClient()
 	defer openapi.RestoreH2CClient()
-	initAMFConfig()
+	initAMFConfig(t)
+
+	// Setup mock AMF
+	mockAMF := service.NewMockAmfAppInterface(gomock.NewController(t))
+	consumer, err := consumer.NewConsumer(mockAMF)
+	if err != nil {
+		t.Fatalf("Failed to create consumer: %+v", err)
+	}
+
+	processor, err := processor.NewProcessor(mockAMF)
+	if err != nil {
+		t.Fatalf("Failed to create processor: %+v", err)
+	}
+
+	service.AMF = mockAMF
+
+	mockAMF.EXPECT().Context().Return(amf_context.GetSelf()).AnyTimes()
+	mockAMF.EXPECT().Consumer().Return(consumer).AnyTimes()
+
+	// TODO: Setup mock SMF
 
 	CreateUeContextRequest := models.CreateUeContextRequest{
 		JsonData: &models.UeContextCreateData{
@@ -370,18 +480,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 				},
 			},
 			TargetId: &models.NgRanTargetId{
-				RanNodeId: &models.GlobalRanNodeId{
-					PlmnId: &models.PlmnId{
-						Mcc: "208",
-						Mnc: "93",
-					},
-					N3IwfId: "123",
-					GNbId: &models.GNbId{
-						BitLength: 123,
-						GNBValue:  "string",
-					},
-					NgeNbId: "string",
-				},
+				RanNodeId: &RanId,
 				Tai: &models.Tai{
 					PlmnId: &models.PlmnId{
 						Mcc: "208",
@@ -437,22 +536,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 		},
 	}
 
-	mockAMF := service.NewMockAmfAppInterface(gomock.NewController(t))
-	consumer, err := consumer.NewConsumer(mockAMF)
-	if err != nil {
-		t.Fatalf("Failed to create consumer: %+v", err)
-	}
-
-	processor, err := processor.NewProcessor(mockAMF)
-	if err != nil {
-		t.Fatalf("Failed to create processor: %+v", err)
-	}
-
-	service.AMF = mockAMF
-
-	mockAMF.EXPECT().Context().Return(amf_context.GetSelf()).AnyTimes()
-	mockAMF.EXPECT().Consumer().Return(consumer).AnyTimes()
-
+	// Run test cases
 	for _, tc := range testCases {
 		t.Run(tc.testDescription, func(t *testing.T) {
 			httpRecorder := httptest.NewRecorder()
@@ -494,77 +578,4 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	}
 
 	require.NoError(t, err)
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
-	data.DirectForwardingPathAvailability = new(ngapType.DirectForwardingPathAvailability)
-	data.DirectForwardingPathAvailability.Value = ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
-	return data
-}
-
-func getHandoverRequiredTransfer(t *testing.T) []byte {
-	data := buildHandoverRequiredTransfer()
-	encodeData, err := aper.MarshalWithParams(data, "valueExt")
-	if err != nil {
-		t.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
-	}
-	return encodeData
-}
-
-func buildSourceToTargetTransparentTransfer(
-	targetGNBID []byte, targetCellID []byte,
-) (data ngapType.SourceNGRANNodeToTargetNGRANNodeTransparentContainer) {
-	var TestPlmn ngapType.PLMNIdentity
-	TestPlmn.Value = aper.OctetString("\x02\xf8\x39")
-
-	// RRC Container
-	data.RRCContainer.Value = aper.OctetString("\x00\x00\x11")
-
-	// PDU Session Resource Information List
-	data.PDUSessionResourceInformationList = new(ngapType.PDUSessionResourceInformationList)
-	infoItem := ngapType.PDUSessionResourceInformationItem{}
-	infoItem.PDUSessionID.Value = 10
-	qosItem := ngapType.QosFlowInformationItem{}
-	qosItem.QosFlowIdentifier.Value = 1
-	infoItem.QosFlowInformationList.List = append(infoItem.QosFlowInformationList.List, qosItem)
-	data.PDUSessionResourceInformationList.List = append(data.PDUSessionResourceInformationList.List, infoItem)
-
-	// Target Cell ID
-	data.TargetCellID.Present = ngapType.TargetIDPresentTargetRANNodeID
-	data.TargetCellID.NRCGI = new(ngapType.NRCGI)
-	data.TargetCellID.NRCGI.PLMNIdentity = TestPlmn
-	data.TargetCellID.NRCGI.NRCellIdentity.Value = aper.BitString{
-		Bytes:     append(targetGNBID, targetCellID...),
-		BitLength: 36,
-	}
-
-	// UE History Information
-	lastVisitedCellItem := ngapType.LastVisitedCellItem{}
-	lastVisitedCellInfo := &lastVisitedCellItem.LastVisitedCellInformation
-	lastVisitedCellInfo.Present = ngapType.LastVisitedCellInformationPresentNGRANCell
-	lastVisitedCellInfo.NGRANCell = new(ngapType.LastVisitedNGRANCellInformation)
-	ngRanCell := lastVisitedCellInfo.NGRANCell
-	ngRanCell.GlobalCellID.Present = ngapType.NGRANCGIPresentNRCGI
-	ngRanCell.GlobalCellID.NRCGI = new(ngapType.NRCGI)
-	ngRanCell.GlobalCellID.NRCGI.PLMNIdentity = TestPlmn
-	ngRanCell.GlobalCellID.NRCGI.NRCellIdentity.Value = aper.BitString{
-		Bytes:     []byte{0x00, 0x00, 0x00, 0x00, 0x10},
-		BitLength: 36,
-	}
-	ngRanCell.CellType.CellSize.Value = ngapType.CellSizePresentVerysmall
-	ngRanCell.TimeUEStayedInCell.Value = 10
-
-	data.UEHistoryInformation.List = append(data.UEHistoryInformation.List, lastVisitedCellItem)
-	return data
-}
-
-func getSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byte, t *testing.T) []byte {
-	data := buildSourceToTargetTransparentTransfer(targetGNBID, targetCellID)
-	encodeData, err := aper.MarshalWithParams(data, "valueExt")
-	if err != nil {
-		t.Fatalf("aper MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
-	}
-	return encodeData
 }
