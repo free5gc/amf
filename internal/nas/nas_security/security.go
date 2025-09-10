@@ -135,10 +135,6 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 	msg = new(nas.Message)
 	msg.ProtocolDiscriminator = payload[0]
 
-	if len(payload) < 2 {
-		return nil, false, fmt.Errorf("malformed NAS PDU")
-	}
-
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas { // Security protected NAS message
@@ -368,8 +364,9 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 
 	msg := new(nas.Message)
 
+	// A plain NAS message must have a minimum length of 2 bytes.
 	if len(payload) < 2 {
-		return nil, fmt.Errorf("malformed NAS PDU")
+		return nil, false, fmt.Errorf("NAS payload is too short")
 	}
 
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & SecurityHeaderTypeMask
