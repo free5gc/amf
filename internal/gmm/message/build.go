@@ -462,9 +462,10 @@ func BuildDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrat
 		SecurityHeaderType:    nas.SecurityHeaderTypeIntegrityProtectedAndCiphered,
 	}
 	var anType models.AccessType
-	if accessType == 0x01 {
+	switch accessType {
+	case 0x01:
 		anType = models.AccessType__3_GPP_ACCESS
-	} else if accessType == 0x02 {
+	case 0x02:
 		anType = models.AccessType_NON_3_GPP_ACCESS
 	}
 	if ue != nil {
@@ -917,7 +918,7 @@ func BuildConfigurationUpdateCommand(ue *context.AmfUe, anType models.AccessType
 			configurationUpdateCommand.UniversalTimeAndLocalTimeZone == nil &&
 			configurationUpdateCommand.LocalTimeZone == nil &&
 			configurationUpdateCommand.NetworkDaylightSavingTime == nil) {
-		return nil, fmt.Errorf("Configuration Update Command is invaild"), false
+		return nil, fmt.Errorf("configuration update command is invalid"), false
 	}
 
 	m.GmmMessage.ConfigurationUpdateCommand = configurationUpdateCommand

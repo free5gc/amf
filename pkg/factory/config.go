@@ -19,27 +19,31 @@ import (
 )
 
 const (
-	AmfDefaultTLSKeyLogPath   = "./log/amfsslkey.log"
-	AmfDefaultCertPemPath     = "./cert/amf.pem"
-	AmfDefaultPrivateKeyPath  = "./cert/amf.key"
-	AmfDefaultConfigPath      = "./config/amfcfg.yaml"
-	AmfSbiDefaultIPv4         = "127.0.0.18"
-	AmfSbiDefaultPort         = 8000
-	AmfSbiDefaultScheme       = "https"
-	AmfDefaultNrfUri          = "https://127.0.0.10:8000"
-	sctpDefaultNumOstreams    = 3
-	sctpDefaultMaxInstreams   = 5
-	sctpDefaultMaxAttempts    = 2
-	sctpDefaultMaxInitTimeout = 2
-	ngapDefaultPort           = 38412
-	AmfCallbackResUriPrefix   = "/namf-callback/v1"
-	AmfCommResUriPrefix       = "/namf-comm/v1"
-	AmfEvtsResUriPrefix       = "/namf-evts/v1"
-	AmfLocResUriPrefix        = "/namf-loc/v1"
-	AmfMtResUriPrefix         = "/namf-mt/v1"
-	AmfOamResUriPrefix        = "/namf-oam/v1"
-	AmfMbsComResUriPrefix     = "/namf-mbs-comm/v1"
-	AmfMbsBCResUriPrefix      = "/namf-mbs-bc/v1"
+	AmfDefaultTLSKeyLogPath    = "./log/amfsslkey.log"
+	AmfDefaultCertPemPath      = "./cert/amf.pem"
+	AmfDefaultPrivateKeyPath   = "./cert/amf.key"
+	AmfDefaultConfigPath       = "./config/amfcfg.yaml"
+	AmfSbiDefaultIPv4          = "127.0.0.18"
+	AmfSbiDefaultPort          = 8000
+	AmfSbiDefaultScheme        = "https"
+	AmfMetricsDefaultEnabled   = false
+	AmfMetricsDefaultPort      = 9091
+	AmfMetricsDefaultScheme    = "https"
+	AmfMetricsDefaultNamespace = "free5gc"
+	AmfDefaultNrfUri           = "https://127.0.0.10:8000"
+	sctpDefaultNumOstreams     = 3
+	sctpDefaultMaxInstreams    = 5
+	sctpDefaultMaxAttempts     = 2
+	sctpDefaultMaxInitTimeout  = 2
+	ngapDefaultPort            = 38412
+	AmfCallbackResUriPrefix    = "/namf-callback/v1"
+	AmfCommResUriPrefix        = "/namf-comm/v1"
+	AmfEvtsResUriPrefix        = "/namf-evts/v1"
+	AmfLocResUriPrefix         = "/namf-loc/v1"
+	AmfMtResUriPrefix          = "/namf-mt/v1"
+	AmfOamResUriPrefix         = "/namf-oam/v1"
+	AmfMbsComResUriPrefix      = "/namf-mbs-comm/v1"
+	AmfMbsBCResUriPrefix       = "/namf-mbs-bc/v1"
 )
 
 type Config struct {
@@ -50,6 +54,10 @@ type Config struct {
 }
 
 func (c *Config) Validate() (bool, error) {
+	govalidator.TagMap["scheme"] = func(str string) bool {
+		return str == "https" || str == "http"
+	}
+
 	if configuration := c.Configuration; configuration != nil {
 		if result, err := configuration.validate(); err != nil {
 			return result, err
@@ -70,6 +78,7 @@ type Configuration struct {
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
 	NgapPort               int               `yaml:"ngapPort,omitempty" valid:"optional,port"`
 	Sbi                    *Sbi              `yaml:"sbi,omitempty" valid:"required"`
+	Metrics                *Metrics          `yaml:"metrics,omitempty" valid:"optional"`
 	ServiceNameList        []string          `yaml:"serviceNameList,omitempty" valid:"required"`
 	ServedGumaiList        []models.Guami    `yaml:"servedGuamiList,omitempty" valid:"required"`
 	SupportTAIList         []models.Tai      `yaml:"supportTaiList,omitempty" valid:"required"`
@@ -123,6 +132,20 @@ func (c *Configuration) validate() (bool, error) {
 		}
 	}
 
+	if c.Metrics != nil {
+		if _, err := c.Metrics.validate(); err != nil {
+			return false, err
+		}
+
+		if c.Sbi != nil && c.Metrics.Port == c.Sbi.Port && c.Sbi.BindingIPv4 == c.Metrics.BindingIPv4 {
+			var errs govalidator.Errors
+			err := fmt.Errorf("sbi and metrics bindings IPv4: %s and port: %d cannot be the same, "+
+				"please provide at least another port for the metrics", c.Sbi.BindingIPv4, c.Sbi.Port)
+			errs = append(errs, err)
+			return false, error(errs)
+		}
+	}
+
 	if c.ServiceNameList != nil {
 		var errs govalidator.Errors
 		for _, v := range c.ServiceNameList {
@@ -145,19 +168,19 @@ func (c *Configuration) validate() (bool, error) {
 			}
 			mcc := v.PlmnId.Mcc
 			if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-				err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+				err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 				errs = append(errs, err)
 			}
 
 			mnc := v.PlmnId.Mnc
 			if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-				err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+				err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 				errs = append(errs, err)
 			}
 
 			amfId := v.AmfId
 			if result := govalidator.StringMatches(amfId, "^[A-Fa-f0-9]{6}$"); !result {
-				err := fmt.Errorf("Invalid amfId: %s,"+
+				err := fmt.Errorf("invalid amfId: %s,"+
 					" should be 3 bytes hex string, range: 000000~FFFFFF", amfId)
 				errs = append(errs, err)
 			}
@@ -175,19 +198,19 @@ func (c *Configuration) validate() (bool, error) {
 			}
 			mcc := v.PlmnId.Mcc
 			if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-				err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+				err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 				errs = append(errs, err)
 			}
 
 			mnc := v.PlmnId.Mnc
 			if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-				err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+				err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 				errs = append(errs, err)
 			}
 
 			tac := v.Tac
 			if result := govalidator.StringMatches(tac, "^[A-Fa-f0-9]{6}$"); !result {
-				err := fmt.Errorf("Invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
+				err := fmt.Errorf("invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
 				errs = append(errs, err)
 			}
 		}
@@ -288,6 +311,34 @@ func (c *Configuration) validate() (bool, error) {
 	return true, nil
 }
 
+type Metrics struct {
+	Enable      bool   `yaml:"enable" valid:"optional"`
+	Scheme      string `yaml:"scheme" valid:"required,scheme"`
+	BindingIPv4 string `yaml:"bindingIPv4,omitempty" valid:"required,host"` // IP used to run the server in the node.
+	Port        int    `yaml:"port,omitempty" valid:"required,port"`
+	Tls         *Tls   `yaml:"tls,omitempty" valid:"optional"`
+	Namespace   string `yaml:"namespace" valid:"optional"`
+}
+
+// This function is the mirror of the SBI one, I decided not to factor the code as it could in the future diverge.
+// And it will reduce the cognitive overload when reading the function by not hiding the logic elsewhere.
+func (m *Metrics) validate() (bool, error) {
+	var errs govalidator.Errors
+
+	if tls := m.Tls; tls != nil {
+		if _, err := tls.validate(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if _, err := govalidator.ValidateStruct(m); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return false, error(errs)
+	}
+	return true, nil
+}
+
 type Sbi struct {
 	Scheme       string `yaml:"scheme" valid:"required,scheme"`
 	RegisterIPv4 string `yaml:"registerIPv4,omitempty" valid:"required,host"` // IP that is registered at NRF.
@@ -297,10 +348,6 @@ type Sbi struct {
 }
 
 func (s *Sbi) validate() (bool, error) {
-	govalidator.TagMap["scheme"] = govalidator.Validator(func(str string) bool {
-		return str == "https" || str == "http"
-	})
-
 	if tls := s.Tls; tls != nil {
 		if result, err := tls.validate(); err != nil {
 			return result, err
@@ -335,7 +382,7 @@ func (s *Security) validate() (bool, error) {
 	if s.IntegrityOrder != nil {
 		for _, val := range s.IntegrityOrder {
 			if result := govalidator.Contains(val, "NIA"); !result {
-				err := fmt.Errorf("Invalid integrityOrder: %s, should be NIA-series integrity algorithms", val)
+				err := fmt.Errorf("invalid integrityOrder: %s, should be NIA-series integrity algorithms", val)
 				errs = append(errs, err)
 			}
 		}
@@ -343,7 +390,7 @@ func (s *Security) validate() (bool, error) {
 	if s.CipheringOrder != nil {
 		for _, val := range s.CipheringOrder {
 			if result := govalidator.Contains(val, "NEA"); !result {
-				err := fmt.Errorf("Invalid cipheringOrder: %s, should be NEA-series ciphering algorithms", val)
+				err := fmt.Errorf("invalid cipheringOrder: %s, should be NEA-series ciphering algorithms", val)
 				errs = append(errs, err)
 			}
 		}
@@ -370,7 +417,7 @@ func (p *PlmnSupportItem) validate() (bool, error) {
 
 	mcc := p.PlmnId.Mcc
 	if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-		err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+		err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 		errs = append(errs, err)
 	}
 
@@ -419,19 +466,19 @@ func (l *Ladn) validate() (bool, error) {
 		}
 		mcc := v.PlmnId.Mcc
 		if result := govalidator.StringMatches(mcc, "^[0-9]{3}$"); !result {
-			err := fmt.Errorf("Invalid mcc: %s, should be a 3-digit number", mcc)
+			err := fmt.Errorf("invalid mcc: %s, should be a 3-digit number", mcc)
 			errs = append(errs, err)
 		}
 
 		mnc := v.PlmnId.Mnc
 		if result := govalidator.StringMatches(mnc, "^[0-9]{2,3}$"); !result {
-			err := fmt.Errorf("Invalid mnc: %s, should be a 2 or 3-digit number", mnc)
+			err := fmt.Errorf("invalid mnc: %s, should be a 2 or 3-digit number", mnc)
 			errs = append(errs, err)
 		}
 
 		tac := v.Tac
 		if result := govalidator.StringMatches(tac, "^[A-Fa-f0-9]{6}$"); !result {
-			err := fmt.Errorf("Invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
+			err := fmt.Errorf("invalid tac: %s, should be 3 bytes hex string, range: 000000~FFFFFF", tac)
 			errs = append(errs, err)
 		}
 	}
@@ -587,35 +634,35 @@ func (f *NetworkFeatureSupport5GS) validate() (bool, error) {
 	var errs govalidator.Errors
 
 	if result := govalidator.InRangeInt(f.Length, 1, 3); !result {
-		err := fmt.Errorf("Invalid length: %d, should be in the range of 1~3", f.Length)
+		err := fmt.Errorf("invalid length: %d, should be in the range of 1~3", f.Length)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.ImsVoPS, 0, 1); !result {
-		err := fmt.Errorf("Invalid imsVoPS: %d, should be in the range of 0~1", f.ImsVoPS)
+		err := fmt.Errorf("invalid imsVoPS: %d, should be in the range of 0~1", f.ImsVoPS)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Emc, 0, 3); !result {
-		err := fmt.Errorf("Invalid emc: %d, should be in the range of 0~3", f.Emc)
+		err := fmt.Errorf("invalid emc: %d, should be in the range of 0~3", f.Emc)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Emf, 0, 3); !result {
-		err := fmt.Errorf("Invalid emf: %d, should be in the range of 0~3", f.Emf)
+		err := fmt.Errorf("invalid emf: %d, should be in the range of 0~3", f.Emf)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.IwkN26, 0, 1); !result {
-		err := fmt.Errorf("Invalid iwkN26: %d, should be in the range of 0~1", f.IwkN26)
+		err := fmt.Errorf("invalid iwkN26: %d, should be in the range of 0~1", f.IwkN26)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Mpsi, 0, 1); !result {
-		err := fmt.Errorf("Invalid mpsi: %d, should be in the range of 0~1", f.Mpsi)
+		err := fmt.Errorf("invalid mpsi: %d, should be in the range of 0~1", f.Mpsi)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.EmcN3, 0, 1); !result {
-		err := fmt.Errorf("Invalid emcN3: %d, should be in the range of 0~1", f.EmcN3)
+		err := fmt.Errorf("invalid emcN3: %d, should be in the range of 0~1", f.EmcN3)
 		errs = append(errs, err)
 	}
 	if result := govalidator.InRangeInt(f.Mcsi, 0, 1); !result {
-		err := fmt.Errorf("Invalid mcsi: %d, should be in the range of 0~1", f.Mcsi)
+		err := fmt.Errorf("invalid mcsi: %d, should be in the range of 0~1", f.Mcsi)
 		errs = append(errs, err)
 	}
 	if _, err := govalidator.ValidateStruct(f); err != nil {
@@ -652,7 +699,7 @@ func appendInvalid(err error) error {
 
 	es := err.(govalidator.Errors).Errors()
 	for _, e := range es {
-		errs = append(errs, fmt.Errorf("Invalid %w", e))
+		errs = append(errs, fmt.Errorf("invalid %w", e))
 	}
 
 	return error(errs)
@@ -748,6 +795,88 @@ func (c *Config) GetLogReportCaller() bool {
 		return false
 	}
 	return c.Logger.ReportCaller
+}
+
+func (c *Config) AreMetricsEnabled() bool {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil {
+		return c.Configuration.Metrics.Enable
+	}
+	return AmfMetricsDefaultEnabled
+}
+
+func (c *Config) GetMetricsScheme() string {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil && c.Configuration.Metrics.Scheme != "" {
+		return c.Configuration.Metrics.Scheme
+	}
+	return AmfMetricsDefaultScheme
+}
+
+func (c *Config) GetMetricsPort() int {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.Metrics != nil && c.Configuration.Metrics.Port != 0 {
+		return c.Configuration.Metrics.Port
+	}
+	return AmfMetricsDefaultPort
+}
+
+func (c *Config) GetMetricsBindingIP() string {
+	c.RLock()
+	defer c.RUnlock()
+	bindIP := "0.0.0.0"
+
+	if c.Configuration == nil || c.Configuration.Metrics == nil {
+		return bindIP
+	}
+
+	if c.Configuration.Metrics.BindingIPv4 != "" {
+		if bindIP = os.Getenv(c.Configuration.Metrics.BindingIPv4); bindIP != "" {
+			logger.CfgLog.Infof("Parsing ServerIPv4 [%s] from ENV Variable", bindIP)
+		} else {
+			bindIP = c.Configuration.Metrics.BindingIPv4
+		}
+	}
+	return bindIP
+}
+
+func (c *Config) GetMetricsBindingAddr() string {
+	c.RLock()
+	defer c.RUnlock()
+	return c.GetMetricsBindingIP() + ":" + strconv.Itoa(c.GetMetricsPort())
+}
+
+func (c *Config) GetMetricsCertPemPath() string {
+	// We can see if there is a benefit to factor this tls key/pem with the sbi ones
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Tls != nil {
+		return c.Configuration.Metrics.Tls.Pem
+	}
+	return ""
+}
+
+func (c *Config) GetMetricsCertKeyPath() string {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Tls != nil {
+		return c.Configuration.Metrics.Tls.Key
+	}
+	return ""
+}
+
+func (c *Config) GetMetricsNamespace() string {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration.Metrics != nil && c.Configuration.Metrics.Namespace != "" {
+		return c.Configuration.Metrics.Namespace
+	}
+	return AmfMetricsDefaultNamespace
 }
 
 func (c *Config) GetSbiScheme() string {

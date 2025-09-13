@@ -8,6 +8,7 @@ import (
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/metrics/sbi"
 )
 
 func (s *Server) getEventexposureRoutes() []Route {
@@ -58,6 +59,7 @@ func (s *Server) HTTPModifySubscription(c *gin.Context) {
 			Detail: err.Error(),
 			Cause:  "SYSTEM_FAILURE",
 		}
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetail.Cause)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
@@ -71,6 +73,7 @@ func (s *Server) HTTPModifySubscription(c *gin.Context) {
 			Detail: problemDetail,
 		}
 		logger.EeLog.Errorln(problemDetail)
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, http.StatusText(http.StatusBadRequest))
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
@@ -89,6 +92,7 @@ func (s *Server) HTTPCreateSubscription(c *gin.Context) {
 			Detail: err.Error(),
 			Cause:  "SYSTEM_FAILURE",
 		}
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetail.Cause)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
@@ -102,6 +106,7 @@ func (s *Server) HTTPCreateSubscription(c *gin.Context) {
 			Detail: problemDetail,
 		}
 		logger.EeLog.Errorln(problemDetail)
+		c.Set(sbi.IN_PB_DETAILS_CTX_STR, http.StatusText(http.StatusBadRequest))
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}

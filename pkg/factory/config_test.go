@@ -98,7 +98,7 @@ func TestSctp_validate(t *testing.T) {
 				return
 			}
 			if tt.wantErr {
-				var errs govalidator.Errors = err.(govalidator.Errors)
+				errs := err.(govalidator.Errors)
 				if len(errs) != tt.numErr {
 					t.Errorf("Sctp.validate() error = %v, wantErr %v", err, tt.wantErr)
 					return

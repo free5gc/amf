@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/amf/internal/logger"
+	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasMessage"
 	"github.com/free5gc/nas/nasType"
@@ -197,6 +198,11 @@ type AmfUe struct {
 	NASLog      *logrus.Entry
 	GmmLog      *logrus.Entry
 	ProducerLog *logrus.Entry
+
+	// Metrics related
+	GmmStateEnterTime time.Time
+	UeConnected       bool
+	AnTypeFlags       map[models.AccessType]bool
 }
 
 type AmfUeEventSubscription struct {
@@ -285,6 +291,7 @@ func (ue *AmfUe) init() {
 	ue.GmmLog = logger.GmmLog
 	ue.NASLog = logger.GmmLog
 	ue.ProducerLog = logger.ProducerLog
+	ue.AnTypeFlags = make(map[models.AccessType]bool)
 }
 
 func (ue *AmfUe) ServingAMF() *AMFContext {
@@ -316,10 +323,18 @@ func (ue *AmfUe) Remove() {
 			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
 	}
+
+	for accessType, flag := range ue.AnTypeFlags {
+		if flag {
+			business_metrics.DecrUeCmIdleStateGauge(accessType)
+		}
+	}
 	tmsiGenerator.FreeID(int64(ue.Tmsi))
 	if len(ue.Supi) > 0 {
 		GetSelf().UePool.Delete(ue.Supi)
 	}
+	ue.DeleteAllSmContexts()
+
 	logger.CtxLog.Infof("AmfUe[%s] is removed", ue.Supi)
 }
 
@@ -327,6 +342,15 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 	if ue == nil {
 		return
 	}
+
+	// The link AmfUe <-/-> RanUe is broken, we update the cm-connected metrics gauges
+	business_metrics.IncrUeCmIdleStateGauge(anType)
+	business_metrics.DecrUeCmConnectedStateGauge(anType)
+	// We want only to decrement the ue connectivity gauge if we remove the ran connection of the registered ue.
+	if ue.State[anType] != nil && ue.State[anType].Current() == Registered {
+		business_metrics.DecrUeConnectivityGauge(anType)
+	}
+
 	delete(ue.RanUe, anType)
 	ue.UpdateLogFields(anType)
 }
@@ -340,9 +364,10 @@ func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 
 func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
 	anTypeStr := ""
-	if accessType == models.AccessType__3_GPP_ACCESS {
+	switch accessType {
+	case models.AccessType__3_GPP_ACCESS:
 		anTypeStr = "3GPP"
-	} else if accessType == models.AccessType_NON_3_GPP_ACCESS {
+	case models.AccessType_NON_3_GPP_ACCESS:
 		anTypeStr = "Non3GPP"
 	}
 	if ranUe, ok := ue.RanUe[accessType]; ok {
@@ -861,7 +886,30 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.UeContext) {
 
 // SM Context realted function
 func (ue *AmfUe) StoreSmContext(pduSessionID int32, smContext *SmContext) {
+	if smContext != nil {
+		business_metrics.IncrPduSessionEventCounter(string(smContext.accessType), business_metrics.PDU_SESSION_CREATION_EVENT)
+	}
 	ue.SmContextList.Store(pduSessionID, smContext)
+}
+
+func (ue *AmfUe) DeleteSmContext(pduSessionID int32, anType models.AccessType) {
+	business_metrics.IncrPduSessionEventCounter(string(anType), business_metrics.PDU_SESSION_RELEASE_EVENT)
+	ue.SmContextList.Delete(pduSessionID)
+}
+
+func (ue *AmfUe) DeleteAllSmContexts() {
+	ue.SmContextList.Range(func(key, value interface{}) bool {
+		pduId, ok := key.(int32)
+		if !ok {
+			return true
+		}
+		smCtx, ok := value.(*SmContext)
+		if !ok {
+			return true
+		}
+		ue.DeleteSmContext(pduId, smCtx.AccessType())
+		return true
+	})
 }
 
 func (ue *AmfUe) SmContextFindByPDUSessionID(pduSessionID int32) (*SmContext, bool) {
