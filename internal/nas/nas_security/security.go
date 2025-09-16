@@ -134,7 +134,6 @@ func Decode(ue *context.AmfUe, accessType models.AccessType, payload []byte,
 
 	msg = new(nas.Message)
 	msg.ProtocolDiscriminator = payload[0]
-
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & 0x0f
 	ue.NASLog.Traceln("securityHeaderType is ", msg.SecurityHeaderType)
 	if msg.SecurityHeaderType != nas.SecurityHeaderTypePlainNas { // Security protected NAS message
