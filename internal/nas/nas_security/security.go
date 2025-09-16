@@ -362,6 +362,12 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (*nas.Message, error) {
 	}
 
 	msg := new(nas.Message)
+
+	// A plain NAS message must have a minimum length of 2 bytes.
+	if len(payload) < 2 {
+		return nil, fmt.Errorf("NAS payload is too short")
+	}
+
 	msg.SecurityHeaderType = nas.GetSecurityHeaderType(payload) & SecurityHeaderTypeMask
 	if msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCiphered ||
 		msg.SecurityHeaderType == nas.SecurityHeaderTypeIntegrityProtectedAndCipheredWithNew5gNasSecurityContext {
