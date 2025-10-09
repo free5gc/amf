@@ -1,16 +1,24 @@
 package processor_test
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
-	"syscall"
-
+	"fmt"
 	"io"
+	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/h2non/gock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -20,6 +28,10 @@ import (
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
+
+	/*	"github.com/free5gc/nas/nasMessage"
+		"github.com/free5gc/nas/nasType"
+		"github.com/free5gc/nas/security" */
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
@@ -28,6 +40,12 @@ import (
 	"github.com/free5gc/sctp"
 	"github.com/free5gc/util/httpwrapper"
 )
+
+var plmnIdModel = models.PlmnId{
+	Mcc: "208",
+	Mnc: "93",
+}
+var TestPlmn = ngapConvert.PlmnIdToNgap(plmnIdModel)
 
 // Mock AMF Config, copied from free5gc/config/amfcfg.yaml
 var testConfig = factory.Config{
@@ -65,19 +83,13 @@ var testConfig = factory.Config{
 		},
 		SupportTAIList: []models.Tai{
 			{
-				PlmnId: &models.PlmnId{
-					Mcc: "208",
-					Mnc: "93",
-				},
+				PlmnId: &plmnIdModel,
 				Tac: "000001",
 			},
 		},
 		PlmnSupportList: []factory.PlmnSupportItem{
 			{
-				PlmnId: &models.PlmnId{
-					Mcc: "208",
-					Mnc: "93",
-				},
+				PlmnId: &plmnIdModel,
 				SNssaiList: []models.Snssai{
 					{
 						Sst: 1,
@@ -179,10 +191,7 @@ var testConfig = factory.Config{
 
 var mockRAN *amf_context.AmfRan
 var RanId = models.GlobalRanNodeId{
-	PlmnId: &models.PlmnId{
-		Mcc: "208",
-		Mnc: "93",
-	},
+	PlmnId: &plmnIdModel,
 	N3IwfId: "123",
 	GNbId: &models.GNbId{
 		BitLength: 22,
@@ -190,6 +199,8 @@ var RanId = models.GlobalRanNodeId{
 	},
 	NgeNbId: "2a3f44",
 }
+
+var pduSessionID int32 = 10
 
 func initAMFConfig(t *testing.T) {
 	factory.AmfConfig = &testConfig
@@ -200,11 +211,26 @@ func initAMFConfig(t *testing.T) {
 	if err != nil {
 		t.Errorf("initAMFConfig: create socket error: %+v", err)
 	}
-	mockRAN = amfContext.NewAmfRan(sctp.NewSCTPConn(fd, nil)) // Add a dummy RAN context
+
+	conn := sctp.NewSCTPConn(fd, nil)
+
+	addr := new(sctp.SCTPAddr)
+	addr.IPAddrs = []net.IPAddr{
+		{
+			IP: net.IPv4(127, 0, 0, 2),
+		},
+	}
+	addr.Port = 38412
+	sctp.SCTPBind(fd, addr, sctp.SCTP_BINDX_ADD_ADDR)
+
+	mockRAN = amfContext.NewAmfRan(conn) // Add a dummy RAN context
+
+	t.Logf("mockRan remote addr: %+v\n", mockRAN.Conn.RemoteAddr())
 
 	// targetGNBID := []byte("string")
 	mockRanId := ngapConvert.RanIDToNgap(RanId)
-	t.Logf("mockRanId: %x (bit length: %d)", mockRanId.GlobalGNBID.GNBID.GNBID.Bytes, mockRanId.GlobalGNBID.GNBID.GNBID.BitLength)
+	t.Logf("mockRanId: %x (bit length: %d)",
+		mockRanId.GlobalGNBID.GNBID.GNBID.Bytes, mockRanId.GlobalGNBID.GNBID.GNBID.BitLength)
 	mockRAN.SetRanId(&mockRanId)
 	t.Logf("mockRAN ID: %s", mockRAN.RanID())
 }
@@ -229,16 +255,13 @@ func getHandoverRequiredTransfer(t *testing.T) []byte {
 func buildSourceToTargetTransparentTransfer(
 	targetGNBID []byte, targetCellID []byte,
 ) (data ngapType.SourceNGRANNodeToTargetNGRANNodeTransparentContainer) {
-	var TestPlmn ngapType.PLMNIdentity
-	TestPlmn.Value = aper.OctetString("\x02\xf8\x39")
-
 	// RRC Container
 	data.RRCContainer.Value = aper.OctetString("\x00\x00\x11")
 
 	// PDU Session Resource Information List
 	data.PDUSessionResourceInformationList = new(ngapType.PDUSessionResourceInformationList)
 	infoItem := ngapType.PDUSessionResourceInformationItem{}
-	infoItem.PDUSessionID.Value = 10
+	infoItem.PDUSessionID.Value = int64(pduSessionID)
 	qosItem := ngapType.QosFlowInformationItem{}
 	qosItem.QosFlowIdentifier.Value = 1
 	infoItem.QosFlowInformationList.List = append(infoItem.QosFlowInformationList.List, qosItem)
@@ -377,9 +400,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 										TargetRANNodeID: &ngapType.TargetRANNodeID{
 											GlobalRANNodeID: ngapConvert.RanIDToNgap(RanId),
 											SelectedTAI: ngapType.TAI{
-												PLMNIdentity: ngapType.PLMNIdentity{
-													Value: aper.OctetString("\x02\xf8\x39"),
-												},
+												PLMNIdentity: TestPlmn,
 												TAC: ngapType.TAC{
 													Value: aper.OctetString("\x30\x33\x99"),
 												},
@@ -401,7 +422,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 										List: []ngapType.PDUSessionResourceItemHORqd{
 											{
 												PDUSessionID: ngapType.PDUSessionID{
-													Value: 10,
+													Value: int64(pduSessionID),
 												},
 												HandoverRequiredTransfer: handoverRequiredTransfer,
 											},
@@ -462,7 +483,163 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	mockAMF.EXPECT().Context().Return(amf_context.GetSelf()).AnyTimes()
 	mockAMF.EXPECT().Consumer().Return(consumer).AnyTimes()
 
-	// TODO: Setup mock SMF
+	// create SmContext for UE
+	smfApiRoot := "http://127.0.0.1"
+	smCtxReference := uuid.New().URN()
+	smfInstanceId := uuid.New().String()
+
+	// TODO: Setup mock SMF response
+	defer gock.Off() // Flush pending mocks after test execution
+
+	// build binary data for N2 Information
+	resourceSetupRequestTransfer := ngapType.PDUSessionResourceSetupRequestTransfer{}
+	// PDU Session Aggregate Maximum Bit Rate (Conditional)
+	// UL NG-U UP TNL Information
+	ie := ngapType.PDUSessionResourceSetupRequestTransferIEs{}
+	ie.Id.Value = ngapType.ProtocolIEIDULNGUUPTNLInformation
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	n3IP := net.IP{127, 0, 0, 8} // ref: config/upfcfg.yaml
+	teidOct := make([]byte, 4) // ref: TS 29.502 V17.1.0 6.1.6.3.2 Simple data types
+	binary.BigEndian.PutUint32(teidOct, uint32(0x5bd60076))
+	ie.Value = ngapType.PDUSessionResourceSetupRequestTransferIEsValue{
+		Present: ngapType.PDUSessionResourceSetupRequestTransferIEsPresentULNGUUPTNLInformation,
+		ULNGUUPTNLInformation: &ngapType.UPTransportLayerInformation{
+			Present: ngapType.UPTransportLayerInformationPresentGTPTunnel,
+			GTPTunnel: &ngapType.GTPTunnel{
+				TransportLayerAddress: ngapType.TransportLayerAddress{
+					Value: aper.BitString{
+						Bytes:     n3IP,
+						BitLength: uint64(len(n3IP) * 8),
+					},
+				},
+				GTPTEID: ngapType.GTPTEID{Value: teidOct},
+			},
+		},
+	}
+	resourceSetupRequestTransfer.ProtocolIEs.List = append(resourceSetupRequestTransfer.ProtocolIEs.List, ie)
+
+	// PDU Session Type
+	ie = ngapType.PDUSessionResourceSetupRequestTransferIEs{}
+	ie.Id.Value = ngapType.ProtocolIEIDPDUSessionType
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.PDUSessionResourceSetupRequestTransferIEsValue{
+		Present: ngapType.PDUSessionResourceSetupRequestTransferIEsPresentPDUSessionType,
+		PDUSessionType: &ngapType.PDUSessionType{
+			Value: ngapType.PDUSessionTypePresentIpv4,
+		},
+	}
+	resourceSetupRequestTransfer.ProtocolIEs.List = append(resourceSetupRequestTransfer.ProtocolIEs.List, ie)
+
+	// QoS Flow Setup Request List
+	// use Default 5qi, arp
+
+	authDefQos := models.AuthorizedDefaultQos{
+		Var5qi: 9,
+		Arp: &models.Arp{
+			PriorityLevel: 8,
+		},
+		PriorityLevel: 8,
+	} // ref: smf/internal/sbi/processor/pdu_session_test.go; sessRule.AuthDefQos
+	ie = ngapType.PDUSessionResourceSetupRequestTransferIEs{}
+	ie.Id.Value = ngapType.ProtocolIEIDQosFlowSetupRequestList
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.PDUSessionResourceSetupRequestTransferIEsValue{
+		Present: ngapType.PDUSessionResourceSetupRequestTransferIEsPresentQosFlowSetupRequestList,
+		QosFlowSetupRequestList: &ngapType.QosFlowSetupRequestList{
+			List: []ngapType.QosFlowSetupRequestItem{
+				{
+					QosFlowIdentifier: ngapType.QosFlowIdentifier{
+						Value: int64(1), // ref: smf/internal/context/session_rules.go; int64(sessRule.DefQosQFI),
+					},
+					QosFlowLevelQosParameters: ngapType.QosFlowLevelQosParameters{
+						QosCharacteristics: ngapType.QosCharacteristics{
+							Present: ngapType.QosCharacteristicsPresentNonDynamic5QI,
+							NonDynamic5QI: &ngapType.NonDynamic5QIDescriptor{
+								FiveQI: ngapType.FiveQI{
+									Value: int64(authDefQos.Var5qi),
+								},
+							},
+						},
+						AllocationAndRetentionPriority: ngapType.AllocationAndRetentionPriority{
+							PriorityLevelARP: ngapType.PriorityLevelARP{
+								Value: int64(authDefQos.Arp.PriorityLevel),
+							},
+							PreEmptionCapability: ngapType.PreEmptionCapability{
+								Value: ngapType.PreEmptionCapabilityPresentShallNotTriggerPreEmption,
+							},
+							PreEmptionVulnerability: ngapType.PreEmptionVulnerability{
+								Value: ngapType.PreEmptionVulnerabilityPresentNotPreEmptable,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resourceSetupRequestTransfer.ProtocolIEs.List = append(resourceSetupRequestTransfer.ProtocolIEs.List, ie)
+
+	n2Buf, err := aper.MarshalWithParams(resourceSetupRequestTransfer, "valueExt")
+	if err != nil {
+		fmt.Printf("encode resourceSetupRequestTransfer failed: %s", err)
+	}
+
+	// Build multipart/related message
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+
+	// part 1: JSON metadata
+	h1 := textproto.MIMEHeader{}
+	h1.Set("Content-Type", "application/json")
+	p1, _ := mw.CreatePart(h1)
+	jsonBuf, err := json.Marshal(models.SmContextUpdatedData{
+		HoState: models.HoState_PREPARING,
+		N2SmInfoType: models.N2SmInfoType_PDU_RES_SETUP_REQ,
+		N2SmInfo: &models.RefToBinaryData{
+			ContentId: "PDU_RES_SETUP_REQ",
+		},
+	})
+	if err == nil {
+		p1.Write(jsonBuf)
+	}
+
+	// part 2: N2 SM info (PDU Session Resource Setup Request Transfer)
+	h2 := textproto.MIMEHeader{}
+	h2.Set("Content-Type", "application/vnd.3gpp.ngap")
+	h2.Set("Content-ID", "PDU_RES_SETUP_REQ")
+	p2, _ := mw.CreatePart(h2)
+	p2.Write(n2Buf)
+
+	// Write the closing boundary
+	mw.Close()
+
+	gock.New(smfApiRoot).
+	     Post("/nsmf-pdusession/v1/sm-contexts/" + smCtxReference).
+		 Reply(200).
+		 SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw.Boundary())).
+		 Body(bytes.NewReader(buf.Bytes()))
+
+	// generate testing UE NasSecurityMode.
+/*	genNasSecurityMode := func() *models.NasSecurityMode {
+		amfUe := amf_context.GetSelf().NewAmfUe("imsi-2089300007487")
+
+		amfUe.IntegrityAlg = security.AlgIntegrity128NIA2
+		amfUe.CipheringAlg = security.AlgCiphering128NEA0
+
+		amfUe.UESecurityCapability = nasType.UESecurityCapability{ // free5gc/test/ranUe.go: GetUESecurityCapability()
+		    Iei:    nasMessage.RegistrationRequestUESecurityCapabilityType,
+		    Len:    2,
+		    Buffer: []uint8{0x00, 0x00},
+	    }
+		
+		amfUe.UESecurityCapability.SetEA0_5G(1)
+		amfUe.UESecurityCapability.SetIA2_128_5G(1)
+
+		NasSecurityMode := new(models.NasSecurityMode)
+		NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA2
+		NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA0
+
+		return NasSecurityMode
+	} */
 
 	CreateUeContextRequest := models.CreateUeContextRequest{
 		JsonData: &models.UeContextCreateData{
@@ -475,7 +652,38 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 				MmContextList: []models.MmContext{
 					{
 						AccessType:           models.AccessType__3_GPP_ACCESS,
-						UeSecurityCapability: "2e02f0f0",
+						NasSecurityMode: &models.NasSecurityMode{
+							IntegrityAlgorithm: models.IntegrityAlgorithm_NIA2,
+							CipheringAlgorithm: models.CipheringAlgorithm_NEA0,
+						}, // genNasSecurityMode(),
+						UeSecurityCapability: base64.StdEncoding.EncodeToString([]uint8{0x00, 0x00}), // "2e02f0f0",
+					},
+				},
+				SessionContextList: []models.PduSessionContext{
+					{
+						PduSessionId: pduSessionID,
+						SmContextRef: smfApiRoot + "/nsmf-pdusession/v1/sm-contexts/" + smCtxReference,
+						SNssai: &testConfig.Configuration.PlmnSupportList[0].SNssaiList[0],
+						Dnn: testConfig.Configuration.SupportDnnList[0],
+						AccessType: models.AccessType__3_GPP_ACCESS,
+						// NsInstance: ,
+						PlmnId: &plmnIdModel,
+						SmfServiceInstanceId: smfInstanceId,
+						// HsmfId: ,
+						// VsmfId: ,
+					},
+				},
+				SubUeAmbr: &models.Ambr{
+					Uplink: "1000 Mbps",
+					Downlink: "1000 Mbps",
+				},
+				ServiceAreaRestriction: &models.ServiceAreaRestriction{
+					RestrictionType: models.RestrictionType_ALLOWED_AREAS,
+					Areas: []models.Area{
+						{
+							Tacs: []string{"000001"},
+							AreaCode: "+886", // free5gc/test/consumerTestdata/PCF/TestAMPolicy/AMPolicy.go
+						},
 					},
 				},
 			},
@@ -498,12 +706,15 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			},
 			PduSessionList: []models.N2SmInformation{
 				{
-					PduSessionId: 1,
+					PduSessionId: pduSessionID,
 				},
 			},
 			N2NotifyUri:       "127.0.0.1",
 			UeRadioCapability: nil,
-			NgapCause:         nil,
+			NgapCause:         &models.NgApCause{
+				Group: 0, // radioNetwork, based on TS 29.571 Type: NgApCause
+				Value: int32(ngapType.CauseRadioNetworkPresentNgIntraSystemHandoverTriggered),
+			},
 			SupportedFeatures: "",
 		},
 		BinaryDataN2Information: buildHandoverRequiredNGAPBinaryData(t),
