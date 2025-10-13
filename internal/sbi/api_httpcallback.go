@@ -228,7 +228,7 @@ func (s *Server) HTTPHandleDeregistrationNotification(c *gin.Context) {
 	}
 	// TS 23.503 - 5.3.2.3.2 UDM initiated NF Deregistration
 	// The AMF acknowledges the Nudm_UECM_DeRegistrationNotification to the UDM.
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 }
 
 // TS 23.502 - 4.2.2.3.3 Network-initiated Deregistration

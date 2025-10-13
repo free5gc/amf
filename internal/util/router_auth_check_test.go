@@ -106,7 +106,7 @@ func (m *mockProcessor) HandleSmContextStatusNotify(c *gin.Context,
 	notif models.SmfPduSessionSmContextStatusNotification,
 ) {
 	m.called = true
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 }
 
 type mockServer struct {
