@@ -212,6 +212,9 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 			} else if updateSmContextResponse200.BinaryDataN2SmInformation != nil {
 				ngap_message.AppendPDUSessionResourceSetupListHOReq(&pduSessionReqList, pduSessionID,
 					smContext.Snssai(), updateSmContextResponse200.BinaryDataN2SmInformation)
+
+				// Store SM Context into UE
+				ue.SmContextList.Store(pduSessionID, smContext)
 			}
 		}
 	}
@@ -242,16 +245,23 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	sourceToTargetTransparentContainer.Value = aper.OctetString(createUeContextRequest.BinaryDataN2Information)
 
 	// Build RanUe context on T-AMF
-	sourceRanUe := new(context.RanUe)
-	sourceRanUe.AmfUe = ue
-	sourceRanUe.HandOverStartTime = time.Now()
-	sourceRanUe.Log = logger.NgapLog
+	var targetRanUe *context.RanUe
+	if targetUeTmp, err := targetRan.NewRanUe(context.RanUeNgapIdUnspecified); err != nil {
+		logger.CommLog.Errorf("Create target UE error: %+v", err)
+	} else {
+		targetRanUe = targetUeTmp
+	}
 
-	sourceRanUe.Log.Infof("RanUe.AmfUe.UESecurityCapability: %+v", sourceRanUe.AmfUe.UESecurityCapability)
+	if targetRanUe != nil {
+		logger.CommLog.Tracef("Target : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[Unknown]", targetRanUe.AmfUeNgapId)
+	}
+	targetRanUe.AmfUe = ue
+	targetRanUe.HandOverStartTime = time.Now()
+	targetRanUe.Log = logger.NgapLog
 
 	// send Handover Request to target RAN
-	ngap_message.SendHandoverRequest(
-		sourceRanUe, targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
+	ngap_message.SendHandoverRequestWithAMFChange(
+		targetRanUe, targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
 
 	// waiting for handover request acknowledge handler to finish.
 	var createUeContextResponse context.PendingHandoverResponse

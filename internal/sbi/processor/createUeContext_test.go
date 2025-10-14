@@ -12,26 +12,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
-	"syscall"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/h2non/gock"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	amf_context "github.com/free5gc/amf/internal/context"
+	amf_ngap "github.com/free5gc/amf/internal/ngap"
 	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/amf/internal/sbi/processor"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
 
-	/*	"github.com/free5gc/nas/nasMessage"
-		"github.com/free5gc/nas/nasType"
-		"github.com/free5gc/nas/security" */
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
@@ -46,6 +45,22 @@ var plmnIdModel = models.PlmnId{
 	Mnc: "93",
 }
 var TestPlmn = ngapConvert.PlmnIdToNgap(plmnIdModel)
+
+var mockRAN *amf_context.AmfRan
+var RanId = models.GlobalRanNodeId{
+	PlmnId: &plmnIdModel,
+	N3IwfId: "123",
+	GNbId: &models.GNbId{
+		BitLength: 22,
+		GNBValue:  "2a3f44",
+	},
+	NgeNbId: "2a3f44",
+}
+var RanListenerIP = "127.0.0.2:38412"
+
+var pduSessionID int32 = 10
+
+var wg sync.WaitGroup
 
 // Mock AMF Config, copied from free5gc/config/amfcfg.yaml
 var testConfig = factory.Config{
@@ -189,57 +204,89 @@ var testConfig = factory.Config{
 	},
 }
 
-var mockRAN *amf_context.AmfRan
-var RanId = models.GlobalRanNodeId{
-	PlmnId: &plmnIdModel,
-	N3IwfId: "123",
-	GNbId: &models.GNbId{
-		BitLength: 22,
-		GNBValue:  "2a3f44",
-	},
-	NgeNbId: "2a3f44",
-}
+// startSctpMockRAN starts an SCTP listener at listenAddr (e.g. "127.0.0.2:38412").
+// It returns a channel that will receive the accepted *sctp.SCTPConn and a stop func.
+func startSctpMockRAN(t *testing.T, listenAddr string) (acceptCh chan *sctp.SCTPConn, stop func()) {
+    addr, err := sctp.ResolveSCTPAddr("sctp", listenAddr)
+    if err != nil {
+        t.Fatalf("ResolveSCTPAddr failed: %+v", err)
+    }
+    ln, err := sctp.ListenSCTP("sctp", addr)
+    if err != nil {
+        t.Fatalf("ListenSCTP failed: %+v", err)
+    }
+    acceptCh = make(chan *sctp.SCTPConn, 1)
 
-var pduSessionID int32 = 10
+	wg.Add(1)
+    go func() {
+		defer wg.Done()
+
+		conn, err := ln.AcceptSCTP(-1) // no timeout.
+        if err != nil {
+            t.Logf("AcceptSCTP error: %+v", err)
+            return
+        }
+		acceptCh <- conn
+        // keep listener open (or close here if only one accept is needed)
+    }()
+
+    stop = func() {
+        ln.Close()
+    }
+
+    // give listener a moment to start
+    time.Sleep(10 * time.Millisecond)
+    return acceptCh, stop
+}
 
 func initAMFConfig(t *testing.T) {
 	factory.AmfConfig = &testConfig
 	amfContext := amf_context.GetSelf()
 	amf_context.InitAmfContext(amfContext)
 
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET, syscall.IPPROTO_SCTP) // Initialize SCTP socket
-	if err != nil {
-		t.Errorf("initAMFConfig: create socket error: %+v", err)
-	}
+	// Create remote SCTP address
+	remoteAddr, err := sctp.ResolveSCTPAddr("sctp", RanListenerIP)
+    if err != nil {
+        t.Errorf("initAMFConfig: resolve remote addr error: %+v", err)
+		return
+    }
 
-	conn := sctp.NewSCTPConn(fd, nil)
+	// Create local address
+    localAddr, err := sctp.ResolveSCTPAddr("sctp", "127.0.0.18:0")
+    if err != nil {
+        panic(err)
+    }
 
-	addr := new(sctp.SCTPAddr)
-	addr.IPAddrs = []net.IPAddr{
-		{
-			IP: net.IPv4(127, 0, 0, 2),
-		},
-	}
-	addr.Port = 38412
-	sctp.SCTPBind(fd, addr, sctp.SCTP_BINDX_ADD_ADDR)
+	// Establish SCTP connection with specified remote address
+    conn, err := sctp.DialSCTP("sctp", localAddr, remoteAddr)
+    if err != nil {
+        t.Errorf("initAMFConfig: dial SCTP error: %+v", err)
+		return
+    }
 
-	mockRAN = amfContext.NewAmfRan(conn) // Add a dummy RAN context
+	wg.Add(1)
+	go func(conn *sctp.SCTPConn) {
+		defer wg.Done()
 
-	t.Logf("mockRan remote addr: %+v\n", mockRAN.Conn.RemoteAddr())
+		var buf []byte = make([]byte, 65536)
 
-	// targetGNBID := []byte("string")
+		if n, err := conn.Read(buf); err == nil {
+			amf_ngap.Dispatch(conn, buf[:n])
+		}
+	} (conn)
+
+	mockRAN = amfContext.NewAmfRan(conn) // Add mock RAN context
+
 	mockRanId := ngapConvert.RanIDToNgap(RanId)
-	t.Logf("mockRanId: %x (bit length: %d)",
-		mockRanId.GlobalGNBID.GNBID.GNBID.Bytes, mockRanId.GlobalGNBID.GNBID.GNBID.BitLength)
 	mockRAN.SetRanId(&mockRanId)
-	t.Logf("mockRAN ID: %s", mockRAN.RanID())
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
 	data.DirectForwardingPathAvailability = new(ngapType.DirectForwardingPathAvailability)
-	data.DirectForwardingPathAvailability.Value = ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
+	data.DirectForwardingPathAvailability.Value = 
+	    ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
 	return data
 }
 
@@ -265,7 +312,8 @@ func buildSourceToTargetTransparentTransfer(
 	qosItem := ngapType.QosFlowInformationItem{}
 	qosItem.QosFlowIdentifier.Value = 1
 	infoItem.QosFlowInformationList.List = append(infoItem.QosFlowInformationList.List, qosItem)
-	data.PDUSessionResourceInformationList.List = append(data.PDUSessionResourceInformationList.List, infoItem)
+	data.PDUSessionResourceInformationList.List = 
+	    append(data.PDUSessionResourceInformationList.List, infoItem)
 
 	// Target Cell ID
 	data.TargetCellID.Present = ngapType.TargetIDPresentTargetRANNodeID
@@ -300,7 +348,7 @@ func getSourceToTargetTransparentTransfer(targetGNBID []byte, targetCellID []byt
 	data := buildSourceToTargetTransparentTransfer(targetGNBID, targetCellID)
 	encodeData, err := aper.MarshalWithParams(data, "valueExt")
 	if err != nil {
-		t.Fatalf("aper MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
+		t.Fatalf("MarshalWithParams error in GetSourceToTargetTransparentTransfer: %+v\ndata: %+v", err, data)
 	}
 	return encodeData
 }
@@ -324,132 +372,130 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 			},
 			Value: ngapType.InitiatingMessageValue{
 				Present: ngapType.InitiatingMessagePresentHandoverRequired,
-				HandoverRequired: &ngapType.HandoverRequired{
-					ProtocolIEs: ngapType.ProtocolIEContainerHandoverRequiredIEs{
-						List: []ngapType.HandoverRequiredIEs{
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDAMFUENGAPID,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentIgnore,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentAMFUENGAPID,
-									AMFUENGAPID: &ngapType.AMFUENGAPID{
-										Value: 2,
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDRANUENGAPID,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentIgnore,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentRANUENGAPID,
-									RANUENGAPID: &ngapType.RANUENGAPID{
-										Value: 1,
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDHandoverType,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentReject,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentHandoverType,
-									HandoverType: &ngapType.HandoverType{
-										Value: ngapType.HandoverTypePresentIntra5gs,
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDCause,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentIgnore,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentCause,
-									Cause: &ngapType.Cause{
-										Present: ngapType.CausePresentRadioNetwork,
-										RadioNetwork: &ngapType.CauseRadioNetwork{
-											Value: ngapType.CauseRadioNetworkPresentHandoverDesirableForRadioReason,
-										},
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDTargetID,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentReject,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentTargetID,
-									TargetID: &ngapType.TargetID{
-										Present: ngapType.TargetIDPresentTargetRANNodeID,
-										TargetRANNodeID: &ngapType.TargetRANNodeID{
-											GlobalRANNodeID: ngapConvert.RanIDToNgap(RanId),
-											SelectedTAI: ngapType.TAI{
-												PLMNIdentity: TestPlmn,
-												TAC: ngapType.TAC{
-													Value: aper.OctetString("\x30\x33\x99"),
-												},
-											},
-										},
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDPDUSessionResourceListHORqd,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentReject,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentPDUSessionResourceListHORqd,
-									PDUSessionResourceListHORqd: &ngapType.PDUSessionResourceListHORqd{
-										List: []ngapType.PDUSessionResourceItemHORqd{
-											{
-												PDUSessionID: ngapType.PDUSessionID{
-													Value: int64(pduSessionID),
-												},
-												HandoverRequiredTransfer: handoverRequiredTransfer,
-											},
-										},
-									},
-								},
-							},
-							{
-								Id: ngapType.ProtocolIEID{
-									Value: ngapType.ProtocolIEIDSourceToTargetTransparentContainer,
-								},
-								Criticality: ngapType.Criticality{
-									Value: ngapType.CriticalityPresentReject,
-								},
-								Value: ngapType.HandoverRequiredIEsValue{
-									Present: ngapType.HandoverRequiredIEsPresentSourceToTargetTransparentContainer,
-									SourceToTargetTransparentContainer: &ngapType.SourceToTargetTransparentContainer{
-										Value: sourceToTargetTransparentContainer,
-									},
-								},
-							},
-						},
+				HandoverRequired: &ngapType.HandoverRequired{},
+			},
+		},
+	}
+
+	hoRequired := pdu.InitiatingMessage.Value.HandoverRequired
+
+	// AMF UE NGAP ID
+	ie := ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
+    ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentAMFUENGAPID,
+		AMFUENGAPID: &ngapType.AMFUENGAPID{
+			Value: 2,
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// RAN UE NGAP ID
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
+	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentRANUENGAPID,
+		RANUENGAPID: &ngapType.RANUENGAPID{
+			Value: 1,
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// Handover Type
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDHandoverType
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentHandoverType,
+		HandoverType: &ngapType.HandoverType{
+			Value: ngapType.HandoverTypePresentIntra5gs,
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// Cause
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDCause
+	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentCause,
+		Cause: &ngapType.Cause{
+			Present: ngapType.CausePresentRadioNetwork,
+			RadioNetwork: &ngapType.CauseRadioNetwork{
+				Value: ngapType.CauseRadioNetworkPresentHandoverDesirableForRadioReason,
+			},
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// Target ID
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDTargetID
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentTargetID,
+		TargetID: &ngapType.TargetID{
+			Present: ngapType.TargetIDPresentTargetRANNodeID,
+			TargetRANNodeID: &ngapType.TargetRANNodeID{
+				GlobalRANNodeID: ngapConvert.RanIDToNgap(RanId),
+				SelectedTAI: ngapType.TAI{
+					PLMNIdentity: TestPlmn,
+					TAC: ngapType.TAC{
+						Value: aper.OctetString("\x30\x33\x99"),
 					},
 				},
 			},
 		},
 	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// PDU Session Resource List HO Rqd
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDPDUSessionResourceListHORqd
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentPDUSessionResourceListHORqd,
+		PDUSessionResourceListHORqd: &ngapType.PDUSessionResourceListHORqd{
+			List: []ngapType.PDUSessionResourceItemHORqd{
+				{
+					PDUSessionID: ngapType.PDUSessionID{
+						Value: int64(pduSessionID),
+					},
+					HandoverRequiredTransfer: handoverRequiredTransfer,
+				},
+			},
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
+	// Source To Target Transparent Container
+	ie = ngapType.HandoverRequiredIEs{}
+
+	ie.Id.Value = ngapType.ProtocolIEIDSourceToTargetTransparentContainer
+	ie.Criticality.Value = ngapType.CriticalityPresentReject
+	ie.Value = ngapType.HandoverRequiredIEsValue{
+		Present: ngapType.HandoverRequiredIEsPresentSourceToTargetTransparentContainer,
+		SourceToTargetTransparentContainer: &ngapType.SourceToTargetTransparentContainer{
+			Value: sourceToTargetTransparentContainer,
+		},
+	}
+
+	hoRequired.ProtocolIEs.List = append(hoRequired.ProtocolIEs.List, ie)
+
 	binaryData, err := ngap.Encoder(pdu)
 	if err != nil {
 		t.Fatalf("NGAP Binary data encoding failure. (%+v)\n", err)
@@ -459,12 +505,224 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 	return binaryData
 }
 
+func buildHandoverRequestAcknowledgeTransfer(t *testing.T) (binaryData []byte) {
+    hoReqAckTransfer := ngapType.HandoverRequestAcknowledgeTransfer{}
+
+	// DL NG-U UP TNL Information
+	hoReqAckTransfer.DLNGUUPTNLInformation.Present = ngapType.UPTransportLayerInformationPresentGTPTunnel
+	hoReqAckTransfer.DLNGUUPTNLInformation.GTPTunnel = &ngapType.GTPTunnel{}
+
+	teidOct := make([]byte, 4) // ref: TS 29.502 V17.1.0 6.1.6.3.2 Simple data types
+	binary.BigEndian.PutUint32(teidOct, uint32(0x5bd60076))
+
+	gtpTunnel := hoReqAckTransfer.DLNGUUPTNLInformation.GTPTunnel
+	gtpTunnel.TransportLayerAddress.Value.Bytes = net.IP{127, 0, 0, 8}
+	gtpTunnel.TransportLayerAddress.Value.BitLength = uint64(len(net.IP{127, 0, 0, 8}) * 8)
+	gtpTunnel.GTPTEID.Value = teidOct
+
+	// QoS Flow Setup Response List
+	item := ngapType.QosFlowItemWithDataForwarding{}
+	item.QosFlowIdentifier.Value = int64(1)
+	hoReqAckTransfer.QosFlowSetupResponseList.List = 
+	    append(hoReqAckTransfer.QosFlowSetupResponseList.List, item)
+
+	binaryData, err := aper.MarshalWithParams(hoReqAckTransfer, "valueExt")
+	if err != nil {
+		t.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
+	}
+
+	return
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestHandleCreateUEContextRequest(t *testing.T) {
+    logrus.SetLevel(logrus.TraceLevel)
+
 	openapi.InterceptH2CClient()
 	defer openapi.RestoreH2CClient()
+
+	acceptCh, stopListener := startSctpMockRAN(t, RanListenerIP)
+
 	initAMFConfig(t)
+
+	// get accepted conn
+    conn := <-acceptCh
+    if conn == nil {
+        t.Fatalf("mock RAN did not accept connection")
+    }
+
+	defer func() {
+		wg.Wait()
+
+		time.Sleep(50 * time.Millisecond)
+
+		conn.Close()
+		t.Log("[T-RAN] SCTP conn closed\n", 
+	          "Don't bother the above \"SCTPConn: SCTPWrite failed bad file descriptor\" message")
+
+		time.Sleep(100 * time.Millisecond)
+
+		stopListener()
+		t.Log("[T-RAN] SCTP listener closed\n", 
+	          "Don't bother the above \"SCTP: Failed to shutdown fd operation not supported\" message")
+	} ()
+
+	// Mock T-RAN: Capture Handover Request NGAP message, and respond with Handover Request Acknowledge.
+    // read loop (in goroutine) to capture NGAP messages sent by AMF
+	wg.Add(1)
+    go func() {
+		defer wg.Done()
+
+		buf := make([]byte, 65536)
+
+		n, err := conn.Read(buf)
+		if err != nil {
+			t.Logf("conn.Read error: %+v", err)
+			return
+		}
+		pdu, err := ngap.Decoder(buf[:n])
+		if err != nil {
+			t.Logf("ngap decode error: %+v", err)
+			return
+		}
+
+		// extract HANDOVER REQUEST IEs
+		var amfUeNgapId *ngapType.AMFUENGAPID
+		// var handoverType *ngapType.HandoverType
+		// var ueAggregateMaximumBitRate *ngapType.UEAggregateMaximumBitRate
+		// var cause *ngapType.Cause
+		// var ueSecurityCapabilities *ngapType.UESecurityCapabilities
+		// var securityContext *ngapType.SecurityContext
+		var pduSessionResourceSetupListHOReq *ngapType.PDUSessionResourceSetupListHOReq
+		// var allowedNSSAI *ngapType.AllowedNSSAI
+		// var sourceToTargetTransparentContainer *ngapType.SourceToTargetTransparentContainer
+		// var guami *ngapType.GUAMI
+
+		for _, ie := range pdu.InitiatingMessage.Value.HandoverRequest.ProtocolIEs.List {
+			switch ie.Id.Value {
+			case ngapType.ProtocolIEIDAMFUENGAPID: // mandatory, reject
+				amfUeNgapId = ie.Value.AMFUENGAPID
+			case ngapType.ProtocolIEIDHandoverType: // mandatory, reject
+				// handoverType = ie.Value.HandoverType
+			case ngapType.ProtocolIEIDCause: // mandatory, ignore
+				// cause = ie.Value.Cause
+			case ngapType.ProtocolIEIDUEAggregateMaximumBitRate: // mandatory, reject
+				// ueAggregateMaximumBitRate = ie.Value.UEAggregateMaximumBitRate
+			case ngapType.ProtocolIEIDUESecurityCapabilities: // mandatory, reject
+				// ueSecurityCapabilities = ie.Value.UESecurityCapabilities
+			case ngapType.ProtocolIEIDSecurityContext: // mandatory, reject
+				// securityContext = ie.Value.SecurityContext
+			case ngapType.ProtocolIEIDPDUSessionResourceSetupListHOReq: // mandatory, reject
+				pduSessionResourceSetupListHOReq = ie.Value.PDUSessionResourceSetupListHOReq
+			case ngapType.ProtocolIEIDAllowedNSSAI: // mandatory, reject
+				// allowedNSSAI = ie.Value.AllowedNSSAI
+			case ngapType.ProtocolIEIDSourceToTargetTransparentContainer: // mandatory, reject
+				// sourceToTargetTransparentContainer = ie.Value.SourceToTargetTransparentContainer
+			case ngapType.ProtocolIEIDGUAMI: // mandatory, reject
+				// guami = ie.Value.GUAMI
+			default:
+				switch ie.Criticality.Value {
+				case ngapType.CriticalityPresentReject:
+					t.Errorf("Not comprehended IE ID 0x%04x (criticality: reject)", ie.Id.Value)
+				case ngapType.CriticalityPresentIgnore:
+					t.Logf("Not comprehended IE ID 0x%04x (criticality: ignore)", ie.Id.Value)
+				case ngapType.CriticalityPresentNotify:
+					t.Logf("Not comprehended IE ID 0x%04x (criticality: notify)", ie.Id.Value)
+				}
+			}
+		}
+
+		// Create HANDOVER REQUEST ACKNOWLEDGE message in response to HANDOVER REQUEST
+		hoReqAckPdu := ngapType.NGAPPDU{}
+		hoReqAckPdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
+		hoReqAckPdu.SuccessfulOutcome = &ngapType.SuccessfulOutcome{}
+
+		hoReqAckPdu.SuccessfulOutcome.ProcedureCode.Value = 
+			ngapType.ProcedureCodeHandoverResourceAllocation
+		hoReqAckPdu.SuccessfulOutcome.Criticality.Value = ngapType.CriticalityPresentReject
+		hoReqAckPdu.SuccessfulOutcome.Value.Present = 
+			ngapType.SuccessfulOutcomePresentHandoverRequestAcknowledge
+		hoReqAckPdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge = &ngapType.HandoverRequestAcknowledge{}
+
+		hoReqAckIe := hoReqAckPdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge
+
+		// AMF UE NGAP ID
+		ie := ngapType.HandoverRequestAcknowledgeIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.HandoverRequestAcknowledgeIEsPresentAMFUENGAPID
+
+		ie.Value.AMFUENGAPID = amfUeNgapId
+
+		hoReqAckIe.ProtocolIEs.List = append(hoReqAckIe.ProtocolIEs.List, ie)
+
+		// RAN UE NGAP ID
+		ie = ngapType.HandoverRequestAcknowledgeIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDRANUENGAPID
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.HandoverRequestAcknowledgeIEsPresentRANUENGAPID
+		ie.Value.RANUENGAPID = &ngapType.RANUENGAPID{
+			Value: 1,
+		}
+
+		hoReqAckIe.ProtocolIEs.List = append(hoReqAckIe.ProtocolIEs.List, ie)
+
+		// PDU Session Resource Admitted List
+		ie = ngapType.HandoverRequestAcknowledgeIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDPDUSessionResourceAdmittedList
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.HandoverRequestAcknowledgeIEsPresentPDUSessionResourceAdmittedList
+
+		ie.Value.PDUSessionResourceAdmittedList = &ngapType.PDUSessionResourceAdmittedList{}
+		if pduSessionResourceSetupListHOReq != nil {
+			for _, setupItem := range pduSessionResourceSetupListHOReq.List {
+				admittedItem := ngapType.PDUSessionResourceAdmittedItem{
+					PDUSessionID: setupItem.PDUSessionID,
+					HandoverRequestAcknowledgeTransfer: buildHandoverRequestAcknowledgeTransfer(t),
+				}
+				ie.Value.PDUSessionResourceAdmittedList.List = 
+					append(ie.Value.PDUSessionResourceAdmittedList.List, admittedItem)
+			}
+		}
+
+		hoReqAckIe.ProtocolIEs.List = append(hoReqAckIe.ProtocolIEs.List, ie)
+
+		// PDU Session Resource Failed to Setup List (optional)
+
+		// Target to Source Transparent Container
+		ie = ngapType.HandoverRequestAcknowledgeIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDTargetToSourceTransparentContainer
+		ie.Criticality.Value = ngapType.CriticalityPresentReject
+		ie.Value.Present = ngapType.HandoverRequestAcknowledgeIEsPresentTargetToSourceTransparentContainer
+
+		// TODO
+		ie.Value.TargetToSourceTransparentContainer = &ngapType.TargetToSourceTransparentContainer{}
+
+		hoReqAckIe.ProtocolIEs.List = append(hoReqAckIe.ProtocolIEs.List, ie)
+
+		// set SCTP PPID = ngap.PPID (so AMF's SCTP reader treats payload as NGAP)
+		if info, err := conn.GetDefaultSentParam(); err == nil {
+			info.PPID = ngap.PPID
+			if err2 := conn.SetDefaultSentParam(info); err2 != nil {
+				t.Logf("SetDefaultSentParam error: %+v", err2)
+			}
+		} else {
+			// GetDefaultSentParam may fail for some libs; still try SetDefaultSentParam with new info
+			_ = conn.SetDefaultSentParam(&sctp.SndRcvInfo{PPID: ngap.PPID})
+		}
+
+		buff, err := ngap.Encoder(hoReqAckPdu)
+		if err != nil {
+			t.Errorf("ngap encode error: %+v", err)
+		}
+
+		_, err = conn.Write(buff)
+		if err != nil {
+			t.Errorf("conn.Write error: %+v", err)
+		}
+		t.Log("sent HANDOVER REQUEST ACKNOWLEDGE")
+    }()
 
 	// Setup mock AMF
 	mockAMF := service.NewMockAmfAppInterface(gomock.NewController(t))
@@ -488,7 +746,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	smCtxReference := uuid.New().URN()
 	smfInstanceId := uuid.New().String()
 
-	// TODO: Setup mock SMF response
+	// Setup mock SMF response for UpdateSmContextHandoverBetweenAMF
 	defer gock.Off() // Flush pending mocks after test execution
 
 	// build binary data for N2 Information
@@ -549,7 +807,8 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			List: []ngapType.QosFlowSetupRequestItem{
 				{
 					QosFlowIdentifier: ngapType.QosFlowIdentifier{
-						Value: int64(1), // ref: smf/internal/context/session_rules.go; int64(sessRule.DefQosQFI),
+                        // ref: smf/internal/context/session_rules.go; int64(sessRule.DefQosQFI),
+						Value: int64(1),
 					},
 					QosFlowLevelQosParameters: ngapType.QosFlowLevelQosParameters{
 						QosCharacteristics: ngapType.QosCharacteristics{
@@ -614,32 +873,47 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 
 	gock.New(smfApiRoot).
 	     Post("/nsmf-pdusession/v1/sm-contexts/" + smCtxReference).
+		 Times(1).
 		 Reply(200).
 		 SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw.Boundary())).
 		 Body(bytes.NewReader(buf.Bytes()))
+	
+	// Create SMF response for UpdateSmContextN2HandoverPrepared
+	var buff bytes.Buffer
+	mw2 := multipart.NewWriter(&buff)
 
-	// generate testing UE NasSecurityMode.
-/*	genNasSecurityMode := func() *models.NasSecurityMode {
-		amfUe := amf_context.GetSelf().NewAmfUe("imsi-2089300007487")
+	// part 1: JSON metadata
+	hd1 := textproto.MIMEHeader{}
+	hd1.Set("Content-Type", "application/json")
+	pt1, _ := mw2.CreatePart(hd1)
+	jsonBuff, err := json.Marshal(models.SmContextUpdatedData{
+		HoState: models.HoState_PREPARED,
+		N2SmInfoType: models.N2SmInfoType_HANDOVER_CMD,
+		N2SmInfo: &models.RefToBinaryData{
+			ContentId: "HANDOVER_CMD",
+		},
+	})
+	if err == nil {
+		pt1.Write(jsonBuff)
+	}
 
-		amfUe.IntegrityAlg = security.AlgIntegrity128NIA2
-		amfUe.CipheringAlg = security.AlgCiphering128NEA0
+	// part 2: N2 SM info (PDU Session Resource Setup Request Transfer)
+	hd2 := textproto.MIMEHeader{}
+	hd2.Set("Content-Type", "application/vnd.3gpp.ngap")
+	hd2.Set("Content-ID", "HANDOVER_CMD")
+	pt2, _ := mw2.CreatePart(hd2)
+	pt2.Write(n2Buf)
 
-		amfUe.UESecurityCapability = nasType.UESecurityCapability{ // free5gc/test/ranUe.go: GetUESecurityCapability()
-		    Iei:    nasMessage.RegistrationRequestUESecurityCapabilityType,
-		    Len:    2,
-		    Buffer: []uint8{0x00, 0x00},
-	    }
-		
-		amfUe.UESecurityCapability.SetEA0_5G(1)
-		amfUe.UESecurityCapability.SetIA2_128_5G(1)
+	// Write the closing boundary
+	mw2.Close()
 
-		NasSecurityMode := new(models.NasSecurityMode)
-		NasSecurityMode.IntegrityAlgorithm = models.IntegrityAlgorithm_NIA2
-		NasSecurityMode.CipheringAlgorithm = models.CipheringAlgorithm_NEA0
+	gock.New(smfApiRoot).
+	     Post("/nsmf-pdusession/v1/sm-contexts/" + smCtxReference).
+		 Times(1).
+		 Reply(200).
+		 SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw2.Boundary())).
+		 Body(bytes.NewReader(buff.Bytes()))
 
-		return NasSecurityMode
-	} */
 
 	CreateUeContextRequest := models.CreateUeContextRequest{
 		JsonData: &models.UeContextCreateData{
@@ -656,7 +930,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 							IntegrityAlgorithm: models.IntegrityAlgorithm_NIA2,
 							CipheringAlgorithm: models.CipheringAlgorithm_NEA0,
 						}, // genNasSecurityMode(),
-						UeSecurityCapability: base64.StdEncoding.EncodeToString([]uint8{0x00, 0x00}), // "2e02f0f0",
+						UeSecurityCapability: base64.StdEncoding.EncodeToString([]uint8{0x00, 0x00}),
 					},
 				},
 				SessionContextList: []models.PduSessionContext{
@@ -738,9 +1012,16 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 					JsonData: &models.UeContextCreatedData{
 						UeContext: &models.UeContext{
 							Supi: CreateUeContextRequest.JsonData.UeContext.Supi,
+							Pei: CreateUeContextRequest.JsonData.UeContext.Pei,
+							SubUeAmbr: CreateUeContextRequest.JsonData.UeContext.SubUeAmbr,
+						},
+						TargetToSourceData: &models.N2InfoContent{
+							NgapIeType: models.AmfCommunicationNgapIeType_TAR_TO_SRC_CONTAINER,
+							NgapData: &models.RefToBinaryData{
+								ContentId: "N2InfoContent",
+							},
 						},
 						PduSessionList:   CreateUeContextRequest.JsonData.PduSessionList,
-						PcfReselectedInd: false,
 					},
 				},
 			},

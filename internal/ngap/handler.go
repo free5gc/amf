@@ -1491,6 +1491,8 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		// TODO: Send Namf_Communication_CreateUEContext Response to S-AMF
 		ran.Log.Error("handover between different Ue has not been implement yet")
 		var ueContextCreatedData models.UeContextCreatedData
+
+		ueContextCreatedData.UeContext = new(models.UeContext)
 		ueContextCreatedData.UeContext.Supi = amfUe.Supi
 		ueContextCreatedData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
 		if amfUe.Gpsi != "" {
@@ -1532,7 +1534,10 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 			ueContextCreatedData.UeContext.TraceData = amfUe.TraceData
 		}
 
+		ueContextCreatedData.TargetToSourceData = new(models.N2InfoContent)
 		ueContextCreatedData.TargetToSourceData.NgapIeType = models.AmfCommunicationNgapIeType_TAR_TO_SRC_CONTAINER
+
+		ueContextCreatedData.TargetToSourceData.NgapData = new(models.RefToBinaryData)
 		ueContextCreatedData.TargetToSourceData.NgapData.ContentId = "N2InfoContent"
 
 		for _, pduSessionResourceHandoverItem := range pduSessionResourceHandoverList.List {

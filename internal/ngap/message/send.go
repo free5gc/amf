@@ -701,6 +701,68 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cau
 	isHoReqSent, additionalCause = SendToRanUe(targetUe, pkt)
 }
 
+func SendHandoverRequestWithAMFChange(targetUe *context.RanUe, targetRan *context.AmfRan, cause ngapType.Cause,
+	pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
+	sourceToTargetTransparentContainer ngapType.SourceToTargetTransparentContainer, nsci bool,
+) {
+	isHoReqSent := false
+	additionalCause := ""
+	defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.HANDOVER_REQUEST, &isHoReqSent, cause, &additionalCause)
+
+	defer func(msgSent *bool, cause ngapType.Cause) {
+		hoCause := ngap_metrics.GetCauseErrorStr(&cause)
+		if hoCause == "unknown ngapType.Cause" {
+			hoCause = additionalCause
+		}
+
+		if msgSent != nil && !*msgSent {
+			business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
+				utils.FailureMetric, hoCause, targetUe.HandOverStartTime)
+		}
+	}(&isHoReqSent, cause)
+
+	if targetUe == nil {
+		additionalCause = ngap_metrics.SOURCE_UE_NIL_ERR
+		logger.NgapLog.Error("targetUe is nil")
+		return
+	}
+
+	targetUe.Log.Info("Send Handover Request")
+
+	amfUe := targetUe.AmfUe
+	if amfUe == nil {
+		additionalCause = ngap_metrics.AMF_UE_NIL_ERR
+		targetUe.Log.Error("amfUe is nil")
+		return
+	}
+	if targetRan == nil {
+		additionalCause = ngap_metrics.TARGET_RAN_NIL_ERR
+		targetUe.Log.Error("targetRan is nil")
+		return
+	}
+
+	if len(pduSessionResourceSetupListHOReq.List) > context.MaxNumOfPDUSessions {
+		additionalCause = ngap_metrics.PDU_LIST_OOR_ERR
+		targetUe.Log.Error("Pdu List out of range")
+		return
+	}
+
+	if len(sourceToTargetTransparentContainer.Value) == 0 {
+		additionalCause = ngap_metrics.SRC_TO_TARGET_TRANSPARENT_CONTAINER_NIL_ERR
+		targetUe.Log.Error("Source To Target TransparentContainer is nil")
+		return
+	}
+
+	pkt, err := BuildHandoverRequest(targetUe, cause, pduSessionResourceSetupListHOReq,
+		sourceToTargetTransparentContainer, nsci)
+	if err != nil {
+		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
+		targetUe.Log.Errorf("Build HandoverRequest failed : %s", err.Error())
+		return
+	}
+	isHoReqSent, additionalCause = SendToRanUe(targetUe, pkt)
+}
+
 // pduSessionResourceSwitchedList: provided by AMF, and the transfer data is from SMF
 // pduSessionResourceReleasedList: provided by AMF, and the transfer data is from SMF
 // newSecurityContextIndicator: if AMF has activated a new 5G NAS security context, set it to true,
