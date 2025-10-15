@@ -443,9 +443,13 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAccessType(
 }
 
 func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
-	ue *amf_context.AmfUe, targetRanId *models.NgRanTargetId, smContext *amf_context.SmContext, 
-	amfid string, guami *models.Guami, activate bool,
-) (	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error) {
+	ue *amf_context.AmfUe,
+	targetRanId *models.NgRanTargetId,
+	smContext *amf_context.SmContext,
+	amfid string,
+	guami *models.Guami,
+	activate bool,
+) (*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error) {
 	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.ServingNfId = amfid
 	updateData.ServingNetwork = guami.PlmnId

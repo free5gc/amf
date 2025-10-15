@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
@@ -20,6 +18,7 @@ import (
 	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics/sbi"
+	"github.com/gin-gonic/gin"
 )
 
 // TS 29.518 5.2.2.2.3
@@ -204,10 +203,11 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 			smContext := pduSessionContextToAmfSmContext(*pduSessionContext)
 			updateSmContextResponse200, _, _, errSendUpdateSmContext := p.Consumer().
-				SendUpdateSmContextHandoverBetweenAMF(ue, 
-					ueContextCreateData.TargetId, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false)
+				SendUpdateSmContextHandoverBetweenAMF(
+					ue, ueContextCreateData.TargetId, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false,
+				)
 			if errSendUpdateSmContext != nil {
-				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", 
+				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v",
 					errSendUpdateSmContext)
 			}
 			if updateSmContextResponse200 == nil {
