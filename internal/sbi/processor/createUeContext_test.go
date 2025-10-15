@@ -30,7 +30,6 @@ import (
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/amf/pkg/service"
 	"github.com/free5gc/aper"
-
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/ngap/ngapConvert"
 	"github.com/free5gc/ngap/ngapType"
@@ -46,16 +45,18 @@ var plmnIdModel = models.PlmnId{
 }
 var TestPlmn = ngapConvert.PlmnIdToNgap(plmnIdModel)
 
-var mockRAN *amf_context.AmfRan
-var RanId = models.GlobalRanNodeId{
-	PlmnId: &plmnIdModel,
-	N3IwfId: "123",
-	GNbId: &models.GNbId{
-		BitLength: 22,
-		GNBValue:  "2a3f44",
-	},
-	NgeNbId: "2a3f44",
-}
+var (
+	mockRAN *amf_context.AmfRan
+	RanId   = models.GlobalRanNodeId{
+		PlmnId:  &plmnIdModel,
+		N3IwfId: "123",
+		GNbId: &models.GNbId{
+			BitLength: 22,
+			GNBValue:  "2a3f44",
+		},
+		NgeNbId: "2a3f44",
+	}
+)
 var RanListenerIP = "127.0.0.2:38412"
 
 var pduSessionID int32 = 10
@@ -99,7 +100,7 @@ var testConfig = factory.Config{
 		SupportTAIList: []models.Tai{
 			{
 				PlmnId: &plmnIdModel,
-				Tac: "000001",
+				Tac:    "000001",
 			},
 		},
 		PlmnSupportList: []factory.PlmnSupportItem{
@@ -207,36 +208,38 @@ var testConfig = factory.Config{
 // startSctpMockRAN starts an SCTP listener at listenAddr (e.g. "127.0.0.2:38412").
 // It returns a channel that will receive the accepted *sctp.SCTPConn and a stop func.
 func startSctpMockRAN(t *testing.T, listenAddr string) (acceptCh chan *sctp.SCTPConn, stop func()) {
-    addr, err := sctp.ResolveSCTPAddr("sctp", listenAddr)
-    if err != nil {
-        t.Fatalf("ResolveSCTPAddr failed: %+v", err)
-    }
-    ln, err := sctp.ListenSCTP("sctp", addr)
-    if err != nil {
-        t.Fatalf("ListenSCTP failed: %+v", err)
-    }
-    acceptCh = make(chan *sctp.SCTPConn, 1)
+	addr, err := sctp.ResolveSCTPAddr("sctp", listenAddr)
+	if err != nil {
+		t.Fatalf("ResolveSCTPAddr failed: %+v", err)
+	}
+	ln, err := sctp.ListenSCTP("sctp", addr)
+	if err != nil {
+		t.Fatalf("ListenSCTP failed: %+v", err)
+	}
+	acceptCh = make(chan *sctp.SCTPConn, 1)
 
 	wg.Add(1)
-    go func() {
+	go func() {
 		defer wg.Done()
 
-		conn, err := ln.AcceptSCTP(-1) // no timeout.
-        if err != nil {
-            t.Logf("AcceptSCTP error: %+v", err)
-            return
-        }
+		conn, errAccept := ln.AcceptSCTP(-1) // no timeout.
+		if errAccept != nil {
+			t.Logf("AcceptSCTP error: %+v", err)
+			return
+		}
 		acceptCh <- conn
-        // keep listener open (or close here if only one accept is needed)
-    }()
+		// keep listener open (or close here if only one accept is needed)
+	}()
 
-    stop = func() {
-        ln.Close()
-    }
+	stop = func() {
+		if errClose := ln.Close(); errClose != nil {
+			t.Errorf("SCTP Listener Close() error: %s", err.Error())
+		}
+	}
 
-    // give listener a moment to start
-    time.Sleep(10 * time.Millisecond)
-    return acceptCh, stop
+	// give listener a moment to start
+	time.Sleep(10 * time.Millisecond)
+	return acceptCh, stop
 }
 
 func initAMFConfig(t *testing.T) {
@@ -246,34 +249,34 @@ func initAMFConfig(t *testing.T) {
 
 	// Create remote SCTP address
 	remoteAddr, err := sctp.ResolveSCTPAddr("sctp", RanListenerIP)
-    if err != nil {
-        t.Errorf("initAMFConfig: resolve remote addr error: %+v", err)
+	if err != nil {
+		t.Errorf("initAMFConfig: resolve remote addr error: %+v", err)
 		return
-    }
+	}
 
 	// Create local address
-    localAddr, err := sctp.ResolveSCTPAddr("sctp", "127.0.0.18:0")
-    if err != nil {
-        panic(err)
-    }
+	localAddr, err := sctp.ResolveSCTPAddr("sctp", "127.0.0.18:0")
+	if err != nil {
+		panic(err)
+	}
 
 	// Establish SCTP connection with specified remote address
-    conn, err := sctp.DialSCTP("sctp", localAddr, remoteAddr)
-    if err != nil {
-        t.Errorf("initAMFConfig: dial SCTP error: %+v", err)
+	conn, err := sctp.DialSCTP("sctp", localAddr, remoteAddr)
+	if err != nil {
+		t.Errorf("initAMFConfig: dial SCTP error: %+v", err)
 		return
-    }
+	}
 
 	wg.Add(1)
 	go func(conn *sctp.SCTPConn) {
 		defer wg.Done()
 
-		var buf []byte = make([]byte, 65536)
+		buf := make([]byte, 65536)
 
-		if n, err := conn.Read(buf); err == nil {
+		if n, errRead := conn.Read(buf); errRead == nil {
 			amf_ngap.Dispatch(conn, buf[:n])
 		}
-	} (conn)
+	}(conn)
 
 	mockRAN = amfContext.NewAmfRan(conn) // Add mock RAN context
 
@@ -285,8 +288,7 @@ func initAMFConfig(t *testing.T) {
 
 func buildHandoverRequiredTransfer() (data ngapType.HandoverRequiredTransfer) {
 	data.DirectForwardingPathAvailability = new(ngapType.DirectForwardingPathAvailability)
-	data.DirectForwardingPathAvailability.Value = 
-	    ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
+	data.DirectForwardingPathAvailability.Value = ngapType.DirectForwardingPathAvailabilityPresentDirectPathAvailable
 	return data
 }
 
@@ -312,8 +314,7 @@ func buildSourceToTargetTransparentTransfer(
 	qosItem := ngapType.QosFlowInformationItem{}
 	qosItem.QosFlowIdentifier.Value = 1
 	infoItem.QosFlowInformationList.List = append(infoItem.QosFlowInformationList.List, qosItem)
-	data.PDUSessionResourceInformationList.List = 
-	    append(data.PDUSessionResourceInformationList.List, infoItem)
+	data.PDUSessionResourceInformationList.List = append(data.PDUSessionResourceInformationList.List, infoItem)
 
 	// Target Cell ID
 	data.TargetCellID.Present = ngapType.TargetIDPresentTargetRANNodeID
@@ -371,7 +372,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 				Value: ngapType.CriticalityPresentReject,
 			},
 			Value: ngapType.InitiatingMessageValue{
-				Present: ngapType.InitiatingMessagePresentHandoverRequired,
+				Present:          ngapType.InitiatingMessagePresentHandoverRequired,
 				HandoverRequired: &ngapType.HandoverRequired{},
 			},
 		},
@@ -383,7 +384,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 	ie := ngapType.HandoverRequiredIEs{}
 
 	ie.Id.Value = ngapType.ProtocolIEIDAMFUENGAPID
-    ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+	ie.Criticality.Value = ngapType.CriticalityPresentIgnore
 	ie.Value = ngapType.HandoverRequiredIEsValue{
 		Present: ngapType.HandoverRequiredIEsPresentAMFUENGAPID,
 		AMFUENGAPID: &ngapType.AMFUENGAPID{
@@ -506,7 +507,7 @@ func buildHandoverRequiredNGAPBinaryData(t *testing.T) []byte {
 }
 
 func buildHandoverRequestAcknowledgeTransfer(t *testing.T) (binaryData []byte) {
-    hoReqAckTransfer := ngapType.HandoverRequestAcknowledgeTransfer{}
+	hoReqAckTransfer := ngapType.HandoverRequestAcknowledgeTransfer{}
 
 	// DL NG-U UP TNL Information
 	hoReqAckTransfer.DLNGUUPTNLInformation.Present = ngapType.UPTransportLayerInformationPresentGTPTunnel
@@ -523,21 +524,20 @@ func buildHandoverRequestAcknowledgeTransfer(t *testing.T) (binaryData []byte) {
 	// QoS Flow Setup Response List
 	item := ngapType.QosFlowItemWithDataForwarding{}
 	item.QosFlowIdentifier.Value = int64(1)
-	hoReqAckTransfer.QosFlowSetupResponseList.List = 
-	    append(hoReqAckTransfer.QosFlowSetupResponseList.List, item)
+	hoReqAckTransfer.QosFlowSetupResponseList.List = append(hoReqAckTransfer.QosFlowSetupResponseList.List, item)
 
 	binaryData, err := aper.MarshalWithParams(hoReqAckTransfer, "valueExt")
 	if err != nil {
 		t.Fatalf("aper MarshalWithParams error in GetHandoverRequiredTransfer: %+v", err)
 	}
 
-	return
+	return binaryData
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestHandleCreateUEContextRequest(t *testing.T) {
-    logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.TraceLevel)
 
 	openapi.InterceptH2CClient()
 	defer openapi.RestoreH2CClient()
@@ -547,31 +547,32 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	initAMFConfig(t)
 
 	// get accepted conn
-    conn := <-acceptCh
-    if conn == nil {
-        t.Fatalf("mock RAN did not accept connection")
-    }
+	conn := <-acceptCh
+	if conn == nil {
+		t.Fatalf("mock RAN did not accept connection")
+	}
 
 	defer func() {
 		wg.Wait()
 
 		time.Sleep(50 * time.Millisecond)
 
-		conn.Close()
-		t.Log("[T-RAN] SCTP conn closed\n", 
-	          "Don't bother the above \"SCTPConn: SCTPWrite failed bad file descriptor\" message")
+		if err := conn.Close(); err.Error() == "SCTPConn: SCTPWrite failed bad file descriptor" {
+			t.Log("[T-RAN] SCTP conn closed\n",
+				"Don't bother the above \"SCTPConn: SCTPWrite failed bad file descriptor\" message")
+		}
 
 		time.Sleep(100 * time.Millisecond)
 
 		stopListener()
-		t.Log("[T-RAN] SCTP listener closed\n", 
-	          "Don't bother the above \"SCTP: Failed to shutdown fd operation not supported\" message")
-	} ()
+		t.Log("[T-RAN] SCTP listener closed\n",
+			"Don't bother the above \"SCTP: Failed to shutdown fd operation not supported\" message")
+	}()
 
 	// Mock T-RAN: Capture Handover Request NGAP message, and respond with Handover Request Acknowledge.
-    // read loop (in goroutine) to capture NGAP messages sent by AMF
+	// read loop (in goroutine) to capture NGAP messages sent by AMF
 	wg.Add(1)
-    go func() {
+	go func() {
 		defer wg.Done()
 
 		buf := make([]byte, 65536)
@@ -638,11 +639,9 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 		hoReqAckPdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
 		hoReqAckPdu.SuccessfulOutcome = &ngapType.SuccessfulOutcome{}
 
-		hoReqAckPdu.SuccessfulOutcome.ProcedureCode.Value = 
-			ngapType.ProcedureCodeHandoverResourceAllocation
+		hoReqAckPdu.SuccessfulOutcome.ProcedureCode.Value = ngapType.ProcedureCodeHandoverResourceAllocation
 		hoReqAckPdu.SuccessfulOutcome.Criticality.Value = ngapType.CriticalityPresentReject
-		hoReqAckPdu.SuccessfulOutcome.Value.Present = 
-			ngapType.SuccessfulOutcomePresentHandoverRequestAcknowledge
+		hoReqAckPdu.SuccessfulOutcome.Value.Present = ngapType.SuccessfulOutcomePresentHandoverRequestAcknowledge
 		hoReqAckPdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge = &ngapType.HandoverRequestAcknowledge{}
 
 		hoReqAckIe := hoReqAckPdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge
@@ -678,11 +677,10 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 		if pduSessionResourceSetupListHOReq != nil {
 			for _, setupItem := range pduSessionResourceSetupListHOReq.List {
 				admittedItem := ngapType.PDUSessionResourceAdmittedItem{
-					PDUSessionID: setupItem.PDUSessionID,
+					PDUSessionID:                       setupItem.PDUSessionID,
 					HandoverRequestAcknowledgeTransfer: buildHandoverRequestAcknowledgeTransfer(t),
 				}
-				ie.Value.PDUSessionResourceAdmittedList.List = 
-					append(ie.Value.PDUSessionResourceAdmittedList.List, admittedItem)
+				ie.Value.PDUSessionResourceAdmittedList.List = append(ie.Value.PDUSessionResourceAdmittedList.List, admittedItem)
 			}
 		}
 
@@ -702,14 +700,16 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 		hoReqAckIe.ProtocolIEs.List = append(hoReqAckIe.ProtocolIEs.List, ie)
 
 		// set SCTP PPID = ngap.PPID (so AMF's SCTP reader treats payload as NGAP)
-		if info, err := conn.GetDefaultSentParam(); err == nil {
+		if info, errGetParam := conn.GetDefaultSentParam(); errGetParam == nil {
 			info.PPID = ngap.PPID
 			if err2 := conn.SetDefaultSentParam(info); err2 != nil {
 				t.Logf("SetDefaultSentParam error: %+v", err2)
 			}
 		} else {
 			// GetDefaultSentParam may fail for some libs; still try SetDefaultSentParam with new info
-			_ = conn.SetDefaultSentParam(&sctp.SndRcvInfo{PPID: ngap.PPID})
+			if errGetParam = conn.SetDefaultSentParam(&sctp.SndRcvInfo{PPID: ngap.PPID}); errGetParam != nil {
+				t.Errorf("SCTP Conn SetDefaultSentParam error: %s", err.Error())
+			}
 		}
 
 		buff, err := ngap.Encoder(hoReqAckPdu)
@@ -722,7 +722,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			t.Errorf("conn.Write error: %+v", err)
 		}
 		t.Log("sent HANDOVER REQUEST ACKNOWLEDGE")
-    }()
+	}()
 
 	// Setup mock AMF
 	mockAMF := service.NewMockAmfAppInterface(gomock.NewController(t))
@@ -757,7 +757,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	ie.Id.Value = ngapType.ProtocolIEIDULNGUUPTNLInformation
 	ie.Criticality.Value = ngapType.CriticalityPresentReject
 	n3IP := net.IP{127, 0, 0, 8} // ref: config/upfcfg.yaml
-	teidOct := make([]byte, 4) // ref: TS 29.502 V17.1.0 6.1.6.3.2 Simple data types
+	teidOct := make([]byte, 4)   // ref: TS 29.502 V17.1.0 6.1.6.3.2 Simple data types
 	binary.BigEndian.PutUint32(teidOct, uint32(0x5bd60076))
 	ie.Value = ngapType.PDUSessionResourceSetupRequestTransferIEsValue{
 		Present: ngapType.PDUSessionResourceSetupRequestTransferIEsPresentULNGUUPTNLInformation,
@@ -807,7 +807,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			List: []ngapType.QosFlowSetupRequestItem{
 				{
 					QosFlowIdentifier: ngapType.QosFlowIdentifier{
-                        // ref: smf/internal/context/session_rules.go; int64(sessRule.DefQosQFI),
+						// ref: smf/internal/context/session_rules.go; int64(sessRule.DefQosQFI),
 						Value: int64(1),
 					},
 					QosFlowLevelQosParameters: ngapType.QosFlowLevelQosParameters{
@@ -849,35 +849,47 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	// part 1: JSON metadata
 	h1 := textproto.MIMEHeader{}
 	h1.Set("Content-Type", "application/json")
-	p1, _ := mw.CreatePart(h1)
+	p1, err := mw.CreatePart(h1)
+	if err != nil {
+		t.Errorf("UpdateSmContextHandoverBetweenAMF response Create Part 1 error: %s", err.Error())
+	}
 	jsonBuf, err := json.Marshal(models.SmContextUpdatedData{
-		HoState: models.HoState_PREPARING,
+		HoState:      models.HoState_PREPARING,
 		N2SmInfoType: models.N2SmInfoType_PDU_RES_SETUP_REQ,
 		N2SmInfo: &models.RefToBinaryData{
 			ContentId: "PDU_RES_SETUP_REQ",
 		},
 	})
 	if err == nil {
-		p1.Write(jsonBuf)
+		if _, errWrite := p1.Write(jsonBuf); errWrite != nil {
+			t.Errorf("UpdateSmContextHandoverBetweenAMF response write Part 1 error: %s", err.Error())
+		}
 	}
 
 	// part 2: N2 SM info (PDU Session Resource Setup Request Transfer)
 	h2 := textproto.MIMEHeader{}
 	h2.Set("Content-Type", "application/vnd.3gpp.ngap")
 	h2.Set("Content-ID", "PDU_RES_SETUP_REQ")
-	p2, _ := mw.CreatePart(h2)
-	p2.Write(n2Buf)
+	p2, err := mw.CreatePart(h2)
+	if err != nil {
+		t.Errorf("UpdateSmContextHandoverBetweenAMF response Create Part 2 error: %s", err.Error())
+	}
+	if _, err = p2.Write(n2Buf); err != nil {
+		t.Errorf("UpdateSmContextHandoverBetweenAMF response write Part 2 error: %s", err.Error())
+	}
 
 	// Write the closing boundary
-	mw.Close()
+	if err = mw.Close(); err != nil {
+		t.Errorf("multipart writer Close() error: %s", err.Error())
+	}
 
 	gock.New(smfApiRoot).
-	     Post("/nsmf-pdusession/v1/sm-contexts/" + smCtxReference).
-		 Times(1).
-		 Reply(200).
-		 SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw.Boundary())).
-		 Body(bytes.NewReader(buf.Bytes()))
-	
+		Post("/nsmf-pdusession/v1/sm-contexts/"+smCtxReference).
+		Times(1).
+		Reply(200).
+		SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw.Boundary())).
+		Body(bytes.NewReader(buf.Bytes()))
+
 	// Create SMF response for UpdateSmContextN2HandoverPrepared
 	var buff bytes.Buffer
 	mw2 := multipart.NewWriter(&buff)
@@ -885,35 +897,46 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 	// part 1: JSON metadata
 	hd1 := textproto.MIMEHeader{}
 	hd1.Set("Content-Type", "application/json")
-	pt1, _ := mw2.CreatePart(hd1)
+	pt1, err := mw2.CreatePart(hd1)
+	if err != nil {
+		t.Errorf("UpdateSmContextN2HandoverPrepared response Create Part 1 error: %s", err.Error())
+	}
 	jsonBuff, err := json.Marshal(models.SmContextUpdatedData{
-		HoState: models.HoState_PREPARED,
+		HoState:      models.HoState_PREPARED,
 		N2SmInfoType: models.N2SmInfoType_HANDOVER_CMD,
 		N2SmInfo: &models.RefToBinaryData{
 			ContentId: "HANDOVER_CMD",
 		},
 	})
 	if err == nil {
-		pt1.Write(jsonBuff)
+		if _, err = pt1.Write(jsonBuff); err != nil {
+			t.Errorf("UpdateSmContextN2HandoverPrepared response write Part 1 error: %s", err.Error())
+		}
 	}
 
 	// part 2: N2 SM info (PDU Session Resource Setup Request Transfer)
 	hd2 := textproto.MIMEHeader{}
 	hd2.Set("Content-Type", "application/vnd.3gpp.ngap")
 	hd2.Set("Content-ID", "HANDOVER_CMD")
-	pt2, _ := mw2.CreatePart(hd2)
-	pt2.Write(n2Buf)
+	pt2, err := mw2.CreatePart(hd2)
+	if err != nil {
+		t.Errorf("UpdateSmContextN2HandoverPrepared response Create Part 2 error: %s", err.Error())
+	}
+	if _, err = pt2.Write(n2Buf); err != nil {
+		t.Errorf("UpdateSmContextN2HandoverPrepared response write Part 2 error: %s", err.Error())
+	}
 
 	// Write the closing boundary
-	mw2.Close()
+	if err = mw2.Close(); err != nil {
+		t.Errorf("multipart writer2 Close() error: %s", err.Error())
+	}
 
 	gock.New(smfApiRoot).
-	     Post("/nsmf-pdusession/v1/sm-contexts/" + smCtxReference).
-		 Times(1).
-		 Reply(200).
-		 SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw2.Boundary())).
-		 Body(bytes.NewReader(buff.Bytes()))
-
+		Post("/nsmf-pdusession/v1/sm-contexts/"+smCtxReference).
+		Times(1).
+		Reply(200).
+		SetHeader("Content-Type", fmt.Sprintf("multipart/related; boundary=%s", mw2.Boundary())).
+		Body(bytes.NewReader(buff.Bytes()))
 
 	CreateUeContextRequest := models.CreateUeContextRequest{
 		JsonData: &models.UeContextCreateData{
@@ -925,7 +948,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 				Pei: "imeisv-1234567890123412",
 				MmContextList: []models.MmContext{
 					{
-						AccessType:           models.AccessType__3_GPP_ACCESS,
+						AccessType: models.AccessType__3_GPP_ACCESS,
 						NasSecurityMode: &models.NasSecurityMode{
 							IntegrityAlgorithm: models.IntegrityAlgorithm_NIA2,
 							CipheringAlgorithm: models.CipheringAlgorithm_NEA0,
@@ -937,25 +960,25 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 					{
 						PduSessionId: pduSessionID,
 						SmContextRef: smfApiRoot + "/nsmf-pdusession/v1/sm-contexts/" + smCtxReference,
-						SNssai: &testConfig.Configuration.PlmnSupportList[0].SNssaiList[0],
-						Dnn: testConfig.Configuration.SupportDnnList[0],
-						AccessType: models.AccessType__3_GPP_ACCESS,
+						SNssai:       &testConfig.Configuration.PlmnSupportList[0].SNssaiList[0],
+						Dnn:          testConfig.Configuration.SupportDnnList[0],
+						AccessType:   models.AccessType__3_GPP_ACCESS,
 						// NsInstance: ,
-						PlmnId: &plmnIdModel,
+						PlmnId:               &plmnIdModel,
 						SmfServiceInstanceId: smfInstanceId,
 						// HsmfId: ,
 						// VsmfId: ,
 					},
 				},
 				SubUeAmbr: &models.Ambr{
-					Uplink: "1000 Mbps",
+					Uplink:   "1000 Mbps",
 					Downlink: "1000 Mbps",
 				},
 				ServiceAreaRestriction: &models.ServiceAreaRestriction{
 					RestrictionType: models.RestrictionType_ALLOWED_AREAS,
 					Areas: []models.Area{
 						{
-							Tacs: []string{"000001"},
+							Tacs:     []string{"000001"},
 							AreaCode: "+886", // free5gc/test/consumerTestdata/PCF/TestAMPolicy/AMPolicy.go
 						},
 					},
@@ -985,7 +1008,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 			},
 			N2NotifyUri:       "127.0.0.1",
 			UeRadioCapability: nil,
-			NgapCause:         &models.NgApCause{
+			NgapCause: &models.NgApCause{
 				Group: 0, // radioNetwork, based on TS 29.571 Type: NgApCause
 				Value: int32(ngapType.CauseRadioNetworkPresentNgIntraSystemHandoverTriggered),
 			},
@@ -1011,8 +1034,8 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 				Body: models.CreateUeContextResponse201{
 					JsonData: &models.UeContextCreatedData{
 						UeContext: &models.UeContext{
-							Supi: CreateUeContextRequest.JsonData.UeContext.Supi,
-							Pei: CreateUeContextRequest.JsonData.UeContext.Pei,
+							Supi:      CreateUeContextRequest.JsonData.UeContext.Supi,
+							Pei:       CreateUeContextRequest.JsonData.UeContext.Pei,
 							SubUeAmbr: CreateUeContextRequest.JsonData.UeContext.SubUeAmbr,
 						},
 						TargetToSourceData: &models.N2InfoContent{
@@ -1021,7 +1044,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 								ContentId: "N2InfoContent",
 							},
 						},
-						PduSessionList:   CreateUeContextRequest.JsonData.PduSessionList,
+						PduSessionList: CreateUeContextRequest.JsonData.PduSessionList,
 					},
 				},
 			},

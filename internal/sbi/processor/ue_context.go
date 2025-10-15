@@ -96,11 +96,9 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	logger.CommLog.Infof("pointer of AmPolicyAssociation: %p", ue.AmPolicyAssociation)
 	ue.AmPolicyAssociation.ServAreaRes = new(models.ServiceAreaRestriction)
 	logger.CommLog.Infof("pointer of ServAreaRes: %p", ue.AmPolicyAssociation.ServAreaRes)
-	ue.AmPolicyAssociation.ServAreaRes.RestrictionType = 
-	    ueContextCreateData.UeContext.ServiceAreaRestriction.RestrictionType
-	ue.AmPolicyAssociation.ServAreaRes.Areas = 
-	    append(ue.AmPolicyAssociation.ServAreaRes.Areas, 
-			   ueContextCreateData.UeContext.ServiceAreaRestriction.Areas[0])
+	ue.AmPolicyAssociation.ServAreaRes.RestrictionType = ueContextCreateData.UeContext.ServiceAreaRestriction.RestrictionType
+	ue.AmPolicyAssociation.ServAreaRes.Areas = append(ue.AmPolicyAssociation.ServAreaRes.Areas,
+		ueContextCreateData.UeContext.ServiceAreaRestriction.Areas[0])
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	// should be smInfo list
 
@@ -146,9 +144,10 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 	if len(ueContextCreateData.UeContext.SessionContextList) > 0 {
 		logger.CommLog.Infof("Send HandoverRequiredTransfer to SMF")
-		for _, pduSessionContext := range ueContextCreateData.UeContext.SessionContextList {
+		for i := range ueContextCreateData.UeContext.SessionContextList {
 			// Check if the S-NSSAI associated with the PDU session is available in the AMF.
 			// If not, the T-AMF does not invoke Nsmf_PDUSession_UpdateSMContext for this PDU session.
+			pduSessionContext := &(ueContextCreateData.UeContext.SessionContextList[i])
 			pduSessionID := pduSessionContext.PduSessionId
 			if pduSessionContext.SNssai != nil && !amfSelf.InPlmnSupportList(*pduSessionContext.SNssai) {
 				continue
@@ -165,7 +164,10 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 					// http://{apiRoot}/nsmf-pdusession/v1/sm-contexts/{smContextRef}
 					// e.g. "smf.free5gc.org/nsmf-pdusession/v1/sm-contexts/12345678"
 					logger.CommLog.Infof("smContextRef: %s", pduSessionContext.SmContextRef)
-					u, _ := url.Parse(pduSessionContext.SmContextRef)
+					u, err := url.Parse(pduSessionContext.SmContextRef)
+					if err != nil {
+						logger.CommLog.Errorf("url Parse error: %s", err.Error())
+					}
 					apiRoot := u.Scheme + "://" + u.Host
 					smContextRef := strings.TrimPrefix(u.Path, "/nsmf-pdusession/v1/sm-contexts/")
 					logger.CommLog.Infof("apiRoot: %s, smContextRef: %s", apiRoot, smContextRef)
@@ -197,14 +199,16 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 				if pduSessionContext.VsmfId != "" {
 					smContext.SetVSmfID(pduSessionContext.VsmfId)
 				}
-				return
+				return smContext
 			}
 
-			smContext := pduSessionContextToAmfSmContext(pduSessionContext)
+			smContext := pduSessionContextToAmfSmContext(*pduSessionContext)
 			updateSmContextResponse200, _, _, errSendUpdateSmContext := p.Consumer().
-				SendUpdateSmContextHandoverBetweenAMF(ue, ueContextCreateData.TargetId, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false)
+				SendUpdateSmContextHandoverBetweenAMF(ue, 
+					ueContextCreateData.TargetId, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false)
 			if errSendUpdateSmContext != nil {
-				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", errSendUpdateSmContext)
+				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v", 
+					errSendUpdateSmContext)
 			}
 			if updateSmContextResponse200 == nil {
 				logger.CommLog.Errorf("SendUpdateSmContextN2HandoverPreparing Error for pduSessionID[%d]", pduSessionID)
@@ -656,7 +660,7 @@ func (p *Processor) buildAmPolicyReqTriggers(triggers []models.PcfAmPolicyContro
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ACCESS_TYPE_CHANGE)
 		}
 	}
-	return
+	return amPolicyReqTriggers
 }
 
 // TS 29.518 5.2.2.6
