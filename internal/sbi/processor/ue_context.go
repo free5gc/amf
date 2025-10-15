@@ -93,11 +93,11 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.PlmnId = *targetRan.RanId.PlmnId
 	ue.AmPolicyAssociation = new(models.PcfAmPolicyControlPolicyAssociation)
 	logger.CommLog.Infof("pointer of AmPolicyAssociation: %p", ue.AmPolicyAssociation)
+
 	ue.AmPolicyAssociation.ServAreaRes = new(models.ServiceAreaRestriction)
-	logger.CommLog.Infof("pointer of ServAreaRes: %p", ue.AmPolicyAssociation.ServAreaRes)
-	ue.AmPolicyAssociation.ServAreaRes.RestrictionType =
-		ueContextCreateData.UeContext.ServiceAreaRestriction.RestrictionType
-	ue.AmPolicyAssociation.ServAreaRes.Areas = append(ue.AmPolicyAssociation.ServAreaRes.Areas,
+	ueServAreaRes := ue.AmPolicyAssociation.ServAreaRes
+	ueServAreaRes.RestrictionType = ueContextCreateData.UeContext.ServiceAreaRestriction.RestrictionType
+	ueServAreaRes.Areas = append(ueServAreaRes.Areas,
 		ueContextCreateData.UeContext.ServiceAreaRestriction.Areas[0])
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	// should be smInfo list
