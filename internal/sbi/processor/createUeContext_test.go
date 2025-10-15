@@ -557,7 +557,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 
 		time.Sleep(50 * time.Millisecond)
 
-		if err := conn.Close(); err.Error() == "SCTPConn: SCTPWrite failed bad file descriptor" {
+		if err := conn.Close(); err == nil {
 			t.Log("[T-RAN] SCTP conn closed\n",
 				"Don't bother the above \"SCTPConn: SCTPWrite failed bad file descriptor\" message")
 		}
@@ -708,7 +708,7 @@ func TestHandleCreateUEContextRequest(t *testing.T) {
 		} else {
 			// GetDefaultSentParam may fail for some libs; still try SetDefaultSentParam with new info
 			if errGetParam = conn.SetDefaultSentParam(&sctp.SndRcvInfo{PPID: ngap.PPID}); errGetParam != nil {
-				t.Errorf("SCTP Conn SetDefaultSentParam error: %s", err.Error())
+				t.Errorf("SCTP Conn SetDefaultSentParam error: %s", errGetParam.Error())
 			}
 		}
 
