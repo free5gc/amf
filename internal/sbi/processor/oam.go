@@ -39,7 +39,7 @@ type UEContexts []UEContext
 func (p *Processor) HandleOAMRegisteredUEContext(c *gin.Context) {
 	logger.ProducerLog.Infof("[OAM] Handle Registered UE Context")
 
-	supi := c.Query("supi")
+	supi := c.Param("supi")
 
 	ueContexts, problemDetails := p.OAMRegisteredUEContextProcedure(supi)
 	if problemDetails != nil {
