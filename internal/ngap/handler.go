@@ -1552,15 +1552,20 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 
 		amfSelf := amfUe.ServingAMF()
+
+		// Create channel if not exist
 		pendingHOResponseChan := make(chan context.PendingHandoverResponse)
 		value, loaded := amfSelf.PendingHandovers.LoadOrStore(amfUe.Supi, pendingHOResponseChan)
 		if loaded {
 			pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
 		}
+
+		// Send the Response to CreateUEContextProcedure()
 		pendingHOResponseChan <- context.PendingHandoverResponse{
 			Response201: &resp201,
 		}
 	} else {
+		// Handover in the same AMF
 		ran.Log.Tracef("Source: RanUeNgapID[%d] AmfUeNgapID[%d]", sourceUe.RanUeNgapId, sourceUe.AmfUeNgapId)
 		ran.Log.Tracef("Target: RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
 		if len(pduSessionResourceHandoverList.List) == 0 {

@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/free5gc/amf/internal/logger"
@@ -114,11 +113,6 @@ type AMFContextEventSubscription struct {
 type SecurityAlgorithm struct {
 	IntegrityOrder []uint8 // slice of security.AlgIntegrityXXX
 	CipheringOrder []uint8 // slice of security.AlgCipheringXXX
-}
-
-type PendingHandoverContext struct {
-	ResponseChan chan *models.CreateUeContextResponse201
-	GinContext   *gin.Context
 }
 
 func InitAmfContext(context *AMFContext) {

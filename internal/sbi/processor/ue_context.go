@@ -269,7 +269,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ngap_message.SendHandoverRequestWithAMFChange(
 		targetRanUe, targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
 
-	// waiting for handover request acknowledge handler to finish.
+	// create channel if not exist
 	var createUeContextResponse context.PendingHandoverResponse
 	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
 	value, loaded := amfSelf.PendingHandovers.LoadOrStore(ue.Supi, pendingHOResponseChan)
@@ -277,6 +277,8 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 		logger.CommLog.Info("PendingHandoverResponse channel created by HandoverRequestAcknowledge handler.")
 		pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
 	}
+
+	// waiting for handover request acknowledge handler to finish.
 	createUeContextResponse, ok = <-pendingHOResponseChan
 	if ok {
 		if createUeContextResponse.Response201 != nil {
