@@ -433,7 +433,7 @@ func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (
 		return true
 	})
 	if isEmpty {
-		logger.CommLog.Warnf("AmfRanPool is empty\n")
+		logger.CommLog.Warnln("AmfRanPool is empty")
 	}
 	return ran, ok
 }

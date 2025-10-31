@@ -1490,73 +1490,22 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	if sourceUe == nil {
 		// TODO: Send Namf_Communication_CreateUEContext Response to S-AMF
 		ran.Log.Error("handover between different Ue has not been implement yet")
-		var ueContextCreatedData models.UeContextCreatedData
-
-		ueContextCreatedData.UeContext = new(models.UeContext)
-		ueContextCreatedData.UeContext.Supi = amfUe.Supi
-		ueContextCreatedData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
-		if amfUe.Gpsi != "" {
-			ueContextCreatedData.UeContext.GpsiList = append(ueContextCreatedData.UeContext.GpsiList, amfUe.Gpsi)
-		}
-		if amfUe.Pei != "" {
-			ueContextCreatedData.UeContext.Pei = amfUe.Pei
-		}
-		if amfUe.UdmGroupId != "" {
-			ueContextCreatedData.UeContext.UdmGroupId = amfUe.UdmGroupId
-		}
-		if amfUe.AusfGroupId != "" {
-			ueContextCreatedData.UeContext.AusfGroupId = amfUe.AusfGroupId
-		}
-		if amfUe.AccessAndMobilitySubscriptionData != nil {
-			if amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr != nil {
-				ueContextCreatedData.UeContext.SubUeAmbr = &models.Ambr{
-					Uplink:   amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Uplink,
-					Downlink: amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Downlink,
-				}
-			}
-			if amfUe.AccessAndMobilitySubscriptionData.RfspIndex != 0 {
-				ueContextCreatedData.UeContext.SubRfsp = amfUe.AccessAndMobilitySubscriptionData.RfspIndex
-			}
-		}
-		if amfUe.PcfId != "" {
-			ueContextCreatedData.UeContext.PcfId = amfUe.PcfId
-		}
-		if amfUe.AmPolicyUri != "" {
-			ueContextCreatedData.UeContext.PcfAmPolicyUri = amfUe.AmPolicyUri
-		}
-		for _, eventSub := range amfUe.EventSubscriptionsInfo {
-			if eventSub.EventSubscription != nil {
-				ueContextCreatedData.UeContext.EventSubscriptionList = append(
-					ueContextCreatedData.UeContext.EventSubscriptionList, *eventSub.EventSubscription)
-			}
-		}
-		if amfUe.TraceData != nil {
-			ueContextCreatedData.UeContext.TraceData = amfUe.TraceData
-		}
-
-		ueContextCreatedData.TargetToSourceData = new(models.N2InfoContent)
-		ueContextCreatedData.TargetToSourceData.NgapIeType = models.AmfCommunicationNgapIeType_TAR_TO_SRC_CONTAINER
-
-		ueContextCreatedData.TargetToSourceData.NgapData = new(models.RefToBinaryData)
-		ueContextCreatedData.TargetToSourceData.NgapData.ContentId = "N2InfoContent"
-
-		for _, pduSessionResourceHandoverItem := range pduSessionResourceHandoverList.List {
-			ueContextCreatedData.PduSessionList = append(ueContextCreatedData.PduSessionList, models.N2SmInformation{
-				PduSessionId: int32(pduSessionResourceHandoverItem.PDUSessionID.Value),
-			})
-		}
+		
+		ueContextCreatedData := buildUeContextCreatedData(amfUe, pduSessionResourceHandoverList)
 
 		resp201 := models.CreateUeContextResponse201{
-			JsonData:                &ueContextCreatedData,
+			JsonData:                ueContextCreatedData,
 			BinaryDataN2Information: targetToSourceTransparentContainer.Value,
 		}
 
 		amfSelf := amfUe.ServingAMF()
 
 		// Create channel if not exist
-		pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+		// pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+		var pendingHOResponseChan chan context.PendingHandoverResponse
 		value, loaded := amfSelf.PendingHandovers.LoadOrStore(amfUe.Supi, pendingHOResponseChan)
 		if loaded {
+			ran.Log.Info("PendingHandoverResponse channel created by CreateUEContextProcedure")
 			pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
 		}
 
@@ -1583,6 +1532,66 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 			*targetToSourceTransparentContainer, nil)
 	}
+}
+
+func buildUeContextCreatedData(amfUe *context.AmfUe, pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList) (ueContextCreatedData *models.UeContextCreatedData) {
+	ueContextCreatedData = new(models.UeContextCreatedData)
+	
+	ueContextCreatedData.UeContext = new(models.UeContext)
+	ueContextCreatedData.UeContext.Supi = amfUe.Supi
+	ueContextCreatedData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
+	if amfUe.Gpsi != "" {
+		ueContextCreatedData.UeContext.GpsiList = append(ueContextCreatedData.UeContext.GpsiList, amfUe.Gpsi)
+	}
+	if amfUe.Pei != "" {
+		ueContextCreatedData.UeContext.Pei = amfUe.Pei
+	}
+	if amfUe.UdmGroupId != "" {
+		ueContextCreatedData.UeContext.UdmGroupId = amfUe.UdmGroupId
+	}
+	if amfUe.AusfGroupId != "" {
+		ueContextCreatedData.UeContext.AusfGroupId = amfUe.AusfGroupId
+	}
+	if amfUe.AccessAndMobilitySubscriptionData != nil {
+		if amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr != nil {
+			ueContextCreatedData.UeContext.SubUeAmbr = &models.Ambr{
+				Uplink:   amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Uplink,
+				Downlink: amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr.Downlink,
+			}
+		}
+		if amfUe.AccessAndMobilitySubscriptionData.RfspIndex != 0 {
+			ueContextCreatedData.UeContext.SubRfsp = amfUe.AccessAndMobilitySubscriptionData.RfspIndex
+		}
+	}
+	if amfUe.PcfId != "" {
+		ueContextCreatedData.UeContext.PcfId = amfUe.PcfId
+	}
+	if amfUe.AmPolicyUri != "" {
+		ueContextCreatedData.UeContext.PcfAmPolicyUri = amfUe.AmPolicyUri
+	}
+	for _, eventSub := range amfUe.EventSubscriptionsInfo {
+		if eventSub.EventSubscription != nil {
+			ueContextCreatedData.UeContext.EventSubscriptionList = append(
+				ueContextCreatedData.UeContext.EventSubscriptionList, *eventSub.EventSubscription)
+		}
+	}
+	if amfUe.TraceData != nil {
+		ueContextCreatedData.UeContext.TraceData = amfUe.TraceData
+	}
+
+	ueContextCreatedData.TargetToSourceData = new(models.N2InfoContent)
+	ueContextCreatedData.TargetToSourceData.NgapIeType = models.AmfCommunicationNgapIeType_TAR_TO_SRC_CONTAINER
+
+	ueContextCreatedData.TargetToSourceData.NgapData = new(models.RefToBinaryData)
+	ueContextCreatedData.TargetToSourceData.NgapData.ContentId = "N2InfoContent"
+
+	for _, pduSessionResourceHandoverItem := range pduSessionResourceHandoverList.List {
+		ueContextCreatedData.PduSessionList = append(ueContextCreatedData.PduSessionList, models.N2SmInformation{
+			PduSessionId: int32(pduSessionResourceHandoverItem.PDUSessionID.Value),
+		})
+	}
+
+	return ueContextCreatedData
 }
 
 func handleHandoverFailureMain(ran *context.AmfRan,

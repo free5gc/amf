@@ -271,7 +271,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 	// create channel if not exist
 	var createUeContextResponse context.PendingHandoverResponse
-	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+	var pendingHOResponseChan chan context.PendingHandoverResponse
 	value, loaded := amfSelf.PendingHandovers.LoadOrStore(ue.Supi, pendingHOResponseChan)
 	if loaded {
 		logger.CommLog.Info("PendingHandoverResponse channel created by HandoverRequestAcknowledge handler.")
