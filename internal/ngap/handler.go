@@ -1490,7 +1490,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	if sourceUe == nil {
 		// TODO: Send Namf_Communication_CreateUEContext Response to S-AMF
 		ran.Log.Error("handover between different Ue has not been implement yet")
-		
+
 		ueContextCreatedData := buildUeContextCreatedData(amfUe, pduSessionResourceHandoverList)
 
 		resp201 := models.CreateUeContextResponse201{
@@ -1534,9 +1534,11 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	}
 }
 
-func buildUeContextCreatedData(amfUe *context.AmfUe, pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList) (ueContextCreatedData *models.UeContextCreatedData) {
+func buildUeContextCreatedData(amfUe *context.AmfUe,
+	pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList,
+) (ueContextCreatedData *models.UeContextCreatedData) {
 	ueContextCreatedData = new(models.UeContextCreatedData)
-	
+
 	ueContextCreatedData.UeContext = new(models.UeContext)
 	ueContextCreatedData.UeContext.Supi = amfUe.Supi
 	ueContextCreatedData.UeContext.SupiUnauthInd = amfUe.UnauthenticatedSupi
