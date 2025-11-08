@@ -189,6 +189,17 @@ func (a *AmfApp) Start() {
 	self := a.Context()
 	amf_context.InitAmfContext(self)
 
+	// Initialize NGAP worker pool and scheduler
+	workerPoolSize := a.cfg.GetNgapWorkerPoolSize()
+	taskBufferSize := a.cfg.GetNgapTaskBufferSize()
+
+	logger.InitLog.Infof("Initializing NGAP worker pool with %d workers (buffer size: %d)",
+		workerPoolSize, taskBufferSize)
+
+	if err := ngap.InitScheduler(workerPoolSize, taskBufferSize, ngap.Dispatch); err != nil {
+		logger.InitLog.Fatalf("Failed to initialize NGAP scheduler: %v", err)
+	}
+
 	ngapHandler := ngap_service.NGAPHandler{
 		HandleMessage:         ngap.Dispatch,
 		HandleNotification:    ngap.HandleSCTPNotification,
@@ -304,6 +315,11 @@ func (a *AmfApp) terminateProcedure() {
 		ngap_message.SendAMFStatusIndication(ran, unavailableGuamiList)
 		return true
 	})
+
+	// Shutdown NGAP worker pool and scheduler
+	logger.MainLog.Infof("Shutting down NGAP worker pool and scheduler...")
+	ngap.ShutdownScheduler()
+
 	ngap_service.Stop()
 	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
 }
