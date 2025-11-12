@@ -272,22 +272,23 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// create channel if not exist
 	var createUeContextResponse context.PendingHandoverResponse
 	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
-	value, loaded := amfSelf.PendingHandovers.LoadOrStore(ue.Supi, pendingHOResponseChan)
-	if loaded {
-		logger.CommLog.Info("PendingHandoverResponse channel created by HandoverRequestAcknowledge handler.")
-		pendingHOResponseChan = value.(chan context.PendingHandoverResponse)
-	}
+	amfSelf.PendingHandovers.Store(ue.Supi, pendingHOResponseChan)
 
-	// waiting for handover request acknowledge handler to finish.
-	createUeContextResponse, ok = <-pendingHOResponseChan
-	if ok {
-		if createUeContextResponse.Response201 != nil {
-			return createUeContextResponse.Response201, nil
-		} else if createUeContextResponse.Response403 != nil {
-			return nil, createUeContextResponse.Response403
+	// waiting 100ms for handover request acknowledge handler to finish.
+	// If the channel is closed, or the read times out, return the ueContextCreateError at the end of the function.
+	select {
+	case createUeContextResponse, ok = <-pendingHOResponseChan:
+		if ok {
+			if createUeContextResponse.Response201 != nil {
+				return createUeContextResponse.Response201, nil
+			} else if createUeContextResponse.Response403 != nil {
+				return nil, createUeContextResponse.Response403
+			}
+		} else {
+			logger.CommLog.Info("PendingHandoverResponse channel closed.")
 		}
-	} else {
-		logger.CommLog.Info("PendingHandoverResponse channel closed.")
+	case <-time.After(100 * time.Millisecond):
+		logger.CommLog.Warnln("timeout: read from pendingHOResponseChan")
 	}
 
 	ueCtxCreateError := models.UeContextCreateError{
