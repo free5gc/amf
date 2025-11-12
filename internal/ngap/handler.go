@@ -1511,8 +1511,8 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 			// error handling for nil channel value
 			// send UE Context Release Command to the target RAN
 			ran.Log.Error("PendingHandoverResponse channel not found")
-			ngap_message.SendUEContextReleaseCommand(targetUe, 
-				context.UeContextReleaseHandover, ngapType.CausePresentRadioNetwork, 
+			ngap_message.SendUEContextReleaseCommand(targetUe,
+				context.UeContextReleaseHandover, ngapType.CausePresentRadioNetwork,
 				ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem)
 		}
 
