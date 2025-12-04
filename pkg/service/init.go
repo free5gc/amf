@@ -209,7 +209,7 @@ func (a *AmfApp) Start() {
 	}
 
 	var profile models.NrfNfManagementNfProfile
-	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
+	if profileTmp, err1 := a.Consumer().BuildNFInstance(self); err1 != nil {
 		logger.InitLog.Error("Build AMF Profile Error")
 	} else {
 		profile = profileTmp

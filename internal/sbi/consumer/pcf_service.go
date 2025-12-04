@@ -59,7 +59,7 @@ func (s *npcfService) AMPolicyControlCreate(
 	}
 
 	policyAssociationRequest := models.PcfAmPolicyControlPolicyAssociationRequest{
-		NotificationUri: amfSelf.GetIPv4Uri() + factory.AmfCallbackResUriPrefix + "/am-policy/",
+		NotificationUri: amfSelf.GetIPUri() + factory.AmfCallbackResUriPrefix + "/am-policy/",
 		Supi:            ue.Supi,
 		Pei:             ue.Pei,
 		Gpsi:            ue.Gpsi,
