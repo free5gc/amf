@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/nas/nasConvert"
@@ -113,7 +111,7 @@ func InitAmfContext(context *AMFContext) {
 	config := factory.AmfConfig
 	logger.UtilLog.Infof("amfconfig Info: Version[%s]", config.GetVersion())
 	configuration := config.Configuration
-	context.NfId = uuid.New().String()
+	context.NfId = configuration.NfInstanceId
 	if configuration.AmfName != "" {
 		context.Name = configuration.AmfName
 	}

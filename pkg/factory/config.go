@@ -13,6 +13,7 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/uuid"
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
@@ -75,6 +76,7 @@ type Info struct {
 
 type Configuration struct {
 	AmfName                string            `yaml:"amfName,omitempty" valid:"required, type(string)"`
+	NfInstanceId           string            `yaml:"nfInstanceId,omitempty" valid:"optional,uuid"`
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
 	NgapPort               int               `yaml:"ngapPort,omitempty" valid:"optional,port"`
 	Sbi                    *Sbi              `yaml:"sbi,omitempty" valid:"required"`
@@ -124,6 +126,10 @@ func (c *Configuration) validate() (bool, error) {
 		if len(errs) > 0 {
 			return false, error(errs)
 		}
+	}
+
+	if c.NfInstanceId == "" {
+		c.NfInstanceId = uuid.New().String()
 	}
 
 	if c.Sbi != nil {
