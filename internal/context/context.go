@@ -111,7 +111,7 @@ func InitAmfContext(context *AMFContext) {
 	config := factory.AmfConfig
 	logger.UtilLog.Infof("amfconfig Info: Version[%s]", config.GetVersion())
 	configuration := config.Configuration
-	context.NfId = configuration.NfInstanceId
+	context.NfId = config.GetNfInstanceId()
 	if configuration.AmfName != "" {
 		context.Name = configuration.AmfName
 	}
