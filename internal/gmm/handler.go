@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
@@ -38,6 +40,12 @@ import (
 )
 
 const psiArraySize = 16
+
+var (
+	nonPrioritySemaphore chan struct{}
+	initPriorityControl  sync.Once
+	priorityRegex        *regexp.Regexp
+)
 
 func HandleULNASTransport(ue *context.AmfUe, anType models.AccessType,
 	ulNasTransport *nasMessage.ULNASTransport,
@@ -474,6 +482,37 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			ue.PlmnId = util.PlmnIdStringToModels(plmnId)
 		}
 		ue.GmmLog.Infof("MobileIdentity5GS: SUCI[%s]", ue.Suci)
+
+		// Priority Control Logic
+		if config := factory.AmfConfig.Configuration.PriorityUE; config != nil {
+			initPriorityControl.Do(func() {
+				if config.MaxConcurrency > 0 {
+					nonPrioritySemaphore = make(chan struct{}, config.MaxConcurrency)
+				}
+				if config.IMSIPattern != "" {
+					var err error
+					priorityRegex, err = regexp.Compile(config.IMSIPattern)
+					if err != nil {
+						logger.GmmLog.Errorf("Invalid PriorityUE IMSI Pattern: %v", err)
+					}
+				}
+			})
+
+			isPriority := false
+			if priorityRegex != nil {
+				isPriority = priorityRegex.MatchString(ue.Suci)
+			}
+
+			if isPriority {
+				ue.GmmLog.Infof("Priority UE detected: %s", ue.Suci)
+			} else {
+				if nonPrioritySemaphore != nil {
+					ue.GmmLog.Infof("Non-priority UE buffered: %s", ue.Suci)
+					nonPrioritySemaphore <- struct{}{}
+					defer func() { <-nonPrioritySemaphore }()
+				}
+			}
+		}
 	case nasMessage.MobileIdentity5GSType5gGuti:
 		guamiFromUeGutiTmp, guti, err := nasConvert.GutiToStringWithError(mobileIdentity5GSContents)
 		if err != nil {

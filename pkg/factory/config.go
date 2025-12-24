@@ -106,6 +106,12 @@ type Configuration struct {
 	Locality               string            `yaml:"locality,omitempty" valid:"type(string),optional"`
 	SCTP                   *Sctp             `yaml:"sctp,omitempty" valid:"optional"`
 	DefaultUECtxReq        bool              `yaml:"defaultUECtxReq,omitempty" valid:"type(bool),optional"`
+	PriorityUE             *PriorityUE       `yaml:"priorityUE,omitempty" valid:"optional"`
+}
+
+type PriorityUE struct {
+	IMSIPattern    string `yaml:"imsiPattern" valid:"type(string),required"`
+	MaxConcurrency int    `yaml:"maxConcurrency" valid:"type(int),required"`
 }
 
 type Logger struct {
