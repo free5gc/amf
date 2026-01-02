@@ -20,31 +20,32 @@ import (
 )
 
 const (
-	AmfDefaultTLSKeyLogPath    = "./log/amfsslkey.log"
-	AmfDefaultCertPemPath      = "./cert/amf.pem"
-	AmfDefaultPrivateKeyPath   = "./cert/amf.key"
-	AmfDefaultConfigPath       = "./config/amfcfg.yaml"
-	AmfSbiDefaultIPv4          = "127.0.0.18"
-	AmfSbiDefaultPort          = 8000
-	AmfSbiDefaultScheme        = "https"
-	AmfMetricsDefaultEnabled   = false
-	AmfMetricsDefaultPort      = 9091
-	AmfMetricsDefaultScheme    = "https"
-	AmfMetricsDefaultNamespace = "free5gc"
-	AmfDefaultNrfUri           = "https://127.0.0.10:8000"
-	sctpDefaultNumOstreams     = 3
-	sctpDefaultMaxInstreams    = 5
-	sctpDefaultMaxAttempts     = 2
-	sctpDefaultMaxInitTimeout  = 2
-	ngapDefaultPort            = 38412
-	AmfCallbackResUriPrefix    = "/namf-callback/v1"
-	AmfCommResUriPrefix        = "/namf-comm/v1"
-	AmfEvtsResUriPrefix        = "/namf-evts/v1"
-	AmfLocResUriPrefix         = "/namf-loc/v1"
-	AmfMtResUriPrefix          = "/namf-mt/v1"
-	AmfOamResUriPrefix         = "/namf-oam/v1"
-	AmfMbsComResUriPrefix      = "/namf-mbs-comm/v1"
-	AmfMbsBCResUriPrefix       = "/namf-mbs-bc/v1"
+	AmfDefaultTLSKeyLogPath      = "./log/amfsslkey.log"
+	AmfDefaultCertPemPath        = "./cert/amf.pem"
+	AmfDefaultPrivateKeyPath     = "./cert/amf.key"
+	AmfDefaultConfigPath         = "./config/amfcfg.yaml"
+	AmfDefaultNfInstanceIdEnvVar = "AMF_NF_INSTANCE_ID"
+	AmfSbiDefaultIPv4            = "127.0.0.18"
+	AmfSbiDefaultPort            = 8000
+	AmfSbiDefaultScheme          = "https"
+	AmfMetricsDefaultEnabled     = false
+	AmfMetricsDefaultPort        = 9091
+	AmfMetricsDefaultScheme      = "https"
+	AmfMetricsDefaultNamespace   = "free5gc"
+	AmfDefaultNrfUri             = "https://127.0.0.10:8000"
+	sctpDefaultNumOstreams       = 3
+	sctpDefaultMaxInstreams      = 5
+	sctpDefaultMaxAttempts       = 2
+	sctpDefaultMaxInitTimeout    = 2
+	ngapDefaultPort              = 38412
+	AmfCallbackResUriPrefix      = "/namf-callback/v1"
+	AmfCommResUriPrefix          = "/namf-comm/v1"
+	AmfEvtsResUriPrefix          = "/namf-evts/v1"
+	AmfLocResUriPrefix           = "/namf-loc/v1"
+	AmfMtResUriPrefix            = "/namf-mt/v1"
+	AmfOamResUriPrefix           = "/namf-oam/v1"
+	AmfMbsComResUriPrefix        = "/namf-mbs-comm/v1"
+	AmfMbsBCResUriPrefix         = "/namf-mbs-bc/v1"
 )
 
 type Config struct {
@@ -76,7 +77,7 @@ type Info struct {
 
 type Configuration struct {
 	AmfName                string            `yaml:"amfName,omitempty" valid:"required, type(string)"`
-	NfInstanceId           string            `yaml:"nfInstanceId,omitempty" valid:"optional,uuid"`
+	NfInstanceId           string            `yaml:"nfInstanceId,omitempty" valid:"optional,uuidv4"`
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
 	NgapPort               int               `yaml:"ngapPort,omitempty" valid:"optional,port"`
 	Sbi                    *Sbi              `yaml:"sbi,omitempty" valid:"required"`
@@ -343,6 +344,31 @@ func (m *Metrics) validate() (bool, error) {
 		return false, error(errs)
 	}
 	return true, nil
+}
+
+func (c *Config) GetNfInstanceId() string {
+	c.RLock()
+	defer c.RUnlock()
+
+	var nfInstanceId string
+
+	logger.CfgLog.Debugf("Fetching nfInstanceId from env var \"%s\"", AmfDefaultNfInstanceIdEnvVar)
+
+	if nfInstanceId = os.Getenv(AmfDefaultNfInstanceIdEnvVar); nfInstanceId == "" {
+		logger.CfgLog.Debugf("No value found for \"%s\" env, fallback on config nfInstanceId : %s",
+			AmfDefaultNfInstanceIdEnvVar, c.Configuration.NfInstanceId)
+		return c.Configuration.NfInstanceId
+	}
+
+	if err := uuid.Validate(nfInstanceId); err != nil {
+		logger.CfgLog.Errorf("Env var \"%s\" is not a valid uuid, "+
+			"fallback on configuration nfInstanceId : %s", AmfDefaultNfInstanceIdEnvVar, c.Configuration.NfInstanceId)
+		return c.Configuration.NfInstanceId
+	}
+
+	logger.CfgLog.Debugf("nfInstanceId from %s : %s", AmfDefaultNfInstanceIdEnvVar, nfInstanceId)
+
+	return nfInstanceId
 }
 
 type Sbi struct {
