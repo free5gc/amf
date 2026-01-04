@@ -3,6 +3,7 @@ package processor
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -332,22 +333,38 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 		}
 		op := modifySubscriptionRequest.SubscriptionItem[0].Op
-		// prefix length: 11
-		if len(modifySubscriptionRequest.SubscriptionItem[0].Path) < 12 {
+		// TS 29.518 6.2.6.2.14
+		path := modifySubscriptionRequest.SubscriptionItem[0].Path
+		prefix := "/eventList/"
+		var index int
+		if !strings.HasPrefix(path, prefix) || len(path) <= len(prefix) {
 			problemDetails := &models.ProblemDetails{
 				Status: http.StatusBadRequest,
-				Cause:  "MISSING_OR_INVALID_PARAMETER",
-				Detail: "Index is missing",
+				Cause:  "MANDATORY_IE_INCORRECT",
+				Detail: "Path prefix is invalid or index is missing",
 			}
 			return nil, problemDetails
 		}
-		index, err := strconv.Atoi(modifySubscriptionRequest.SubscriptionItem[0].Path[11:])
-		if err != nil {
-			problemDetails := &models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "UNSPECIFIED_NF_FAILURE",
+		if path[11:] == "-" {
+			if op != "add" {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The character '-' is only allowed for 'add' operations",
+				}
+				return nil, problemDetails
 			}
-			return nil, problemDetails
+		} else {
+			integer, err := strconv.Atoi(path[11:])
+			if err != nil {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The array index must be a valid integer",
+				}
+				return nil, problemDetails
+			}
+			index = integer
 		}
 		lists := (subscription.EventList)
 		eventlistLen := len(subscription.EventList)
