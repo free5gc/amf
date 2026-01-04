@@ -332,6 +332,15 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 		}
 		op := modifySubscriptionRequest.SubscriptionItem[0].Op
+		// prefix length: 11
+		if len(modifySubscriptionRequest.SubscriptionItem[0].Path) < 12 {
+			problemDetails := &models.ProblemDetails{
+				Status: http.StatusBadRequest,
+				Cause:  "MISSING_OR_INVALID_PARAMETER",
+				Detail: "Index is missing",
+			}
+			return nil, problemDetails
+		}
 		index, err := strconv.Atoi(modifySubscriptionRequest.SubscriptionItem[0].Path[11:])
 		if err != nil {
 			problemDetails := &models.ProblemDetails{
