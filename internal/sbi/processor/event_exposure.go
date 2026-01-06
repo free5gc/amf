@@ -345,6 +345,7 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 			return nil, problemDetails
 		}
+		eventlistLen := len(subscription.EventList)
 		if path[11:] == "-" {
 			if op != "add" {
 				problemDetails := &models.ProblemDetails{
@@ -355,7 +356,8 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 				return nil, problemDetails
 			}
 		} else {
-			integer, err := strconv.Atoi(path[11:])
+			var err error
+			index, err = strconv.Atoi(path[11:])
 			if err != nil {
 				problemDetails := &models.ProblemDetails{
 					Status: http.StatusBadRequest,
@@ -364,23 +366,26 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 				}
 				return nil, problemDetails
 			}
-			index = integer
+			maxLen := eventlistLen
+			if index < 0 || index >= maxLen {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The array index is out of bounds",
+				}
+				return nil, problemDetails
+			}
 		}
 		lists := (subscription.EventList)
-		eventlistLen := len(subscription.EventList)
 		switch op {
 		case "replace":
 			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
-			if index < eventlistLen {
-				(subscription.EventList)[index] = event
-			}
+			(subscription.EventList)[index] = event
 		case "remove":
-			if index < eventlistLen {
-				eventlist := []models.AmfEvent{}
-				eventlist = append(eventlist, lists[:index]...)
-				eventlist = append(eventlist, lists[index+1:]...)
-				subscription.EventList = eventlist
-			}
+			eventlist := []models.AmfEvent{}
+			eventlist = append(eventlist, lists[:index]...)
+			eventlist = append(eventlist, lists[index+1:]...)
+			subscription.EventList = eventlist
 		case "add":
 			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
 			eventlist := []models.AmfEvent{}
