@@ -379,6 +379,17 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 				return nil, problemDetails
 			}
 		}
+		// Value shall be present if the patch operation is "add" or "replace"
+		if op == "replace" || op == "add" {
+			if modifySubscriptionRequest.SubscriptionItem[0].Value == nil {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_MISSING",
+					Detail: "The 'value' attribute is mandatory for 'add' and 'replace' operations",
+				}
+				return nil, problemDetails
+			}
+		}
 		lists := (subscription.EventList)
 		switch op {
 		case "replace":
