@@ -367,6 +367,9 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 				return nil, problemDetails
 			}
 			maxLen := eventlistLen
+			if op == "add" {
+				maxLen += 1
+			}
 			if index < 0 || index >= maxLen {
 				problemDetails := &models.ProblemDetails{
 					Status: http.StatusBadRequest,
@@ -387,10 +390,17 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			eventlist = append(eventlist, lists[index+1:]...)
 			subscription.EventList = eventlist
 		case "add":
+			// TS 29.518 6.2.6.2.14 && RFC 6902
 			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
 			eventlist := []models.AmfEvent{}
-			eventlist = append(eventlist, lists...)
-			eventlist = append(eventlist, event)
+			if path[11:] == "-" {
+				eventlist = append(eventlist, lists...)
+				eventlist = append(eventlist, event)
+			} else {
+				eventlist = append(eventlist, lists[:index]...)
+				eventlist = append(eventlist, event)
+				eventlist = append(eventlist, lists[index:]...)
+			}
 			subscription.EventList = eventlist
 		}
 	}
