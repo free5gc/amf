@@ -6,6 +6,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/sctp"
 )
 
@@ -44,6 +45,14 @@ func Dispatch(conn net.Conn, msg []byte) {
 	if pdu == nil {
 		ran.Log.Error("NGAP Message is nil")
 		return
+	}
+
+	if ran.RanId == nil {
+		if pdu.Present != ngapType.NGAPPDUPresentInitiatingMessage ||
+			pdu.InitiatingMessage.ProcedureCode.Value != ngapType.ProcedureCodeNGSetup {
+			ran.Log.Warn("Received non-NGSetup message on uninitialized connection")
+			return
+		}
 	}
 
 	dispatchMain(ran, pdu)
