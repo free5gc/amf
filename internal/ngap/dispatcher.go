@@ -25,6 +25,11 @@ func Dispatch(conn net.Conn, msg []byte) {
 		ran = amfSelf.NewAmfRan(conn)
 	}
 
+	if ran == nil {
+		logger.NgapLog.Error("ran is nil")
+		return
+	}
+
 	if len(msg) == 0 {
 		ran.Log.Infof("RAN close the connection.")
 		ran.Remove()
@@ -34,11 +39,6 @@ func Dispatch(conn net.Conn, msg []byte) {
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
 		ran.Log.Errorf("NGAP decode error : %+v", err)
-		return
-	}
-
-	if ran == nil {
-		logger.NgapLog.Error("ran is nil")
 		return
 	}
 
