@@ -267,6 +267,15 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 
 	amfSelf := context.GetSelf()
 
+	if n1MessageNotify.JsonData == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing IE [JsonData] in N1MessageNotifyRequest",
+		}
+		return problemDetails
+	}
+
 	registrationCtxtContainer := n1MessageNotify.JsonData.RegistrationCtxtContainer
 	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil {
 		problemDetails := &models.ProblemDetails{
