@@ -200,6 +200,51 @@ func extractFromInitiatingMessage(msg *ngapType.InitiatingMessage) (uint64, bool
 			}
 		}
 
+	case ngapType.ProcedureCodeCellTrafficTrace:
+		if msg.Value.CellTrafficTrace != nil {
+			for _, ie := range msg.Value.CellTrafficTrace.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
+	case ngapType.ProcedureCodeLocationReportingFailureIndication:
+		if msg.Value.LocationReportingFailureIndication != nil {
+			for _, ie := range msg.Value.LocationReportingFailureIndication.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
+	case ngapType.ProcedureCodeSecondaryRATDataUsageReport:
+		if msg.Value.SecondaryRATDataUsageReport != nil {
+			for _, ie := range msg.Value.SecondaryRATDataUsageReport.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
+	case ngapType.ProcedureCodeTraceFailureIndication:
+		if msg.Value.TraceFailureIndication != nil {
+			for _, ie := range msg.Value.TraceFailureIndication.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
+	case ngapType.ProcedureCodeUplinkUEAssociatedNRPPaTransport:
+		if msg.Value.UplinkUEAssociatedNRPPaTransport != nil {
+			for _, ie := range msg.Value.UplinkUEAssociatedNRPPaTransport.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
 	default:
 		// Non-UE specific messages (e.g., NGSetupRequest, RANConfigurationUpdate)
 		logger.NgapLog.Tracef("No UE ID in procedure code: %d", msg.ProcedureCode.Value)
@@ -281,6 +326,15 @@ func extractFromSuccessfulOutcome(msg *ngapType.SuccessfulOutcome) (uint64, bool
 	case ngapType.ProcedureCodePathSwitchRequest:
 		if msg.Value.PathSwitchRequestAcknowledge != nil {
 			for _, ie := range msg.Value.PathSwitchRequestAcknowledge.ProtocolIEs.List {
+				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
+					return uint64(ie.Value.AMFUENGAPID.Value), true
+				}
+			}
+		}
+
+	case ngapType.ProcedureCodeUERadioCapabilityCheck:
+		if msg.Value.UERadioCapabilityCheckResponse != nil {
+			for _, ie := range msg.Value.UERadioCapabilityCheckResponse.ProtocolIEs.List {
 				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {
 					return uint64(ie.Value.AMFUENGAPID.Value), true
 				}

@@ -164,7 +164,7 @@ func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Con
 			numWorkers = runtime.NumCPU()
 		}
 		if taskBufferSize <= 0 {
-			taskBufferSize = 1000 // Default buffer size
+			taskBufferSize = 4096 // Default buffer size
 		}
 
 		schedulerMutex.Lock()
