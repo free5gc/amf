@@ -137,8 +137,7 @@ var (
 
 // InitScheduler initializes the global UE scheduler.
 // Should be called once during AMF startup.
-func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Conn, msg []byte)) error {
-	var initErr error
+func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Conn, msg []byte)) {
 	globalSchedulerOnce.Do(func() {
 		if numWorkers <= 0 {
 			numWorkers = runtime.NumCPU()
@@ -154,7 +153,6 @@ func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Con
 		logger.NgapLog.Infof("Global UE Scheduler initialized with %d workers, buffer size %d",
 			numWorkers, taskBufferSize)
 	})
-	return initErr
 }
 
 // GetScheduler returns the global scheduler instance.
