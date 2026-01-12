@@ -1040,7 +1040,8 @@ func (c *Config) GetNgapWorkerPoolSize() int {
 	if c.Configuration != nil && c.Configuration.NgapWorkerPoolSize > 0 {
 		return c.Configuration.NgapWorkerPoolSize
 	}
-	return 0 // 0 means auto-detect based on CPU cores
+	// 0 indicates that the caller (e.g., InitScheduler) should auto-detect based on CPU cores
+	return 0
 }
 
 func (c *Config) GetNgapTaskBufferSize() int {

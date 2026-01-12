@@ -2,7 +2,6 @@ package ngap
 
 import (
 	"fmt"
-	"hash/fnv"
 	"net"
 	"runtime"
 	"sync"
@@ -24,7 +23,6 @@ type Worker struct {
 	taskChan chan Task
 	handler  func(conn net.Conn, msg []byte)
 	wg       *sync.WaitGroup
-	stopChan chan struct{}
 }
 
 // NewWorker creates and starts a new worker goroutine.
@@ -34,7 +32,6 @@ func NewWorker(id int, bufferSize int, handler func(conn net.Conn, msg []byte), 
 		taskChan: make(chan Task, bufferSize),
 		handler:  handler,
 		wg:       wg,
-		stopChan: make(chan struct{}),
 	}
 	wg.Add(1)
 	go w.run()
@@ -43,29 +40,24 @@ func NewWorker(id int, bufferSize int, handler func(conn net.Conn, msg []byte), 
 
 // run is the main event loop for the worker.
 func (w *Worker) run() {
-	defer w.wg.Done()
+	defer func() {
+		if p := recover(); p != nil {
+			logger.NgapLog.Errorf("Worker %d panic: %v", w.ID, p)
+		}
+		w.wg.Done()
+	}()
 	logger.NgapLog.Infof("Worker %d started", w.ID)
 
 	for {
-		select {
-		case task, ok := <-w.taskChan:
-			if !ok {
-				logger.NgapLog.Infof("Worker %d: task channel closed, shutting down", w.ID)
-				return
-			}
-			logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
-				w.ID, task.UEID)
-			w.handler(task.Conn, task.Message)
-		case <-w.stopChan:
-			logger.NgapLog.Infof("Worker %d: stop signal received, shutting down", w.ID)
+		task, ok := <-w.taskChan
+		if !ok {
+			logger.NgapLog.Infof("Worker %d: task channel closed, shutting down", w.ID)
 			return
 		}
+		logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
+			w.ID, task.UEID)
+		w.handler(task.Conn, task.Message)
 	}
-}
-
-// Stop gracefully stops the worker.
-func (w *Worker) Stop() {
-	close(w.stopChan)
 }
 
 // Submit submits a task to this worker's queue.
@@ -78,6 +70,7 @@ type UEScheduler struct {
 	workers     []*Worker
 	numWorkers  int
 	workerMutex sync.RWMutex
+	wg          sync.WaitGroup
 }
 
 // NewUEScheduler creates a new UE scheduler with the specified number of workers.
@@ -94,9 +87,8 @@ func NewUEScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Co
 		numWorkers: numWorkers,
 	}
 
-	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
-		scheduler.workers[i] = NewWorker(i, taskBufferSize, handler, &wg)
+		scheduler.workers[i] = NewWorker(i, taskBufferSize, handler, &scheduler.wg)
 	}
 
 	return scheduler
@@ -105,46 +97,34 @@ func NewUEScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Co
 // DispatchTask dispatches a task to the appropriate worker based on UE ID hashing.
 func (s *UEScheduler) DispatchTask(task Task) {
 	s.workerMutex.RLock()
-	defer s.workerMutex.RUnlock()
-
 	// Hash the UE ID to determine which worker should handle it
 	workerIndex := s.hashUEID(task.UEID)
+	worker := s.workers[workerIndex]
+	s.workerMutex.RUnlock()
+
 	logger.NgapLog.Debugf("Dispatching UE ID %d to Worker %d (hash-based routing)",
 		task.UEID, workerIndex)
-	s.workers[workerIndex].Submit(task)
+	worker.Submit(task)
 }
 
 // hashUEID computes a hash of the UE ID and maps it to a worker index.
 // This ensures all messages for the same UE go to the same worker.
 func (s *UEScheduler) hashUEID(ueID uint64) int {
-	h := fnv.New64a()
-	// Convert uint64 to bytes for hashing
-	b := make([]byte, 8)
-	for i := 0; i < 8; i++ {
-		b[i] = byte(ueID >> (i * 8))
-	}
-	h.Write(b)
-	return int(h.Sum64() % uint64(s.numWorkers))
+	return int(ueID % uint64(s.numWorkers))
 }
 
 // Shutdown gracefully shuts down all workers.
 func (s *UEScheduler) Shutdown() {
 	s.workerMutex.Lock()
-	defer s.workerMutex.Unlock()
-
 	logger.NgapLog.Info("Shutting down UE Scheduler and all workers...")
 
-	var wg sync.WaitGroup
 	for i, worker := range s.workers {
-		wg.Add(1)
-		go func(idx int, w *Worker) {
-			defer wg.Done()
-			logger.NgapLog.Infof("Closing task channel for Worker %d", idx)
-			close(w.taskChan)
-		}(i, worker)
+		logger.NgapLog.Infof("Closing task channel for Worker %d", i)
+		close(worker.taskChan)
 	}
-	wg.Wait()
+	s.workerMutex.Unlock()
 
+	s.wg.Wait()
 	logger.NgapLog.Info("All workers shut down successfully")
 }
 
@@ -195,6 +175,5 @@ func ShutdownScheduler() {
 
 	if globalScheduler != nil {
 		globalScheduler.Shutdown()
-		globalScheduler = nil
 	}
 }

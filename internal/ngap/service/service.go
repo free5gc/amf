@@ -245,7 +245,6 @@ func handleConnection(conn *sctp.SCTPConn, bufsize uint32, handler NGAPHandler) 
 // dispatchToWorkerPool extracts the UE ID and dispatches the task to the appropriate worker.
 // For non-UE messages (e.g., NGSetupRequest), it dispatches to a default worker (worker 0).
 func dispatchToWorkerPool(conn net.Conn, msg []byte, handler NGAPHandler) {
-	// Import the ngap package to access the scheduler
 	scheduler, err := ngap_internal.GetScheduler()
 	if err != nil {
 		// Fallback to direct handling if scheduler is not initialized

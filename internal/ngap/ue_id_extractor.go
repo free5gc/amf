@@ -65,7 +65,8 @@ func extractFromInitiatingMessage(msg *ngapType.InitiatingMessage) (uint64, bool
 		}
 
 	case ngapType.ProcedureCodeUplinkNASTransport:
-		// UplinkNASTransport contains both AMF-UE-NGAP-ID and RAN-UE-NGAP-ID
+		// UplinkNASTransport contains both AMF-UE-NGAP-ID and RAN-UE-NGAP-ID.
+		// We prefer extracting the AMF-UE-NGAP-ID if available.
 		if msg.Value.UplinkNASTransport != nil {
 			for _, ie := range msg.Value.UplinkNASTransport.ProtocolIEs.List {
 				if ie.Id.Value == ngapType.ProtocolIEIDAMFUENGAPID && ie.Value.AMFUENGAPID != nil {

@@ -196,9 +196,7 @@ func (a *AmfApp) Start() {
 	logger.InitLog.Infof("Initializing NGAP worker pool with %d workers (buffer size: %d)",
 		workerPoolSize, taskBufferSize)
 
-	if err := ngap.InitScheduler(workerPoolSize, taskBufferSize, ngap.Dispatch); err != nil {
-		logger.InitLog.Fatalf("Failed to initialize NGAP scheduler: %v", err)
-	}
+	ngap.InitScheduler(workerPoolSize, taskBufferSize, ngap.Dispatch)
 
 	ngapHandler := ngap_service.NGAPHandler{
 		HandleMessage:         ngap.Dispatch,
