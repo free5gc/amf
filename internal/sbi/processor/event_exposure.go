@@ -333,6 +333,17 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 		}
 		op := modifySubscriptionRequest.SubscriptionItem[0].Op
+		// Value shall be present if the patch operation is "add" or "replace"
+		if op == "replace" || op == "add" {
+			if modifySubscriptionRequest.SubscriptionItem[0].Value == nil {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_MISSING",
+					Detail: "The 'value' attribute is mandatory for 'add' and 'replace' operations",
+				}
+				return nil, problemDetails
+			}
+		}
 		// TS 29.518 6.2.6.2.14
 		path := modifySubscriptionRequest.SubscriptionItem[0].Path
 		prefix := "/eventList/"
@@ -346,6 +357,7 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			return nil, problemDetails
 		}
 		eventlistLen := len(subscription.EventList)
+		// 11 is the length of prefix: "/eventList/", the current version only support it.
 		if path[11:] == "-" {
 			if op != "add" {
 				problemDetails := &models.ProblemDetails{
@@ -375,17 +387,6 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 					Status: http.StatusBadRequest,
 					Cause:  "MANDATORY_IE_INCORRECT",
 					Detail: "The array index is out of bounds",
-				}
-				return nil, problemDetails
-			}
-		}
-		// Value shall be present if the patch operation is "add" or "replace"
-		if op == "replace" || op == "add" {
-			if modifySubscriptionRequest.SubscriptionItem[0].Value == nil {
-				problemDetails := &models.ProblemDetails{
-					Status: http.StatusBadRequest,
-					Cause:  "MANDATORY_IE_MISSING",
-					Detail: "The 'value' attribute is mandatory for 'add' and 'replace' operations",
 				}
 				return nil, problemDetails
 			}
