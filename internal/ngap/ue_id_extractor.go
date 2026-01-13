@@ -114,8 +114,8 @@ func extractFromInitiatingMessage(msg *ngapType.InitiatingMessage) (uint64, bool
 	case ngapType.ProcedureCodePathSwitchRequest:
 		if msg.Value.PathSwitchRequest != nil {
 			for _, ie := range msg.Value.PathSwitchRequest.ProtocolIEs.List {
-				if ie.Id.Value == ngapType.ProtocolIEIDRANUENGAPID && ie.Value.RANUENGAPID != nil {
-					return uint64(ie.Value.RANUENGAPID.Value), true
+				if ie.Id.Value == ngapType.ProtocolIEIDSourceAMFUENGAPID && ie.Value.SourceAMFUENGAPID != nil {
+					return uint64(ie.Value.SourceAMFUENGAPID.Value), true
 				}
 			}
 		}
