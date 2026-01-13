@@ -113,10 +113,13 @@ func TestScheduler_ConcurrentTaskSubmission(t *testing.T) {
 	var mu sync.Mutex
 	processedByWorker := make(map[int]int)
 
+	// WaitGroup to track task processing completion
+	var processingWg sync.WaitGroup
+	processingWg.Add(numGoroutines * tasksPerGoroutine)
+
 	handler := func(conn net.Conn, msg []byte) {
 		atomic.AddInt32(&processedCount, 1)
-		// Very small delay to simulate processing without blocking
-		time.Sleep(100 * time.Microsecond)
+		processingWg.Done()
 	}
 
 	scheduler := NewUEScheduler(numWorkers, 1000, handler)
@@ -151,8 +154,8 @@ func TestScheduler_ConcurrentTaskSubmission(t *testing.T) {
 	// Wait for all submissions to complete
 	wg.Wait()
 
-	// Give workers time to process all tasks (100us * 5000 tasks / 4 workers = ~125ms)
-	time.Sleep(3 * time.Second)
+	// Wait for all tasks to be processed
+	processingWg.Wait()
 
 	expectedTotal := numGoroutines * tasksPerGoroutine
 	actualProcessed := atomic.LoadInt32(&processedCount)
@@ -177,6 +180,8 @@ func TestScheduler_PerUESequentiality(t *testing.T) {
 
 	var processedOrder []int
 	var mu sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(numMessages)
 
 	handler := func(conn net.Conn, msg []byte) {
 		// Extract message sequence number from message
@@ -184,8 +189,7 @@ func TestScheduler_PerUESequentiality(t *testing.T) {
 		mu.Lock()
 		processedOrder = append(processedOrder, seqNum)
 		mu.Unlock()
-		// Small delay to test ordering
-		time.Sleep(1 * time.Millisecond)
+		wg.Done()
 	}
 
 	scheduler := NewUEScheduler(numWorkers, 1000, handler)
@@ -202,7 +206,7 @@ func TestScheduler_PerUESequentiality(t *testing.T) {
 	}
 
 	// Wait for all messages to be processed
-	time.Sleep(2 * time.Second)
+	wg.Wait()
 
 	// Verify messages were processed in order
 	require.Equal(t, numMessages, len(processedOrder),
@@ -223,6 +227,10 @@ func TestScheduler_MultipleUEsConcurrent(t *testing.T) {
 	processedByUE := make(map[uint64][]int)
 	var mu sync.Mutex
 
+	// WaitGroup to track processing completion
+	var processingWg sync.WaitGroup
+	processingWg.Add(numUEs * messagesPerUE)
+
 	handler := func(conn net.Conn, msg []byte) {
 		ueID := uint64(msg[0])
 		seqNum := int(msg[1])
@@ -231,7 +239,7 @@ func TestScheduler_MultipleUEsConcurrent(t *testing.T) {
 		processedByUE[ueID] = append(processedByUE[ueID], seqNum)
 		mu.Unlock()
 
-		time.Sleep(1 * time.Millisecond)
+		processingWg.Done()
 	}
 
 	scheduler := NewUEScheduler(numWorkers, 1000, handler)
@@ -252,16 +260,15 @@ func TestScheduler_MultipleUEsConcurrent(t *testing.T) {
 					Message: []byte{byte(ueID), byte(msgIdx)},
 				}
 				scheduler.DispatchTask(task)
-				// Small random delay between messages
-				time.Sleep(100 * time.Microsecond)
 			}
 		}(uint64(ueIdx))
 	}
 
+	// Wait for all submissions
 	wg.Wait()
 
-	// Give workers time to process
-	time.Sleep(3 * time.Second)
+	// Wait for all processing to complete
+	processingWg.Wait()
 
 	// Verify each UE's messages were processed in order
 	for ueID := uint64(0); ueID < uint64(numUEs); ueID++ {
@@ -277,19 +284,24 @@ func TestScheduler_MultipleUEsConcurrent(t *testing.T) {
 }
 
 func TestScheduler_GracefulShutdown(t *testing.T) {
-	// Test graceful shutdown of scheduler
+	// Test graceful shutdown of scheduler - ensures all queued tasks are drained
 	numWorkers := 4
+	numTasks := 50
 
 	var processedCount int32
+	var processingWg sync.WaitGroup
+	processingWg.Add(numTasks)
+
 	handler := func(conn net.Conn, msg []byte) {
 		atomic.AddInt32(&processedCount, 1)
 		time.Sleep(10 * time.Millisecond)
+		processingWg.Done()
 	}
 
 	scheduler := NewUEScheduler(numWorkers, 100, handler)
 
-	// Submit some tasks
-	for i := 0; i < 50; i++ {
+	// Submit all tasks
+	for i := 0; i < numTasks; i++ {
 		task := Task{
 			UEID:    uint64(i),
 			Conn:    &mockConn{},
@@ -298,17 +310,17 @@ func TestScheduler_GracefulShutdown(t *testing.T) {
 		scheduler.DispatchTask(task)
 	}
 
-	// Give some time for processing to start
-	time.Sleep(100 * time.Millisecond)
-
-	// Shutdown
+	// Shutdown waits for all workers to finish processing their queues
 	scheduler.Shutdown()
 
-	// Verify some tasks were processed (not all, due to shutdown)
+	// Wait for all tasks to be processed
+	processingWg.Wait()
+
+	// Verify all tasks were processed (queue draining guarantee)
 	processed := atomic.LoadInt32(&processedCount)
 	t.Logf("Processed %d tasks before shutdown", processed)
-	assert.Greater(t, processed, int32(0),
-		"Some tasks should be processed before shutdown")
+	assert.Equal(t, int32(numTasks), processed,
+		"All queued tasks should be processed during graceful shutdown")
 }
 
 func TestScheduler_WorkerCount(t *testing.T) {
@@ -344,11 +356,15 @@ func TestScheduler_WorkerCount(t *testing.T) {
 func TestScheduler_NonUEMessage(t *testing.T) {
 	// Test handling of non-UE messages (UE ID = 0)
 	numWorkers := 4
+	numMessages := 20
 
 	var processedCount int32
+	var wg sync.WaitGroup
+	wg.Add(numMessages)
 
 	handler := func(conn net.Conn, msg []byte) {
 		atomic.AddInt32(&processedCount, 1)
+		wg.Done()
 	}
 
 	scheduler := NewUEScheduler(numWorkers, 100, handler)
@@ -358,7 +374,7 @@ func TestScheduler_NonUEMessage(t *testing.T) {
 	// All should go to the same worker (determined by hash)
 	expectedWorkerIndex := scheduler.hashUEID(0)
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < numMessages; i++ {
 		task := Task{
 			UEID:    0, // Non-UE message
 			Conn:    &mockConn{},
@@ -373,9 +389,10 @@ func TestScheduler_NonUEMessage(t *testing.T) {
 		scheduler.DispatchTask(task)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	// Wait for all messages to be processed
+	wg.Wait()
 
-	assert.Equal(t, int32(20), atomic.LoadInt32(&processedCount),
+	assert.Equal(t, int32(numMessages), atomic.LoadInt32(&processedCount),
 		"All non-UE messages should be processed")
 	t.Logf("Non-UE messages routed to worker %d", expectedWorkerIndex)
 }
