@@ -3,6 +3,7 @@ package processor
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -332,34 +333,86 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 			}
 		}
 		op := modifySubscriptionRequest.SubscriptionItem[0].Op
-		index, err := strconv.Atoi(modifySubscriptionRequest.SubscriptionItem[0].Path[11:])
-		if err != nil {
+		// Value shall be present if the patch operation is "add" or "replace"
+		if op == "replace" || op == "add" {
+			if modifySubscriptionRequest.SubscriptionItem[0].Value == nil {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_MISSING",
+					Detail: "The 'value' attribute is mandatory for 'add' and 'replace' operations",
+				}
+				return nil, problemDetails
+			}
+		}
+		// TS 29.518 6.2.6.2.14
+		path := modifySubscriptionRequest.SubscriptionItem[0].Path
+		prefix := "/eventList/"
+		var index int
+		if !strings.HasPrefix(path, prefix) || len(path) <= len(prefix) {
 			problemDetails := &models.ProblemDetails{
-				Status: http.StatusInternalServerError,
-				Cause:  "UNSPECIFIED_NF_FAILURE",
+				Status: http.StatusBadRequest,
+				Cause:  "MANDATORY_IE_INCORRECT",
+				Detail: "Path prefix is invalid or index is missing",
 			}
 			return nil, problemDetails
 		}
-		lists := (subscription.EventList)
 		eventlistLen := len(subscription.EventList)
+		// 11 is the length of prefix: "/eventList/", the current version only support it.
+		if path[11:] == "-" {
+			if op != "add" {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The character '-' is only allowed for 'add' operations",
+				}
+				return nil, problemDetails
+			}
+		} else {
+			var err error
+			index, err = strconv.Atoi(path[11:])
+			if err != nil {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The array index must be a valid integer",
+				}
+				return nil, problemDetails
+			}
+			maxLen := eventlistLen
+			if op == "add" {
+				maxLen += 1
+			}
+			if index < 0 || index >= maxLen {
+				problemDetails := &models.ProblemDetails{
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_INCORRECT",
+					Detail: "The array index is out of bounds",
+				}
+				return nil, problemDetails
+			}
+		}
+		lists := (subscription.EventList)
 		switch op {
 		case "replace":
 			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
-			if index < eventlistLen {
-				(subscription.EventList)[index] = event
-			}
+			(subscription.EventList)[index] = event
 		case "remove":
-			if index < eventlistLen {
-				eventlist := []models.AmfEvent{}
-				eventlist = append(eventlist, lists[:index]...)
-				eventlist = append(eventlist, lists[index+1:]...)
-				subscription.EventList = eventlist
-			}
+			eventlist := []models.AmfEvent{}
+			eventlist = append(eventlist, lists[:index]...)
+			eventlist = append(eventlist, lists[index+1:]...)
+			subscription.EventList = eventlist
 		case "add":
+			// TS 29.518 6.2.6.2.14 && RFC 6902
 			event := *modifySubscriptionRequest.SubscriptionItem[0].Value
 			eventlist := []models.AmfEvent{}
-			eventlist = append(eventlist, lists...)
-			eventlist = append(eventlist, event)
+			if path[11:] == "-" {
+				eventlist = append(eventlist, lists...)
+				eventlist = append(eventlist, event)
+			} else {
+				eventlist = append(eventlist, lists[:index]...)
+				eventlist = append(eventlist, event)
+				eventlist = append(eventlist, lists[index:]...)
+			}
 			subscription.EventList = eventlist
 		}
 	}
