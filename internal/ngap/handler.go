@@ -284,7 +284,10 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	if tmp, exist := amfUe.ReleaseCause[ran.AnType]; exist {
 		cause = *tmp
 	}
-	if amfUe.State[ran.AnType].Is(context.Registered) {
+    state := amfUe.State[ran.AnType]
+    if state == nil {
+        ranUe.Log.Warnf("UE state is nil (accessType=%q); skip GMM-Registered branch", ran.AnType)
+    } else if state.Is(context.Registered) {
 		ranUe.Log.Info("Release Ue Context in GMM-Registered")
 		// If this release cause by handover, no needs deactivate CN tunnel
 		if cause.NgapCause != nil && pDUSessionResourceList != nil {
