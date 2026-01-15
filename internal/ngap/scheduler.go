@@ -21,6 +21,8 @@ type Task struct {
 type Worker struct {
 	ID       int
 	taskChan chan Task
+	stopChan chan struct{} // Signal channel for shutdown
+	stopOnce sync.Once     // Ensures stopChan is closed only once
 	handler  func(conn net.Conn, msg []byte)
 	wg       *sync.WaitGroup
 }
@@ -30,6 +32,7 @@ func NewWorker(id int, bufferSize int, handler func(conn net.Conn, msg []byte), 
 	w := &Worker{
 		ID:       id,
 		taskChan: make(chan Task, bufferSize),
+		stopChan: make(chan struct{}),
 		handler:  handler,
 		wg:       wg,
 	}
@@ -49,35 +52,77 @@ func (w *Worker) run() {
 	logger.NgapLog.Infof("Worker %d started", w.ID)
 
 	for {
-		task, ok := <-w.taskChan
-		if !ok {
-			logger.NgapLog.Infof("Worker %d: task channel closed, shutting down", w.ID)
+		select {
+		case task := <-w.taskChan:
+			logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
+				w.ID, task.UEID)
+			w.handler(task.Conn, task.Message)
+
+		case <-w.stopChan:
+			logger.NgapLog.Infof("Worker %d: shutdown signal received, draining queue...", w.ID)
+			w.drainAndExit()
 			return
 		}
-		logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
-			w.ID, task.UEID)
-		w.handler(task.Conn, task.Message)
+	}
+}
+
+// drainAndExit consumes remaining tasks in the buffer without blocking.
+func (w *Worker) drainAndExit() {
+	for {
+		select {
+		case task := <-w.taskChan:
+			logger.NgapLog.Debugf("Worker %d processing residual task for UE ID %d", w.ID, task.UEID)
+			w.handler(task.Conn, task.Message)
+		default:
+			// Channel is empty, exit safely
+			logger.NgapLog.Infof("Worker %d: queue drained, stopped.", w.ID)
+			return
+		}
 	}
 }
 
 // Submit submits a task to this worker's queue.
-func (w *Worker) Submit(task Task) {
-	w.taskChan <- task
+// Returns true if the task was successfully queued, false if the worker is stopped.
+func (w *Worker) Submit(task Task) bool {
+	// Priority Check: Fast-fail if the worker is already stopped.
+	// This reduces the chance of selecting the send case during shutdown due to pseudo-randomness.
+	select {
+	case <-w.stopChan:
+		logger.NgapLog.Warnf("Worker %d is stopped (fast-fail), rejecting task for UE ID %d", w.ID, task.UEID)
+		return false
+	default:
+		// Continue to submission
+	}
+
+	select {
+	case w.taskChan <- task:
+		// Successfully queued (blocks here if buffer is full, providing backpressure)
+		return true
+	case <-w.stopChan:
+		// Worker stopped while we were waiting. Unblock and return false.
+		logger.NgapLog.Warnf("Worker %d stopped during submission, rejecting task for UE ID %d", w.ID, task.UEID)
+		return false
+	}
+}
+
+// Stop signals the worker to shut down.
+func (w *Worker) Stop() {
+	w.stopOnce.Do(func() {
+		close(w.stopChan)
+	})
 }
 
 // UEScheduler distributes NGAP tasks to workers based on UE ID.
 type UEScheduler struct {
-	workers     []*Worker
-	numWorkers  int
-	workerMutex sync.RWMutex
-	wg          sync.WaitGroup
+	workers    []*Worker
+	numWorkers int
+	wg         sync.WaitGroup
 }
 
 // NewUEScheduler creates a new UE scheduler with the specified number of workers.
 func NewUEScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Conn, msg []byte)) *UEScheduler {
 	if numWorkers <= 0 {
 		numWorkers = runtime.NumCPU()
-		logger.NgapLog.Infof("Invalid worker count, using default: %d (NumCPU)", numWorkers)
 	}
 
 	logger.NgapLog.Infof("Initializing UE Scheduler with %d workers", numWorkers)
@@ -95,16 +140,13 @@ func NewUEScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Co
 }
 
 // DispatchTask dispatches a task to the appropriate worker based on UE ID hashing.
-func (s *UEScheduler) DispatchTask(task Task) {
-	s.workerMutex.RLock()
-	// Hash the UE ID to determine which worker should handle it
+func (s *UEScheduler) DispatchTask(task Task) bool {
 	workerIndex := s.hashUEID(task.UEID)
 	worker := s.workers[workerIndex]
-	s.workerMutex.RUnlock()
 
 	logger.NgapLog.Debugf("Dispatching UE ID %d to Worker %d (hash-based routing)",
 		task.UEID, workerIndex)
-	worker.Submit(task)
+	return worker.Submit(task)
 }
 
 // hashUEID computes a hash of the UE ID and maps it to a worker index.
@@ -115,14 +157,12 @@ func (s *UEScheduler) hashUEID(ueID uint64) int {
 
 // Shutdown gracefully shuts down all workers.
 func (s *UEScheduler) Shutdown() {
-	s.workerMutex.Lock()
 	logger.NgapLog.Info("Shutting down UE Scheduler and all workers...")
 
 	for i, worker := range s.workers {
 		logger.NgapLog.Infof("Closing task channel for Worker %d", i)
-		close(worker.taskChan)
+		worker.Stop()
 	}
-	s.workerMutex.Unlock()
 
 	s.wg.Wait()
 	logger.NgapLog.Info("All workers shut down successfully")
@@ -139,6 +179,7 @@ var (
 // Should be called once during AMF startup.
 func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Conn, msg []byte)) {
 	globalSchedulerOnce.Do(func() {
+		// Apply sensible defaults if invalid values provided
 		if numWorkers <= 0 {
 			numWorkers = runtime.NumCPU()
 		}

@@ -270,5 +270,8 @@ func dispatchToWorkerPool(conn net.Conn, msg []byte, handler NGAPHandler) {
 		Message: msg,
 	}
 
-	scheduler.DispatchTask(task)
+	// Attempt to dispatch to worker pool
+	if !scheduler.DispatchTask(task) {
+		logger.NgapLog.Warnf("Drop packet for UE ID %d (Scheduler is shutting down)", ueID)
+	}
 }
