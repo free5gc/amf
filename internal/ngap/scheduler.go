@@ -84,23 +84,13 @@ func (w *Worker) drainAndExit() {
 // Submit submits a task to this worker's queue.
 // Returns true if the task was successfully queued, false if the worker is stopped.
 func (w *Worker) Submit(task Task) bool {
-	// Priority Check: Fast-fail if the worker is already stopped.
-	// This reduces the chance of selecting the send case during shutdown due to pseudo-randomness.
-	select {
-	case <-w.stopChan:
-		logger.NgapLog.Warnf("Worker %d is stopped (fast-fail), rejecting task for UE ID %d", w.ID, task.UEID)
-		return false
-	default:
-		// Continue to submission
-	}
-
 	select {
 	case w.taskChan <- task:
 		// Successfully queued (blocks here if buffer is full, providing backpressure)
 		return true
 	case <-w.stopChan:
-		// Worker stopped while we were waiting. Unblock and return false.
-		logger.NgapLog.Warnf("Worker %d stopped during submission, rejecting task for UE ID %d", w.ID, task.UEID)
+		// Worker stopped (either before submission or while waiting). Unblock and return false.
+		logger.NgapLog.Warnf("Worker %d stopped, rejecting task for UE ID %d", w.ID, task.UEID)
 		return false
 	}
 }
