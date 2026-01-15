@@ -13,7 +13,7 @@ func ExtractUEID(msg []byte) (uint64, bool) {
 	// Decode the NGAP PDU
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
-		logger.NgapLog.Tracef("Failed to decode NGAP message for UE ID extraction: %v", err)
+		logger.NgapLog.Warnf("Failed to decode NGAP message for UE ID extraction: %v", err)
 		return 0, false
 	}
 
