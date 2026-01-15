@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/free5gc/amf/internal/logger"
+	ngap_internal "github.com/free5gc/amf/internal/ngap"
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/ngap"
 	"github.com/free5gc/sctp"
@@ -235,8 +236,42 @@ func handleConnection(conn *sctp.SCTPConn, bufsize uint32, handler NGAPHandler) 
 			logger.NgapLog.Tracef("Read %d bytes", n)
 			logger.NgapLog.Tracef("Packet content:\n%+v", hex.Dump(buf[:n]))
 
-			// TODO: concurrent on per-UE message
-			handler.HandleMessage(conn, buf[:n])
+			// Dispatch message through worker pool for parallel processing
+			dispatchToWorkerPool(conn, buf[:n], handler)
 		}
+	}
+}
+
+// dispatchToWorkerPool extracts the UE ID and dispatches the task to the appropriate worker.
+// For non-UE messages (e.g., NGSetupRequest), it dispatches to a default worker (worker 0).
+func dispatchToWorkerPool(conn net.Conn, msg []byte, handler NGAPHandler) {
+	scheduler, err := ngap_internal.GetScheduler()
+	if err != nil {
+		// Fallback to direct handling if scheduler is not initialized
+		logger.NgapLog.Warnf("Scheduler not initialized, falling back to sequential processing: %v", err)
+		handler.HandleMessage(conn, msg)
+		return
+	}
+
+	// Extract UE ID from the message
+	ueID, found := ngap_internal.ExtractUEID(msg)
+
+	// For non-UE messages or if extraction fails, use a fixed worker (worker 0)
+	// to handle connection-level messages like NGSetupRequest
+	if !found {
+		logger.NgapLog.Tracef("Non-UE message or UE ID not found, using default worker (0)")
+		ueID = 0
+	}
+
+	// Create and dispatch task
+	task := ngap_internal.Task{
+		UEID:    ueID,
+		Conn:    conn,
+		Message: msg,
+	}
+
+	// Attempt to dispatch to worker pool
+	if !scheduler.DispatchTask(task) {
+		logger.NgapLog.Warnf("Drop packet for UE ID %d (Scheduler is shutting down)", ueID)
 	}
 }
