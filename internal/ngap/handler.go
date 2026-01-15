@@ -1086,7 +1086,10 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 				Value: int32(causeValue),
 			},
 		}
-		if amfUe.State[ran.AnType].Is(context.Registered) {
+		state := amfUe.State[ran.AnType]
+		if state == nil {
+			ranUe.Log.Warnf("UE state is nil (accessType=%q); treat as Non GMM-Registered", ran.AnType)
+		} else if state.Is(context.Registered) {
 			ranUe.Log.Info("Ue Context in GMM-Registered")
 			if pDUSessionResourceList != nil {
 				for _, pduSessionReourceItem := range pDUSessionResourceList.List {
