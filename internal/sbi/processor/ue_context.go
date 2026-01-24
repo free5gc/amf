@@ -92,6 +92,8 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// ueContextCreateData.UeContext.HpcfId
 	if len(ueContextCreateData.UeContext.RestrictedRatList) > 0 {
 		ue.RatType = ueContextCreateData.UeContext.RestrictedRatList[0] // minItem = -1
+	} else {
+		logger.CtxLog.Debugf("ueContextCreateData.UeContext.RestrictedRatList is empty")
 	}
 	// ueContextCreateData.UeContext.ForbiddenAreaList
 	// ueContextCreateData.UeContext.ServiceAreaRestriction
