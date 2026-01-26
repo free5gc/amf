@@ -90,7 +90,11 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.UdmGroupId = ueContextCreateData.UeContext.UdmGroupId
 	ue.AusfGroupId = ueContextCreateData.UeContext.AusfGroupId
 	// ueContextCreateData.UeContext.HpcfId
-	ue.RatType = ueContextCreateData.UeContext.RestrictedRatList[0] // minItem = -1
+	if len(ueContextCreateData.UeContext.RestrictedRatList) > 0 {
+		ue.RatType = ueContextCreateData.UeContext.RestrictedRatList[0] // minItem = -1
+	} else {
+		logger.CtxLog.Debugf("ueContextCreateData.UeContext.RestrictedRatList is empty")
+	}
 	// ueContextCreateData.UeContext.ForbiddenAreaList
 	// ueContextCreateData.UeContext.ServiceAreaRestriction
 	// ueContextCreateData.UeContext.RestrictedCoreNwTypeList
