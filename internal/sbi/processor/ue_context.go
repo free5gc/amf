@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,7 +14,10 @@ import (
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/internal/nas/nas_security"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	"github.com/free5gc/aper"
 	"github.com/free5gc/nas/security"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics/sbi"
 )
@@ -41,6 +46,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
+		logger.CommLog.Errorf("Missing mandatory fields in UeContextCreateData: %+v", ueContextCreateData)
 		ueCtxCreateError := models.UeContextCreateError{
 			Error: &models.ProblemDetails{
 				Status: http.StatusForbidden,
@@ -57,24 +63,43 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ue.Lock.Lock()
 	defer ue.Lock.Unlock()
 
-	// amfSelf.AmfRanSetByRanId(*ueContextCreateData.TargetId.RanNodeId)
-	// ue.N1N2Message[ueContextId] = &context.N1N2Message{}
-	// ue.N1N2Message[ueContextId].Request.JsonData = &models.N1N2MessageTransferReqData{
-	// 	N2InfoContainer: &models.N2InfoContainer{
-	// 		SmInfo: &models.N2SmInformation{
-	// 			N2InfoContent: ueContextCreateData.SourceToTargetData,
-	// 		},
-	// 	},
-	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
-	amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
+	targetRan, ok := amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
+	if !ok {
+		logger.CommLog.Errorf("Target RAN Node ID not found, TargetRanNodeId: %+v",
+			ueContextCreateData.TargetId.RanNodeId)
+		logger.CommLog.Errorf("TargetRanNodeId.PlmnId: %+v",
+			ueContextCreateData.TargetId.RanNodeId.PlmnId)
+		logger.CommLog.Errorf("TargetRanNodeId.GNbId: %+v",
+			ueContextCreateData.TargetId.RanNodeId.GNbId)
+		ueContextCreateError := &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
+		return nil, ueContextCreateError
+	}
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
 	supportedTAI.Tai.PlmnId = ueContextCreateData.TargetId.Tai.PlmnId
 	// ue.N1N2MessageSubscribeInfo[ueContextID] = &models.UeN1N2InfoSubscriptionCreateData{
 	// 	N2NotifyCallbackUri: ueContextCreateData.N2NotifyUri,
 	// }
+
+	ue.CopyDataFromUeContextModel(ueContextCreateData.UeContext)
+	ue.PlmnId = *targetRan.RanId.PlmnId
+	ue.AmPolicyAssociation = new(models.PcfAmPolicyControlPolicyAssociation)
+	logger.CommLog.Infof("pointer of AmPolicyAssociation: %p", ue.AmPolicyAssociation)
+
+	ue.AmPolicyAssociation.ServAreaRes = new(models.ServiceAreaRestriction)
+	ueServAreaRes := ue.AmPolicyAssociation.ServAreaRes
+	ueServAreaRes.RestrictionType = ueContextCreateData.UeContext.ServiceAreaRestriction.RestrictionType
+	ueServAreaRes.Areas = append(ueServAreaRes.Areas,
+		ueContextCreateData.UeContext.ServiceAreaRestriction.Areas[0])
 	ue.UnauthenticatedSupi = ueContextCreateData.UeContext.SupiUnauthInd
 	// should be smInfo list
 
@@ -118,27 +143,168 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// ueContextCreateData.UeContext.MmContextList
 	// ue.CurPduSession.PduSessionId = ueContextCreateData.UeContext.SessionContextList.
 	// ue.TraceData = ueContextCreateData.UeContext.TraceData
-	createUeContextResponse := new(models.CreateUeContextResponse201)
-	createUeContextResponse.JsonData = &models.UeContextCreatedData{
-		UeContext: &models.UeContext{
-			Supi: ueContextCreateData.UeContext.Supi,
-		},
+
+	// TS 23.502 4.9.1.3.2 step 4
+	var pduSessionReqList ngapType.PDUSessionResourceSetupListHOReq
+
+	if len(ueContextCreateData.UeContext.SessionContextList) > 0 {
+		logger.CommLog.Infof("Send HandoverRequiredTransfer to SMF")
+		for i := range ueContextCreateData.UeContext.SessionContextList {
+			// Check if the S-NSSAI associated with the PDU session is available in the AMF.
+			// If not, the T-AMF does not invoke Nsmf_PDUSession_UpdateSMContext for this PDU session.
+			pduSessionContext := &(ueContextCreateData.UeContext.SessionContextList[i])
+			pduSessionID := pduSessionContext.PduSessionId
+			if pduSessionContext.SNssai != nil && !amfSelf.InPlmnSupportList(*pduSessionContext.SNssai) {
+				continue
+			}
+
+			pduSessionContextToAmfSmContext := func(pduSessionContext models.PduSessionContext) (
+				smContext *context.SmContext,
+			) {
+				smContext = context.NewSmContext(pduSessionContext.PduSessionId)
+				if pduSessionContext.SmContextRef != "" {
+					// Based on TS 29.518 V17.5.0 section 6.1.6.2.37 type: PduSessionContext
+					// (Refer to TS 29.502 V17.1.0 section 6.1.3.3.2 Resource Definition),
+					// smContextRef is formatted as follows:
+					// http://{apiRoot}/nsmf-pdusession/v1/sm-contexts/{smContextRef}
+					// e.g. "smf.free5gc.org/nsmf-pdusession/v1/sm-contexts/12345678"
+					logger.CommLog.Infof("smContextRef: %s", pduSessionContext.SmContextRef)
+					u, err := url.Parse(pduSessionContext.SmContextRef)
+					if err != nil {
+						logger.CommLog.Errorf("url Parse error: %s", err.Error())
+					}
+					apiRoot := u.Scheme + "://" + u.Host
+					smContextRef := strings.TrimPrefix(u.Path, "/nsmf-pdusession/v1/sm-contexts/")
+					logger.CommLog.Infof("apiRoot: %s, smContextRef: %s", apiRoot, smContextRef)
+					smContext.SetSmfUri(apiRoot)
+					smContext.SetSmContextRef(smContextRef)
+				}
+				if pduSessionContext.SNssai != nil {
+					smContext.SetSnssai(*pduSessionContext.SNssai)
+				}
+				if pduSessionContext.Dnn != "" {
+					smContext.SetDnn(pduSessionContext.Dnn)
+				}
+				if pduSessionContext.AccessType != "" {
+					smContext.SetAccessType(pduSessionContext.AccessType)
+				}
+				if pduSessionContext.NsInstance != "" {
+					smContext.SetNsInstance(pduSessionContext.NsInstance)
+				}
+				// ueContextCreateData.UeContext.Location is introduced after Rel.18
+				if pduSessionContext.PlmnId != nil {
+					smContext.SetPlmnID(*pduSessionContext.PlmnId)
+				}
+				if pduSessionContext.SmfServiceInstanceId != "" {
+					smContext.SetSmfID(pduSessionContext.SmfServiceInstanceId)
+				}
+				if pduSessionContext.HsmfId != "" {
+					smContext.SetHSmfID(pduSessionContext.HsmfId)
+				}
+				if pduSessionContext.VsmfId != "" {
+					smContext.SetVSmfID(pduSessionContext.VsmfId)
+				}
+				return smContext
+			}
+
+			smContext := pduSessionContextToAmfSmContext(*pduSessionContext)
+			updateSmContextResponse200, _, _, errSendUpdateSmContext := p.Consumer().
+				SendUpdateSmContextHandoverBetweenAMF(
+					ue, ueContextCreateData.TargetId, smContext, amfSelf.Name, &amfSelf.ServedGuamiList[0], false,
+				)
+			if errSendUpdateSmContext != nil {
+				logger.CommLog.Errorf("consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing Error: %+v",
+					errSendUpdateSmContext)
+			}
+			if updateSmContextResponse200 == nil {
+				logger.CommLog.Errorf("SendUpdateSmContextN2HandoverPreparing Error for pduSessionID[%d]", pduSessionID)
+				continue
+			} else if updateSmContextResponse200.BinaryDataN2SmInformation != nil {
+				ngap_message.AppendPDUSessionResourceSetupListHOReq(&pduSessionReqList, pduSessionID,
+					smContext.Snssai(), updateSmContextResponse200.BinaryDataN2SmInformation)
+
+				// Store SM Context into UE
+				ue.SmContextList.Store(pduSessionID, smContext)
+			}
+		}
+	}
+	if len(pduSessionReqList.List) == 0 {
+		logger.CommLog.Info("Handle Handover Preparation Failure. No PDU Session in the list.")
+		return nil, &models.CreateUeContextResponse403{
+			JsonData: &models.UeContextCreateError{
+				Error: &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "HANDOVER_FAILURE",
+				},
+			},
+		}
 	}
 
-	// response.JsonData.TargetToSourceData =
-	// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
-	createUeContextResponse.JsonData.PcfReselectedInd = false
-	// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
+	// Update NH
+	ue.UpdateSecurityContext(models.AccessType__3_GPP_ACCESS)
 
-	//	response.UeContext = ueContextCreateData.UeContext
-	//	response.TargetToSourceData = ue.N1N2Message[amfSelf.Uri].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	//	response.PduSessionList = ueContextCreateData.PduSessionList
-	//	response.PcfReselectedInd = false // TODO:When  Target AMF selects a nw PCF for AM policy, set the flag to true.
-	//
+	cause := new(ngapType.Cause)
+	if ueContextCreateData.NgapCause != nil {
+		// Based on ngapType.Cause{}, 0= Nothing, 1= RadioNetwork, etc.
+		cause.Present = int(ueContextCreateData.NgapCause.Group) + 1
+		cause.RadioNetwork = new(ngapType.CauseRadioNetwork)
+		cause.RadioNetwork.Value = aper.Enumerated(ueContextCreateData.NgapCause.Value)
+	}
 
-	// return httpwrapper.NewResponse(http.StatusCreated, nil, createUeContextResponse)
-	return createUeContextResponse, nil
+	sourceToTargetTransparentContainer := new(ngapType.SourceToTargetTransparentContainer)
+	sourceToTargetTransparentContainer.Value = aper.OctetString(createUeContextRequest.BinaryDataN2Information)
+
+	// Build RanUe context on T-AMF
+	var targetRanUe *context.RanUe
+	if targetUeTmp, err := targetRan.NewRanUe(context.RanUeNgapIdUnspecified); err != nil {
+		logger.CommLog.Errorf("Create target UE error: %+v", err)
+	} else {
+		targetRanUe = targetUeTmp
+	}
+
+	if targetRanUe != nil {
+		logger.CommLog.Tracef("Target : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[Unknown]", targetRanUe.AmfUeNgapId)
+	}
+	targetRanUe.AmfUe = ue
+	targetRanUe.HandOverStartTime = time.Now()
+	targetRanUe.Log = logger.NgapLog
+
+	// send Handover Request to target RAN
+	ngap_message.SendHandoverRequestWithAMFChange(
+		targetRanUe, targetRan, *cause, pduSessionReqList, *sourceToTargetTransparentContainer, false)
+
+	// create channel if not exist
+	var createUeContextResponse context.PendingHandoverResponse
+	pendingHOResponseChan := make(chan context.PendingHandoverResponse)
+	amfSelf.PendingHandovers.Store(ue.Supi, pendingHOResponseChan)
+
+	// waiting 100ms for handover request acknowledge handler to finish.
+	// If the channel is closed, or the read times out, return the ueContextCreateError at the end of the function.
+	select {
+	case createUeContextResponse, ok = <-pendingHOResponseChan:
+		if ok {
+			if createUeContextResponse.Response201 != nil {
+				return createUeContextResponse.Response201, nil
+			} else if createUeContextResponse.Response403 != nil {
+				return nil, createUeContextResponse.Response403
+			}
+		} else {
+			logger.CommLog.Info("PendingHandoverResponse channel closed.")
+		}
+	case <-time.After(100 * time.Millisecond):
+		logger.CommLog.Warnln("timeout: read from pendingHOResponseChan")
+	}
+
+	ueCtxCreateError := models.UeContextCreateError{
+		Error: &models.ProblemDetails{
+			Status: http.StatusForbidden,
+			Cause:  "HANDOVER_FAILURE",
+		},
+	}
+	ueContextCreateError := &models.CreateUeContextResponse403{
+		JsonData: &ueCtxCreateError,
+	}
+	return nil, ueContextCreateError
 }
 
 // TS 29.518 5.2.2.2.4
@@ -503,7 +669,7 @@ func (p *Processor) buildAmPolicyReqTriggers(triggers []models.PcfAmPolicyContro
 			amPolicyReqTriggers = append(amPolicyReqTriggers, models.PolicyReqTrigger_ACCESS_TYPE_CHANGE)
 		}
 	}
-	return
+	return amPolicyReqTriggers
 }
 
 // TS 29.518 5.2.2.6
