@@ -11,26 +11,14 @@ import (
 )
 
 func Dispatch(conn net.Conn, msg []byte) {
-	var ran *context.AmfRan
 	amfSelf := context.GetSelf()
 
-	ran, ok := amfSelf.AmfRanFindByConn(conn)
-	if !ok {
-		addr := conn.RemoteAddr()
-		if addr == nil {
-			logger.NgapLog.Warn("Addr of new NG connection is nii")
+	if len(msg) == 0 {
+		ran, ok := amfSelf.AmfRanFindByConn(conn)
+		if !ok {
+			logger.NgapLog.Warnf("Connection closed before NGSetup: %v", conn.RemoteAddr())
 			return
 		}
-		logger.NgapLog.Infof("Create a new NG connection for: %s", addr.String())
-		ran = amfSelf.NewAmfRan(conn)
-	}
-
-	if ran == nil {
-		logger.NgapLog.Error("ran is nil")
-		return
-	}
-
-	if len(msg) == 0 {
 		ran.Log.Infof("RAN close the connection.")
 		ran.Remove()
 		return
@@ -38,19 +26,28 @@ func Dispatch(conn net.Conn, msg []byte) {
 
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
-		ran.Log.Errorf("NGAP decode error : %+v", err)
+		logger.NgapLog.Errorf("NGAP decode error: %+v", err)
 		return
 	}
-
 	if pdu == nil {
-		ran.Log.Error("NGAP Message is nil")
+		logger.NgapLog.Error("NGAP Message is nil")
 		return
 	}
 
-	if ran.RanId == nil {
-		if pdu.Present != ngapType.NGAPPDUPresentInitiatingMessage ||
-			pdu.InitiatingMessage.ProcedureCode.Value != ngapType.ProcedureCodeNGSetup {
-			ran.Log.Warn("Received non-NGSetup message on uninitialized connection")
+	ran, ok := amfSelf.AmfRanFindByConn(conn)
+	if !ok {
+		isNGSetup := pdu.Present == ngapType.NGAPPDUPresentInitiatingMessage &&
+			pdu.InitiatingMessage.ProcedureCode.Value == ngapType.ProcedureCodeNGSetup
+		if isNGSetup {
+			addr := conn.RemoteAddr()
+			if addr == nil {
+				logger.NgapLog.Warn("Addr of new NG connection is nil")
+				return
+			}
+			logger.NgapLog.Infof("Create a new NG connection for: %s", addr.String())
+			ran = amfSelf.NewAmfRan(conn)
+		} else {
+			logger.NgapLog.Warn("Received non-NGSetup on new connection")
 			return
 		}
 	}
