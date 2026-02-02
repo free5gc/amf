@@ -107,6 +107,8 @@ type Configuration struct {
 	Locality               string            `yaml:"locality,omitempty" valid:"type(string),optional"`
 	SCTP                   *Sctp             `yaml:"sctp,omitempty" valid:"optional"`
 	DefaultUECtxReq        bool              `yaml:"defaultUECtxReq,omitempty" valid:"type(bool),optional"`
+	NgapWorkerPoolSize     int               `yaml:"ngapWorkerPoolSize,omitempty" valid:"type(int),optional"`
+	NgapTaskBufferSize     int               `yaml:"ngapTaskBufferSize,omitempty" valid:"type(int),optional"`
 }
 
 type Logger struct {
@@ -1030,4 +1032,23 @@ func (c *Config) GetCertKeyPath() string {
 	c.RLock()
 	defer c.RUnlock()
 	return c.Configuration.Sbi.Tls.Key
+}
+
+func (c *Config) GetNgapWorkerPoolSize() int {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.NgapWorkerPoolSize > 0 {
+		return c.Configuration.NgapWorkerPoolSize
+	}
+	// 0 indicates that the caller (e.g., InitScheduler) should auto-detect based on CPU cores
+	return 0
+}
+
+func (c *Config) GetNgapTaskBufferSize() int {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration != nil && c.Configuration.NgapTaskBufferSize > 0 {
+		return c.Configuration.NgapTaskBufferSize
+	}
+	return 1000 // Default buffer size
 }
