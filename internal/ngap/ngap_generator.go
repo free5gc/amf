@@ -52,8 +52,10 @@ type MsgInfo struct {
 	TypeDesc    string
 }
 
-var MsgTable map[string]*MsgInfo
-var msgNames []string
+var (
+	MsgTable map[string]*MsgInfo
+	msgNames []string
+)
 
 // Convert golang name from ASN.1 name
 func convGoName(name string) string {

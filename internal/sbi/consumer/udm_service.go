@@ -447,10 +447,10 @@ func (s *nudmService) UeCmRegistration(
 		)
 
 		registrationData := models.AmfNon3GppAccessRegistration{
-			AmfInstanceId: amfSelf.NfId,
-			Guami:         &amfSelf.ServedGuamiList[0],
-			RatType:       ue.RatType,
-			DeregCallbackUri:       deregCallbackUri,
+			AmfInstanceId:    amfSelf.NfId,
+			Guami:            &amfSelf.ServedGuamiList[0],
+			RatType:          ue.RatType,
+			DeregCallbackUri: deregCallbackUri,
 		}
 
 		regReq := Nudm_UEContextManagement.Non3GppRegistrationRequest{
