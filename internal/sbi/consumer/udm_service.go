@@ -440,10 +440,17 @@ func (s *nudmService) UeCmRegistration(
 			}
 		}
 	case models.AccessType_NON_3_GPP_ACCESS:
+		deregCallbackUri := fmt.Sprintf("%s%s/deregistration/%s",
+			amfSelf.GetIPv4Uri(),
+			factory.AmfCallbackResUriPrefix,
+			ue.Supi,
+		)
+
 		registrationData := models.AmfNon3GppAccessRegistration{
 			AmfInstanceId: amfSelf.NfId,
 			Guami:         &amfSelf.ServedGuamiList[0],
 			RatType:       ue.RatType,
+			DeregCallbackUri:       deregCallbackUri,
 		}
 
 		regReq := Nudm_UEContextManagement.Non3GppRegistrationRequest{
