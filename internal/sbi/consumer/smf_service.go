@@ -443,9 +443,13 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAccessType(
 }
 
 func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
-	ue *amf_context.AmfUe, smContext *amf_context.SmContext, amfid string, guami *models.Guami, activate bool) (
-	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
-) {
+	ue *amf_context.AmfUe,
+	targetRanId *models.NgRanTargetId,
+	smContext *amf_context.SmContext,
+	amfid string,
+	guami *models.Guami,
+	activate bool,
+) (*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error) {
 	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.ServingNfId = amfid
 	updateData.ServingNetwork = guami.PlmnId
@@ -461,6 +465,12 @@ func (s *nsmfService) SendUpdateSmContextHandoverBetweenAMF(
 			}
 		}
 	}
+	// Based on TS 29.502 V17.1.0 section 5.2.2.3.4.2 "N2 Handover Preparation"
+	// step 1, include hoState=PREPARING, targetId(T-RAN Node ID and TAI),
+	// targetServingNfId(T-AMF), and N2 SM information (direct path availability)
+	// in the updateData.
+	updateData.HoState = models.HoState_PREPARING
+	updateData.TargetId = targetRanId
 	return s.consumer.SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 }
 
