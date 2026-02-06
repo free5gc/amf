@@ -6,25 +6,19 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/sctp"
 )
 
 func Dispatch(conn net.Conn, msg []byte) {
-	var ran *context.AmfRan
 	amfSelf := context.GetSelf()
 
-	ran, ok := amfSelf.AmfRanFindByConn(conn)
-	if !ok {
-		addr := conn.RemoteAddr()
-		if addr == nil {
-			logger.NgapLog.Warn("Addr of new NG connection is nii")
+	if len(msg) == 0 {
+		ran, ok := amfSelf.AmfRanFindByConn(conn)
+		if !ok {
+			logger.NgapLog.Warnf("Connection closed before NGSetup: %v", conn.RemoteAddr())
 			return
 		}
-		logger.NgapLog.Infof("Create a new NG connection for: %s", addr.String())
-		ran = amfSelf.NewAmfRan(conn)
-	}
-
-	if len(msg) == 0 {
 		ran.Log.Infof("RAN close the connection.")
 		ran.Remove()
 		return
@@ -32,18 +26,30 @@ func Dispatch(conn net.Conn, msg []byte) {
 
 	pdu, err := ngap.Decoder(msg)
 	if err != nil {
-		ran.Log.Errorf("NGAP decode error : %+v", err)
+		logger.NgapLog.Errorf("NGAP decode error: %+v", err)
 		return
 	}
-
-	if ran == nil {
-		logger.NgapLog.Error("ran is nil")
-		return
-	}
-
 	if pdu == nil {
-		ran.Log.Error("NGAP Message is nil")
+		logger.NgapLog.Error("NGAP Message is nil")
 		return
+	}
+
+	ran, ok := amfSelf.AmfRanFindByConn(conn)
+	if !ok {
+		isNGSetup := pdu.Present == ngapType.NGAPPDUPresentInitiatingMessage &&
+			pdu.InitiatingMessage.ProcedureCode.Value == ngapType.ProcedureCodeNGSetup
+		if isNGSetup {
+			addr := conn.RemoteAddr()
+			if addr == nil {
+				logger.NgapLog.Warn("Addr of new NG connection is nil")
+				return
+			}
+			logger.NgapLog.Infof("Create a new NG connection for: %s", addr.String())
+			ran = amfSelf.NewAmfRan(conn)
+		} else {
+			logger.NgapLog.Warn("Received non-NGSetup on new connection")
+			return
+		}
 	}
 
 	dispatchMain(ran, pdu)
