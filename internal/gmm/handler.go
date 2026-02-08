@@ -1459,6 +1459,8 @@ func reestablishAllowedPDUSessionOver3GPP(ue *context.AmfUe, anType models.Acces
 	if !validator.IsPduSessionIdInPsiRange(requestData.PduSessionId) {
 		ue.GmmLog.Errorln("Invalid PDU Session ID:", requestData.PduSessionId)
 		callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
+		errPduSessionId = append(errPduSessionId, uint8(requestData.PduSessionId))
+		errCause = append(errCause, nasMessage.Cause5GMMSemanticallyIncorrectMessage)
 	} else if allowedPsi[requestData.PduSessionId] {
 		// re-establish the PDU session associated with non-3GPP access over 3GPP access.
 		// notify the SMF if the corresponding PDU session ID(s) associated with non-3GPP access
