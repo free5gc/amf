@@ -35,6 +35,7 @@ import (
 	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
 	"github.com/free5gc/util/fsm"
 	nasMetrics "github.com/free5gc/util/metrics/nas"
+	"github.com/free5gc/util/validator"
 )
 
 const psiArraySize = 16
@@ -90,6 +91,9 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 
 	if id := ulNasTransport.PduSessionID2Value; id != nil {
 		pduSessionID = int32(id.GetPduSessionID2Value())
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			return errors.New("PDU Session ID is invalid")
+		}
 	} else {
 		return errors.New("PDU Session ID is nil")
 	}
@@ -1331,6 +1335,14 @@ func reactivatePendingULDataPDUSession(ue *context.AmfUe, anType models.AccessTy
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
 
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
+			errPduSessionId = append(errPduSessionId, uint8(pduSessionID))
+			errCause = append(errCause, nasMessage.Cause5GMMSemanticallyIncorrectMessage)
+			return true
+		}
+
 		// uplink data are pending for the corresponding PDU session identity
 		if !uplinkDataPsi[pduSessionID] ||
 			(pduSessionID == dlPduSessionId && serviceType == nasMessage.ServiceTypeMobileTerminatedServices) {
@@ -1393,6 +1405,12 @@ func releaseInactivePDUSession(ue *context.AmfUe, anType models.AccessType, uePd
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
 
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
+			return true
+		}
+
 		if uePduStatus[pduSessionID] {
 			pduStatusResult[pduSessionID] = true
 			return true
@@ -1437,7 +1455,13 @@ func reestablishAllowedPDUSessionOver3GPP(ue *context.AmfUe, anType models.Acces
 	if reactivationResult == nil {
 		reactivationResult = new([psiArraySize]bool)
 	}
-	if allowedPsi[requestData.PduSessionId] {
+	// check pduSession id is valid
+	if !validator.IsPduSessionIdInPsiRange(requestData.PduSessionId) {
+		ue.GmmLog.Errorln("Invalid PDU Session ID:", requestData.PduSessionId)
+		callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
+		errPduSessionId = append(errPduSessionId, uint8(requestData.PduSessionId))
+		errCause = append(errCause, nasMessage.Cause5GMMSemanticallyIncorrectMessage)
+	} else if allowedPsi[requestData.PduSessionId] {
 		// re-establish the PDU session associated with non-3GPP access over 3GPP access.
 		// notify the SMF if the corresponding PDU session ID(s) associated with non-3GPP access
 		// are indicated in the Allowed PDU session status IE
@@ -1495,6 +1519,11 @@ func getPDUSessionStatus(ue *context.AmfUe, anType models.AccessType) *[psiArray
 		smContext := value.(*context.SmContext)
 
 		if smContext.AccessType() != anType {
+			return true
+		}
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
 			return true
 		}
 		pduStatusResult[pduSessionID] = true
