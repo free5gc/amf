@@ -10,7 +10,7 @@ require (
 	github.com/free5gc/ngap v1.1.2
 	github.com/free5gc/openapi v1.2.3
 	github.com/free5gc/sctp v1.1.1
-	github.com/free5gc/util v1.3.1
+	github.com/free5gc/util v1.3.2-0.20260204030658-79d56f347175
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/mitchellh/mapstructure v1.5.0
