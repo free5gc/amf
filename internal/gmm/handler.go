@@ -2224,6 +2224,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
+	if ue.T3550 == nil {
+		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
+	}
 	ue.StopT3550()
 
 	// Release existed old SmContext when Initial Registration completed
