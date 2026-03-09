@@ -2120,8 +2120,7 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 	cause5GMM := authenticationFailure.Cause5GMM.GetCauseValue()
 
 	if ue.AuthenticationCtx == nil {
-		ue.GmmLog.Warn("AuthenticationFailure received but AuthenticationCtx is nil")
-		return nil
+		return fmt.Errorf("AuthenticationFailure received but AuthenticationCtx is nil")
 	}
 
 	switch ue.AuthenticationCtx.AuthType {
