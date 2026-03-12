@@ -80,7 +80,9 @@ func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupResponse(iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) ([]byte, error) {
+func BuildNGSetupResponse(
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+) ([]byte, error) {
 	amfSelf := context.GetSelf()
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
@@ -171,7 +173,9 @@ func BuildNGSetupResponse(iesCriticalityDiagnostics *ngapType.CriticalityDiagnos
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupFailure(cause ngapType.Cause, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) ([]byte, error) {
+func BuildNGSetupFailure(
+	cause ngapType.Cause, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+) ([]byte, error) {
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
