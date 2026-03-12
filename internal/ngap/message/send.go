@@ -109,7 +109,11 @@ func SendNGSetupResponse(ran *context.AmfRan, iesCriticalityDiagnostics *ngapTyp
 	isNGSetupRespSent, additionalCause = SendToRan(ran, pkt)
 }
 
-func SendNGSetupFailure(ran *context.AmfRan, cause ngapType.Cause, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) {
+func SendNGSetupFailure(
+	ran *context.AmfRan,
+	cause ngapType.Cause,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+) {
 	isNGSetupFailSent := false
 	additionalCause := ""
 	defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.NG_SETUP_FAILURE, &isNGSetupFailSent, cause, &additionalCause)
