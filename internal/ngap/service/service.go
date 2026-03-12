@@ -209,6 +209,9 @@ func handleConnection(conn *sctp.SCTPConn, bufsize uint32, handler NGAPHandler) 
 			case syscall.EINTR:
 				logger.NgapLog.Debugf("SCTPRead: %+v", err)
 				continue
+			case syscall.EBADF:
+				logger.NgapLog.Debugln("SCTP connection already closed")
+				return
 			default:
 				logger.NgapLog.Errorf(
 					"Handle connection[addr: %+v] error: %+v",
