@@ -432,7 +432,7 @@ syntaxCause = &ngapType.Cause{
 
 		case "NGSetupRequest":
 			avoidNilSyntaxCause(fOut)
-			fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
+			fmt.Fprintf(fOut, "if abort {\n	rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n}\n")
 
 		// Cannot fill mandatory IEs
 		// case "PathSwitchRequest":
@@ -532,6 +532,14 @@ syntaxCause = &ngapType.Cause{
 				mainFuncArgDefs = append(mainFuncArgDefs, fmt.Sprintf("%s *%s", ieInfo.GoVar, ieInfo.GoType))
 				mainFuncArgs = append(mainFuncArgs, ieInfo.GoVar+mayNil)
 			}
+		}
+
+		if msgName == "NGSetupRequest" {
+			mayNil := " /* may be nil */"
+			ieVar := "&iesCriticalityDiagnostics"
+			ieType := "ngapType.CriticalityDiagnosticsIEList"
+			mainFuncArgDefs = append(mainFuncArgDefs, fmt.Sprintf("%s *%s", ieVar, ieType))
+			mainFuncArgs = append(mainFuncArgs, ieVar+mayNil)
 		}
 
 		fmt.Fprintln(fOut, "")

@@ -31,6 +31,7 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	rANNodeName *ngapType.RANNodeName,
 	supportedTAList *ngapType.SupportedTAList,
 	pagingDRX *ngapType.PagingDRX,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -95,9 +96,9 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	}
 
 	if cause.Present == ngapType.CausePresentNothing {
-		ngap_message.SendNGSetupResponse(ran)
+		ngap_message.SendNGSetupResponse(ran, iesCriticalityDiagnostics)
 	} else {
-		ngap_message.SendNGSetupFailure(ran, cause)
+		ngap_message.SendNGSetupFailure(ran, cause, iesCriticalityDiagnostics)
 	}
 }
 

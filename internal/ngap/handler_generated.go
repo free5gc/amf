@@ -5611,7 +5611,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 				},
 			}
 		}
-		rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
+		if abort {
+			rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
+		}
 	}
 
 	if abort {
@@ -5639,8 +5641,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	//	globalRANNodeID *ngapType.GlobalRANNodeID,
 	//	rANNodeName *ngapType.RANNodeName,
 	//	supportedTAList *ngapType.SupportedTAList,
-	//	defaultPagingDRX *ngapType.PagingDRX) {
-	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName /* may be nil */, supportedTAList, defaultPagingDRX /* may be nil */)
+	//	defaultPagingDRX *ngapType.PagingDRX,
+	//	&iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) {
+	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName /* may be nil */, supportedTAList, defaultPagingDRX /* may be nil */, &iesCriticalityDiagnostics /* may be nil */)
 }
 
 func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
