@@ -80,7 +80,7 @@ func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupResponse() ([]byte, error) {
+func BuildNGSetupResponse(iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) ([]byte, error) {
 	amfSelf := context.GetSelf()
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
@@ -158,11 +158,20 @@ func BuildNGSetupResponse() ([]byte, error) {
 	}
 
 	nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		ie = ngapType.NGSetupResponseIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		ie.Criticality.Value = ngapType.CriticalityPresentNotify
+		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
+		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		ie.Value.CriticalityDiagnostics.IEsCriticalityDiagnostics = iesCriticalityDiagnostics
+		nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
+	}
 
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupFailure(cause ngapType.Cause) ([]byte, error) {
+func BuildNGSetupFailure(cause ngapType.Cause, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) ([]byte, error) {
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
@@ -184,6 +193,15 @@ func BuildNGSetupFailure(cause ngapType.Cause) ([]byte, error) {
 	ie.Value.Cause = &cause
 
 	nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		ie = ngapType.NGSetupFailureIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		ie.Criticality.Value = ngapType.CriticalityPresentNotify
+		ie.Value.Present = ngapType.NGSetupFailureIEsPresentCriticalityDiagnostics
+		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+		ie.Value.CriticalityDiagnostics.IEsCriticalityDiagnostics = iesCriticalityDiagnostics
+		nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
+	}
 
 	return ngap.Encoder(pdu)
 }
