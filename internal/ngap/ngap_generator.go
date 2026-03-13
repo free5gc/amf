@@ -250,7 +250,6 @@ func fixIEs() {
 	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Unimplemented = true
 	MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Unimplemented = true
 	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Unimplemented = true
-	MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Unimplemented = true
 	MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Unimplemented = true
 }
 
