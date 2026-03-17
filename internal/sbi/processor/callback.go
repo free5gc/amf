@@ -277,6 +277,24 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 		return problemDetails
 	}
 
+	if registrationCtxtContainer.RanNodeId == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing IE [RanNodeId] in RegistrationCtxtContainer",
+		}
+		return problemDetails
+	}
+
+	if registrationCtxtContainer.UserLocation == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing IE [UserLocation] in RegistrationCtxtContainer",
+		}
+		return problemDetails
+	}
+
 	ran, ok := amfSelf.AmfRanFindByRanID(*registrationCtxtContainer.RanNodeId)
 	if !ok {
 		logger.CallbackLog.Warnln("AmfRanFindByRanID not found: ", *registrationCtxtContainer.RanNodeId)
@@ -311,6 +329,10 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 		amfUe.CopyDataFromUeContextModel(ueContext)
 
 		ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+		if ranUe == nil {
+			logger.CallbackLog.Warnf("RanUe not found for AnN2ApId: %d", registrationCtxtContainer.AnN2ApId)
+			return
+		}
 
 		ranUe.Location = *registrationCtxtContainer.UserLocation
 		amfUe.Location = *registrationCtxtContainer.UserLocation
