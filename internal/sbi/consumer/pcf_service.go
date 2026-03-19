@@ -68,8 +68,8 @@ func (s *npcfService) AMPolicyControlCreate(
 			Mcc: ue.PlmnId.Mcc,
 			Mnc: ue.PlmnId.Mnc,
 		},
-		Guami: &amfSelf.ServedGuamiList[0],
-		SuppFeat:    "0",
+		Guami:    &amfSelf.ServedGuamiList[0],
+		SuppFeat: "0",
 	}
 	var policyAssociationreq Npcf_AMPolicy.CreateIndividualAMPolicyAssociationRequest
 
