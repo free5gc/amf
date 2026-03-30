@@ -395,6 +395,7 @@ func (s *nsmfService) SendUpdateSmContextN2HandoverComplete(
 ) {
 	updateData := models.SmfPduSessionSmContextUpdateData{}
 	updateData.HoState = models.HoState_COMPLETED
+	updateData.UeLocation = &ue.Location
 	if amfid != "" {
 		updateData.ServingNfId = amfid
 		updateData.ServingNetwork = guami.PlmnId
