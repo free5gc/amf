@@ -81,7 +81,7 @@ func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
 }
 
 func BuildNGSetupResponse(
-	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) ([]byte, error) {
 	amfSelf := context.GetSelf()
 	var pdu ngapType.NGAPPDU
@@ -160,13 +160,14 @@ func BuildNGSetupResponse(
 	}
 
 	nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
-	if len(iesCriticalityDiagnostics.List) > 0 {
+	if criticalityDiagnostics != nil {
 		ie = ngapType.NGSetupResponseIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		ie.Criticality.Value = ngapType.CriticalityPresentNotify
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
 		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
 		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
-		ie.Value.CriticalityDiagnostics.IEsCriticalityDiagnostics = iesCriticalityDiagnostics
+
+		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
 		nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
 	}
 
@@ -174,7 +175,7 @@ func BuildNGSetupResponse(
 }
 
 func BuildNGSetupFailure(
-	cause ngapType.Cause, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+	cause ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) ([]byte, error) {
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
@@ -197,13 +198,14 @@ func BuildNGSetupFailure(
 	ie.Value.Cause = &cause
 
 	nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
-	if len(iesCriticalityDiagnostics.List) > 0 {
+	if criticalityDiagnostics != nil {
 		ie = ngapType.NGSetupFailureIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
-		ie.Criticality.Value = ngapType.CriticalityPresentNotify
-		ie.Value.Present = ngapType.NGSetupFailureIEsPresentCriticalityDiagnostics
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
 		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
-		ie.Value.CriticalityDiagnostics.IEsCriticalityDiagnostics = iesCriticalityDiagnostics
+
+		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
 		nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
 	}
 

@@ -92,14 +92,14 @@ func NasSendToRan(ue *context.AmfUe, accessType models.AccessType, packet []byte
 	return SendToRanUe(ranUe, packet)
 }
 
-func SendNGSetupResponse(ran *context.AmfRan, iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) {
+func SendNGSetupResponse(ran *context.AmfRan, criticalityDiagnostics *ngapType.CriticalityDiagnostics) {
 	isNGSetupRespSent := false
 	additionalCause := ""
 	defer ngap_metrics.IncrMetricsSentMsg(ngap_metrics.NG_SETUP_RESPONSE, &isNGSetupRespSent, emptyCause, &additionalCause)
 
 	ran.Log.Info("Send NG-Setup response")
 
-	pkt, err := BuildNGSetupResponse(iesCriticalityDiagnostics)
+	pkt, err := BuildNGSetupResponse(criticalityDiagnostics)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
 		ran.Log.Errorf("Build NGSetupResponse failed : %s", err.Error())
@@ -112,7 +112,7 @@ func SendNGSetupResponse(ran *context.AmfRan, iesCriticalityDiagnostics *ngapTyp
 func SendNGSetupFailure(
 	ran *context.AmfRan,
 	cause ngapType.Cause,
-	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
 ) {
 	isNGSetupFailSent := false
 	additionalCause := ""
@@ -126,7 +126,7 @@ func SendNGSetupFailure(
 		return
 	}
 
-	pkt, err := BuildNGSetupFailure(cause, iesCriticalityDiagnostics)
+	pkt, err := BuildNGSetupFailure(cause, criticalityDiagnostics)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
 		ran.Log.Errorf("Build NGSetupFailure failed : %s", err.Error())
