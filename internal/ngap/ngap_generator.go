@@ -399,7 +399,7 @@ syntaxCause = &ngapType.Cause{
 
 		// Generate Error Indication
 		fmt.Fprintln(fOut, "")
-		fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
+		genErrorActionCondition(fOut, msgName)
 		fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
 		genErrorIndicationCommon(fOut, mInfo)
 		fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
@@ -431,7 +431,7 @@ syntaxCause = &ngapType.Cause{
 
 		case "NGSetupRequest":
 			avoidNilSyntaxCause(fOut)
-			fmt.Fprintf(fOut, "if abort {\n	rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n}\n")
+			fmt.Fprintf(fOut, "rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)\n")
 
 		// Cannot fill mandatory IEs
 		// case "PathSwitchRequest":
@@ -533,7 +533,7 @@ syntaxCause = &ngapType.Cause{
 			}
 		}
 
-		if msgName == "NGSetupRequest" {
+		if msgName == "NGSetupRequest" || msgName == "RANConfigurationUpdate" {
 			mayNil := " /* may be nil */"
 			ieVar := "&iesCriticalityDiagnostics"
 			ieType := "ngapType.CriticalityDiagnosticsIEList"
@@ -820,6 +820,15 @@ func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentIgnore")
 	case ngapType.CriticalityPresentNotify:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentNotify")
+	}
+}
+
+func genErrorActionCondition(f io.Writer, msgName string) {
+	switch msgName {
+	case "NGSetupRequest", "RANConfigurationUpdate":
+		fmt.Fprintln(f, "if abort {")
+	default:
+		fmt.Fprintln(f, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
 	}
 }
 
