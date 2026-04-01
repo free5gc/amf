@@ -94,15 +94,18 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 			}
 		}
 	}
-	procedureCode := ngapType.ProcedureCodeNGSetup
-	triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
-	procedureCriticality := ngapType.CriticalityPresentNotify
-	criticalityDiagnostics := buildCriticalityDiagnostics(
-		&procedureCode,
-		&triggeringMessage,
-		&procedureCriticality,
-		iesCriticalityDiagnostics,
-	)
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
 		ngap_message.SendNGSetupResponse(ran, &criticalityDiagnostics)
 	} else {
@@ -1839,15 +1842,18 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 			}
 		}
 	}
-	procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
-	triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
-	procedureCriticality := ngapType.CriticalityPresentNotify
-	criticalityDiagnostics := buildCriticalityDiagnostics(
-		&procedureCode,
-		&triggeringMessage,
-		&procedureCriticality,
-		iesCriticalityDiagnostics,
-	)
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledge")
 		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, &criticalityDiagnostics)
