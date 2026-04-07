@@ -1748,6 +1748,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 
 func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
+	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer,
 ) {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -1755,6 +1756,14 @@ func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 		return
 	}
 	// send to T-AMF using N1N2MessageTransfer (R16)
+
+	targetRanUe := ranUe.TargetUe
+	if targetRanUe == nil {
+		ranUe.Log.Warn("TargetRanUe is nil, cannot transfer RAN status")
+		return
+	}
+	ranUe.Log.Info("Sending Downlink RAN Status Transfer to Target gNB")
+	ngap_message.SendDownlinkRanStatusTransfer(targetRanUe, *rANStatusTransferTransparentContainer)
 }
 
 func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
