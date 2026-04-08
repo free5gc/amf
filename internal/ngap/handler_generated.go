@@ -5593,7 +5593,7 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 		abort = true
 	}
 
-	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+	if abort {
 		ran.Log.Trace("Has IE error")
 		procedureCode := ngapType.ProcedureCodeNGSetup
 		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
@@ -5612,9 +5612,6 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 			}
 		}
 		rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
-	}
-
-	if abort {
 		return
 	}
 
@@ -5639,8 +5636,9 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 	//	globalRANNodeID *ngapType.GlobalRANNodeID,
 	//	rANNodeName *ngapType.RANNodeName,
 	//	supportedTAList *ngapType.SupportedTAList,
-	//	defaultPagingDRX *ngapType.PagingDRX) {
-	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName /* may be nil */, supportedTAList, defaultPagingDRX /* may be nil */)
+	//	defaultPagingDRX *ngapType.PagingDRX,
+	//	&iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) {
+	handleNGSetupRequestMain(ran, globalRANNodeID, rANNodeName /* may be nil */, supportedTAList, defaultPagingDRX /* may be nil */, &iesCriticalityDiagnostics /* may be nil */)
 }
 
 func handlerNGSetupResponse(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {
@@ -8872,7 +8870,7 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 		}
 	}
 
-	if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {
+	if abort {
 		ran.Log.Trace("Has IE error")
 		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
 		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
@@ -8891,9 +8889,6 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 			}
 		}
 		rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
-	}
-
-	if abort {
 		return
 	}
 
@@ -8910,8 +8905,9 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 	metricStatusOk = true
 
 	// func handleRANConfigurationUpdateMain(ran *context.AmfRan,
-	//	supportedTAList *ngapType.SupportedTAList) {
-	handleRANConfigurationUpdateMain(ran, supportedTAList /* may be nil */)
+	//	supportedTAList *ngapType.SupportedTAList,
+	//	&iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList) {
+	handleRANConfigurationUpdateMain(ran, supportedTAList /* may be nil */, &iesCriticalityDiagnostics /* may be nil */)
 }
 
 func handlerRANConfigurationUpdateAcknowledge(ran *context.AmfRan, successfulOutcome *ngapType.SuccessfulOutcome) {

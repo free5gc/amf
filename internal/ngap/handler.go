@@ -31,6 +31,7 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	rANNodeName *ngapType.RANNodeName,
 	supportedTAList *ngapType.SupportedTAList,
 	pagingDRX *ngapType.PagingDRX,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -93,11 +94,22 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
-		ngap_message.SendNGSetupResponse(ran)
+		ngap_message.SendNGSetupResponse(ran, &criticalityDiagnostics)
 	} else {
-		ngap_message.SendNGSetupFailure(ran, cause)
+		ngap_message.SendNGSetupFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 
@@ -1782,6 +1794,7 @@ func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
 
 func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 	supportedTAList *ngapType.SupportedTAList,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -1838,13 +1851,24 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledge")
-		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, nil)
+		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, &criticalityDiagnostics)
 	} else {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledgeFailure")
-		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, nil)
+		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 
