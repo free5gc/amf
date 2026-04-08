@@ -449,11 +449,17 @@ syntaxCause = &ngapType.Cause{
 		default:
 			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
 		}
-		fmt.Fprintln(fOut, "}")
-		fmt.Fprintln(fOut, "")
-		fmt.Fprintln(fOut, "if abort {")
-		fmt.Fprintln(fOut, "return")
-		fmt.Fprintln(fOut, "}")
+		if msgName != "NGSetupRequest" && msgName != "RANConfigurationUpdate" {
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "")
+			fmt.Fprintln(fOut, "if abort {")
+			fmt.Fprintln(fOut, "return")
+			fmt.Fprintln(fOut, "}")
+		} else {
+			fmt.Fprintln(fOut, "return")
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "")
+		}
 
 		// To avoid Coverity's false positive, generate this check for Request messages too
 		fmt.Fprintln(fOut, "")

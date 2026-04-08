@@ -5612,9 +5612,6 @@ func handlerNGSetupRequest(ran *context.AmfRan, initiatingMessage *ngapType.Init
 			}
 		}
 		rawSendNGSetupFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
-	}
-
-	if abort {
 		return
 	}
 
@@ -8892,9 +8889,6 @@ func handlerRANConfigurationUpdate(ran *context.AmfRan, initiatingMessage *ngapT
 			}
 		}
 		rawSendRANConfigurationUpdateFailure(ran, *syntaxCause, nil, &criticalityDiagnostics)
-	}
-
-	if abort {
 		return
 	}
 
