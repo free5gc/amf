@@ -202,7 +202,7 @@ func BuildNGSetupFailure(
 		ie = ngapType.NGSetupFailureIEs{}
 		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
 		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
-		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
+		ie.Value.Present = ngapType.NGSetupFailureIEsPresentCriticalityDiagnostics
 		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
 
 		ie.Value.CriticalityDiagnostics = criticalityDiagnostics

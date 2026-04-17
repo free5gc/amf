@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -1000,4 +1001,71 @@ func (ue *AmfUe) StopT3555() {
 	ue.GmmLog.Infof("Stop T3555 timer")
 	ue.T3555.Stop()
 	ue.T3555 = nil // clear the timer
+}
+
+func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
+	if ue.RanUe[anType] == nil || ue.RanUe[anType].Ran == nil {
+		ue.GmmLog.Warn("CheckSliceAvailabilityInCurrentRan: RanUe or Ran is nil")
+		return false
+	}
+	ran := ue.RanUe[anType].Ran
+	currentTai := ue.Tai
+
+	return ue.CheckSliceAvailabilityInTargetRan(targetSnssai, ran, currentTai)
+}
+
+func (ue *AmfUe) CheckSliceAvailabilityInTargetRan(targetSnssai models.Snssai, ran *AmfRan, targetTai models.Tai) bool {
+	for _, taiItem := range ran.SupportedTAList {
+		if taiItem.Tai.Tac == targetTai.Tac &&
+			taiItem.Tai.PlmnId.Mcc == targetTai.PlmnId.Mcc &&
+			taiItem.Tai.PlmnId.Mnc == targetTai.PlmnId.Mnc {
+			for _, supportedSnssai := range taiItem.SNssaiList {
+				if supportedSnssai.Sst == targetSnssai.Sst {
+					tarSd := strings.TrimSpace(strings.ToLower(targetSnssai.Sd))
+					supSd := strings.TrimSpace(strings.ToLower(supportedSnssai.Sd))
+					if tarSd == supSd {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (ue *AmfUe) CheckSliceAvailabilityInRegistrationArea(targetSnssai models.Snssai, anType models.AccessType) bool {
+	// if ue is in CONNECTED state, directly check the current RAN
+	if ue.CmConnect(anType) {
+		return ue.CheckSliceAvailabilityInCurrentRan(targetSnssai, anType)
+	}
+	// if ue is in IDLE state, need to check all TAIs in Registration Area
+	// according to TS 23.502 4.2.3.3 Step 3b:
+	// if any TAI in the Registration Area supports the requested S-NSSAI, paging is allowed
+	RegistrationAreaMap := make(map[string]bool)
+
+	for _, tai := range ue.RegistrationArea[anType] {
+		key := tai.PlmnId.Mcc + tai.PlmnId.Mnc + tai.Tac
+		RegistrationAreaMap[key] = true
+	}
+	supported := false
+	ue.ServingAMF().AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*AmfRan)
+		for _, supportedItem := range ran.SupportedTAList {
+			taiKey := supportedItem.Tai.PlmnId.Mcc + supportedItem.Tai.PlmnId.Mnc + supportedItem.Tai.Tac
+			if _, exists := RegistrationAreaMap[taiKey]; exists {
+				for _, supportedSnssai := range supportedItem.SNssaiList {
+					if supportedSnssai.Sst == targetSnssai.Sst {
+						tarSd := strings.TrimSpace(strings.ToLower(targetSnssai.Sd))
+						supSd := strings.TrimSpace(strings.ToLower(supportedSnssai.Sd))
+						if tarSd == supSd {
+							supported = true
+							return false
+						}
+					}
+				}
+			}
+		}
+		return true
+	})
+	return supported
 }
