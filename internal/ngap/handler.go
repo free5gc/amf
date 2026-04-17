@@ -1311,6 +1311,23 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	var pduSessionResourceReleasedListPSAck ngapType.PDUSessionResourceReleasedListPSAck
 	var pduSessionResourceReleasedListPSFail ngapType.PDUSessionResourceReleasedListPSFail
 
+	var targetTai models.Tai
+
+	if userLocationInformation != nil {
+		switch userLocationInformation.Present {
+		case ngapType.UserLocationInformationPresentUserLocationInformationNR:
+			if userLocationInformation.UserLocationInformationNR != nil {
+				targetTai = ngapConvert.TaiToModels(userLocationInformation.UserLocationInformationNR.TAI)
+			}
+		case ngapType.UserLocationInformationPresentUserLocationInformationEUTRA:
+			if userLocationInformation.UserLocationInformationEUTRA != nil {
+				targetTai = ngapConvert.TaiToModels(userLocationInformation.UserLocationInformationEUTRA.TAI)
+			}
+		default:
+			ran.Log.Warn("UserLocationInformation Present is unknown or missing")
+		}
+	}
+
 	if pduSessionResourceToBeSwitchedInDLList != nil {
 		ranUe.Log.Infof("Send PathSwitchRequestTransfer to SMF")
 		for _, item := range pduSessionResourceToBeSwitchedInDLList.List {
@@ -1320,6 +1337,17 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			if !ok {
 				ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				// TODO: Check if doing error handling here
+				continue
+			}
+			// TS 23.502 4.9.1.2.2 step 7 filter un-supported S-NSSAI in Target TAI
+			if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), ran, targetTai) {
+				ranUe.Log.Warnf("Xn Handover Filter: PDU Session %d (S-NSSAI: %+v) "+
+					"not supported in Target TAI %v. Rejecting Path Switch.",
+					pduSessionID, smContext.Snssai(), targetTai.Tac)
+				pduSessionResourceReleasedItem := ngapType.PDUSessionResourceReleasedItemPSFail{}
+				pduSessionResourceReleasedItem.PDUSessionID.Value = int64(pduSessionID)
+				pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
+					pduSessionResourceReleasedItem)
 				continue
 			}
 			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
@@ -1446,6 +1474,8 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	var pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList
 	var pduSessionResourceToReleaseList ngapType.PDUSessionResourceToReleaseListHOCmd
 
+	targetTai := targetUe.Tai
+
 	// describe in 23.502 4.9.1.3.2 step11
 	if pDUSessionResourceAdmittedList != nil {
 		targetUe.Log.Infof("Send HandoverRequestAcknowledgeTransfer to SMF")
@@ -1456,6 +1486,16 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 			if !ok {
 				targetUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				// TODO: Check if doing error handling here
+				continue
+			}
+			// check snssai allowed in target TAI
+			if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), ran, targetTai) {
+				targetUe.Log.Warnf("Final Slice Check Failed: PDU Session %d (S-NSSAI: %+v) "+
+					"not supported in Target TAI %v. Moving to Release List.",
+					pduSessionID, smContext.Snssai(), targetTai.Tac)
+				releaseItem := ngapType.PDUSessionResourceToReleaseItemHOCmd{}
+				releaseItem.PDUSessionID = item.PDUSessionID
+				pduSessionResourceToReleaseList.List = append(pduSessionResourceToReleaseList.List, releaseItem)
 				continue
 			}
 			resp, errResponse, problemDetails, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPrepared(amfUe,
@@ -1676,7 +1716,13 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 					// TODO: Check if doing error handling here
 					continue
 				}
-
+				// filter snssai allowed in target Ran
+				if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), targetRan, amfUe.Tai) {
+					sourceUe.Log.Warnf("N2 Handover Filter (Source Side): PDU Session %d (S-NSSAI: %+v) "+
+						"not supported in Target Ran. Skipping resource allocation.",
+						pduSessionID, smContext.Snssai())
+					continue
+				}
 				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverPreparing(amfUe, smContext,
 					models.N2SmInfoType_HANDOVER_REQUIRED, pDUSessionResourceHoItem.HandoverRequiredTransfer, "", &targetId)
 				if err != nil {

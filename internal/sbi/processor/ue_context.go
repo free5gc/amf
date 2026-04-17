@@ -68,6 +68,24 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	// }
 	ue.HandoverNotifyUri = ueContextCreateData.N2NotifyUri
 
+	targetRanNodeId := ueContextCreateData.TargetId.RanNodeId
+	targetRan, ok := amfSelf.AmfRanFindByRanID(*targetRanNodeId)
+	// TS 23.502 4.9.1.3.2 Step 4 Filter PDU Sessions not supported in Target TAI
+	targetTai := *ueContextCreateData.TargetId.Tai
+	supportedPdusessionList := []models.N2SmInformation{}
+	for _, smInfo := range ueContextCreateData.PduSessionList {
+		if smInfo.SNssai != nil {
+			if ok && ue.CheckSliceAvailabilityInTargetRan(*smInfo.SNssai, targetRan, targetTai) {
+				supportedPdusessionList = append(supportedPdusessionList, smInfo)
+			} else {
+				ue.ProducerLog.Warnf("Handover Filter: PDU Session %d (S-NSSAI: %+v) not supported in Target TAI %v, skipping.",
+					smInfo.PduSessionId, smInfo.SNssai, targetTai.Tac)
+			}
+		} else {
+			supportedPdusessionList = append(supportedPdusessionList, smInfo)
+		}
+	}
+
 	amfSelf.AmfRanFindByRanID(*ueContextCreateData.TargetId.RanNodeId)
 	supportedTAI := context.NewSupportedTAI()
 	supportedTAI.Tai.Tac = ueContextCreateData.TargetId.Tai.Tac
@@ -127,7 +145,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 
 	// response.JsonData.TargetToSourceData =
 	// ue.N1N2Message[ueContextId].Request.JsonData.N2InfoContainer.SmInfo.N2InfoContent
-	createUeContextResponse.JsonData.PduSessionList = ueContextCreateData.PduSessionList
+	createUeContextResponse.JsonData.PduSessionList = supportedPdusessionList
 	createUeContextResponse.JsonData.PcfReselectedInd = false
 	// TODO: When  Target AMF selects a nw PCF for AM policy, set the flag to true.
 
