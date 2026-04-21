@@ -31,6 +31,7 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	rANNodeName *ngapType.RANNodeName,
 	supportedTAList *ngapType.SupportedTAList,
 	pagingDRX *ngapType.PagingDRX,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -93,11 +94,22 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
-		ngap_message.SendNGSetupResponse(ran)
+		ngap_message.SendNGSetupResponse(ran, &criticalityDiagnostics)
 	} else {
-		ngap_message.SendNGSetupFailure(ran, cause)
+		ngap_message.SendNGSetupFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 
@@ -1748,6 +1760,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 
 func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
+	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer,
 ) {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -1755,6 +1768,14 @@ func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 		return
 	}
 	// send to T-AMF using N1N2MessageTransfer (R16)
+
+	targetRanUe := ranUe.TargetUe
+	if targetRanUe == nil {
+		ranUe.Log.Warn("TargetRanUe is nil, cannot transfer RAN status")
+		return
+	}
+	ranUe.Log.Info("Sending Downlink RAN Status Transfer to Target gNB")
+	ngap_message.SendDownlinkRanStatusTransfer(targetRanUe, *rANStatusTransferTransparentContainer)
 }
 
 func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
@@ -1773,6 +1794,7 @@ func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
 
 func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 	supportedTAList *ngapType.SupportedTAList,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -1829,13 +1851,24 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledge")
-		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, nil)
+		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, &criticalityDiagnostics)
 	} else {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledgeFailure")
-		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, nil)
+		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 
