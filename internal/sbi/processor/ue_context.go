@@ -39,6 +39,7 @@ func (p *Processor) CreateUEContextProcedure(ueContextID string, createUeContext
 	ueContextCreateData := createUeContextRequest.JsonData
 
 	if ueContextCreateData.UeContext == nil || ueContextCreateData.TargetId == nil ||
+		ueContextCreateData.TargetId.RanNodeId == nil || ueContextCreateData.TargetId.Tai == nil ||
 		ueContextCreateData.PduSessionList == nil || ueContextCreateData.SourceToTargetData == nil ||
 		ueContextCreateData.N2NotifyUri == "" {
 		ueCtxCreateError := models.UeContextCreateError{
