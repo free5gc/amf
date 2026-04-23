@@ -291,15 +291,6 @@ func (a *AmfApp) WaitRoutineStopped() {
 func (a *AmfApp) terminateProcedure() {
 	logger.MainLog.Infof("Terminating AMF...")
 	a.CallServerStop()
-	// deregister with NRF
-	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
-	if problemDetails != nil {
-		logger.MainLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
-	} else if err_deg != nil {
-		logger.MainLog.Errorf("Deregister NF instance Error[%+v]", err_deg)
-	} else {
-		logger.MainLog.Infof("[AMF] Deregister from NRF successfully")
-	}
 
 	// TODO: forward registered UE contexts to target AMF in the same AMF set if there is one
 
@@ -319,5 +310,17 @@ func (a *AmfApp) terminateProcedure() {
 	ngap.ShutdownScheduler()
 
 	ngap_service.Stop()
+
+	// notify SBI subscribers before deregistering so NRF still recognizes AMF as a valid OAuth client
 	callback.SendAmfStatusChangeNotify((string)(models.StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+
+	// deregister with NRF
+	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
+	if problemDetails != nil {
+		logger.MainLog.Errorf("Deregister NF instance Failed Problem[%+v]", problemDetails)
+	} else if err_deg != nil {
+		logger.MainLog.Errorf("Deregister NF instance Error[%+v]", err_deg)
+	} else {
+		logger.MainLog.Infof("[AMF] Deregister from NRF successfully")
+	}
 }
