@@ -269,6 +269,26 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 
 	// UE is CM-IDLE
 
+	// TS 23.502 4.2.3.3 Step 3b: NS-AoS check (Non-Allowed Area Check)
+	if requestData.PduSessionId != 0 {
+		if smContext, ok = ue.SmContextFindByPDUSessionID(requestData.PduSessionId); ok {
+			snssai := smContext.Snssai()
+			isPrioritized := requestData.Ppi >= 12 && requestData.Ppi <= 15
+
+			if !isPrioritized && !ue.CheckSliceAvailabilityInRegistrationArea(snssai, anType) {
+				ue.ProducerLog.Warnf("Slice not supported in current TAI, skip Paging (PDU Session ID: %d, S-NSSAI: %+v)",
+					requestData.PduSessionId, snssai)
+				problemDetails = &models.ProblemDetails{
+					Status: http.StatusForbidden,
+					Cause:  "UE_IN_NON_ALLOWED_AREA",
+					Detail: "S-NSSAI is not supported in the current Registration Area",
+				}
+				logger.NgapLog.Warnf("NS-AoS Check Failed: PDU Session[%d] S-NSSAI[%+v] not supported in current TAI",
+					requestData.PduSessionId, snssai)
+				return nil, "", problemDetails, nil
+			}
+		}
+	}
 	// 409: transfer a N2 PDU Session Resource Release Command to a 5G-AN and if the UE is in CM-IDLE
 	if n2Info != nil &&
 		requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.AmfCommunicationNgapIeType_PDU_RES_REL_CMD {
