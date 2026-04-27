@@ -1413,11 +1413,22 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	hoFailCause := ""
 
 	defer func(hoFailCause *string) {
-		if utils.ReadStringPtr(hoFailCause) != "" {
-			business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
-				utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
-				targetUe.HandOverStartTime)
+		if utils.ReadStringPtr(hoFailCause) == "" {
+			return
 		}
+		// targetUe is resolved by the caller from the AMF-UE-NGAP-ID in the
+		// HandoverRequestAcknowledge. A message that omits that IE lands
+		// here with targetUe == nil, and reading HandOverStartTime off a
+		// nil pointer used to crash the NGAP worker goroutine
+		// (free5gc/free5gc#1018). Emit the metric with a zero timestamp
+		// in that case rather than panicking.
+		var startTime time.Time
+		if targetUe != nil {
+			startTime = targetUe.HandOverStartTime
+		}
+		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
+			utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
+			startTime)
 	}(&hoFailCause)
 
 	if criticalityDiagnostics != nil {
