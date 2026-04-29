@@ -250,7 +250,6 @@ func fixIEs() {
 	// MsgTable["UERadioCapabilityCheckResponse"].IEs["id-RAN-UE-NGAP-ID"].Unimplemented = true
 	MsgTable["UERadioCapabilityCheckResponse"].IEs["id-IMSVoiceSupportIndicator"].Unimplemented = true
 	MsgTable["UplinkRANConfigurationTransfer"].IEs["id-ENDC-SONConfigurationTransferUL"].Unimplemented = true
-	MsgTable["UplinkRANStatusTransfer"].IEs["id-RANStatusTransfer-TransparentContainer"].Unimplemented = true
 	MsgTable["UplinkUEAssociatedNRPPaTransport"].IEs["id-NRPPa-PDU"].Unimplemented = true
 }
 
@@ -400,7 +399,7 @@ syntaxCause = &ngapType.Cause{
 
 		// Generate Error Indication
 		fmt.Fprintln(fOut, "")
-		fmt.Fprintln(fOut, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
+		genErrorActionCondition(fOut, msgName)
 		fmt.Fprintln(fOut, "ran.Log.Trace(\"Has IE error\")")
 		genErrorIndicationCommon(fOut, mInfo)
 		fmt.Fprintln(fOut, "var pIesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList")
@@ -449,11 +448,17 @@ syntaxCause = &ngapType.Cause{
 		default:
 			fmt.Fprintf(fOut, "ngap_message.SendErrorIndication(ran, %s, %s, syntaxCause, &criticalityDiagnostics)\n", amfIdIeVar, ranIdIeVar)
 		}
-		fmt.Fprintln(fOut, "}")
-		fmt.Fprintln(fOut, "")
-		fmt.Fprintln(fOut, "if abort {")
-		fmt.Fprintln(fOut, "return")
-		fmt.Fprintln(fOut, "}")
+		if msgName != "NGSetupRequest" && msgName != "RANConfigurationUpdate" {
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "")
+			fmt.Fprintln(fOut, "if abort {")
+			fmt.Fprintln(fOut, "return")
+			fmt.Fprintln(fOut, "}")
+		} else {
+			fmt.Fprintln(fOut, "return")
+			fmt.Fprintln(fOut, "}")
+			fmt.Fprintln(fOut, "")
+		}
 
 		// To avoid Coverity's false positive, generate this check for Request messages too
 		fmt.Fprintln(fOut, "")
@@ -532,6 +537,14 @@ syntaxCause = &ngapType.Cause{
 				mainFuncArgDefs = append(mainFuncArgDefs, fmt.Sprintf("%s *%s", ieInfo.GoVar, ieInfo.GoType))
 				mainFuncArgs = append(mainFuncArgs, ieInfo.GoVar+mayNil)
 			}
+		}
+
+		if msgName == "NGSetupRequest" || msgName == "RANConfigurationUpdate" {
+			mayNil := " /* may be nil */"
+			ieVar := "&iesCriticalityDiagnostics"
+			ieType := "ngapType.CriticalityDiagnosticsIEList"
+			mainFuncArgDefs = append(mainFuncArgDefs, fmt.Sprintf("%s *%s", ieVar, ieType))
+			mainFuncArgs = append(mainFuncArgs, ieVar+mayNil)
 		}
 
 		fmt.Fprintln(fOut, "")
@@ -813,6 +826,15 @@ func genErrorIndicationCommon(f io.Writer, mInfo *MsgInfo) {
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentIgnore")
 	case ngapType.CriticalityPresentNotify:
 		fmt.Fprintln(f, "procedureCriticality := ngapType.CriticalityPresentNotify")
+	}
+}
+
+func genErrorActionCondition(f io.Writer, msgName string) {
+	switch msgName {
+	case "NGSetupRequest", "RANConfigurationUpdate":
+		fmt.Fprintln(f, "if abort {")
+	default:
+		fmt.Fprintln(f, "if syntaxCause != nil || len(iesCriticalityDiagnostics.List) > 0 {")
 	}
 }
 

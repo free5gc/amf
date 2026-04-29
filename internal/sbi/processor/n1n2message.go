@@ -105,6 +105,15 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	if requestData.N1MessageContainer != nil {
 		switch requestData.N1MessageContainer.N1MessageClass {
 		case models.N1MessageClass_SM:
+			if requestData.N2InfoContainer.SmInfo.SNssai == nil {
+				problemDetails = &models.ProblemDetails{
+					Title:  "Malformed request syntax",
+					Status: http.StatusBadRequest,
+					Cause:  "MANDATORY_IE_MISSING",
+					Detail: "missing n2InfoContainer.smInfo.sNssai for PDU_RES_SETUP_REQ",
+				}
+				return nil, "", problemDetails, nil
+			}
 			ue.ProducerLog.Debugf("Receive N1 SM Message (PDU Session ID: %d)", requestData.PduSessionId)
 			n1MsgType = nasMessage.PayloadContainerTypeN1SMInfo
 			if smContext, ok = ue.SmContextFindByPDUSessionID(requestData.PduSessionId); !ok {

@@ -2119,6 +2119,10 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 
 	cause5GMM := authenticationFailure.Cause5GMM.GetCauseValue()
 
+	if ue.AuthenticationCtx == nil {
+		return fmt.Errorf("AuthenticationFailure received but AuthenticationCtx is nil")
+	}
+
 	switch ue.AuthenticationCtx.AuthType {
 	case models.AusfUeAuthenticationAuthType__5_G_AKA:
 		switch cause5GMM {
@@ -2224,6 +2228,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
+	if ue.T3550 == nil {
+		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
+	}
 	ue.StopT3550()
 
 	// Release existed old SmContext when Initial Registration completed
