@@ -71,6 +71,17 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 		return problemDetails
 	}
 
+	if smContextStatusNotification.StatusInfo == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "INVALID_MSG_FORMAT",
+			InvalidParams: []models.InvalidParam{
+				{Param: "StatusInfo", Reason: "is required"},
+			},
+		}
+		return problemDetails
+	}
+
 	if smContextStatusNotification.StatusInfo.ResourceStatus == models.ResourceStatus_RELEASED {
 		if smContext.PduSessionIDDuplicated() {
 			ue.ProducerLog.Infof("Local release duplicated SmContext[%d]", pduSessionID)
