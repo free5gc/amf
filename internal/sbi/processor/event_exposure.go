@@ -450,11 +450,11 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, amfEventType models.Amf
 		report.State.Active = true
 	} else if mode.Trigger == models.AmfEventTrigger_ONE_TIME {
 		report.State.Active = false
-	} else if *ueSubscription.RemainReports <= 0 {
+	} else if ueSubscription.RemainReports != nil && *ueSubscription.RemainReports <= 0 {
 		report.State.Active = false
 	} else {
 		report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
-		if report.State.Active {
+		if report.State.Active && ueSubscription.RemainReports != nil {
 			report.State.RemainReports = *ueSubscription.RemainReports
 		}
 	}
