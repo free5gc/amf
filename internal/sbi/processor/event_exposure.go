@@ -446,17 +446,27 @@ func (p *Processor) newAmfEventReport(ue *context.AmfUe, amfEventType models.Amf
 	report.TimeStamp = &ueSubscription.Timestamp
 	report.State = new(models.AmfEventState)
 	mode := ueSubscription.EventSubscription.Options
-	if mode == nil {
+	switch {
+	case mode == nil:
 		report.State.Active = true
-	} else if mode.Trigger == models.AmfEventTrigger_ONE_TIME {
+	case mode.Trigger == models.AmfEventTrigger_ONE_TIME:
 		report.State.Active = false
-	} else if ueSubscription.RemainReports != nil && *ueSubscription.RemainReports <= 0 {
-		report.State.Active = false
-	} else {
+	case mode.Trigger == models.AmfEventTrigger_PERIODIC:
 		report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
-		if report.State.Active && ueSubscription.RemainReports != nil {
-			report.State.RemainReports = *ueSubscription.RemainReports
+	case mode.Trigger == models.AmfEventTrigger_CONTINUOUS:
+		if ueSubscription.RemainReports == nil {
+			logger.EeLog.Errorf("RemainReports is nil for CONTINUOUS subscription[%s]", subscriptionId)
+			report.State.Active = false
+		} else if *ueSubscription.RemainReports <= 0 {
+			report.State.Active = false
+		} else {
+			report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
+			if report.State.Active {
+				report.State.RemainReports = *ueSubscription.RemainReports
+			}
 		}
+	default:
+		report.State.Active = false
 	}
 
 	switch amfEventType {
