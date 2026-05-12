@@ -1,16 +1,16 @@
 module github.com/free5gc/amf
 
-go 1.25.5
+go 1.26.2
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/davecgh/go-spew v1.1.1
-	github.com/free5gc/aper v1.1.0
-	github.com/free5gc/nas v1.2.3-0.20260121015506-0329a7ac3f31
-	github.com/free5gc/ngap v1.1.2
-	github.com/free5gc/openapi v1.2.3
-	github.com/free5gc/sctp v1.1.1
-	github.com/free5gc/util v1.3.2-0.20260204030658-79d56f347175
+	github.com/free5gc/aper v1.1.1
+	github.com/free5gc/nas v1.2.3
+	github.com/free5gc/ngap v1.1.3
+	github.com/free5gc/openapi v1.2.4
+	github.com/free5gc/sctp v1.1.2
+	github.com/free5gc/util v1.3.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
 	github.com/mitchellh/mapstructure v1.5.0
