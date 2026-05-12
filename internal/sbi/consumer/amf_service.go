@@ -284,7 +284,15 @@ func (s *namfService) UEContextTransferRequest(
 
 	res, localErr := client.IndividualUeContextDocumentApi.UEContextTransfer(ctx, &ueCtxTransferReq)
 	if localErr == nil {
+		if res == nil || res.UeContextTransferResponse200.JsonData == nil {
+			problemDetails = openapi.ProblemDetailsSystemFailure("invalid UE context transfer response: missing response data")
+			return ueContextTransferRspData, problemDetails, err
+		}
 		ueContextTransferRspData = res.UeContextTransferResponse200.JsonData
+		if ueContextTransferRspData.UeContext == nil {
+			problemDetails = openapi.ProblemDetailsSystemFailure("invalid UE context transfer response: missing UE context")
+			return ueContextTransferRspData, problemDetails, err
+		}
 		logger.ConsumerLog.Debugf("UeContextTransferRspData: %+v", *ueContextTransferRspData)
 	} else {
 		switch apiErr := localErr.(type) {
