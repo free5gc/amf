@@ -278,12 +278,16 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 
 	amfSelf := context.GetSelf()
 
+	// TS 29.518 6.1.6.2.20
 	registrationCtxtContainer := n1MessageNotify.JsonData.RegistrationCtxtContainer
-	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil {
+	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil ||
+		registrationCtxtContainer.RanNodeId == nil || registrationCtxtContainer.UserLocation == nil ||
+		registrationCtxtContainer.AnType == "" || registrationCtxtContainer.InitialAmfName == "" ||
+		registrationCtxtContainer.AnN2ApId > 0 {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
-			Cause:  "MANDATORY_IE_MISSING", // Defined in TS 29.500 5.2.7.2
-			Detail: "Missing IE [UeContext] in RegistrationCtxtContainer",
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing mandatory IE in RegistrationCtxtContainer",
 		}
 		return problemDetails
 	}
