@@ -1413,11 +1413,17 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	hoFailCause := ""
 
 	defer func(hoFailCause *string) {
-		if utils.ReadStringPtr(hoFailCause) != "" {
-			business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
-				utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
-				targetUe.HandOverStartTime)
+		if utils.ReadStringPtr(hoFailCause) == "" {
+			return
 		}
+		// targetUe may be nil when the AMF-UE-NGAP-ID IE is missing.
+		var startTime time.Time
+		if targetUe != nil {
+			startTime = targetUe.HandOverStartTime
+		}
+		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
+			utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
+			startTime)
 	}(&hoFailCause)
 
 	if criticalityDiagnostics != nil {
