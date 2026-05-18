@@ -355,16 +355,16 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 
 		amfUe.CopyDataFromUeContextModel(ueContext)
 
-		ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
-		if ranUe == nil {
+		currentRanUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+		if currentRanUe == nil {
 			logger.CallbackLog.Warnf("RanUe not found for AnN2ApId: %d", registrationCtxtContainer.AnN2ApId)
 			return
 		}
 
-		ranUe.Location = *registrationCtxtContainer.UserLocation
+		currentRanUe.Location = *registrationCtxtContainer.UserLocation
 		amfUe.Location = *registrationCtxtContainer.UserLocation
-		ranUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
-		ranUe.OldAmfName = registrationCtxtContainer.InitialAmfName
+		currentRanUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
+		currentRanUe.OldAmfName = registrationCtxtContainer.InitialAmfName
 
 		if registrationCtxtContainer.AllowedNssai != nil {
 			allowedNssai := registrationCtxtContainer.AllowedNssai
@@ -375,9 +375,9 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 			amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
 		}
 
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, currentRanUe)
 
-		amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
+		amf_nas.HandleNAS(currentRanUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
 	}()
 	return nil
 }
