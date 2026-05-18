@@ -31,6 +31,7 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	rANNodeName *ngapType.RANNodeName,
 	supportedTAList *ngapType.SupportedTAList,
 	pagingDRX *ngapType.PagingDRX,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -93,11 +94,22 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeNGSetup
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
-		ngap_message.SendNGSetupResponse(ran)
+		ngap_message.SendNGSetupResponse(ran, &criticalityDiagnostics)
 	} else {
-		ngap_message.SendNGSetupFailure(ran, cause)
+		ngap_message.SendNGSetupFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 
@@ -284,7 +296,10 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	if tmp, exist := amfUe.ReleaseCause[ran.AnType]; exist {
 		cause = *tmp
 	}
-	if amfUe.State[ran.AnType].Is(context.Registered) {
+	state := amfUe.State[ran.AnType]
+	if state == nil {
+		ranUe.Log.Warnf("UE state is nil (accessType=%q); skip GMM-Registered branch", ran.AnType)
+	} else if state.Is(context.Registered) {
 		ranUe.Log.Info("Release Ue Context in GMM-Registered")
 		// If this release cause by handover, no needs deactivate CN tunnel
 		if cause.NgapCause != nil && pDUSessionResourceList != nil {
@@ -1083,7 +1098,10 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 				Value: int32(causeValue),
 			},
 		}
-		if amfUe.State[ran.AnType].Is(context.Registered) {
+		state := amfUe.State[ran.AnType]
+		if state == nil {
+			ranUe.Log.Warnf("UE state is nil (accessType=%q); treat as Non GMM-Registered", ran.AnType)
+		} else if state.Is(context.Registered) {
 			ranUe.Log.Info("Ue Context in GMM-Registered")
 			if pDUSessionResourceList != nil {
 				for _, pduSessionReourceItem := range pDUSessionResourceList.List {
@@ -1395,11 +1413,17 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	hoFailCause := ""
 
 	defer func(hoFailCause *string) {
-		if utils.ReadStringPtr(hoFailCause) != "" {
-			business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
-				utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
-				targetUe.HandOverStartTime)
+		if utils.ReadStringPtr(hoFailCause) == "" {
+			return
 		}
+		// targetUe may be nil when the AMF-UE-NGAP-ID IE is missing.
+		var startTime time.Time
+		if targetUe != nil {
+			startTime = targetUe.HandOverStartTime
+		}
+		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
+			utils.FailureMetric, utils.ReadStringPtr(hoFailCause),
+			startTime)
 	}(&hoFailCause)
 
 	if criticalityDiagnostics != nil {
@@ -1742,6 +1766,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 
 func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
+	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer,
 ) {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
@@ -1749,6 +1774,14 @@ func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 		return
 	}
 	// send to T-AMF using N1N2MessageTransfer (R16)
+
+	targetRanUe := ranUe.TargetUe
+	if targetRanUe == nil {
+		ranUe.Log.Warn("TargetRanUe is nil, cannot transfer RAN status")
+		return
+	}
+	ranUe.Log.Info("Sending Downlink RAN Status Transfer to Target gNB")
+	ngap_message.SendDownlinkRanStatusTransfer(targetRanUe, *rANStatusTransferTransparentContainer)
 }
 
 func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
@@ -1767,6 +1800,7 @@ func handleNASNonDeliveryIndicationMain(ran *context.AmfRan,
 
 func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 	supportedTAList *ngapType.SupportedTAList,
+	iesCriticalityDiagnostics *ngapType.CriticalityDiagnosticsIEList,
 ) {
 	var cause ngapType.Cause
 
@@ -1823,13 +1857,24 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 			}
 		}
 	}
-
+	var criticalityDiagnostics ngapType.CriticalityDiagnostics
+	if len(iesCriticalityDiagnostics.List) > 0 {
+		procedureCode := ngapType.ProcedureCodeRANConfigurationUpdate
+		triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+		procedureCriticality := ngapType.CriticalityPresentNotify
+		criticalityDiagnostics = buildCriticalityDiagnostics(
+			&procedureCode,
+			&triggeringMessage,
+			&procedureCriticality,
+			iesCriticalityDiagnostics,
+		)
+	}
 	if cause.Present == ngapType.CausePresentNothing {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledge")
-		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, nil)
+		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, &criticalityDiagnostics)
 	} else {
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledgeFailure")
-		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, nil)
+		ngap_message.SendRanConfigurationUpdateFailure(ran, cause, &criticalityDiagnostics)
 	}
 }
 

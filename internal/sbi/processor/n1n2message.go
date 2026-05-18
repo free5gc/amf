@@ -184,6 +184,22 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 		return nil, "", nil, transferErr
 	}
 
+	var smInfo *models.N2SmInformation
+	if n2Info != nil {
+		if requestData.N2InfoContainer == nil ||
+			requestData.N2InfoContainer.SmInfo == nil ||
+			requestData.N2InfoContainer.SmInfo.N2InfoContent == nil {
+			problemDetails = &models.ProblemDetails{
+				Title:  "Malformed request syntax",
+				Status: http.StatusBadRequest,
+				Cause:  "MANDATORY_IE_MISSING",
+				Detail: "missing n2InfoContainer.smInfo.n2InfoContent for N2 SM information",
+			}
+			return nil, "", problemDetails, nil
+		}
+		smInfo = requestData.N2InfoContainer.SmInfo
+	}
+
 	// UE is CM-Connected
 	if ue.CmConnect(anType) {
 		var (
@@ -214,10 +230,18 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 
 		// TODO: only support transfer N2 SM information now
 		if n2Info != nil {
-			smInfo := requestData.N2InfoContainer.SmInfo
 			switch smInfo.N2InfoContent.NgapIeType {
 			case models.AmfCommunicationNgapIeType_PDU_RES_SETUP_REQ:
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Setup Request from SMF")
+				if smInfo.SNssai == nil {
+					problemDetails = &models.ProblemDetails{
+						Title:  "Malformed request syntax",
+						Status: http.StatusBadRequest,
+						Cause:  "MANDATORY_IE_MISSING",
+						Detail: "missing n2InfoContainer.smInfo.sNssai for PDU_RES_SETUP_REQ",
+					}
+					return nil, "", problemDetails, nil
+				}
 				if ue.RanUe[anType].InitialContextSetup {
 					list := ngapType.PDUSessionResourceSetupListSUReq{}
 					ngap_message.AppendPDUSessionResourceSetupListSUReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
@@ -262,7 +286,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 
 	// 409: transfer a N2 PDU Session Resource Release Command to a 5G-AN and if the UE is in CM-IDLE
 	if n2Info != nil &&
-		requestData.N2InfoContainer.SmInfo.N2InfoContent.NgapIeType == models.AmfCommunicationNgapIeType_PDU_RES_REL_CMD {
+		smInfo.N2InfoContent.NgapIeType == models.AmfCommunicationNgapIeType_PDU_RES_REL_CMD {
 		transferErr = new(models.N1N2MessageTransferError)
 		transferErr.Error = &models.ProblemDetails{
 			Status: http.StatusConflict,

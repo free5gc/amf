@@ -127,7 +127,7 @@ func (p *Processor) AMFStatusChangeSubscribeModifyProcedure(subscriptionID strin
 		currentSubscriptionData.GuamiList = append(currentSubscriptionData.GuamiList, subscriptionData.GuamiList...)
 		currentSubscriptionData.AmfStatusUri = subscriptionData.AmfStatusUri
 
-		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, currentSubscriptionData)
+		amfSelf.AMFStatusSubscriptions.Store(subscriptionID, *currentSubscriptionData)
 		return currentSubscriptionData, nil
 	}
 }

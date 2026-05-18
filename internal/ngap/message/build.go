@@ -80,7 +80,9 @@ func BuildPDUSessionResourceReleaseCommand(ue *context.RanUe, nasPdu []byte,
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupResponse() ([]byte, error) {
+func BuildNGSetupResponse(
+	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+) ([]byte, error) {
 	amfSelf := context.GetSelf()
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentSuccessfulOutcome
@@ -158,11 +160,23 @@ func BuildNGSetupResponse() ([]byte, error) {
 	}
 
 	nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
+	if criticalityDiagnostics != nil {
+		ie = ngapType.NGSetupResponseIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
+		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+
+		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		nGSetupResponseIEs.List = append(nGSetupResponseIEs.List, ie)
+	}
 
 	return ngap.Encoder(pdu)
 }
 
-func BuildNGSetupFailure(cause ngapType.Cause) ([]byte, error) {
+func BuildNGSetupFailure(
+	cause ngapType.Cause, criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+) ([]byte, error) {
 	var pdu ngapType.NGAPPDU
 	pdu.Present = ngapType.NGAPPDUPresentUnsuccessfulOutcome
 	pdu.UnsuccessfulOutcome = new(ngapType.UnsuccessfulOutcome)
@@ -184,6 +198,16 @@ func BuildNGSetupFailure(cause ngapType.Cause) ([]byte, error) {
 	ie.Value.Cause = &cause
 
 	nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
+	if criticalityDiagnostics != nil {
+		ie = ngapType.NGSetupFailureIEs{}
+		ie.Id.Value = ngapType.ProtocolIEIDCriticalityDiagnostics
+		ie.Criticality.Value = ngapType.CriticalityPresentIgnore
+		ie.Value.Present = ngapType.NGSetupResponseIEsPresentCriticalityDiagnostics
+		ie.Value.CriticalityDiagnostics = new(ngapType.CriticalityDiagnostics)
+
+		ie.Value.CriticalityDiagnostics = criticalityDiagnostics
+		nGSetupFailureIEs.List = append(nGSetupFailureIEs.List, ie)
+	}
 
 	return ngap.Encoder(pdu)
 }

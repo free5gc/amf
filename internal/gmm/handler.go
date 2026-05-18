@@ -35,6 +35,7 @@ import (
 	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDiscovery"
 	"github.com/free5gc/util/fsm"
 	nasMetrics "github.com/free5gc/util/metrics/nas"
+	"github.com/free5gc/util/validator"
 )
 
 const psiArraySize = 16
@@ -90,6 +91,9 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 
 	if id := ulNasTransport.PduSessionID2Value; id != nil {
 		pduSessionID = int32(id.GetPduSessionID2Value())
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			return errors.New("PDU Session ID is invalid")
+		}
 	} else {
 		return errors.New("PDU Session ID is nil")
 	}
@@ -1331,6 +1335,14 @@ func reactivatePendingULDataPDUSession(ue *context.AmfUe, anType models.AccessTy
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
 
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
+			errPduSessionId = append(errPduSessionId, uint8(pduSessionID))
+			errCause = append(errCause, nasMessage.Cause5GMMSemanticallyIncorrectMessage)
+			return true
+		}
+
 		// uplink data are pending for the corresponding PDU session identity
 		if !uplinkDataPsi[pduSessionID] ||
 			(pduSessionID == dlPduSessionId && serviceType == nasMessage.ServiceTypeMobileTerminatedServices) {
@@ -1393,6 +1405,12 @@ func releaseInactivePDUSession(ue *context.AmfUe, anType models.AccessType, uePd
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
 
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
+			return true
+		}
+
 		if uePduStatus[pduSessionID] {
 			pduStatusResult[pduSessionID] = true
 			return true
@@ -1437,7 +1455,13 @@ func reestablishAllowedPDUSessionOver3GPP(ue *context.AmfUe, anType models.Acces
 	if reactivationResult == nil {
 		reactivationResult = new([psiArraySize]bool)
 	}
-	if allowedPsi[requestData.PduSessionId] {
+	// check pduSession id is valid
+	if !validator.IsPduSessionIdInPsiRange(requestData.PduSessionId) {
+		ue.GmmLog.Errorln("Invalid PDU Session ID:", requestData.PduSessionId)
+		callback.SendN1N2TransferFailureNotification(ue, models.N1N2MessageTransferCause_UE_NOT_REACHABLE_FOR_SESSION)
+		errPduSessionId = append(errPduSessionId, uint8(requestData.PduSessionId))
+		errCause = append(errCause, nasMessage.Cause5GMMSemanticallyIncorrectMessage)
+	} else if allowedPsi[requestData.PduSessionId] {
 		// re-establish the PDU session associated with non-3GPP access over 3GPP access.
 		// notify the SMF if the corresponding PDU session ID(s) associated with non-3GPP access
 		// are indicated in the Allowed PDU session status IE
@@ -1495,6 +1519,11 @@ func getPDUSessionStatus(ue *context.AmfUe, anType models.AccessType) *[psiArray
 		smContext := value.(*context.SmContext)
 
 		if smContext.AccessType() != anType {
+			return true
+		}
+		// check pduSession id is valid
+		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
+			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
 			return true
 		}
 		pduStatusResult[pduSessionID] = true
@@ -2025,6 +2054,16 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		}
 	case models.AusfUeAuthenticationAuthType_EAP_AKA_PRIME:
+		// EAPMessage IE is optional in the NAS-AuthenticationResponse;
+		// reject the UE if it is omitted instead of dereferencing nil.
+		if authenticationResponse.EAPMessage == nil {
+			ue.GmmLog.Errorln("EAP-AKA' AuthenticationResponse missing mandatory EAPMessage; rejecting")
+			gmm_message.SendAuthenticationReject(ue.RanUe[accessType], "", 0, nasMetrics.AUSF_AUTH_ERR)
+			return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
+				ArgAmfUe:      ue,
+				ArgAccessType: accessType,
+			}, logger.GmmLog)
+		}
 		response, pd, err := consumer.GetConsumer().SendEapAuthConfirmRequest(ue, *authenticationResponse.EAPMessage)
 		if err != nil {
 			return err
@@ -2089,6 +2128,10 @@ func HandleAuthenticationFailure(ue *context.AmfUe, anType models.AccessType,
 	ue.StopT3560()
 
 	cause5GMM := authenticationFailure.Cause5GMM.GetCauseValue()
+
+	if ue.AuthenticationCtx == nil {
+		return fmt.Errorf("AuthenticationFailure received but AuthenticationCtx is nil")
+	}
 
 	switch ue.AuthenticationCtx.AuthType {
 	case models.AusfUeAuthenticationAuthType__5_G_AKA:
@@ -2195,6 +2238,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
+	if ue.T3550 == nil {
+		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
+	}
 	ue.StopT3550()
 
 	// Release existed old SmContext when Initial Registration completed
