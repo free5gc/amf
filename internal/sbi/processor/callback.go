@@ -283,7 +283,7 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil ||
 		registrationCtxtContainer.RanNodeId == nil || registrationCtxtContainer.UserLocation == nil ||
 		registrationCtxtContainer.AnType == "" || registrationCtxtContainer.InitialAmfName == "" ||
-		registrationCtxtContainer.AnN2ApId > 0 {
+		registrationCtxtContainer.AnN2ApId <= 0 {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING",
