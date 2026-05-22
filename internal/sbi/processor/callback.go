@@ -292,6 +292,24 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 		return problemDetails
 	}
 
+	if registrationCtxtContainer.RanNodeId == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing IE [RanNodeId] in RegistrationCtxtContainer",
+		}
+		return problemDetails
+	}
+
+	if registrationCtxtContainer.UserLocation == nil {
+		problemDetails := &models.ProblemDetails{
+			Status: http.StatusBadRequest,
+			Cause:  "MANDATORY_IE_MISSING",
+			Detail: "Missing IE [UserLocation] in RegistrationCtxtContainer",
+		}
+		return problemDetails
+	}
+
 	ran, ok := amfSelf.AmfRanFindByRanID(*registrationCtxtContainer.RanNodeId)
 	if !ok {
 		logger.CallbackLog.Warnln("AmfRanFindByRanID not found: ", *registrationCtxtContainer.RanNodeId)
@@ -337,10 +355,16 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 
 		amfUe.CopyDataFromUeContextModel(ueContext)
 
-		ranUe.Location = *registrationCtxtContainer.UserLocation
+		currentRanUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+		if currentRanUe == nil {
+			logger.CallbackLog.Warnf("RanUe not found for AnN2ApId: %d", registrationCtxtContainer.AnN2ApId)
+			return
+		}
+
+		currentRanUe.Location = *registrationCtxtContainer.UserLocation
 		amfUe.Location = *registrationCtxtContainer.UserLocation
-		ranUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
-		ranUe.OldAmfName = registrationCtxtContainer.InitialAmfName
+		currentRanUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
+		currentRanUe.OldAmfName = registrationCtxtContainer.InitialAmfName
 
 		if registrationCtxtContainer.AllowedNssai != nil {
 			allowedNssai := registrationCtxtContainer.AllowedNssai
@@ -351,9 +375,9 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 			amfUe.ConfiguredNssai = registrationCtxtContainer.ConfiguredNssai
 		}
 
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
+		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, currentRanUe)
 
-		amf_nas.HandleNAS(ranUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
+		amf_nas.HandleNAS(currentRanUe, ngapType.ProcedureCodeInitialUEMessage, n1MessageNotify.BinaryDataN1Message, true)
 	}()
 	return nil
 }
