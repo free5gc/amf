@@ -71,6 +71,10 @@ func newRouter(s *Server) *gin.Engine {
 	router.Use(metrics.InboundMetrics())
 	amfHttpCallBackGroup := router.Group(factory.AmfCallbackResUriPrefix)
 	amfHttpCallBackRoutes := s.getHttpCallBackRoutes()
+	callbackAuthCheck := util_oauth.NewRouterAuthorizationCheck(models.ServiceName("namf-callback"))
+	amfHttpCallBackGroup.Use(func(c *gin.Context) {
+		callbackAuthCheck.Check(c, amf_context.GetSelf())
+	})
 	applyRoutes(amfHttpCallBackGroup, amfHttpCallBackRoutes)
 
 	for _, serverName := range factory.AmfConfig.Configuration.ServiceNameList {
