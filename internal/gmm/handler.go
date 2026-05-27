@@ -1215,10 +1215,11 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 				// Condition (A) Step 7: initial AMF find Target AMF via NRF ->
 				// Send Namf_Communication_N1MessageNotify to Target AMF
 				ueContext := consumer.GetConsumer().BuildUeContextModel(ue)
+				anN2ApId := int32(ue.RanUe[anType].RanUeNgapId)
 				registerContext := models.RegistrationContextContainer{
 					UeContext:        &ueContext,
 					AnType:           anType,
-					AnN2ApId:         int32(ue.RanUe[anType].RanUeNgapId),
+					AnN2ApId:         &anN2ApId,
 					RanNodeId:        ue.RanUe[anType].Ran.RanId,
 					InitialAmfName:   amfSelf.Name,
 					UserLocation:     &ue.Location,
