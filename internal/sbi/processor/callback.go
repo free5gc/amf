@@ -283,7 +283,7 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 	if registrationCtxtContainer == nil || registrationCtxtContainer.UeContext == nil ||
 		registrationCtxtContainer.RanNodeId == nil || registrationCtxtContainer.UserLocation == nil ||
 		registrationCtxtContainer.AnType == "" || registrationCtxtContainer.InitialAmfName == "" ||
-		registrationCtxtContainer.AnN2ApId <= 0 {
+		registrationCtxtContainer.AnN2ApId == nil {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,
 			Cause:  "MANDATORY_IE_MISSING",
@@ -304,15 +304,15 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 		return problemDetails
 	}
 
-	ranUe := ran.RanUeFindByRanUeNgapID(int64(registrationCtxtContainer.AnN2ApId))
+	ranUe := ran.RanUeFindByRanUeNgapID(int64(*registrationCtxtContainer.AnN2ApId))
 	if ranUe == nil {
 		logger.CallbackLog.Warnf("RanUe Context[AnN2ApId:%d] not found in RAN[RanId: %+v]",
-			registrationCtxtContainer.AnN2ApId, *registrationCtxtContainer.RanNodeId)
+			*registrationCtxtContainer.AnN2ApId, *registrationCtxtContainer.RanNodeId)
 
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusNotFound,
 			Cause:  "CONTEXT_NOT_FOUND",
-			Detail: fmt.Sprintf("RanUe Context[AnN2ApId:%d] not found", registrationCtxtContainer.AnN2ApId),
+			Detail: fmt.Sprintf("RanUe Context[AnN2ApId:%d] not found", *registrationCtxtContainer.AnN2ApId),
 		}
 		return problemDetails
 	}
