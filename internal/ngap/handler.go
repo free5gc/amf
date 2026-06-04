@@ -1340,15 +1340,19 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 				continue
 			}
 			// TS 23.502 4.9.1.2.2 step 7 filter un-supported S-NSSAI in Target TAI
-			if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), ran, targetTai) {
-				ranUe.Log.Warnf("Xn Handover Filter: PDU Session %d (S-NSSAI: %+v) "+
-					"not supported in Target TAI %v. Rejecting Path Switch.",
-					pduSessionID, smContext.Snssai(), targetTai.Tac)
-				pduSessionResourceReleasedItem := ngapType.PDUSessionResourceReleasedItemPSFail{}
-				pduSessionResourceReleasedItem.PDUSessionID.Value = int64(pduSessionID)
-				pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
-					pduSessionResourceReleasedItem)
-				continue
+			if isValidTai(targetTai) {
+				if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), ran, targetTai) {
+					ranUe.Log.Warnf("Xn Handover Filter: PDU Session %d (S-NSSAI: %+v) "+
+						"not supported in Target TAI %v. Rejecting Path Switch.",
+						pduSessionID, smContext.Snssai(), targetTai.Tac)
+					pduSessionResourceReleasedItem := ngapType.PDUSessionResourceReleasedItemPSFail{}
+					pduSessionResourceReleasedItem.PDUSessionID.Value = int64(pduSessionID)
+					pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
+						pduSessionResourceReleasedItem)
+					continue
+				}
+			} else {
+				ranUe.Log.Warn("Target TAI is missing; skip proactive S-NSSAI filtering and rely on RAN/SMF failure handling")
 			}
 			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
 				models.N2SmInfoType_PATH_SWITCH_REQ, transfer)
