@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -1020,12 +1019,8 @@ func (ue *AmfUe) CheckSliceAvailabilityInTargetRan(targetSnssai models.Snssai, r
 			taiItem.Tai.PlmnId.Mcc == targetTai.PlmnId.Mcc &&
 			taiItem.Tai.PlmnId.Mnc == targetTai.PlmnId.Mnc {
 			for _, supportedSnssai := range taiItem.SNssaiList {
-				if supportedSnssai.Sst == targetSnssai.Sst {
-					tarSd := strings.TrimSpace(strings.ToLower(targetSnssai.Sd))
-					supSd := strings.TrimSpace(strings.ToLower(supportedSnssai.Sd))
-					if tarSd == supSd {
-						return true
-					}
+				if snssaiSupported(targetSnssai, supportedSnssai) {
+					return true
 				}
 			}
 		}
@@ -1054,13 +1049,8 @@ func (ue *AmfUe) CheckSliceAvailabilityInRegistrationArea(targetSnssai models.Sn
 			taiKey := supportedItem.Tai.PlmnId.Mcc + supportedItem.Tai.PlmnId.Mnc + supportedItem.Tai.Tac
 			if _, exists := RegistrationAreaMap[taiKey]; exists {
 				for _, supportedSnssai := range supportedItem.SNssaiList {
-					if supportedSnssai.Sst == targetSnssai.Sst {
-						tarSd := strings.TrimSpace(strings.ToLower(targetSnssai.Sd))
-						supSd := strings.TrimSpace(strings.ToLower(supportedSnssai.Sd))
-						if tarSd == supSd {
-							supported = true
-							return false
-						}
+					if snssaiSupported(targetSnssai, supportedSnssai) {
+						return true
 					}
 				}
 			}
