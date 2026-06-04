@@ -1050,7 +1050,8 @@ func (ue *AmfUe) CheckSliceAvailabilityInRegistrationArea(targetSnssai models.Sn
 			if _, exists := RegistrationAreaMap[taiKey]; exists {
 				for _, supportedSnssai := range supportedItem.SNssaiList {
 					if snssaiSupported(targetSnssai, supportedSnssai) {
-						return true
+						supported = true
+						return false
 					}
 				}
 			}

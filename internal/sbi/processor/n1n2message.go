@@ -291,8 +291,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			isPrioritized := requestData.Ppi >= 12 && requestData.Ppi <= 15
 
 			if !isPrioritized && !ue.CheckSliceAvailabilityInRegistrationArea(snssai, anType) {
-				ue.ProducerLog.Warnf("Slice not supported in current TAI, skip Paging (PDU Session ID: %d, S-NSSAI: %+v)",
-					requestData.PduSessionId, snssai)
+				ue.ProducerLog.Warnf("Slice not supported in Registration Area, skip Paging")
 				problemDetails = &models.ProblemDetails{
 					Status: http.StatusForbidden,
 					Cause:  "UE_IN_NON_ALLOWED_AREA",
