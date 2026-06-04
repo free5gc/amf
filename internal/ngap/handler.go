@@ -1727,7 +1727,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 					continue
 				}
 				// filter snssai allowed in target Ran
-				if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), targetRan, amfUe.Tai) {
+				if !amfUe.CheckSliceAvailabilityInTargetRan(smContext.Snssai(), targetRan, tai) {
 					sourceUe.Log.Warnf("N2 Handover Filter (Source Side): PDU Session %d (S-NSSAI: %+v) "+
 						"not supported in Target Ran. Skipping resource allocation.",
 						pduSessionID, smContext.Snssai())
