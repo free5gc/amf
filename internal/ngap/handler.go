@@ -1756,6 +1756,12 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 	if cause != nil {
 		causePresent, causeValue = printAndGetCause(ran, cause)
 	}
+	amfUe := sourceUe.AmfUe
+	if amfUe != nil && amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+		amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	}
 	targetUe := sourceUe.TargetUe
 	if targetUe == nil {
 		// Described in (23.502 4.11.1.2.3) step 2
@@ -1763,7 +1769,6 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
 		ran.Log.Tracef("Target : RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
-		amfUe := sourceUe.AmfUe
 		if amfUe != nil {
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				pduSessionID := key.(int32)
