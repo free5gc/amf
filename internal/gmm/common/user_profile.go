@@ -95,6 +95,9 @@ func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, 
 		logger.GmmLog.Errorln("AttachRanUeToAmfUeAndReleaseOldHandover() is called but sourceRanUe is nil")
 	}
 	amfUe.AttachRanUe(targetRanUe)
+	amfUe.SetOnGoing(targetRanUe.Ran.AnType, &context.OnGoing{
+		Procedure: context.OnGoingProcedureNothing,
+	})
 }
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {

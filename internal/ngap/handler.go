@@ -516,6 +516,14 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		// last Registration Request procedure
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
 		ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
+		// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
+		if procedure := amfUe.OnGoing(ran.AnType).Procedure; procedure == context.OnGoingProcedureN2Handover {
+			ranUe.Log.Warn("Reject InitialUEMessage because N2 handover is ongoing")
+			gmm_message.SendRegistrationReject(ranUe, nasMessage.Cause5GMMCongestion, "")
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngapType.CausePresentNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		}
 		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
 		ranUe.HoldingAmfUe = amfUe
 	} else if regReqType != nasMessage.RegistrationType5GSInitialRegistration {
@@ -1631,6 +1639,20 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 	if targetID.Present != ngapType.TargetIDPresentTargetRANNodeID {
 		hoFailCause = business_metrics.HANDOVER_TARGET_ID_NOT_SUPPORTED_ERR
 		ran.Log.Errorf("targetID type[%d] is not supported", targetID.Present)
+		return
+	}
+
+	// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
+	if procedure := amfUe.OnGoing(sourceUe.Ran.AnType).Procedure; procedure == context.OnGoingProcedureRegistration {
+		sourceUe.Log.Warn("Reject Handover Required while registration is ongoing")
+		cause = &ngapType.Cause{
+			Present: ngapType.CausePresentRadioNetwork,
+			RadioNetwork: &ngapType.CauseRadioNetwork{
+				Value: ngapType.CauseRadioNetworkPresentInteractionWithOtherProcedure,
+			},
+		}
+		hoFailCause = ngap.GetCauseErrorStr(cause)
+		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
 		return
 	}
 
