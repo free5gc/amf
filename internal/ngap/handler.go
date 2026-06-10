@@ -516,6 +516,14 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		// last Registration Request procedure
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
 		ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
+		// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
+		if procedure := amfUe.OnGoing(ran.AnType).Procedure; procedure == context.OnGoingProcedureN2Handover {
+			ranUe.Log.Warn("Reject InitialUEMessage because N2 handover is ongoing")
+			gmm_message.SendRegistrationReject(ranUe, nasMessage.Cause5GMMCongestion, "")
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngapType.CausePresentNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		}
 		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
 		ranUe.HoldingAmfUe = amfUe
 	} else if regReqType != nasMessage.RegistrationType5GSInitialRegistration {
@@ -1634,6 +1642,20 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		return
 	}
 
+	// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
+	if procedure := amfUe.OnGoing(sourceUe.Ran.AnType).Procedure; procedure == context.OnGoingProcedureRegistration {
+		sourceUe.Log.Warn("Reject Handover Required while registration is ongoing")
+		cause = &ngapType.Cause{
+			Present: ngapType.CausePresentRadioNetwork,
+			RadioNetwork: &ngapType.CauseRadioNetwork{
+				Value: ngapType.CauseRadioNetworkPresentInteractionWithOtherProcedure,
+			},
+		}
+		hoFailCause = ngap.GetCauseErrorStr(cause)
+		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+		return
+	}
+
 	amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
 		Procedure: context.OnGoingProcedureN2Handover,
 	})
@@ -1734,6 +1756,12 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 	if cause != nil {
 		causePresent, causeValue = printAndGetCause(ran, cause)
 	}
+	amfUe := sourceUe.AmfUe
+	if amfUe != nil && amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+		amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	}
 	targetUe := sourceUe.TargetUe
 	if targetUe == nil {
 		// Described in (23.502 4.11.1.2.3) step 2
@@ -1741,7 +1769,6 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
 		ran.Log.Tracef("Target : RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
-		amfUe := sourceUe.AmfUe
 		if amfUe != nil {
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				pduSessionID := key.(int32)

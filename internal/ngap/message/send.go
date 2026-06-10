@@ -602,9 +602,11 @@ func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Caus
 		sourceUe.Log.Error("amfUe is nil")
 		return
 	}
-	amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
-		Procedure: context.OnGoingProcedureNothing,
-	})
+	if amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+		amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	}
 	pkt, err := BuildHandoverPreparationFailure(sourceUe, cause, criticalityDiagnostics)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
