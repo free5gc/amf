@@ -1911,6 +1911,11 @@ func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 	if sONConfigurationTransferUL != nil {
 		targetRanNodeID := ngapConvert.RanIdToModels(sONConfigurationTransferUL.TargetRANNodeID.GlobalRANNodeID)
 
+		if targetRanNodeID.GNbId == nil {
+			ran.Log.Warnf("UplinkRANConfigurationTransfer target RAN node type is not supported: %+v", targetRanNodeID)
+			return
+		}
+
 		if targetRanNodeID.GNbId.GNBValue != "" {
 			ran.Log.Tracef("targerRanID [%s]", targetRanNodeID.GNbId.GNBValue)
 		}
