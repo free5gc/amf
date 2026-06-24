@@ -1911,7 +1911,7 @@ func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 	if sONConfigurationTransferUL != nil {
 		targetRanNodeID := ngapConvert.RanIdToModels(sONConfigurationTransferUL.TargetRANNodeID.GlobalRANNodeID)
 
-		if targetRanNodeID.GNbId.GNBValue != "" {
+		if targetRanNodeID.GNbId != nil && targetRanNodeID.GNbId.GNBValue != "" {
 			ran.Log.Tracef("targerRanID [%s]", targetRanNodeID.GNbId.GNBValue)
 		}
 
@@ -1919,7 +1919,8 @@ func handleUplinkRANConfigurationTransferMain(ran *context.AmfRan,
 
 		targetRan, ok := aMFSelf.AmfRanFindByRanID(targetRanNodeID)
 		if !ok {
-			ran.Log.Warn("targetRan is nil")
+			ran.Log.Warn("targetRan not found, dropping SONConfigurationTransfer")
+			return
 		}
 
 		ngap_message.SendDownlinkRanConfigurationTransfer(targetRan, sONConfigurationTransferUL)
