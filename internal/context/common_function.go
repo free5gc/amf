@@ -2,10 +2,12 @@ package context
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/mohae/deepcopy"
 
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -86,4 +88,10 @@ func DetachSourceUeTargetUe(ranUe *RanUe) {
 		ranUe.SourceUe = nil
 		source.TargetUe = nil
 	}
+}
+
+func snssaiSupported(target, supported models.Snssai) bool {
+	target.Sd = strings.TrimSpace(target.Sd)
+	supported.Sd = strings.TrimSpace(supported.Sd)
+	return openapi.SnssaiEqualFold(target, supported)
 }
