@@ -1304,7 +1304,9 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 		receivedEA, receivedIA := receivedNRUESecurityCapability(uESecurityCapabilities)
 		if storedEA != receivedEA || storedIA != receivedIA {
 			// TODO: Include E-UTRA capability once AmfUe stores it; current NGAP builders only preserve NR bits.
-			ranUe.Log.Warnf("UESecurityCapabilities mismatch in PathSwitchRequest: stored NR(EA=0x%02x, IA=0x%02x), received NR(EA=0x%02x, IA=0x%02x); keep stored UE security capability",
+			ranUe.Log.Warnf("UESecurityCapabilities mismatch in PathSwitchRequest: "+
+				"stored NR(EA=0x%02x, IA=0x%02x), received NR(EA=0x%02x, IA=0x%02x); "+
+				"keep stored UE security capability",
 				storedEA, storedIA, receivedEA, receivedIA)
 		}
 	}
@@ -1421,7 +1423,9 @@ func storedNRUESecurityCapability(amfUe *context.AmfUe) (nrEncryptionAlgorithm, 
 	return
 }
 
-func receivedNRUESecurityCapability(uESecurityCapabilities *ngapType.UESecurityCapabilities) (nrEncryptionAlgorithm, nrIntegrityAlgorithm byte) {
+func receivedNRUESecurityCapability(
+	uESecurityCapabilities *ngapType.UESecurityCapabilities,
+) (nrEncryptionAlgorithm, nrIntegrityAlgorithm byte) {
 	if len(uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes) > 0 {
 		nrEncryptionAlgorithm = uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes[0] & 0xe0
 	}
