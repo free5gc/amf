@@ -608,7 +608,8 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) error {
 	for _, intAlg := range intOrder {
 		switch intAlg {
 		case security.AlgIntegrity128NIA0:
-			ueSupported = ue.UESecurityCapability.GetIA0_5G()
+			// TODO: Revisit this if AMF adds explicit emergency registration support.
+			continue
 		case security.AlgIntegrity128NIA1:
 			ueSupported = ue.UESecurityCapability.GetIA1_128_5G()
 		case security.AlgIntegrity128NIA2:
