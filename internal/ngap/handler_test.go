@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -154,6 +155,51 @@ func NewAmfContext(amfCtx *amf_context.AMFContext) {
 			MaxRetryTimes: 4,
 		},
 	}
+}
+
+func TestHandlePathSwitchRequestKeepsStoredUESecurityCapabilityOnMismatch(t *testing.T) {
+	amfSelf := amf_context.GetSelf()
+	NewAmfContext(amfSelf)
+
+	sourceRan := NewAmfRan(nil)
+	sourceRan.AnType = "3GPP_ACCESS"
+	ranUe := &amf_context.RanUe{
+		Ran:         sourceRan,
+		RanUeNgapId: 1,
+		AmfUeNgapId: 1,
+		Log:         sourceRan.Log,
+	}
+	sourceRan.RanUeList.Store(ranUe.RanUeNgapId, ranUe)
+	amfSelf.RanUePool.Store(ranUe.AmfUeNgapId, ranUe)
+
+	amfUe := amfSelf.NewAmfUe("imsi-208930000007487")
+	amfUe.SecurityContextAvailable = true
+	amfUe.NgKsi.Ksi = 1
+	amfUe.Kamf = strings.Repeat("11", 32)
+	amfUe.NH = []byte(strings.Repeat("\x22", 32))
+	amfUe.UESecurityCapability = nasType.UESecurityCapability{
+		Iei:    nasMessage.RegistrationRequestUESecurityCapabilityType,
+		Len:    2,
+		Buffer: []uint8{0x00, 0x00},
+	}
+	amfUe.UESecurityCapability.SetIA2_128_5G(1)
+
+	ranUe.AmfUe = amfUe
+	amfUe.RanUe["3GPP_ACCESS"] = ranUe
+
+	targetRan := NewAmfRan(nil)
+	targetRan.AnType = "3GPP_ACCESS"
+	sourceAMFUeNgapID := ngapType.AMFUENGAPID{Value: ranUe.AmfUeNgapId}
+	ranUeNgapID := ngapType.RANUENGAPID{Value: 2}
+	received := &ngapType.UESecurityCapabilities{}
+	received.NRencryptionAlgorithms.Value = aper.BitString{Bytes: []byte{0x00, 0x00}, BitLength: 16}
+	received.NRintegrityProtectionAlgorithms.Value = aper.BitString{Bytes: []byte{0x00, 0x00}, BitLength: 16}
+
+	handlePathSwitchRequestMain(targetRan, &ranUeNgapID, &sourceAMFUeNgapID, nil, received, nil, nil)
+
+	require.Equal(t, uint8(1), amfUe.UESecurityCapability.GetIA2_128_5G())
+	require.Equal(t, uint8(0), amfUe.UESecurityCapability.GetIA1_128_5G())
+	require.Equal(t, uint8(0), amfUe.UESecurityCapability.GetIA3_128_5G())
 }
 
 func BuildInitialUEMessage(ranUeNgapID int64, nasPdu []byte, fiveGSTmsi string) ngapType.NGAPPDU {

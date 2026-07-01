@@ -1300,13 +1300,15 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	}
 
 	if uESecurityCapabilities != nil {
-		amfUe.UESecurityCapability.SetEA1_128_5G(uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes[0] & 0x80)
-		amfUe.UESecurityCapability.SetEA2_128_5G(uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes[0] & 0x40)
-		amfUe.UESecurityCapability.SetEA3_128_5G(uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes[0] & 0x20)
-		amfUe.UESecurityCapability.SetIA1_128_5G(uESecurityCapabilities.NRintegrityProtectionAlgorithms.Value.Bytes[0] & 0x80)
-		amfUe.UESecurityCapability.SetIA2_128_5G(uESecurityCapabilities.NRintegrityProtectionAlgorithms.Value.Bytes[0] & 0x40)
-		amfUe.UESecurityCapability.SetIA3_128_5G(uESecurityCapabilities.NRintegrityProtectionAlgorithms.Value.Bytes[0] & 0x20)
-		// not support any E-UTRA algorithms
+		storedEA, storedIA := storedNRUESecurityCapability(amfUe)
+		receivedEA, receivedIA := receivedNRUESecurityCapability(uESecurityCapabilities)
+		if storedEA != receivedEA || storedIA != receivedIA {
+			// TODO: Include E-UTRA capability once AmfUe stores it; current NGAP builders only preserve NR bits.
+			ranUe.Log.Warnf("UESecurityCapabilities mismatch in PathSwitchRequest: "+
+				"stored NR(EA=0x%02x, IA=0x%02x), received NR(EA=0x%02x, IA=0x%02x); "+
+				"keep stored UE security capability",
+				storedEA, storedIA, receivedEA, receivedIA)
+		}
 	}
 
 	if rANUENGAPID != nil {
@@ -1408,6 +1410,29 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			nil, nil, business_metrics.HANDOVER_EMPTY_CAUSE,
 			xnHandoverStartTime)
 	}
+}
+
+func storedNRUESecurityCapability(amfUe *context.AmfUe) (nrEncryptionAlgorithm, nrIntegrityAlgorithm byte) {
+	nrEncryptionAlgorithm |= amfUe.UESecurityCapability.GetEA1_128_5G() << 7
+	nrEncryptionAlgorithm |= amfUe.UESecurityCapability.GetEA2_128_5G() << 6
+	nrEncryptionAlgorithm |= amfUe.UESecurityCapability.GetEA3_128_5G() << 5
+
+	nrIntegrityAlgorithm |= amfUe.UESecurityCapability.GetIA1_128_5G() << 7
+	nrIntegrityAlgorithm |= amfUe.UESecurityCapability.GetIA2_128_5G() << 6
+	nrIntegrityAlgorithm |= amfUe.UESecurityCapability.GetIA3_128_5G() << 5
+	return
+}
+
+func receivedNRUESecurityCapability(
+	uESecurityCapabilities *ngapType.UESecurityCapabilities,
+) (nrEncryptionAlgorithm, nrIntegrityAlgorithm byte) {
+	if len(uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes) > 0 {
+		nrEncryptionAlgorithm = uESecurityCapabilities.NRencryptionAlgorithms.Value.Bytes[0] & 0xe0
+	}
+	if len(uESecurityCapabilities.NRintegrityProtectionAlgorithms.Value.Bytes) > 0 {
+		nrIntegrityAlgorithm = uESecurityCapabilities.NRintegrityProtectionAlgorithms.Value.Bytes[0] & 0xe0
+	}
+	return
 }
 
 func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
