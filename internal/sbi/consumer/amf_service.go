@@ -7,6 +7,8 @@ import (
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/nas/nasMessage"
+	"github.com/free5gc/ngap"
+	"github.com/free5gc/ngap/ngapType"
 	"github.com/free5gc/openapi"
 	Namf_Communication "github.com/free5gc/openapi/amf/Communication"
 	"github.com/free5gc/openapi/models"
@@ -153,11 +155,14 @@ func (s *namfService) buildAmPolicyReqTriggers(
 }
 
 func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCreateData models.UeContextCreateData) (
-	ueContextCreatedData *models.UeContextCreatedData, problemDetails *models.ProblemDetails, err error,
+	ueContextCreatedData *models.UeContextCreatedData,
+	targetToSourceTransparentContainer *ngapType.TargetToSourceTransparentContainer,
+	problemDetails *models.ProblemDetails,
+	err error,
 ) {
 	client := s.getComClient(ue.TargetAmfUri)
 	if client == nil {
-		return nil, nil, openapi.ReportError("amf not found")
+		return nil, nil, nil, openapi.ReportError("amf not found")
 	}
 
 	req := models.CreateUeContextRequest{
@@ -165,7 +170,7 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	}
 	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.ServiceName_NAMF_COMM, models.NrfNfManagementNfType_AMF)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	creatuectxreq := Namf_Communication.CreateUEContextRequest{
@@ -177,14 +182,30 @@ func (s *namfService) CreateUEContextRequest(ue *amf_context.AmfUe, ueContextCre
 	if localErr == nil {
 		ueContextCreatedData = res.CreateUeContextResponse201.JsonData
 		logger.ConsumerLog.Debugf("UeContextCreatedData: %+v", *ueContextCreatedData)
+
+		if res.CreateUeContextResponse201.BinaryDataN2Information != nil {
+			pdu, errNgapDecoder := ngap.Decoder(res.CreateUeContextResponse201.BinaryDataN2Information)
+			if errNgapDecoder != nil &&
+				pdu.Present == ngapType.NGAPPDUPresentSuccessfulOutcome &&
+				pdu.SuccessfulOutcome.ProcedureCode.Value == ngapType.ProcedureCodeHandoverResourceAllocation {
+				handoverRequestAcknowledge := pdu.SuccessfulOutcome.Value.HandoverRequestAcknowledge
+				for _, ie := range handoverRequestAcknowledge.ProtocolIEs.List {
+					if ie.Id.Value == ngapType.ProtocolIEIDTargetToSourceTransparentContainer {
+						targetToSourceTransparentContainer = ie.Value.TargetToSourceTransparentContainer
+					}
+				}
+			} else if errNgapDecoder != nil {
+				return nil, nil, nil, errNgapDecoder
+			}
+		}
 	} else {
 		if apiErr, ok := localErr.(openapi.GenericOpenAPIError); ok {
 			creatErr := apiErr.Model().(*Namf_Communication.CreateUEContextError)
-			return nil, &creatErr.ProblemDetails, nil
+			return nil, nil, &creatErr.ProblemDetails, nil
 		}
-		return nil, nil, localErr
+		return nil, nil, nil, localErr
 	}
-	return ueContextCreatedData, problemDetails, err
+	return ueContextCreatedData, targetToSourceTransparentContainer, problemDetails, err
 }
 
 func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause models.NgApCause) (

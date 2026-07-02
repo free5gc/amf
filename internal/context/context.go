@@ -77,10 +77,11 @@ type AMFContext struct {
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
 	NgapPort                     int
-	T3502Value                   int    // unit is second
-	T3512Value                   int    // unit is second
-	Non3gppDeregTimerValue       int    // unit is second
-	TimeZone                     string // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	T3502Value                   int      // unit is second
+	T3512Value                   int      // unit is second
+	Non3gppDeregTimerValue       int      // unit is second
+	TimeZone                     string   // "[+-]HH:MM[+][1-2]", Refer to TS 29.571 - 5.2.2 Simple Data Types
+	PendingHandovers             sync.Map // map[supi]*chan PendingHandoverResponse
 	// read-only fields
 	T3513Cfg factory.TimerValue
 	T3522Cfg factory.TimerValue
@@ -92,6 +93,11 @@ type AMFContext struct {
 	Locality string
 
 	OAuth2Required bool
+}
+
+type PendingHandoverResponse struct {
+	Response201 *models.CreateUeContextResponse201
+	Response403 *models.CreateUeContextResponse403
 }
 
 type AMFContextEventSubscription struct {
@@ -391,14 +397,18 @@ func (context *AMFContext) AmfRanFindByConn(conn net.Conn) (*AmfRan, bool) {
 func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (*AmfRan, bool) {
 	var ran *AmfRan
 	var ok bool
+	isEmpty := true
 	context.AmfRanPool.Range(func(key, value interface{}) bool {
+		isEmpty = false
 		amfRan := value.(*AmfRan)
 		if amfRan.RanId == nil {
+			logger.CommLog.Warnf("RAN Node ID is nil")
 			return true
 		}
 
 		switch amfRan.RanPresent {
 		case RanPresentGNbId:
+			logger.CommLog.Debugf("%+v", amfRan.RanId.GNbId)
 			if amfRan.RanId.GNbId != nil && ranNodeID.GNbId != nil &&
 				amfRan.RanId.GNbId.GNBValue == ranNodeID.GNbId.GNBValue {
 				ran = amfRan
@@ -420,6 +430,9 @@ func (context *AMFContext) AmfRanFindByRanID(ranNodeID models.GlobalRanNodeId) (
 		}
 		return true
 	})
+	if isEmpty {
+		logger.CommLog.Warnln("AmfRanPool is empty")
+	}
 	return ran, ok
 }
 
