@@ -64,8 +64,8 @@ func (s *nssfService) NSSelectionGetForRegistration(
 	}
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION,
-		models.Nrf_NFMgmt_NFType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION, models.Nrf_NFMgmt_NFType_NSSF, ue.NssfId)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +144,8 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 		Tai:                           &ue.Tai, // TS 29.531 R15.3 6.1.3.2.3.1
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION,
-		models.Nrf_NFMgmt_NFType_NSSF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION, models.Nrf_NFMgmt_NFType_NSSF, ue.NssfId)
 	if err != nil {
 		return nil, nil, err
 	}

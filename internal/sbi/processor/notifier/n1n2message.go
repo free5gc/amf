@@ -35,8 +35,9 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.Amf
 			},
 		}
 
-		ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-			models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
+		ctx, pd, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+			models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF,
+			n1n2Message.Request.JsonData.NfId)
 		if err != nil {
 			HttpLog.Warnf("SendN1N2TransferFailureNotification get token failed: %+v", pd)
 			return
@@ -84,8 +85,8 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.Amf_Comm_N1Messag
 				RequestBody: &n1MessageNotify,
 			}
 
-			ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
+			ctx, pd, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF, subscription.NfId)
 			if err != nil {
 				HttpLog.Warnf("SendN1MessageNotify get token failed: %+v", pd)
 				return false
@@ -138,8 +139,9 @@ func SendN1MessageNotifyAtAMFReAllocation(
 		}
 	}
 
-	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_AMF)
+	ctx, pd, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_AMF,
+		ue.TargetAmfProfile.NfInstanceId)
 	if err != nil {
 		HttpLog.Warnf("SendN1MessageNotifyAtAMFReAllocation get token failed: %+v", pd)
 		return err
@@ -223,8 +225,8 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.Amf_Comm_N2Informati
 				RequestBody: &n2InformationNotify,
 			}
 
-			ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
+			ctx, pd, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF, subscription.NfId)
 			if err != nil {
 				HttpLog.Warnf("SendN2InfoNotify get token failed: %+v", pd)
 				return false
