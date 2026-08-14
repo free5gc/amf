@@ -153,6 +153,7 @@ func (s *nsmfService) SelectSmf(
 		smfUri = util.SearchNFServiceUri(&result.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
 			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
 		if smfUri != "" {
+			smfID = result.NfInstances[index].NfInstanceId
 			break
 		}
 	}
@@ -180,10 +181,8 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 		return "", nil, nil, openapi.ReportError("smf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
-		models.Nrf_NFMgmt_NFType_SMF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION, models.Nrf_NFMgmt_NFType_SMF, smContext.SmfID())
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -499,10 +498,8 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 		},
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
-		models.Nrf_NFMgmt_NFType_SMF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION, models.Nrf_NFMgmt_NFType_SMF, smContext.SmfID())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -555,10 +552,8 @@ func (s *nsmfService) SendReleaseSmContextRequest(ue *amf_context.AmfUe, smConte
 		},
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
-		models.Nrf_NFMgmt_NFType_SMF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION, models.Nrf_NFMgmt_NFType_SMF, smContext.SmfID())
 	if err != nil {
 		return nil, err
 	}

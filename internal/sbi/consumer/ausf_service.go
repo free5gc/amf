@@ -68,10 +68,8 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	if resynchronizationInfo != nil {
 		authInfo.ResynchronizationInfo = resynchronizationInfo
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH,
-		models.Nrf_NFMgmt_NFType_AUSF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH, models.Nrf_NFMgmt_NFType_AUSF, ue.AusfId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -116,10 +114,8 @@ func (s *nausfService) SendAuth5gAkaConfirmRequest(ue *amf_context.AmfUe, resSta
 		return nil, nil, openapi.ReportError("ausf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH,
-		models.Nrf_NFMgmt_NFType_AUSF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH, models.Nrf_NFMgmt_NFType_AUSF, ue.AusfId)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -194,10 +190,8 @@ func (s *nausfService) SendEapAuthConfirmRequest(ue *amf_context.AmfUe, eapMsg i
 			EapPayload: base64.StdEncoding.EncodeToString(eapMsg.Eap),
 		},
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH,
-		models.Nrf_NFMgmt_NFType_AUSF,
-	)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH, models.Nrf_NFMgmt_NFType_AUSF, ue.AusfId)
 	if err != nil {
 		return nil, nil, err
 	}

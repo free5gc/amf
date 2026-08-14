@@ -19,6 +19,8 @@ import (
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/openapi/oauth"
 	"github.com/free5gc/util/idgenerator"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -73,6 +75,7 @@ type AMFContext struct {
 	AMFStatusSubscriptions       sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                       string
 	NrfCertPem                   string
+	NrfNfInstanceID              string
 	SecurityAlgorithm            SecurityAlgorithm
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
@@ -136,6 +139,7 @@ func InitAmfContext(context *AMFContext) {
 	}
 	context.NrfUri = config.GetNrfUri()
 	context.NrfCertPem = configuration.NrfCertPem
+	context.NrfNfInstanceID = configuration.NrfNfInstanceId
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
@@ -551,6 +555,7 @@ func (context *AMFContext) Reset() {
 	context.Name = "amf"
 	context.NrfUri = ""
 	context.NrfCertPem = ""
+	context.NrfNfInstanceID = ""
 	context.OAuth2Required = false
 }
 
@@ -565,8 +570,68 @@ func (c *AMFContext) GetTokenCtx(serviceName models.Nrf_NFMgmt_ServiceName, targ
 	if !c.OAuth2Required {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.Nrf_NFMgmt_NFType_AMF, targetNF,
-		c.NfId, c.NrfUri, string(serviceName))
+	return oauth.GetTokenCtx(c.tokenRequest(serviceName, targetNF))
+}
+
+func (c *AMFContext) GetTokenCtxForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) (context.Context, *models.ProblemDetails, error) {
+	if !c.OAuth2Required {
+		return context.TODO(), nil, nil
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(targetNFInstanceID))
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "invalid target NF instance ID")
+	}
+	if targetID.Version() != 4 {
+		return nil, nil, errors.New("invalid target NF instance ID: UUID must be version 4")
+	}
+	return oauth.GetTokenCtx(c.tokenRequestForNFInstance(serviceName, targetNF, targetNFInstanceID))
+}
+
+func (c *AMFContext) GetTokenCtxForNRF(serviceName models.Nrf_NFMgmt_ServiceName) (
+	context.Context, *models.ProblemDetails, error,
+) {
+	return c.GetTokenCtxForNFInstance(serviceName, models.Nrf_NFMgmt_NFType_NRF, c.NrfNfInstanceID)
+}
+
+func (c *AMFContext) tokenRequest(
+	serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType,
+) oauth.TokenRequest {
+	return oauth.TokenRequest{
+		ConsumerNFType:       models.Nrf_NFMgmt_NFType_AMF,
+		ConsumerNFInstanceID: c.NfId,
+		TargetNFType:         targetNF,
+		NRFURI:               c.NrfUri,
+		Scope:                string(serviceName),
+	}
+}
+
+func (c *AMFContext) tokenRequestForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) oauth.TokenRequest {
+	request := c.tokenRequest(serviceName, targetNF)
+	request.TargetNFInstanceID = targetNFInstanceID
+	return request
+}
+
+func (c *AMFContext) SetOAuth2Required(required bool) error {
+	if !required {
+		c.OAuth2Required = false
+		return nil
+	}
+	if strings.TrimSpace(c.NrfCertPem) == "" {
+		return errors.New("OAuth2 enabled but NRF certificate path is empty")
+	}
+	if strings.TrimSpace(c.NrfUri) == "" {
+		return errors.New("OAuth2 enabled but NRF URI is empty")
+	}
+	if err := uuid.Validate(c.NrfNfInstanceID); err != nil {
+		return errors.Wrap(err, "OAuth2 enabled but trusted NRF instance ID is invalid")
+	}
+	c.OAuth2Required = true
+	return nil
 }
 
 func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFMgmt_ServiceName) error {
@@ -576,5 +641,8 @@ func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFM
 	}
 
 	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
-	return oauth.VerifyOAuth(token, string(serviceName), c.NrfCertPem)
+	return oauth.VerifyOAuth(token, string(serviceName), oauth.AudiencePolicy{
+		NFInstanceID: c.NfId,
+		NFType:       models.Nrf_NFMgmt_NFType_AMF,
+	}, c.NrfNfInstanceID, c.NrfCertPem)
 }

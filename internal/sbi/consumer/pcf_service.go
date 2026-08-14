@@ -52,8 +52,8 @@ func (s *npcfService) AMPolicyControlCreate(
 		return nil, openapi.ReportError("pcf not found")
 	}
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL,
-		models.Nrf_NFMgmt_NFType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL, models.Nrf_NFMgmt_NFType_PCF, ue.PcfId)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +134,8 @@ func (s *npcfService) AMPolicyControlUpdate(
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL,
-		models.Nrf_NFMgmt_NFType_PCF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL, models.Nrf_NFMgmt_NFType_PCF, ue.PcfId)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +191,8 @@ func (s *npcfService) AMPolicyControlDelete(ue *amf_context.AmfUe) (problemDetai
 		return nil, openapi.ReportError("pcf not found")
 	}
 
-	ctx, _, ctxErr := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL,
-		models.Nrf_NFMgmt_NFType_PCF)
+	ctx, _, ctxErr := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL, models.Nrf_NFMgmt_NFType_PCF, ue.PcfId)
 	if ctxErr != nil {
 		return nil, ctxErr
 	}
