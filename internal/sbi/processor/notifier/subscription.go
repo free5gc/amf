@@ -1,6 +1,7 @@
 package callback
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
@@ -11,21 +12,47 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func callbackServiceNfType(svcName string) (models.Nrf_NFMgmt_NFType, bool) {
-	switch {
-	case strings.HasPrefix(svcName, "npcf"):
-		return models.Nrf_NFMgmt_NFType_PCF, true
-	case strings.HasPrefix(svcName, "nsmf"):
-		return models.Nrf_NFMgmt_NFType_SMF, true
-	case strings.HasPrefix(svcName, "nudm"):
-		return models.Nrf_NFMgmt_NFType_UDM, true
-	case strings.HasPrefix(svcName, "nausf"):
-		return models.Nrf_NFMgmt_NFType_AUSF, true
-	case strings.HasPrefix(svcName, "namf"):
-		return models.Nrf_NFMgmt_NFType_AMF, true
-	default:
-		return "", false
+const (
+	serviceNameNpcfCallback models.Nrf_NFMgmt_ServiceName = "npcf-callback"
+	serviceNameNsmfCallback models.Nrf_NFMgmt_ServiceName = "nsmf-callback"
+	serviceNameNnefCallback models.Nrf_NFMgmt_ServiceName = "nnef-callback"
+)
+
+var callbackServiceTargets = map[models.Nrf_NFMgmt_ServiceName]models.Nrf_NFMgmt_NFType{
+	amf_context.ServiceNameNamfCallback: models.Nrf_NFMgmt_NFType_AMF,
+	serviceNameNpcfCallback:             models.Nrf_NFMgmt_NFType_PCF,
+	serviceNameNsmfCallback:             models.Nrf_NFMgmt_NFType_SMF,
+	serviceNameNnefCallback:             models.Nrf_NFMgmt_NFType_NEF,
+}
+
+func resolveCallbackTokenTarget(callbackURI string, oauthRequired bool) (
+	models.Nrf_NFMgmt_ServiceName, models.Nrf_NFMgmt_NFType, error,
+) {
+	if !oauthRequired {
+		return "", "", nil
 	}
+
+	parsedURI, err := url.Parse(callbackURI)
+	if err != nil {
+		return "", "", fmt.Errorf("parse callback URI: %w", err)
+	}
+	if parsedURI.Scheme == "" || parsedURI.Host == "" {
+		return "", "", fmt.Errorf("callback URI must be absolute: %q", callbackURI)
+	}
+
+	escapedPath := strings.TrimPrefix(parsedURI.EscapedPath(), "/")
+	serviceSegment, _, _ := strings.Cut(escapedPath, "/")
+	serviceName, err := url.PathUnescape(serviceSegment)
+	if err != nil {
+		return "", "", fmt.Errorf("parse callback service name: %w", err)
+	}
+	callbackServiceName := models.Nrf_NFMgmt_ServiceName(serviceName)
+	targetNFType, known := callbackServiceTargets[callbackServiceName]
+	if !known {
+		return "", "", fmt.Errorf("unsupported callback service %q", serviceName)
+	}
+
+	return callbackServiceName, targetNFType, nil
 }
 
 func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
@@ -61,14 +88,10 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 			RequestBody: &amfStatusNotification,
 		}
 
-		var callbackSvcName models.Nrf_NFMgmt_ServiceName
-		var targetNFType models.Nrf_NFMgmt_NFType
-		if parsedURI, err := url.Parse(uri); err == nil {
-			seg := strings.SplitN(strings.TrimPrefix(parsedURI.Path, "/"), "/", 2)[0]
-			if nfType, ok := callbackServiceNfType(seg); ok {
-				callbackSvcName = models.Nrf_NFMgmt_ServiceName(seg)
-				targetNFType = nfType
-			}
+		callbackSvcName, targetNFType, resolveErr := resolveCallbackTokenTarget(uri, amfSelf.OAuth2Required)
+		if resolveErr != nil {
+			HttpLog.Warnf("SendAmfStatusChangeNotify reject callback URI: %v", resolveErr)
+			return true
 		}
 
 		ctx, pd, err := amfSelf.GetTokenCtx(callbackSvcName, targetNFType)

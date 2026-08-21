@@ -188,6 +188,10 @@ func (a *AmfApp) SetReportCaller(reportCaller bool) {
 func (a *AmfApp) Start() {
 	self := a.Context()
 	amf_context.InitAmfContext(self)
+	if err := registerNFInstanceAtStart(a); err != nil {
+		logger.InitLog.Errorf("AMF startup registration failed: %+v", err)
+		return
+	}
 
 	// Initialize NGAP worker pool and scheduler
 	workerPoolSize := a.cfg.GetNgapWorkerPoolSize()
@@ -217,23 +221,24 @@ func (a *AmfApp) Start() {
 		}()
 	}
 
-	var profile models.Nrf_NFMgmt_NFProfile
-	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
-		logger.InitLog.Error("Build AMF Profile Error")
-	} else {
-		profile = profileTmp
-	}
-	_, nfId, err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, a.Context().NrfUri, a.Context().NfId, &profile)
-	if err_reg != nil {
-		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
-	} else {
-		a.Context().NfId = nfId
-	}
-
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
 		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
 	}
 	a.WaitRoutineStopped()
+}
+
+func registerNFInstanceAtStart(a *AmfApp) error {
+	profile, err := a.Consumer().BuildNFInstance(a.Context())
+	if err != nil {
+		return err
+	}
+	_, nfID, err := a.Consumer().SendRegisterNFInstance(
+		a.ctx, a.Context().NrfUri, a.Context().NfId, &profile)
+	if err != nil {
+		return err
+	}
+	a.Context().NfId = nfID
+	return nil
 }
 
 // Used in AMF planned removal procedure
