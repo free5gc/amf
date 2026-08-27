@@ -385,7 +385,7 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 			// UE's N2 connection must not detach the one that is.
 			ranUe.Log.Warnln("TargetUe is nil, release RanUe without a handover target")
 			context.DetachSourceUeTargetUe(ranUe)
-			if amfUe.RanUe[ran.AnType] != ranUe {
+			if amfUe.GetRanUe(ran.AnType) != ranUe {
 				ranUe.DetachAmfUe()
 			}
 			if err := ranUe.Remove(); err != nil {
@@ -2170,7 +2170,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 // removes only the target RanUe and leaves the serving RanUe, the PDU sessions
 // and the release cause of the UE untouched.
 func releaseHandoverTarget(targetUe *context.RanUe, causePresent int, causeValue aper.Enumerated) {
-	if amfUe := targetUe.AmfUe; amfUe == nil || amfUe.RanUe[targetUe.Ran.AnType] != targetUe {
+	if amfUe := targetUe.AmfUe; amfUe == nil || amfUe.GetRanUe(targetUe.Ran.AnType) != targetUe {
 		context.DetachSourceUeTargetUe(targetUe)
 		targetUe.DetachAmfUe()
 	}
