@@ -142,7 +142,6 @@ func InitAmfContext(context *AMFContext) {
 	}
 	context.NrfUri = config.GetNrfUri()
 	context.NrfCertPem = configuration.NrfCertPem
-	context.NrfNfInstanceID = configuration.NrfNfInstanceId
 	security := configuration.Security
 	if security != nil {
 		context.SecurityAlgorithm.IntegrityOrder = getIntAlgOrder(security.IntegrityOrder)
@@ -624,6 +623,7 @@ func (c *AMFContext) tokenRequestForNFInstance(serviceName models.Nrf_NFMgmt_Ser
 func (c *AMFContext) SetOAuth2Required(required bool) error {
 	if !required {
 		c.OAuth2Required.Store(false)
+		c.NrfNfInstanceID = ""
 		return nil
 	}
 	if strings.TrimSpace(c.NrfCertPem) == "" {
@@ -632,9 +632,11 @@ func (c *AMFContext) SetOAuth2Required(required bool) error {
 	if strings.TrimSpace(c.NrfUri) == "" {
 		return errors.New("OAuth2 enabled but NRF URI is empty")
 	}
-	if err := uuid.Validate(c.NrfNfInstanceID); err != nil {
-		return errors.Wrap(err, "OAuth2 enabled but trusted NRF instance ID is invalid")
+	nrfNfInstanceID, err := oauth.NFInstanceIDFromCertificate(c.NrfCertPem)
+	if err != nil {
+		return errors.Wrap(err, "derive trusted NRF instance ID from certificate")
 	}
+	c.NrfNfInstanceID = nrfNfInstanceID
 	c.OAuth2Required.Store(true)
 	return nil
 }
