@@ -74,7 +74,8 @@ func (s *nudmService) PutUpuAck(ue *amf_context.AmfUe, upuMacIue string) error {
 		return openapi.ReportError("udm not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return err
 	}
@@ -106,7 +107,8 @@ func (s *nudmService) SDMGetAmData(ue *amf_context.AmfUe) (problemDetails *model
 		},
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +153,8 @@ func (s *nudmService) SDMGetSmfSelectData(ue *amf_context.AmfUe) (problemDetails
 		PlmnId: &ue.PlmnId,
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +195,8 @@ func (s *nudmService) SDMGetUeContextInSmfData(
 		return nil, openapi.ReportError("udm not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +248,8 @@ func (s *nudmService) SDMSubscribe(ue *amf_context.AmfUe) (problemDetails *model
 		RequestBody: &sdmSubscription,
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +293,8 @@ func (s *nudmService) SDMGetSliceSelectionSubscriptionData(
 		PlmnId: &ue.PlmnId,
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +351,8 @@ func (s *nudmService) SDMUnsubscribe(ue *amf_context.AmfUe) (problemDetails *mod
 		return nil, openapi.ReportError("udm not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_SDM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -388,7 +395,8 @@ func (s *nudmService) UeCmRegistration(
 	}
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +503,8 @@ func (s *nudmService) UeCmDeregistration(
 	}
 
 	amfSelf := amf_context.GetSelf()
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_NFType_UDM)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_NFType_UDM, ue.UdmId)
 	if err != nil {
 		return nil, err
 	}
