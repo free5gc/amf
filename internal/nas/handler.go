@@ -61,8 +61,14 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	ranUe.AmfUe.NasPduValue = nasPdu
 	ranUe.AmfUe.MacFailed = !integrityProtected
 
-	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.HoldingAmfUe != nil {
-		gmm_common.ClearHoldingRanUe(ranUe.HoldingAmfUe.RanUe[ranUe.Ran.AnType])
+	// 3GPP TS 23.502, clause 4.2.6.
+	if ranUe.HoldingAmfUe != nil &&
+		ranUe.AmfUe.SecurityContextIsValid() && ranUe.AmfUe.Supi != "" {
+		if ranUe.AmfUe.Supi == ranUe.HoldingAmfUe.Supi {
+			if oldRanUe := ranUe.HoldingAmfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+				gmm_common.ClearHoldingRanUe(oldRanUe)
+			}
+		}
 		ranUe.HoldingAmfUe = nil
 	}
 
