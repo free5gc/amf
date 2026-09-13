@@ -351,6 +351,17 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		amfUe.Lock.Lock()
 		gmm_common.RemoveAmfUe(amfUe, false)
 		amfUe.Lock.Unlock()
+	// 3GPP TS 23.502, clause 4.2.6.
+	case context.UeContextReleaseSupersededContext:
+		ran.Log.Infof("Release UE[%s] Context : Superseded UE Context", amfUe.Supi)
+		amfUe.Lock.Lock()
+		err := ranUe.Remove()
+		if err != nil {
+			ran.Log.Errorln(err.Error())
+		} else if len(amfUe.RanUe) == 0 {
+			amfUe.Remove()
+		}
+		amfUe.Lock.Unlock()
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		// TODO: it's a workaround, need to fix it.
