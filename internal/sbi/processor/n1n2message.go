@@ -28,9 +28,6 @@ func relatedContentBytes(content *multipart.RelatedContent) []byte {
 
 // Checks whether the request SMF is authorized for the SM context.
 func isSmfAuthorizedForN1N2Transfer(smContext *context.SmContext, nfIDs ...string) bool {
-	if smContext == nil {
-		return true
-	}
 	for _, nfID := range nfIDs {
 		if nfID != "" && nfID != smContext.SmfID() {
 			return false
