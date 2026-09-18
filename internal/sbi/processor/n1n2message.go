@@ -26,6 +26,19 @@ func relatedContentBytes(content *multipart.RelatedContent) []byte {
 	return content.Content
 }
 
+// Checks whether the request SMF is authorized for the SM context.
+func isSmfAuthorizedForN1N2Transfer(smContext *context.SmContext, nfIDs ...string) bool {
+	if smContext == nil {
+		return true
+	}
+	for _, nfID := range nfIDs {
+		if nfID != "" && nfID != smContext.SmfID() {
+			return false
+		}
+	}
+	return true
+}
+
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
 func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
 	n1n2MessageTransferRequest models.N1N2MessageTransferRequestBody,
@@ -154,6 +167,22 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			problemDetails = &models.ProblemDetails{
 				Status: http.StatusNotImplemented,
 				Cause:  "NOT_IMPLEMENTED",
+			}
+			return nil, "", problemDetails, nil
+		}
+	}
+
+	// Validate the SMF before forwarding or paging.
+	if smContext != nil {
+		nfIDs := []string{requestData.NfId}
+		if requestData.N1MessageContainer != nil {
+			nfIDs = append(nfIDs, requestData.N1MessageContainer.NfId)
+		}
+		if !isSmfAuthorizedForN1N2Transfer(smContext, nfIDs...) {
+			ue.ProducerLog.Warnf("Reject N1/N2 transfer for PDU Session ID[%d]: unauthorized SMF", requestData.PduSessionId)
+			problemDetails = &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INVALID_SM_CONTEXT",
 			}
 			return nil, "", problemDetails, nil
 		}
