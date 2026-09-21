@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/app"
 	Namf_Communication "github.com/free5gc/openapi/amf/Comm"
 	Nausf_UEAuthentication "github.com/free5gc/openapi/ausf/UEAU"
@@ -11,6 +12,7 @@ import (
 	Nsmf_PDUSession "github.com/free5gc/openapi/smf/PDUSess"
 	Nudm_SubscriberDataManagement "github.com/free5gc/openapi/udm/SDM"
 	Nudm_UEContextManagement "github.com/free5gc/openapi/udm/UECM"
+	"github.com/free5gc/util/nfheartbeat"
 )
 
 var consumer *Consumer
@@ -51,6 +53,15 @@ func NewConsumer(amf ConsumerAmf) (*Consumer, error) {
 		nfMngmntClients: make(map[string]*Nnrf_NFManagement.APIClient),
 		nfDiscClients:   make(map[string]*Nnrf_NFDiscovery.APIClient),
 	}
+	heartbeat, err := nfheartbeat.NewRunner(
+		nrfRegistrar{c.nnrfService},
+		func() int32 { return c.Config().GetNfHeartBeatTimer() },
+		logger.ConsumerLog,
+	)
+	if err != nil {
+		return nil, err
+	}
+	c.heartbeat = heartbeat
 
 	c.npcfService = &npcfService{
 		consumer:        c,

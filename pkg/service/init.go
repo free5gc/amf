@@ -217,17 +217,11 @@ func (a *AmfApp) Start() {
 		}()
 	}
 
-	var profile models.Nrf_NFMgmt_NFProfile
-	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
-		logger.InitLog.Error("Build AMF Profile Error")
-	} else {
-		profile = profileTmp
-	}
-	_, nfId, err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, a.Context().NrfUri, a.Context().NfId, &profile)
-	if err_reg != nil {
+	if err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, true); err_reg != nil {
 		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
 	} else {
-		a.Context().NfId = nfId
+		// Only a registered profile has something to keep alive.
+		a.Consumer().StartHeartbeat(a.ctx, &a.wg)
 	}
 
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
@@ -313,6 +307,9 @@ func (a *AmfApp) terminateProcedure() {
 
 	// notify SBI subscribers before deregistering so NRF still recognizes AMF as a valid OAuth client
 	callback.SendAmfStatusChangeNotify((string)(models.Amf_Comm_StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+
+	// no heartbeat PATCH or re-registration PUT may land after the deregistration
+	a.Consumer().WaitHeartbeatStopped()
 
 	// deregister with NRF
 	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()
