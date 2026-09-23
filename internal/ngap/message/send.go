@@ -83,7 +83,7 @@ func NasSendToRan(ue *context.AmfUe, accessType models.AccessType, packet []byte
 		return false, ngap_metrics.AMF_UE_NIL_ERR
 	}
 
-	ranUe := ue.RanUe[accessType]
+	ranUe := ue.GetRanUe(accessType)
 	if ranUe == nil {
 		logger.NgapLog.Error("RanUe is nil")
 		return false, ngap_metrics.RAN_UE_NIL_ERR
@@ -479,12 +479,12 @@ func SendInitialContextSetupRequest(
 		return
 	}
 
-	amfUe.RanUe[anType].Log.Info("Send Initial Context Setup Request")
+	amfUe.GetRanUe(anType).Log.Info("Send Initial Context Setup Request")
 
 	if pduSessionResourceSetupRequestList != nil {
 		if len(pduSessionResourceSetupRequestList.List) > context.MaxNumOfPDUSessions {
 			additionalCause = ngap_metrics.PDU_LIST_OOR_ERR
-			amfUe.RanUe[anType].Log.Error("Pdu List out of range")
+			amfUe.GetRanUe(anType).Log.Error("Pdu List out of range")
 			return
 		}
 	}
@@ -493,7 +493,7 @@ func SendInitialContextSetupRequest(
 		rrcInactiveTransitionReportRequest, coreNetworkAssistanceInfo, emergencyFallbackIndicator)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		amfUe.RanUe[anType].Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
+		amfUe.GetRanUe(anType).Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
 		return
 	}
 
@@ -520,13 +520,13 @@ func SendUEContextModificationRequest(
 		return
 	}
 
-	amfUe.RanUe[anType].Log.Info("Send UE Context Modification Request")
+	amfUe.GetRanUe(anType).Log.Info("Send UE Context Modification Request")
 
 	pkt, err := BuildUEContextModificationRequest(amfUe, anType, oldAmfUeNgapID, rrcInactiveTransitionReportRequest,
 		coreNetworkAssistanceInfo, mobilityRestrictionList, emergencyFallbackIndicator)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		amfUe.RanUe[anType].Log.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
+		amfUe.GetRanUe(anType).Log.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
 		return
 	}
 	isUeCtxModifReqSent, additionalCause = NasSendToRan(amfUe, anType, pkt)
@@ -919,18 +919,18 @@ func SendRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNga
 		return
 	}
 
-	ue.RanUe[anType].Log.Info("Send Reroute Nas Request")
+	ue.GetRanUe(anType).Log.Info("Send Reroute Nas Request")
 
 	if len(ngapMessage) == 0 {
 		additionalCause = ngap_metrics.NGAP_MSG_NIL_ERR
-		ue.RanUe[anType].Log.Error("Ngap Message is nil")
+		ue.GetRanUe(anType).Log.Error("Ngap Message is nil")
 		return
 	}
 
 	pkt, err := BuildRerouteNasRequest(ue, anType, amfUeNgapID, ngapMessage, allowedNSSAI)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		ue.RanUe[anType].Log.Errorf("Build RerouteNasRequest failed : %s", err.Error())
+		ue.GetRanUe(anType).Log.Errorf("Build RerouteNasRequest failed : %s", err.Error())
 		return
 	}
 	isRerouteNasReqSent, additionalCause = NasSendToRan(ue, anType, pkt)
@@ -1165,7 +1165,7 @@ func SendDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) {
 		return
 	}
 
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if ranUe == nil {
 		additionalCause = ngap_metrics.RAN_UE_NIL_ERR
 		logger.NgapLog.Error("RanUe is nil")
@@ -1333,7 +1333,7 @@ func SendN2Message(
 		return
 	}
 
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if ranUe == nil {
 		logger.NgapLog.Error("RanUe is nil")
 		return

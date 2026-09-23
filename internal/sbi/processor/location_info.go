@@ -54,7 +54,7 @@ func (p *Processor) ProvideLocationInfoProcedure(requestLocInfo models.Amf_Loc_R
 
 	provideLocInfo := new(models.Amf_Loc_ProvideLocInfo)
 
-	ranUe := ue.RanUe[anType]
+	ranUe := ue.GetRanUe(anType)
 	if requestLocInfo.Req5gsLoc || requestLocInfo.ReqCurrentLoc {
 		provideLocInfo.CurrentLoc = true
 		provideLocInfo.Location = &ue.Location

@@ -133,7 +133,8 @@ type AmfUe struct {
 	/* Pdu Sesseion context */
 	SmContextList sync.Map // map[int32]*SmContext, pdu session id as key
 	/* Related Context */
-	RanUe map[models.AccessType]*RanUe
+	ranUeMu sync.RWMutex
+	RanUe   map[models.AccessType]*RanUe
 	/* other */
 	onGoing                         map[models.AccessType]*OnGoing
 	UeRadioCapability               string // OCTET string
@@ -298,10 +299,22 @@ func (ue *AmfUe) ServingAMF() *AMFContext {
 }
 
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
+	ue.ranUeMu.RLock()
+	defer ue.ranUeMu.RUnlock()
 	if _, ok := ue.RanUe[anType]; !ok {
 		return false
 	}
 	return true
+}
+
+// GetRanUe returns the current RAN UE association for an access type.
+func (ue *AmfUe) GetRanUe(anType models.AccessType) *RanUe {
+	if ue == nil {
+		return nil
+	}
+	ue.ranUeMu.RLock()
+	defer ue.ranUeMu.RUnlock()
+	return ue.RanUe[anType]
 }
 
 func (ue *AmfUe) CmIdle(anType models.AccessType) bool {
@@ -317,7 +330,13 @@ func (ue *AmfUe) Remove() {
 	ue.StopT3570()
 	ue.StopT3555()
 
+	ue.ranUeMu.RLock()
+	ranUes := make([]*RanUe, 0, len(ue.RanUe))
 	for _, ranUe := range ue.RanUe {
+		ranUes = append(ranUes, ranUe)
+	}
+	ue.ranUeMu.RUnlock()
+	for _, ranUe := range ranUes {
 		if err := ranUe.Remove(); err != nil {
 			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
@@ -350,13 +369,17 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 		business_metrics.DecrUeConnectivityGauge(anType)
 	}
 
+	ue.ranUeMu.Lock()
 	delete(ue.RanUe, anType)
+	ue.ranUeMu.Unlock()
 	ue.UpdateLogFields(anType)
 }
 
 // Don't call this function directly. Use gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny().
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
+	ue.ranUeMu.Lock()
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
+	ue.ranUeMu.Unlock()
 	ranUe.AmfUe = ue
 	ue.UpdateLogFields(ranUe.Ran.AnType)
 }
@@ -369,7 +392,8 @@ func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
 	case models.AccessType_NON_3_GPP_ACCESS:
 		anTypeStr = "Non3GPP"
 	}
-	if ranUe, ok := ue.RanUe[accessType]; ok {
+	ranUe := ue.GetRanUe(accessType)
+	if ranUe != nil {
 		ue.NASLog = ue.NASLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:%d,AU:%d(%s)",
 			ranUe.RanUeNgapId, ranUe.AmfUeNgapId, anTypeStr))
 		ue.GmmLog = ue.GmmLog.WithField(logger.FieldAmfUeNgapID, fmt.Sprintf("RU:%d,AU:%d(%s)",
@@ -674,7 +698,7 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.IdentityRequestSendTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
-	if ranUe := ue.RanUe[accessType]; ranUe != nil {
+	if ranUe := ue.GetRanUe(accessType); ranUe != nil {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
 	ue.RetransmissionOfInitialNASMsg = false
@@ -1022,12 +1046,13 @@ func (ue *AmfUe) StopT3555() {
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
-	if ue.RanUe[anType] == nil || ue.RanUe[anType].Ran == nil {
+	ranUe := ue.GetRanUe(anType)
+	if ranUe == nil || ranUe.Ran == nil {
 		ue.GmmLog.Warn("CheckSliceAvailabilityInCurrentRan: RanUe or Ran is nil")
 		return false
 	}
 
-	return ue.CheckSliceAvailabilityInRan(targetSnssai, ue.RanUe[anType].Ran, ue.Tai)
+	return ue.CheckSliceAvailabilityInRan(targetSnssai, ranUe.Ran, ue.Tai)
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInTargetRan(

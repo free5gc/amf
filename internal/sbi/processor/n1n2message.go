@@ -227,7 +227,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			}
 			if n2Info == nil {
 				ue.ProducerLog.Debug("Forward N1 Message to UE")
-				ngap_message.SendDownlinkNasTransport(ue.RanUe[anType], nasPdu, nil)
+				ngap_message.SendDownlinkNasTransport(ue.GetRanUe(anType), nasPdu, nil)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -248,15 +248,15 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 					}
 					return nil, "", problemDetails, nil
 				}
-				if ue.RanUe[anType].InitialContextSetup {
+				if ue.GetRanUe(anType).InitialContextSetup {
 					list := ngapType.PDUSessionResourceSetupListSUReq{}
 					ngap_message.AppendPDUSessionResourceSetupListSUReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
-					ngap_message.SendPDUSessionResourceSetupRequest(ue.RanUe[anType], nil, &list)
+					ngap_message.SendPDUSessionResourceSetupRequest(ue.GetRanUe(anType), nil, &list)
 				} else {
 					list := ngapType.PDUSessionResourceSetupListCxtReq{}
 					ngap_message.AppendPDUSessionResourceSetupListCxtReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
 					ngap_message.SendInitialContextSetupRequest(ue, anType, nil, &list, nil, nil, nil)
-					ue.RanUe[anType].InitialContextSetup = true
+					ue.GetRanUe(anType).InitialContextSetup = true
 				}
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
@@ -265,7 +265,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Modify Request from SMF")
 				list := ngapType.PDUSessionResourceModifyListModReq{}
 				ngap_message.AppendPDUSessionResourceModifyListModReq(&list, smInfo.PduSessionId, nasPdu, n2Info)
-				ngap_message.SendPDUSessionResourceModifyRequest(ue.RanUe[anType], list)
+				ngap_message.SendPDUSessionResourceModifyRequest(ue.GetRanUe(anType), list)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -273,7 +273,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Release Command from SMF")
 				list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
 				ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, smInfo.PduSessionId, n2Info)
-				ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nasPdu, list)
+				ngap_message.SendPDUSessionResourceReleaseCommand(ue.GetRanUe(anType), nasPdu, list)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -384,7 +384,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 		if ue.CmConnect(models.AccessType_3_GPP_ACCESS) {
 			if n2Info == nil {
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
-				gmm_message.SendDLNASTransport(ue.RanUe[models.AccessType_3_GPP_ACCESS],
+				gmm_message.SendDLNASTransport(ue.GetRanUe(models.AccessType_3_GPP_ACCESS),
 					ie.PayloadCntrType_N1SMInfo, n1Msg, requestData.PduSessionId, 0, nil, 0)
 			} else {
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE
@@ -399,7 +399,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 					logger.GmmLog.Errorf("Build Notification failed : %s", err.Error())
 					return n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr
 				}
-				gmm_message.SendNotification(ue.RanUe[models.AccessType_3_GPP_ACCESS], nasMsg)
+				gmm_message.SendNotification(ue.GetRanUe(models.AccessType_3_GPP_ACCESS), nasMsg)
 			}
 			return n1n2MessageTransferRspData, locationHeader, nil, nil
 		} else {
