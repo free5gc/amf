@@ -254,7 +254,9 @@ func (p *Processor) HandleDeleteAMFEventSubscription(c *gin.Context) {
 		c.Set(sbi.IN_PB_DETAILS_CTX_STR, problemDetails.Cause)
 		c.JSON(int(problemDetails.Status), problemDetails)
 	} else {
-		c.JSON(http.StatusOK, nil)
+		// 3GPP TS 29.518 Namf_EventExposure Unsubscribe: successful deletion returns
+		// 204 No Content (the generated SBI client only treats 204 as success).
+		c.Status(http.StatusNoContent)
 	}
 }
 
