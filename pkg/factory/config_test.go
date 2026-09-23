@@ -24,7 +24,18 @@ func TestSctp_validate(t *testing.T) {
 		wantErr bool
 		numErr  int
 	}{
-		// TODO: Add test cases.
+		{
+			name: "test OK -- Default",
+			fields: fields{
+				NumOstreams:    sctpDefaultNumOstreams,
+				MaxInstreams:   sctpDefaultMaxInstreams,
+				MaxAttempts:    sctpDefaultMaxAttempts,
+				MaxInitTimeout: sctpDefaultMaxInitTimeout,
+			},
+			want:    true,
+			wantErr: false,
+			numErr:  0,
+		},
 		{
 			name: "test OK -- Max",
 			fields: fields{
