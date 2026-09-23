@@ -153,6 +153,7 @@ func (s *nsmfService) SelectSmf(
 		smfUri = util.SearchNFServiceUri(&result.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
 			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
 		if smfUri != "" {
+			smfID = result.NfInstances[index].NfInstanceId
 			break
 		}
 	}
