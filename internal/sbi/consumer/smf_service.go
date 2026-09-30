@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/util"
@@ -82,16 +81,8 @@ func (s *nsmfService) SelectSmf(
 	nsiInformation := ue.GetNsiInformationFromSnssai(anType, snssai)
 	if nsiInformation == nil {
 		if ue.NssfUri == "" {
-			// TODO: Set a timeout of NSSF Selection or will starvation here
-			for {
-				searchReq := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
-				if err := s.consumer.SearchNssfNSSelectionInstance(ue, nrfUri, models.Nrf_NFMgmt_NFType_NSSF,
-					models.Nrf_NFMgmt_NFType_AMF, &searchReq); err != nil {
-					ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", err)
-					time.Sleep(2 * time.Second)
-				} else {
-					break
-				}
+			if err := s.consumer.SelectNssfWithTimeout(ue, nrfUri); err != nil {
+				return nil, ie.Cause5GMM_PayloadWasNotForwarded, err
 			}
 		}
 
