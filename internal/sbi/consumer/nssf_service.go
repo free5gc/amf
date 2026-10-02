@@ -1,13 +1,24 @@
 package consumer
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	amf_context "github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
+	Nnrf_NFDiscovery "github.com/free5gc/openapi/nrf/NFDisc"
 	Nnssf_NSSelection "github.com/free5gc/openapi/nssf/NSSel"
 	sbi_metrics "github.com/free5gc/util/metrics/sbi"
+)
+
+const (
+	// nssfSelectionTimeout is the retry budget for NSSF discovery, so a missing NSSF
+	// cannot block the UE handler forever. One in-flight request may still exceed it.
+	nssfSelectionTimeout = 5 * time.Second
+	// nssfSelectionRetryInterval is the wait between two NSSF discovery attempts.
+	nssfSelectionRetryInterval = 2 * time.Second
 )
 
 type nssfService struct {
@@ -159,5 +170,35 @@ func (s *nssfService) NSSelectionGetForPduSession(ue *amf_context.AmfUe, snssai 
 		default:
 			return nil, nil, openapi.ReportError("server no response")
 		}
+	}
+}
+
+// SelectNssfWithTimeout discovers an NSSF via NRF and stores it in ue.NssfUri,
+// retrying until nssfSelectionTimeout elapses.
+func (s *nssfService) SelectNssfWithTimeout(ue *amf_context.AmfUe, nrfUri string) error {
+	return retryWithTimeout(nssfSelectionTimeout, nssfSelectionRetryInterval, func() error {
+		searchReq := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
+		err := s.consumer.SearchNssfNSSelectionInstance(ue, nrfUri, models.Nrf_NFMgmt_NFType_NSSF,
+			models.Nrf_NFMgmt_NFType_AMF, &searchReq)
+		if err != nil {
+			ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", err)
+		}
+		return err
+	})
+}
+
+// retryWithTimeout calls fn until it succeeds, sleeping interval between attempts.
+// It gives up once another sleep would pass timeout, returning the last error wrapped.
+func retryWithTimeout(timeout, interval time.Duration, fn func() error) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+		if time.Now().Add(interval).After(deadline) {
+			return fmt.Errorf("NSSF selection timeout after %v: %w", timeout, err)
+		}
+		time.Sleep(interval)
 	}
 }

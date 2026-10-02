@@ -1168,16 +1168,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 
 		if needSliceSelection {
 			if ue.NssfUri == "" {
-				for {
-					reqParam := Nnrf_NFDiscovery.SearchNFInstancesRequest{}
-					errSearchNssf := consumer.GetConsumer().SearchNssfNSSelectionInstance(
-						ue, amfSelf.NrfUri, models.Nrf_NFMgmt_NFType_NSSF, models.Nrf_NFMgmt_NFType_AMF, &reqParam)
-					if errSearchNssf != nil {
-						ue.GmmLog.Errorf("AMF can not select an NSSF Instance by NRF[Error: %+v]", errSearchNssf)
-						time.Sleep(2 * time.Second)
-					} else {
-						break
-					}
+				if errSearchNssf := consumer.GetConsumer().SelectNssfWithTimeout(ue, amfSelf.NrfUri); errSearchNssf != nil {
+					ue.GmmLog.Errorf("Select NSSF failed: %+v", errSearchNssf)
+					gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ProtError, "")
+					return fmt.Errorf("handle Requested Nssai of UE failed")
 				}
 			}
 
