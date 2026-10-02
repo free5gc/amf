@@ -108,16 +108,15 @@ func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, 
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {
 	if ranUe != nil {
-		if ranUe.AmfUe != nil && ranUe.AmfUe.State[ranUe.Ran.AnType] != nil {
-			if ranUe.AmfUe.State[ranUe.Ran.AnType].Is(context.Registered) && ranUe.AmfUe.CmConnect(ranUe.Ran.AnType) {
-				business_metrics.DecrUeConnectivityGauge(ranUe.Ran.AnType)
-			}
+		if ranUe.AmfUe != nil {
+			StopAll5GSMMTimers(ranUe.AmfUe)
 		}
-		ranUe.DetachAmfUe()
 		ranUe.Log.Infof("Clear Holding RanUE")
 		causeGroup := ngap_message.CauseChoiceRadioNetwork
-		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
-		ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
+		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueTo5gcGeneratedReason
+		// 3GPP TS 23.502, clause 4.2.6.
+		ngap_message.SendUEContextReleaseCommand(
+			ranUe, context.UeContextReleaseSupersededContext, causeGroup, causeValue)
 	} else {
 		logger.GmmLog.Warnf("RanUE is nil")
 	}

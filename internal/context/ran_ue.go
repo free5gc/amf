@@ -25,6 +25,7 @@ const (
 	UeContextN2NormalRelease RelAction = iota
 	UeContextReleaseHandover
 	UeContextReleaseUeContext
+	UeContextReleaseSupersededContext
 )
 
 type RanUe struct {

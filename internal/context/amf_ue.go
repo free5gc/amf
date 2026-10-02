@@ -330,7 +330,7 @@ func (ue *AmfUe) Remove() {
 	}
 	tmsiGenerator.FreeID(int64(ue.Tmsi))
 	if len(ue.Supi) > 0 {
-		GetSelf().UePool.Delete(ue.Supi)
+		GetSelf().UePool.CompareAndDelete(ue.Supi, ue)
 	}
 	ue.DeleteAllSmContexts()
 
