@@ -1871,7 +1871,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 				},
 			}
 		}
-		ngap_message.SendHandoverRequest(sourceUe, targetRan, *cause, pduSessionReqList,
+		ngap_message.SendHandoverRequest(sourceUe, targetRan, tai, *cause, pduSessionReqList,
 			*sourceToTargetTransparentContainer, false)
 	}
 }
