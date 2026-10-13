@@ -623,7 +623,8 @@ a Nsmf_PDUSession_CreateSMContext Response(N2 SM Information (PDU Session ID, ca
 // sourceToTargetTransparentContainer is received from S-RAN
 // nsci: new security context indicator, if amfUe has updated security context, set nsci to true, otherwise set to false
 // N2 handover in same AMF
-func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cause ngapType.Cause,
+func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, targetTai models.Tai,
+	cause ngapType.Cause,
 	pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
 	sourceToTargetTransparentContainer ngapType.SourceToTargetTransparentContainer, nsci bool,
 ) {
@@ -686,6 +687,9 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cau
 		sourceUe.Log.Errorf("Create target UE error: %+v", err)
 	} else {
 		targetUe = targetUeTmp
+		// Handover Request Acknowledge has no user location IE. Retain the
+		// Selected TAI from Handover Required for the final target slice check.
+		targetUe.Tai = targetTai
 	}
 
 	sourceUe.Log.Tracef("Source : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[%d]", sourceUe.AmfUeNgapId, sourceUe.RanUeNgapId)
