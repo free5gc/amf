@@ -76,6 +76,7 @@ type Info struct {
 }
 
 type Configuration struct {
+	IdleTimeout            *time.Duration    `yaml:"idleTimeout,omitempty" valid:"optional"`
 	AmfName                string            `yaml:"amfName,omitempty" valid:"required, type(string)"`
 	NfInstanceId           string            `yaml:"nfInstanceId,omitempty" valid:"optional,uuidv4"`
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
@@ -1052,4 +1053,15 @@ func (c *Config) GetNgapTaskBufferSize() int {
 		return c.Configuration.NgapTaskBufferSize
 	}
 	return 1000 // Default buffer size
+}
+
+// GetIdleTimeout returns the HTTP server idle timeout. Omitted values preserve
+// the previous 1ms timeout; an explicit zero disables the timeout.
+func (c *Config) GetIdleTimeout() time.Duration {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration == nil || c.Configuration.IdleTimeout == nil {
+		return time.Millisecond
+	}
+	return *c.Configuration.IdleTimeout
 }

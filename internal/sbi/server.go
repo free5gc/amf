@@ -56,7 +56,7 @@ func NewServer(amf ServerAmf, tlsKeyLogPath string) (*Server, error) {
 	bindAddr := cfg.GetSbiBindingAddr()
 	logger.SBILog.Infof("Binding addr: [%s]", bindAddr)
 	var err error
-	if s.httpServer, err = httpwrapper.NewHttp2Server(bindAddr, tlsKeyLogPath, s.router); err != nil {
+	if s.httpServer, err = httpwrapper.NewHttp2Server(bindAddr, tlsKeyLogPath, s.router, cfg.GetIdleTimeout()); err != nil {
 		logger.InitLog.Errorf("Initialize HTTP server failed: %v", err)
 		return nil, err
 	}
