@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/free5gc/openapi"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
@@ -23,6 +22,7 @@ import (
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics"
 	"github.com/free5gc/util/metrics/utils"
@@ -87,7 +87,8 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 	commonMetrics := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true, utils.NGAP: true}
 	if cfg.AreMetricsEnabled() {
 		if amf.metricsServer, err = metrics.NewServer(
-			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog, cfg.GetIdleTimeout()); err != nil {
+			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog, cfg.GetIdleTimeout(),
+		); err != nil {
 			return nil, err
 		}
 	}
