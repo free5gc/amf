@@ -188,6 +188,16 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleIdentityResponse(amfUe, msg); err != nil {
 				logger.GmmLog.Errorln(err)
 			} else {
+				// 3GPP TS 24.501, clause 5.4.3: retain the SUCI-matched old context as a candidate pending authentication.
+				if amfUe.RegistrationType5GS == ie.RegType_InitialReg &&
+					msg.MobileId.TypeOfId == ie.IdType_5GS_SUCI {
+					if ranUe := amfUe.RanUe[accessType]; ranUe != nil && ranUe.HoldingAmfUe == nil {
+						oldAmfUe, ok := context.GetSelf().AmfUeFindBySuci(amfUe.Suci)
+						if ok && oldAmfUe != amfUe && oldAmfUe.RanUe[accessType] != nil {
+							ranUe.HoldingAmfUe = oldAmfUe
+						}
+					}
+				}
 				// update identity type used for reauthentication
 				amfUe.IdentityTypeUsedForRegistration = msg.MobileId.TypeOfId
 
