@@ -208,6 +208,16 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 
 	// UE is CM-Connected
 	if ue.CmConnect(anType) {
+		if ranUe := ue.RanUe[anType]; ranUe == nil || ranUe.AmfUe != ue {
+			ue.ProducerLog.Warnf("RanUe is not attached to this AmfUe, reject N1N2 message transfer")
+			transferErr = new(models.Amf_Comm_N1N2MessageTransferError)
+			transferErr.Error = &models.ProblemDetails{
+				Status: http.StatusConflict,
+				Cause:  "TEMPORARY_REJECT_REGISTRATION_ONGOING",
+			}
+			return nil, "", nil, transferErr
+		}
+
 		var (
 			nasPdu []byte
 			err    error
