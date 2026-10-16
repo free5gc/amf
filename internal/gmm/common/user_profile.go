@@ -41,13 +41,13 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 }
 
 func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
-	if ue.RanUe[models.AccessType_3_GPP_ACCESS] != nil {
+	if ue.GetRanUe(models.AccessType_3_GPP_ACCESS) != nil {
 		err := PurgeSubscriberData(ue, models.AccessType_3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
 		}
 	}
-	if ue.RanUe[models.AccessType_NON_3_GPP_ACCESS] != nil {
+	if ue.GetRanUe(models.AccessType_NON_3_GPP_ACCESS) != nil {
 		err := PurgeSubscriberData(ue, models.AccessType_NON_3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
@@ -56,7 +56,7 @@ func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
 }
 
 func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.RanUe) {
-	if oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+	if oldRanUe := amfUe.GetRanUe(ranUe.Ran.AnType); oldRanUe != nil {
 		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
 		oldRanUe.DetachAmfUe()
 		if amfUe.T3550 != nil {
