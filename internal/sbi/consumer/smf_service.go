@@ -183,13 +183,26 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	if localErr == nil {
 		location := postSmContextReponse.Location
 
-		parts := strings.Split(location, "/")
-
-		if len(parts) > 0 {
-			location = parts[len(parts)-1]
+		if location == "" {
+			return "", nil, nil, fmt.Errorf("SMF returned empty Location header")
 		}
 
-		smContextRef = "urn:uuid:" + location
+		parsed, parseErr := url.Parse(location)
+		if parseErr != nil {
+			return "", nil, nil, fmt.Errorf("SMF returned invalid Location URI: %w", parseErr)
+		}
+
+		_, contextID, found := strings.Cut(
+			parsed.Path,
+			"/nsmf-pdusession/v1/sm-contexts/",
+		)
+		if !found || contextID == "" || strings.Contains(contextID, "/") {
+			return "", nil, nil, fmt.Errorf(
+				"SMF Location must identify an individual SM context with a non-empty reference",
+			)
+		}
+
+		smContextRef = "urn:uuid:" + contextID
 	} else {
 		err1 = localErr
 		switch errType := localErr.(type) {
