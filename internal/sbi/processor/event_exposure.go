@@ -55,13 +55,8 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 	var isImmediate bool
 	var immediateFlags []bool
 	var reportlist []models.Amf_EvtExpos_AmfEventReport
-	// singleUe caches the UE resolved for the non-AnyUE, non-GroupId (single
-	// SUPI) path so it can be reused later in this procedure without a second
-	// pool lookup. A second lookup by SUPI is unsafe here: the UE can be
-	// concurrently deregistered and removed from amfSelf.UePool between the
-	// initial validation below and the "for immediate use" block further
-	// down, which would make a second lookup return ok=false/nil and panic
-	// on ue.Lock.Lock() (see free5gc/amf#71).
+	// singleUe caches the UE validated below, for reuse further down instead
+	// of a second, racy pool lookup (see free5gc/amf#71).
 	var singleUe *context.AmfUe
 
 	id, err := amfSelf.EventSubscriptionIDGenerator.Allocate()
@@ -222,15 +217,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			return true
 		})
 	} else {
-		// Reuse the UE reference validated and stored above (singleUe) instead
-		// of re-querying amfSelf.UePool by SUPI. A second lookup here would be
-		// racy: the UE can be deregistered and removed from the pool between
-		// the two lookups, causing AmfUeFindBySupi to return (nil, false) and
-		// a nil ue.Lock.Lock() panic (free5gc/amf#71). singleUe is guaranteed
-		// non-nil whenever this branch is reached, since the earlier branch
-		// at line ~140 would have already returned UE_NOT_SERVED_BY_AMF
-		// otherwise.
-		ue := singleUe
+		ue := singleUe // non-nil here; see declaration above
 		ue.Lock.Lock()
 		defer ue.Lock.Unlock()
 
