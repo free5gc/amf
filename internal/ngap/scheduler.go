@@ -5,6 +5,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/free5gc/amf/internal/logger"
 )
@@ -24,6 +25,7 @@ type Worker struct {
 	stopChan chan struct{} // Signal channel for shutdown
 	stopOnce sync.Once     // Ensures stopChan is closed only once
 	handler  func(conn net.Conn, msg []byte)
+	release  func(ueID uint64) // optional: called after the task has been handled
 	wg       *sync.WaitGroup
 }
 
@@ -57,6 +59,9 @@ func (w *Worker) run() {
 			logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
 				w.ID, task.UEID)
 			w.handler(task.Conn, task.Message)
+			if w.release != nil {
+				w.release(task.UEID)
+			}
 
 		case <-w.stopChan:
 			logger.NgapLog.Infof("Worker %d: shutdown signal received, draining queue...", w.ID)
@@ -73,6 +78,9 @@ func (w *Worker) drainAndExit() {
 		case task := <-w.taskChan:
 			logger.NgapLog.Debugf("Worker %d processing residual task for UE ID %d", w.ID, task.UEID)
 			w.handler(task.Conn, task.Message)
+			if w.release != nil {
+				w.release(task.UEID)
+			}
 		default:
 			// Channel is empty, exit safely
 			logger.NgapLog.Infof("Worker %d: queue drained, stopped.", w.ID)
@@ -102,11 +110,23 @@ func (w *Worker) Stop() {
 	})
 }
 
+// DefaultMaxPendingPerUE bounds how many tasks one UE may have queued or in
+// flight. A single unauthenticated peer can otherwise fill a worker queue with
+// spec-legal INITIAL UE MESSAGEs and delay every other UE that hashes to the
+// same worker past its NAS guard timer (TS 23.501 §5.19.1/§5.19.2).
+const DefaultMaxPendingPerUE = 64
+
 // UEScheduler distributes NGAP tasks to workers based on UE ID.
 type UEScheduler struct {
 	workers    []*Worker
 	numWorkers int
 	wg         sync.WaitGroup
+
+	// maxPendingPerUE = 0 disables the per-UE bound (used by unit tests that
+	// exercise queue ordering with a single UE).
+	maxPendingPerUE int64
+	uePending       sync.Map // uint64 UE ID -> *atomic.Int64 outstanding tasks
+	dropped         atomic.Uint64
 }
 
 // NewUEScheduler creates a new UE scheduler with the specified number of workers.
@@ -136,7 +156,42 @@ func (s *UEScheduler) DispatchTask(task Task) bool {
 
 	logger.NgapLog.Debugf("Dispatching UE ID %d to Worker %d (hash-based routing)",
 		task.UEID, workerIndex)
-	return worker.Submit(task)
+
+	if s.maxPendingPerUE <= 0 {
+		return worker.Submit(task)
+	}
+
+	value, _ := s.uePending.LoadOrStore(task.UEID, new(atomic.Int64))
+	pending := value.(*atomic.Int64)
+	if pending.Add(1) > s.maxPendingPerUE {
+		pending.Add(-1)
+		dropped := s.dropped.Add(1)
+		// Keep the log bounded: a flood can drop thousands of messages.
+		if dropped == 1 || dropped%256 == 0 {
+			logger.NgapLog.Warnf("Overload: %d tasks already queued for UE ID %d, "+
+				"dropping NGAP message (%d dropped so far)", s.maxPendingPerUE, task.UEID, dropped)
+		}
+		return false
+	}
+
+	if !worker.Submit(task) {
+		pending.Add(-1)
+		return false
+	}
+	return true
+}
+
+// releaseUE records that one task of this UE has been handled.
+func (s *UEScheduler) releaseUE(ueID uint64) {
+	if s.maxPendingPerUE <= 0 {
+		return
+	}
+	if value, ok := s.uePending.Load(ueID); ok {
+		pending := value.(*atomic.Int64)
+		if pending.Add(-1) == 0 {
+			s.uePending.Delete(ueID)
+		}
+	}
 }
 
 // hashUEID computes a hash of the UE ID and maps it to a worker index.
@@ -181,8 +236,12 @@ func InitScheduler(numWorkers int, taskBufferSize int, handler func(conn net.Con
 		defer schedulerMutex.Unlock()
 
 		globalScheduler = NewUEScheduler(numWorkers, taskBufferSize, handler)
-		logger.NgapLog.Infof("Global UE Scheduler initialized with %d workers, buffer size %d",
-			numWorkers, taskBufferSize)
+		globalScheduler.maxPendingPerUE = DefaultMaxPendingPerUE
+		for _, worker := range globalScheduler.workers {
+			worker.release = globalScheduler.releaseUE
+		}
+		logger.NgapLog.Infof("Global UE Scheduler initialized with %d workers, buffer size %d, "+
+			"max %d pending tasks per UE", numWorkers, taskBufferSize, DefaultMaxPendingPerUE)
 	})
 }
 

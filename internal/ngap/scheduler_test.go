@@ -396,3 +396,36 @@ func TestScheduler_NonUEMessage(t *testing.T) {
 		"All non-UE messages should be processed")
 	t.Logf("Non-UE messages routed to worker %d", expectedWorkerIndex)
 }
+
+func TestScheduler_PerUEPendingLimitShedsFlood(t *testing.T) {
+	// One UE must not be able to occupy a worker with an unbounded backlog: a
+	// spec-legal pre-auth INITIAL UE MESSAGE flood hashes to a single worker and
+	// would otherwise delay every other UE behind it. With the per-UE bound
+	// enabled, the excess is dropped and a different UE is still served.
+	block := make(chan struct{})
+	handler := func(conn net.Conn, msg []byte) { <-block }
+
+	scheduler := NewUEScheduler(1, 1024, handler)
+	scheduler.maxPendingPerUE = 4
+	for _, worker := range scheduler.workers {
+		worker.release = scheduler.releaseUE
+	}
+	defer func() {
+		close(block)
+		scheduler.Shutdown()
+	}()
+
+	accepted := 0
+	for i := 0; i < 32; i++ {
+		if scheduler.DispatchTask(Task{UEID: 7, Conn: &mockConn{}, Message: []byte{byte(i)}}) {
+			accepted++
+		}
+	}
+	require.Equal(t, 4, accepted,
+		"one in-flight task plus the per-UE bound must be the only accepted tasks")
+	require.Greater(t, scheduler.dropped.Load(), uint64(0))
+
+	// A different UE is not blocked by the saturated one.
+	require.True(t, scheduler.DispatchTask(Task{UEID: 8, Conn: &mockConn{}, Message: []byte{0xff}}),
+		"another UE must still be scheduled while UE 7 is saturated")
+}
