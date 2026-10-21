@@ -502,7 +502,6 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			},
 			Scheme:          context.UriScheme,
 			NfServiceStatus: models.Nrf_NFMgmt_NFServiceStatus_REGISTERED,
-			ApiPrefix:       context.GetIPv4Uri(),
 			IpEndPoints: []models.Nrf_NFMgmt_IpEndPoint{
 				{
 					Ipv4Address: context.RegisterIPv4,
