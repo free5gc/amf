@@ -527,20 +527,28 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	isInvalidGUTI := (idType == "5G-GUTI")
 	amfUe, ok := findAmfUe(ran, id, idType)
 	if ok && !isInvalidGUTI {
-		// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
-		// last Registration Request procedure
-		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
-		ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
-		// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
-		if procedure := amfUe.OnGoing(ran.AnType).Procedure; procedure == context.OnGoingProcedureN2Handover {
-			ranUe.Log.Warn("Reject InitialUEMessage because N2 handover is ongoing")
-			gmm_message.SendRegistrationReject(ranUe, ie.Cause5GMM_Congestion, "")
-			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
-				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
-			return
+		if regReqType == ie.RegType_InitialReg && amfUe.SecurityContextAvailable {
+			// TS 23.502 4.2.2.2.2 and TS 33.501 6.1.3: an initial registration
+			// naming an existing SUPI/SUCI is not authenticated yet. Handle it on
+			// a fresh context until authentication proves ownership; the
+			// established context and its sessions must survive a failed attempt.
+			ranUe.Log.Infof("Ignore AmfUe found by %q for unauthenticated initial registration", idType)
+		} else {
+			// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
+			// last Registration Request procedure
+			// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
+			ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
+			// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
+			if procedure := amfUe.OnGoing(ran.AnType).Procedure; procedure == context.OnGoingProcedureN2Handover {
+				ranUe.Log.Warn("Reject InitialUEMessage because N2 handover is ongoing")
+				gmm_message.SendRegistrationReject(ranUe, ie.Cause5GMM_Congestion, "")
+				ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+					ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+				return
+			}
+			ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+			ranUe.HoldingAmfUe = amfUe
 		}
-		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-		ranUe.HoldingAmfUe = amfUe
 	} else if regReqType != ie.RegType_InitialReg {
 		if regReqType == ie.RegType_PeriodicRegUpdating ||
 			regReqType == ie.RegType_MobilityRegUpdating {
