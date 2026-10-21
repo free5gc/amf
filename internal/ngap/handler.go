@@ -1294,6 +1294,38 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 
 	ran.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 
+	// TS 38.413 8.4.4.2 / 10.6: the Path Switch Request is a target NG-RAN's
+	// arrival report for a UE that another NG-RAN served. The RAN-UE-NGAP-ID
+	// it allocates for the UE must not already belong to a different UE on
+	// that node, and the request cannot come from the node that still serves
+	// the UE. Otherwise the AP IDs do not describe a path switch and the
+	// request must not move the UE. (The general trust of an Xn target is
+	// outside this AP-ID check; see verification.md.)
+	emptyReleasedList := &ngapType.PDUSessionResourceReleasedListPSFail{}
+	if ranUe.Ran == nil {
+		ranUe.Log.Error("PathSwitchRequest: source RanUe has no RAN")
+		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
+			emptyReleasedList, nil, business_metrics.HANDOVER_RAN_UE_MISSING_ERR, xnHandoverStartTime)
+		return
+	}
+	if ranUe.Ran == ran {
+		ranUe.Log.Warnf("PathSwitchRequest from the source NG-RAN itself; reject the path switch")
+		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
+			emptyReleasedList, nil, business_metrics.HANDOVER_SWITCH_RAN_ERR, xnHandoverStartTime)
+		return
+	}
+	if rANUENGAPID != nil {
+		if value, loaded := ran.RanUeList.Load(rANUENGAPID.Value); loaded {
+			if other, isRanUe := value.(*context.RanUe); !isRanUe || other != ranUe {
+				ranUe.Log.Warnf("PathSwitchRequest RAN-UE-NGAP-ID[%d] is already in use on this NG-RAN node; "+
+					"reject the path switch", rANUENGAPID.Value)
+				ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
+					emptyReleasedList, nil, business_metrics.HANDOVER_RAN_UE_MISSING_ERR, xnHandoverStartTime)
+				return
+			}
+		}
+	}
+
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ranUe.Log.Error("AmfUe is nil")
