@@ -2438,6 +2438,16 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Deregistration Request(UE Originating)")
 
+	// TS 23.502 4.2.6: the deregistration ends the paging procedure for this
+	// UE. T3513 retransmits the Paging independently of the GMM state, so it
+	// has to be stopped here instead of when the AmfUe is removed.
+	ue.StopT3513()
+	if ue.OnGoing(anType).Procedure == context.OnGoingProcedurePaging {
+		ue.SetOnGoing(anType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	}
+
 	targetDeregistrationAccessType := deregistrationRequest.DeregType.AccessType
 	ue.SmContextList.Range(func(key, value interface{}) bool {
 		smContext := value.(*context.SmContext)
@@ -2532,6 +2542,9 @@ func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Deregistration Accept(UE Terminated)")
 
+	// The deregistration is complete, so a paging procedure still supervised
+	// by T3513 must not outlive it.
+	ue.StopT3513()
 	ue.StopT3522()
 
 	switch ue.DeregistrationTargetAccessType {
