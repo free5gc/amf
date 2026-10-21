@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/free5gc/amf/internal/logger"
@@ -91,7 +92,8 @@ type AMFContext struct {
 	T3555Cfg factory.TimerValue
 	Locality string
 
-	OAuth2Required bool
+	// Atomic: the startup NRF registration writes it while NGAP handlers already read it.
+	OAuth2Required atomic.Bool
 }
 
 type AMFContextEventSubscription struct {
@@ -551,7 +553,7 @@ func (context *AMFContext) Reset() {
 	context.Name = "amf"
 	context.NrfUri = ""
 	context.NrfCertPem = ""
-	context.OAuth2Required = false
+	context.OAuth2Required.Store(false)
 }
 
 // Create new AMF context
@@ -562,7 +564,7 @@ func GetSelf() *AMFContext {
 func (c *AMFContext) GetTokenCtx(serviceName models.Nrf_NFMgmt_ServiceName, targetNF models.Nrf_NFMgmt_NFType) (
 	context.Context, *models.ProblemDetails, error,
 ) {
-	if !c.OAuth2Required {
+	if !c.OAuth2Required.Load() {
 		return context.TODO(), nil, nil
 	}
 	return oauth.GetTokenCtx(models.Nrf_NFMgmt_NFType_AMF, targetNF,
@@ -570,7 +572,7 @@ func (c *AMFContext) GetTokenCtx(serviceName models.Nrf_NFMgmt_ServiceName, targ
 }
 
 func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFMgmt_ServiceName) error {
-	if !c.OAuth2Required {
+	if !c.OAuth2Required.Load() {
 		logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: OAuth2 not required\n")
 		return nil
 	}
