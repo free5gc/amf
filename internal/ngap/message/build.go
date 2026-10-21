@@ -278,8 +278,8 @@ func BuildInitialContextSetupRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	if setupList != nil && len(setupList.List) == 0 {
@@ -353,8 +353,8 @@ func BuildUEContextModificationRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	amfID := ranUe.AmfUeNgapId
@@ -600,7 +600,7 @@ func BuildRerouteNasRequest(
 	encodedNGAPMessage []byte,
 	allowedNSSAI *ngapIE.AllowedNSSAI,
 ) ([]byte, error) {
-	if ue == nil || ue.RanUe[anType] == nil {
+	if ue == nil || ue.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
 	amfID, _, err := splitGUTI(ue.Guti)
@@ -610,7 +610,7 @@ func BuildRerouteNasRequest(
 	_, setID, _ := ngapConvert.AmfIdToNgap(amfID)
 	messageValue := ngapAper.OctetString(encodedNGAPMessage)
 	request := &ngapMessage.RerouteNASRequest{
-		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.RanUe[anType].RanUeNgapId},
+		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.GetRanUe(anType).RanUeNgapId},
 		NGAPMessage:  &messageValue,
 		AMFSetID:     &ngapIE.AMFSetID{Value: setID},
 		AllowedNSSAI: allowedNSSAI,
@@ -698,10 +698,10 @@ func BuildTraceStart() ([]byte, error) {
 }
 
 func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byte, error) {
-	if amfUe == nil || amfUe.RanUe[anType] == nil {
+	if amfUe == nil || amfUe.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if amfUe.TraceData == nil {
 		return nil, fmt.Errorf("trace data is nil")
 	}
