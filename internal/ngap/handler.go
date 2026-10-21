@@ -531,6 +531,22 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		// last Registration Request procedure
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
 		ranUe.Log.Infof("find AmfUe [%q:%q]", idType, id)
+
+		// TS 24.501 4.4.4.3 / 4.4.4.6: when the AMF already holds a 5G NAS
+		// security context for this UE, an initial NAS message for it must be
+		// integrity protected. A plain message cannot be authentic, so it must
+		// not be attached to the existing context (that would make the UE
+		// CM-CONNECTED under the sender's N2 connection and let a plain
+		// registration replace the subscriber's identity state).
+		if amfUe.SecurityContextAvailable &&
+			nas_message.GetSecHdrType(nASPDU.Value) == nas_message.SecHdrTypePlainNas {
+			ranUe.Log.Warnf("Reject plain initial NAS message for a UE with a 5G NAS security context")
+			if removeErr := ranUe.Remove(); removeErr != nil {
+				ranUe.Log.Errorf("Remove rejected RanUe: %v", removeErr)
+			}
+			return
+		}
+
 		// TODO: Redesign overlapping ongoing procedures before narrowing this to SMC-vs-N2 handover.
 		if procedure := amfUe.OnGoing(ran.AnType).Procedure; procedure == context.OnGoingProcedureN2Handover {
 			ranUe.Log.Warn("Reject InitialUEMessage because N2 handover is ongoing")
