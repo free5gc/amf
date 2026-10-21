@@ -539,8 +539,25 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 			return
 		}
-		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-		ranUe.HoldingAmfUe = amfUe
+		// TS 23.502 4.12.2: an initial registration over one access does not
+		// prove ownership of a context that is registered over the other
+		// access. Adopting that AmfUe here lets an unauthenticated peer clear
+		// the established security context and then delete the victim, its
+		// RanUe and its PDU session with one AUTHENTICATION FAILURE. Use a
+		// fresh context for the new access until authentication succeeds.
+		otherAccess := models.AccessType_NON_3_GPP_ACCESS
+		if ran.AnType == models.AccessType_NON_3_GPP_ACCESS {
+			otherAccess = models.AccessType_3_GPP_ACCESS
+		}
+		crossAccessInitialRegistration := regReqType == ie.RegType_InitialReg &&
+			amfUe.State[otherAccess] != nil && amfUe.State[otherAccess].Is(context.Registered)
+		if crossAccessInitialRegistration {
+			ranUe.Log.Infof("Ignore AmfUe found by %q for initial registration over %s: "+
+				"a fresh context is used until authentication succeeds", idType, ran.AnType)
+		} else {
+			ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
+			ranUe.HoldingAmfUe = amfUe
+		}
 	} else if regReqType != ie.RegType_InitialReg {
 		if regReqType == ie.RegType_PeriodicRegUpdating ||
 			regReqType == ie.RegType_MobilityRegUpdating {
