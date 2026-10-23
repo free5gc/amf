@@ -60,7 +60,38 @@ func TestDecodeIntegrityProtectedServiceRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, integrityProtected)
 	require.IsType(t, &message.SvcReq{}, decoded)
-	require.Equal(t, uint32(0), ue.ULCount.Get())
+	require.Equal(t, uint32(1), ue.ULCount.Get())
+}
+
+func TestDecodeRejectsReplayedUplinkCount(t *testing.T) {
+	ue := newSecurityTestUE()
+	ue.SecurityContextAvailable = true
+	ue.ULCount.Set(0, 100)
+
+	sender := message.NewSecCtx(
+		message.UESide,
+		message.Bearer3GPP,
+		ie.AlgCiphering(ue.CipheringAlg),
+		ie.AlgIntegrity(ue.IntegrityAlg),
+		ue.KnasEnc[:],
+		ue.KnasInt[:],
+	)
+	sender.UplinkCount.Set(0, 100)
+	release := &message.PDUSessRelReq{PDUSessId: 5, PTI: 2}
+	payload, err := message.Marshal(
+		release, sender, message.SecHdrTypeIntegrityProtectedAndCiphered)
+	require.NoError(t, err)
+
+	decoded, integrityProtected, err := Decode(
+		ue, models.AccessType_3_GPP_ACCESS, payload, false)
+	require.NoError(t, err)
+	require.True(t, integrityProtected)
+	require.IsType(t, &message.PDUSessRelReq{}, decoded)
+	require.Equal(t, uint32(101), ue.ULCount.Get())
+
+	_, _, err = Decode(ue, models.AccessType_3_GPP_ACCESS, payload, false)
+	require.Error(t, err)
+	require.Equal(t, uint32(101), ue.ULCount.Get())
 }
 
 func TestDecodeCipheredMACFailureRestoresCount(t *testing.T) {

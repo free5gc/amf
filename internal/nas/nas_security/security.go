@@ -133,6 +133,13 @@ func Decode(
 		return nil, false, err
 	}
 
+	// A received COUNT is accepted once (TS 24.501 §4.4.3.2). message.Parse
+	// leaves ue.ULCount at the sequence number it just verified, so advance it
+	// here; otherwise the next message may reuse that COUNT and be replayed.
+	if integrityProtected {
+		ue.ULCount.AddOne()
+	}
+
 	return msg, integrityProtected, nil
 }
 
