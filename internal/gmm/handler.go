@@ -704,6 +704,15 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 		}
 	}
 
+	if ue.AccessAndMobilitySubscriptionData != nil {
+		for _, restrictedRat := range ue.AccessAndMobilitySubscriptionData.RatRestrictions {
+			if ue.RatType == restrictedRat {
+				gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_5GSSvcNotAllowed, "")
+				return fmt.Errorf("RAT type %s is restricted for this subscriber", ue.RatType)
+			}
+		}
+	}
+
 	param := Nnrf_NFDiscovery.SearchNFInstancesRequest{
 		Supi: &ue.Supi,
 	}
