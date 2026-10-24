@@ -14,6 +14,23 @@ import (
 	nasMetrics "github.com/free5gc/util/metrics/nas"
 )
 
+// n2Released reports whether ue, the UE-associated logical NG-connection that a
+// NAS message was sent on, has been removed since, for example by UE CONTEXT
+// RELEASE COMPLETE, NG Reset or the loss of the SCTP association.
+// The retransmission timers below keep the RanUe they were started with, so
+// they must not resend on a connection that no longer exists: NG-RAN has
+// released its AP IDs (TS 38.413 8.7.4.2.2) and the AMF may already have
+// reallocated the AMF UE NGAP ID. The retransmission is then skipped and the
+// procedure is left to the timer's last expiry, which aborts it. On a lower
+// layer failure TS 24.501 5.4.1.3.7 a), 5.4.2.7 a), 5.4.3.6 a) and 5.5.2.3.5 b)
+// ask for that abort as soon as the failure is detected, so it happens a few
+// retransmission intervals later than they ask. Only the RanUePool sync.Map and
+// the RanUe's immutable AMF-UE-NGAP-ID are read, so the timer goroutine may
+// call this.
+func n2Released(ue *context.RanUe) bool {
+	return context.GetSelf().RanUeFindByAmfUeNgapID(ue.AmfUeNgapId) != ue
+}
+
 // backOffTimerUint = 7 means backoffTimer is null
 func SendDLNASTransport(ue *context.RanUe, payloadContainerType uint8, nasPdu []byte,
 	pduSessionId int32, cause uint8, backOffTimerUint *uint8, backOffTimer uint8,
@@ -73,6 +90,11 @@ func SendNotification(ue *context.RanUe, nasMsg []byte) {
 		cfg := context.GetSelf().T3565Cfg
 		amfUe.GmmLog.Infof("Start T3565 timer")
 		amfUe.StartT3565(cfg, func(expireTimes int32) {
+			if n2Released(ue) {
+				amfUe.GmmLog.Warnf("T3565 expires, N2 connection released: Notification not retransmitted (retry: %d)",
+					expireTimes)
+				return
+			}
 			amfUe.GmmLog.Warnf("T3565 expires, retransmit Notification (retry: %d)", expireTimes)
 			timerAdditionalCause := "Timer expired, retransmit Notification"
 			isNasMsgSent = true
@@ -118,6 +140,11 @@ func SendIdentityRequest(ue *context.RanUe, accessType models.AccessType, typeOf
 	if context.GetSelf().T3570Cfg.Enable {
 		cfg := context.GetSelf().T3570Cfg
 		amfUe.StartT3570(cfg, func(expireTimes int32) {
+			if n2Released(ue) {
+				amfUe.GmmLog.Warnf("T3570 expires, N2 connection released: Identity Request not retransmitted (retry: %d)",
+					expireTimes)
+				return
+			}
 			amfUe.GmmLog.Warnf("T3570 expires, retransmit Identity Request (retry: %d)", expireTimes)
 			timerAdditionalCause := "Timer expired, retransmit Identity Request"
 			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.IDENTITY_REQUEST, &isNasMsgSent, 0, &timerAdditionalCause)
@@ -182,6 +209,11 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		amfUe.StopT3560()
 		amfUe.GmmLog.Infof("Start T3560 timer")
 		amfUe.StartT3560(cfg, func(expireTimes int32) {
+			if n2Released(ue) {
+				amfUe.GmmLog.Warnf("T3560 expires, N2 connection released: Authentication Request not retransmitted "+
+					"(retry: %d)", expireTimes)
+				return
+			}
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Authentication Request (retry: %d)", expireTimes)
 			timerAdditionalCause := "Timer expired, retry authentication request"
 			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.AUTHENTICATION_REQUEST, &isNasMsgSent, 0, &timerAdditionalCause)
@@ -470,6 +502,11 @@ func SendSecurityModeCommand(ue *context.RanUe, accessType models.AccessType, ea
 		cfg := context.GetSelf().T3560Cfg
 		amfUe.GmmLog.Infof("Start T3560 timer")
 		amfUe.StartT3560(cfg, func(expireTimes int32) {
+			if n2Released(ue) {
+				amfUe.GmmLog.Warnf("T3560 expires, N2 connection released: Security Mode Command not retransmitted "+
+					"(retry: %d)", expireTimes)
+				return
+			}
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Security Mode Command (retry: %d)", expireTimes)
 			timerAdditionalCause := "Retry Security Mode Command"
 			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.SECURITY_MODE_COMMAND, &isNasMsgSent, 0, &timerAdditionalCause)
@@ -508,6 +545,11 @@ func SendDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrati
 		cfg := context.GetSelf().T3522Cfg
 		amfUe.GmmLog.Infof("Start T3522 timer")
 		amfUe.StartT3522(cfg, func(expireTimes int32) {
+			if n2Released(ue) {
+				amfUe.GmmLog.Warnf("T3522 expires, N2 connection released: Deregistration Request not retransmitted "+
+					"(retry: %d)", expireTimes)
+				return
+			}
 			amfUe.GmmLog.Warnf("T3522 expires, retransmit Deregistration Request (retry: %d)", expireTimes)
 			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 		}, func() {
