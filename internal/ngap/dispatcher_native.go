@@ -139,6 +139,22 @@ func dispatchMain(ran *context.AmfRan, decoded ngapMessage.Message, encoded []by
 			message.PDUSessionResourceFailedToSetupListPSReq,
 		)
 	case *ngapMessage.HandoverRequestAcknowledge:
+		// An acknowledge whose AMF-UE-NGAP-ID and RAN-UE-NGAP-ID both match a
+		// connection this NG-RAN node already holds, such as the repeat of an
+		// acknowledge already processed, answers no outstanding Handover
+		// Resource Allocation. TS 38.413 10.4: a logical error in a response
+		// message of a class 1 procedure gets local error handling, so ignore
+		// it. An acknowledge with a different RAN-UE-NGAP-ID is still checked
+		// as an AP ID error (TS 38.413 10.6) below.
+		if message.AMFUENGAPID != nil && message.RANUENGAPID != nil {
+			if targetUe := context.GetSelf().RanUeFindByAmfUeNgapID(message.AMFUENGAPID.Value); targetUe != nil &&
+				targetUe.Ran == ran && targetUe.RanUeNgapId != context.RanUeNgapIdUnspecified &&
+				targetUe.RanUeNgapId == message.RANUENGAPID.Value {
+				ran.Log.Warnf("Ignore duplicate HandoverRequestAcknowledge[AmfUeNgapID: %d, RanUeNgapID: %d]",
+					targetUe.AmfUeNgapId, targetUe.RanUeNgapId)
+				break
+			}
+		}
 		if targetUe := findRanUeForMessage(ran, message.AMFUENGAPID, message.RANUENGAPID, true); targetUe != nil {
 			handleHandoverRequestAcknowledgeMain(
 				ran, targetUe, message.RANUENGAPID, message.PDUSessionResourceAdmittedList,
