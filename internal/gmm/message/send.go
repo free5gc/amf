@@ -173,6 +173,12 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 	isNasMsgSent = true
 	ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
 
+	// TS 24.501 5.4.1.3.2: T3560 supervises the AUTHENTICATION REQUEST just
+	// sent. Stop the timer of a superseded challenge first; otherwise it keeps
+	// retransmitting the obsolete challenge and its fifth expiry (5.4.1.3.7 b)
+	// removes the UE context even after the registration has completed.
+	amfUe.StopT3560()
+
 	if context.GetSelf().T3560Cfg.Enable {
 		cfg := context.GetSelf().T3560Cfg
 		amfUe.GmmLog.Infof("Start T3560 timer")

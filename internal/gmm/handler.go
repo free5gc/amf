@@ -1596,6 +1596,12 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 	if mobileIdentity == nil {
 		return errors.New("empty Mobile Identity")
 	}
+	// TS 24.501 5.4.3.4: an IDENTITY RESPONSE completes the identification
+	// procedure. A response without an outstanding IDENTITY REQUEST (e.g. the
+	// answer to a retransmitted one) must not restart the ongoing procedure.
+	if ue.RequestIdentityType == ie.IdType_5GS_None {
+		return errors.New("IDENTITY RESPONSE without an ongoing identification procedure")
+	}
 	if mobileIdentity.TypeOfId != ue.RequestIdentityType {
 		return fmt.Errorf("received identity type doesn't match request type")
 	}
@@ -1646,6 +1652,7 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 		ue.Pei = imeisv
 		ue.GmmLog.Debugf("get PEI: %s", imeisv)
 	}
+	ue.RequestIdentityType = ie.IdType_5GS_None
 	return nil
 }
 
