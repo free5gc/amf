@@ -341,7 +341,7 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	switch ranUe.ReleaseAction {
 	case context.UeContextN2NormalRelease:
 		ran.Log.Infof("Release UE[%s] Context : N2 Connection Release", amfUe.Supi)
-		// amfUe.DetachRanUe(ran.AnType)
+		// amfUe.DetachRanUe(ran.AnType, ranUe)
 		err := ranUe.Remove()
 		if err != nil {
 			ran.Log.Errorln(err.Error())
@@ -458,7 +458,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 			// an Initial UE Message indicates there is something wrong,
 			// so the ranUe with wrong RAN-UE-NGAP-IP should be cleared and detached from the amfUe.
 			gmm_common.StopAll5GSMMTimers(amfUe)
-			amfUe.DetachRanUe(ran.AnType)
+			amfUe.DetachRanUe(ran.AnType, ranUe)
 			ranUe.DetachAmfUe()
 		}
 		err := ranUe.Remove()
@@ -1107,7 +1107,7 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 	amfUe := ranUe.AmfUe
 	if amfUe != nil {
 		if !isLatestAmfUe(amfUe) {
-			amfUe.DetachRanUe(ran.AnType)
+			amfUe.DetachRanUe(ran.AnType, ranUe)
 			ranUe.DetachAmfUe()
 			gmm_common.StopAll5GSMMTimers(amfUe)
 			causeValue = ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
@@ -2406,12 +2406,12 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
 	amfUe := ranUe.AmfUe
-	if amfUe != nil && amfUe.RanUe[ran.AnType] == ranUe {
-		if amfUe.T3550 != nil {
+	if amfUe != nil && amfUe.GetRanUe(ran.AnType) == ranUe {
+		if amfUe.HasT3550() {
 			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
 		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
-		amfUe.DetachRanUe(ran.AnType)
+		amfUe.DetachRanUe(ran.AnType, ranUe)
 	}
 	ranUe.DetachAmfUe()
 	if err := ranUe.Remove(); err != nil {
