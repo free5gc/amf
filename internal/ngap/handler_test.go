@@ -119,7 +119,7 @@ func TestHandlePathSwitchRequestKeepsStoredUESecurityCapabilityOnMismatch(t *tes
 		IA2_128_5G: true,
 	}
 
-	ranUe.AmfUe = amfUe
+	ranUe.SetAmfUe(amfUe)
 	amfUe.RanUe["3GPP_ACCESS"] = ranUe
 
 	targetRan := NewAmfRan(nil)

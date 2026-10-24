@@ -34,42 +34,50 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 		return
 	}
 
-	if ranUe.AmfUe == nil {
+	// Read ranUe.AmfUe once: a release handled by another NGAP worker
+	// (removeRanUeByInvalidId, AttachRanUeToAmfUeAndReleaseOldIfAny) can detach
+	// it at any time, so every use below goes through this snapshot.
+	amfUe := ranUe.GetAmfUe()
+	if amfUe == nil {
 		// Only the New created RanUE will have no AmfUe in it
 
-		if ranUe.HoldingAmfUe != nil && !ranUe.HoldingAmfUe.CmConnect(ranUe.Ran.AnType) {
+		holdingAmfUe := ranUe.GetHoldingAmfUe()
+		if holdingAmfUe != nil && !holdingAmfUe.CmConnect(ranUe.Ran.AnType) {
 			// If the UE is CM-IDLE, there is no RanUE in AmfUe, so here we attach new RanUe to AmfUe.
-			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.HoldingAmfUe, ranUe)
-			ranUe.HoldingAmfUe = nil
+			amfUe = holdingAmfUe
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
+			ranUe.ClearHoldingAmfUe()
 		} else {
 			// Assume we have an existing UE context in CM-CONNECTED state. (RanUe <-> AmfUe)
 			// We will release it if the new UE context has a valid security context(Authenticated) in line 50.
-			ranUe.AmfUe = amfSelf.NewAmfUe("")
-			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
+			amfUe = amfSelf.NewAmfUe("")
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, ranUe)
 		}
 	}
 
-	msg, integrityProtected, err := nas_security.Decode(ranUe.AmfUe, ranUe.Ran.AnType, nasPdu, initialMessage)
+	msg, integrityProtected, err := nas_security.Decode(amfUe, ranUe.Ran.AnType, nasPdu, initialMessage)
 	if err != nil {
 		metricCause = nas_metrics.DECODE_NAS_MSG_ERR
-		ranUe.AmfUe.NASLog.Errorln(err)
+		amfUe.NASLog.Errorln(err)
 		return
 	}
 
 	nasMsg = msg
 
-	ranUe.AmfUe.NasPduValue = nasPdu
-	ranUe.AmfUe.MacFailed = !integrityProtected
+	amfUe.NasPduValue = nasPdu
+	amfUe.MacFailed = !integrityProtected
 
-	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.HoldingAmfUe != nil {
-		gmm_common.ClearHoldingRanUe(ranUe.HoldingAmfUe.GetRanUe(ranUe.Ran.AnType))
-		ranUe.HoldingAmfUe = nil
+	if amfUe.SecurityContextIsValid() {
+		if holdingAmfUe := ranUe.GetHoldingAmfUe(); holdingAmfUe != nil {
+			gmm_common.ClearHoldingRanUe(holdingAmfUe.GetRanUe(ranUe.Ran.AnType))
+			ranUe.ClearHoldingAmfUe()
+		}
 	}
 
 	isNasMsgRcv = true
 
-	if errDispatch := Dispatch(ranUe.AmfUe, ranUe.Ran.AnType, procedureCode, msg); errDispatch != nil {
-		ranUe.AmfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
+	if errDispatch := Dispatch(amfUe, ranUe.Ran.AnType, procedureCode, msg); errDispatch != nil {
+		amfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
 		isNasMsgRcv = false
 	}
 }

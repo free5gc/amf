@@ -208,7 +208,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 
 	// UE is CM-Connected
 	if ranUe := ue.GetRanUe(anType); ranUe != nil {
-		if ranUe.AmfUe != ue {
+		if ranUe.GetAmfUe() != ue {
 			ue.ProducerLog.Warnf("RanUe is not attached to this AmfUe, reject N1N2 message transfer")
 			transferErr = new(models.Amf_Comm_N1N2MessageTransferError)
 			transferErr.Error = &models.ProblemDetails{

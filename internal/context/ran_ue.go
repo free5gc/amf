@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/mohae/deepcopy"
@@ -49,9 +50,13 @@ type RanUe struct {
 	LastActTime       *time.Time
 
 	/* Related Context*/
-	AmfUe        *AmfUe
+	// amfUe is published with an atomic pointer because the NGAP worker that
+	// owns the RanUe and a GMM/SBI procedure on another goroutine read it,
+	// while DetachAmfUe clears it during release.  GetAmfUe/SetAmfUe also give
+	// the AmfUe initialization a happens-before edge to those readers.
+	amfUe        atomic.Pointer[AmfUe]
 	Ran          *AmfRan
-	HoldingAmfUe *AmfUe // The AmfUe that is already exist (CM-Idle, Re-Registration)
+	holdingAmfUe atomic.Pointer[AmfUe] // The AmfUe that is already exist (CM-Idle, Re-Registration)
 
 	/* Routing ID */
 	RoutingID string
@@ -72,6 +77,43 @@ type RanUe struct {
 	Log *logrus.Entry
 }
 
+// GetAmfUe returns the AmfUe currently attached to the RanUe, or nil.
+func (ranUe *RanUe) GetAmfUe() *AmfUe {
+	if ranUe == nil {
+		return nil
+	}
+	return ranUe.amfUe.Load()
+}
+
+// SetAmfUe publishes the AmfUe attached to the RanUe.
+func (ranUe *RanUe) SetAmfUe(amfUe *AmfUe) {
+	if ranUe == nil {
+		return
+	}
+	ranUe.amfUe.Store(amfUe)
+}
+
+// GetHoldingAmfUe returns the AmfUe this RanUe is re-registering, or nil.
+func (ranUe *RanUe) GetHoldingAmfUe() *AmfUe {
+	if ranUe == nil {
+		return nil
+	}
+	return ranUe.holdingAmfUe.Load()
+}
+
+// SetHoldingAmfUe publishes the AmfUe this RanUe is re-registering.
+func (ranUe *RanUe) SetHoldingAmfUe(amfUe *AmfUe) {
+	if ranUe == nil {
+		return
+	}
+	ranUe.holdingAmfUe.Store(amfUe)
+}
+
+// ClearHoldingAmfUe clears the re-registration link.
+func (ranUe *RanUe) ClearHoldingAmfUe() {
+	ranUe.SetHoldingAmfUe(nil)
+}
+
 func (ranUe *RanUe) Remove() error {
 	if ranUe == nil {
 		return fmt.Errorf("RanUe not found in RemoveRanUe")
@@ -80,8 +122,8 @@ func (ranUe *RanUe) Remove() error {
 	if ran == nil {
 		return fmt.Errorf("RanUe not found in Ran")
 	}
-	if ranUe.AmfUe != nil {
-		ranUe.AmfUe.DetachRanUe(ran.AnType, ranUe)
+	if amfUe := ranUe.GetAmfUe(); amfUe != nil {
+		amfUe.DetachRanUe(ran.AnType, ranUe)
 		ranUe.DetachAmfUe()
 	}
 
@@ -93,8 +135,10 @@ func (ranUe *RanUe) Remove() error {
 	return nil
 }
 
+// DetachAmfUe clears the AmfUe link.  A reader on another goroutine that
+// takes one GetAmfUe snapshot sees either the old AmfUe or nil.
 func (ranUe *RanUe) DetachAmfUe() {
-	ranUe.AmfUe = nil
+	ranUe.SetAmfUe(nil)
 }
 
 func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
@@ -261,14 +305,15 @@ func (ranUe *RanUe) updateN3gaLocation(address *ie.TransportLayerAddress, port *
 }
 
 func (ranUe *RanUe) syncAmfUeLocation() {
-	if ranUe.AmfUe == nil {
+	amfUe := ranUe.GetAmfUe()
+	if amfUe == nil {
 		return
 	}
-	if ranUe.AmfUe.Tai != ranUe.Tai {
-		ranUe.AmfUe.LocationChanged = true
+	if amfUe.Tai != ranUe.Tai {
+		amfUe.LocationChanged = true
 	}
-	ranUe.AmfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
-	ranUe.AmfUe.Tai = deepcopy.Copy(ranUe.Tai).(models.Tai)
+	amfUe.Location = deepcopy.Copy(ranUe.Location).(models.UserLocation)
+	amfUe.Tai = deepcopy.Copy(ranUe.Tai).(models.Tai)
 }
 
 func locationTimestamp() *time.Time {

@@ -433,10 +433,12 @@ func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 }
 
 // AttachRanUeLocked updates the link.  The caller must hold ue.RanUeMu.
+// ranUe.AmfUe is published last, so a goroutine that reaches the AmfUe
+// through ranUe.GetAmfUe() also sees the log fields set here.
 func (ue *AmfUe) AttachRanUeLocked(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
-	ranUe.AmfUe = ue
 	ue.updateLogFields(ranUe.Ran.AnType)
+	ranUe.SetAmfUe(ue)
 }
 
 // UpdateLogFields refreshes the per-UE logger fields.  It is serialized with

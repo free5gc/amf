@@ -70,7 +70,7 @@ func SendToRanUe(ue *context.RanUe, packet []byte) (bool, string) {
 		return false, ngap_metrics.RAN_NIL_ERR
 	}
 
-	if ue.AmfUe == nil {
+	if ue.GetAmfUe() == nil {
 		ue.Log.Warn("AmfUe is nil")
 	}
 
@@ -254,8 +254,9 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		return
 	}
 	ue.ReleaseAction = action
-	if ue.AmfUe != nil && ue.Ran != nil {
-		ue.AmfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
+	amfUe := ue.GetAmfUe()
+	if amfUe != nil && ue.Ran != nil {
+		amfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
 			NgapCause: &models.NgApCause{
 				Group: int32(causePresent),
 				Value: int32(cause),
@@ -608,7 +609,7 @@ func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Caus
 
 	sourceUe.Log.Info("Send Handover Preparation Failure")
 
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 	if amfUe == nil {
 		additionalCause = ngap_metrics.AMF_UE_NIL_ERR
 		sourceUe.Log.Error("amfUe is nil")
@@ -664,7 +665,7 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, tar
 
 	sourceUe.Log.Info("Send Handover Request")
 
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 	if amfUe == nil {
 		additionalCause = ngap_metrics.AMF_UE_NIL_ERR
 		sourceUe.Log.Error("amfUe is nil")

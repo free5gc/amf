@@ -135,7 +135,7 @@ func handleUplinkNASTransportMain(ran *context.AmfRan,
 	nASPDU *ngapType.NASPDU,
 	userLocationInformation *ngapType.UserLocationInformation,
 ) {
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		err := ranUe.Remove()
 		if err != nil {
@@ -245,7 +245,7 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		printCriticalityDiagnostics(ran, criticalityDiagnostics)
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ran.Log.Infof("Release UE Context : RanUe[AmfUeNgapId: %d]", ranUe.AmfUeNgapId)
 		err := ranUe.Remove()
@@ -387,7 +387,7 @@ func handlePDUSessionResourceReleaseResponseMain(ran *context.AmfRan,
 		printCriticalityDiagnostics(ran, criticalityDiagnostics)
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
 		return
@@ -452,7 +452,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
 	if ranUe != nil {
-		amfUe := ranUe.AmfUe
+		amfUe := ranUe.GetAmfUe()
 		if amfUe != nil {
 			// The fact that an amfUe having N2 connection (ranUE) is receiving
 			// an Initial UE Message indicates there is something wrong,
@@ -540,7 +540,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 			return
 		}
 		ranUe.Log.Debugf("AmfUe Attach RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
-		ranUe.HoldingAmfUe = amfUe
+		ranUe.SetHoldingAmfUe(amfUe)
 	} else if regReqType != ie.RegType_InitialReg {
 		if regReqType == ie.RegType_PeriodicRegUpdating ||
 			regReqType == ie.RegType_MobilityRegUpdating {
@@ -641,7 +641,7 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 		return
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
 		return
@@ -714,7 +714,7 @@ func handlePDUSessionResourceModifyResponseMain(ran *context.AmfRan,
 		return
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
 		return
@@ -783,7 +783,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 	pDUSessionResourceReleasedListNot *ngapType.PDUSessionResourceReleasedListNot,
 	userLocationInformation *ngapType.UserLocationInformation,
 ) {
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("amfUe is nil")
 		return
@@ -917,7 +917,7 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
 	pduSessionResourceModifyIndicationList *ngapType.PDUSessionResourceModifyListModInd,
 ) {
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ran.Log.Error("AmfUe is nil")
 		return
@@ -971,7 +971,7 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 		return
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ran.Log.Error("amfUe is nil")
 		return
@@ -1060,7 +1060,7 @@ func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 		return
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ran.Log.Error("amfUe is nil")
 		return
@@ -1104,7 +1104,7 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 		causeGroup, causeValue = printAndGetCause(ran, cause)
 	}
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe != nil {
 		if !isLatestAmfUe(amfUe) {
 			amfUe.DetachRanUe(ran.AnType, ranUe)
@@ -1232,7 +1232,7 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 	if userLocationInformation != nil {
 		targetUe.UpdateLocation(userLocationInformation)
 	}
-	amfUe := targetUe.AmfUe
+	amfUe := targetUe.GetAmfUe()
 	if amfUe == nil {
 		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE, utils.FailureMetric,
 			business_metrics.HANDOVER_AMF_UE_MISSING_ERR, targetUe.HandOverStartTime)
@@ -1294,7 +1294,7 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 
 	ran.Log.Tracef("AmfUeNgapID[%d] RanUeNgapID[%d]", ranUe.AmfUeNgapId, ranUe.RanUeNgapId)
 
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("AmfUe is nil")
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
@@ -1559,7 +1559,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	}
 	ran.Log.Debugf("Target Ue RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
 
-	amfUe := targetUe.AmfUe
+	amfUe := targetUe.GetAmfUe()
 	if amfUe == nil {
 		hoFailCause = business_metrics.HANDOVER_TARGET_UE_MISSING_ERR
 		targetUe.Log.Error("amfUe is nil")
@@ -1700,7 +1700,7 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 		// TODO: handle N2 Handover between AMF
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
-		amfUe := targetUe.AmfUe
+		amfUe := targetUe.GetAmfUe()
 		if amfUe != nil {
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				pduSessionID := key.(int32)
@@ -1753,7 +1753,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		}
 	}(&hoFailCause)
 
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 
 	if amfUe == nil {
 		hoFailCause = business_metrics.HANDOVER_AMF_UE_MISSING_ERR
@@ -1885,7 +1885,7 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 	if cause != nil {
 		causePresent, causeValue = printAndGetCause(ran, cause)
 	}
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 	if amfUe != nil && amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
 		amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
 			Procedure: context.OnGoingProcedureNothing,
@@ -1924,7 +1924,7 @@ func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
 	ranUe *context.RanUe,
 	rANStatusTransferTransparentContainer *ngapType.RANStatusTransferTransparentContainer,
 ) {
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe == nil {
 		ranUe.Log.Error("AmfUe is nil")
 		return
@@ -2142,7 +2142,7 @@ func handleUERadioCapabilityInfoIndicationMain(ran *context.AmfRan,
 	uERadioCapability *ngapType.UERadioCapability,
 	uERadioCapabilityForPaging *ngapType.UERadioCapabilityForPaging,
 ) {
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 
 	if amfUe == nil {
 		ranUe.Log.Errorln("amfUe is nil")
@@ -2405,7 +2405,7 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 	}
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
-	amfUe := ranUe.AmfUe
+	amfUe := ranUe.GetAmfUe()
 	if amfUe != nil && amfUe.GetRanUe(ran.AnType) == ranUe {
 		if amfUe.HasT3550() {
 			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
