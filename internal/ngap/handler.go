@@ -2126,6 +2126,10 @@ func handleLocationReportMain(ran *context.AmfRan,
 
 		case ngapType.EventTypePresentStopUePresenceInAreaOfInterest:
 			ranUe.Log.Trace("To stop reporting UE presence in the area of interest")
+			if locationReportingRequestType.LocationReportingReferenceIDToBeCancelled == nil {
+				ranUe.Log.Error("LocationReportingReferenceIDToBeCancelled is missing for stop-ue-presence-in-area-of-interest")
+				return
+			}
 			ranUe.Log.Tracef("ReferenceID To Be Canceled[%d]",
 				locationReportingRequestType.LocationReportingReferenceIDToBeCancelled.Value)
 			// TODO: Clear location report
