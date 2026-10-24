@@ -1685,49 +1685,71 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 		return fmt.Errorf("received identity type doesn't match request type")
 	}
 
-	ue.StopT3570()
-
+	// Validate the response into locals first: nothing is recorded on the UE
+	// before T3570 is stopped, so a T3570 expiry cannot start the abort
+	// procedure (which removes the UE) in the middle of these writes.
+	var (
+		suci   string
+		plmnId models.PlmnId
+		guti   string
+		tmsi   int32
+		pei    string
+	)
 	switch mobileIdentity.TypeOfId {
 	case ie.IdType_5GS_SUCI:
 		if mobileIdentity.MCC == "" || mobileIdentity.MNC == "" {
 			return errors.New("empty plmnId")
 		}
-		suci := mobileIdentity.SUCIStr()
-		ue.SetSuci(suci)
-		ue.PlmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
+		suci = mobileIdentity.SUCIStr()
+		plmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
 		ue.GmmLog.Debugf("get SUCI: %s", suci)
 	case ie.IdType_5GS_GUTI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		guti := mobileIdentity.GUTIStr()
-		ue.Guti = guti
+		guti = mobileIdentity.GUTIStr()
 		ue.GmmLog.Debugf("get GUTI: %s", guti)
 	case ie.IdType_5GS_TMSI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
 		sTmsi := mobileIdentity.FiveGSTMSIStr()
-		if tmp, err := strconv.ParseUint(mobileIdentity.TMSIStr(), 16, 32); err != nil {
+		tmp, err := strconv.ParseUint(mobileIdentity.TMSIStr(), 16, 32)
+		if err != nil {
 			return err
-		} else {
-			ue.Tmsi = int32(tmp)
 		}
+		tmsi = int32(tmp)
 		ue.GmmLog.Debugf("get 5G-S-TMSI: %s", sTmsi)
 	case ie.IdType_5GS_IMEI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imei := mobileIdentity.PEIStr()
-		ue.Pei = imei
-		ue.GmmLog.Debugf("get PEI: %s", imei)
+		pei = mobileIdentity.PEIStr()
+		ue.GmmLog.Debugf("get PEI: %s", pei)
 	case ie.IdType_5GS_IMEISV:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imeisv := mobileIdentity.PEIStr()
-		ue.Pei = imeisv
-		ue.GmmLog.Debugf("get PEI: %s", imeisv)
+		pei = mobileIdentity.PEIStr()
+		ue.GmmLog.Debugf("get PEI: %s", pei)
+	}
+
+	// TS 24.501 5.4.3.4: the IDENTITY RESPONSE completes the identification
+	// procedure, so stop T3570 only once the response is usable. A response
+	// rejected above is ignored (TS 24.501 7.5.1, 7.8): T3570 keeps running and
+	// retransmits the IDENTITY REQUEST or aborts the procedure (5.4.3.6 b).
+	ue.StopT3570()
+
+	switch mobileIdentity.TypeOfId {
+	case ie.IdType_5GS_SUCI:
+		ue.SetSuci(suci)
+		ue.PlmnId = plmnId
+	case ie.IdType_5GS_GUTI:
+		ue.Guti = guti
+	case ie.IdType_5GS_TMSI:
+		ue.Tmsi = tmsi
+	case ie.IdType_5GS_IMEI, ie.IdType_5GS_IMEISV:
+		ue.Pei = pei
 	}
 	ue.RequestIdentityType = ie.IdType_5GS_None
 	return nil
@@ -2134,8 +2156,6 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 	ue.GmmLog.Info("Handle Authentication Response")
 	ranUe := ue.GetRanUe(accessType)
 
-	ue.StopT3560()
-
 	if ue.AuthenticationCtx == nil {
 		return fmt.Errorf("ue authentication context is nil")
 	}
@@ -2147,8 +2167,12 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			return fmt.Errorf("Var5gAuthData Convert Type Error")
 		}
 		if authenticationResponse.AuthRspParam == nil {
+			// TS 24.501 8.2.2.2, 7.7.2: RES* is missing, so the message is
+			// ignored and T3560 keeps supervising the challenge (5.4.1.3.7 b).
 			return fmt.Errorf("AuthenticationResponseParamete is nil")
 		}
+		// TS 24.501 5.4.1.3.4: stop T3560 and check RES*.
+		ue.StopT3560()
 		resStar := authenticationResponse.AuthRspParam.Res
 
 		// Calculate HRES* (TS 33.501 Annex A.5)
@@ -2214,6 +2238,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		}
 	case models.Ausf_UEAU_AuthType_EAP_AKA_PRIME:
+		ue.StopT3560()
 		// EAPMessage IE is optional in the NAS-AuthenticationResponse;
 		// reject the UE if it is omitted instead of dereferencing nil.
 		if authenticationResponse.EAPMsg == nil {
