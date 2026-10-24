@@ -1114,6 +1114,16 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
 			return
 		}
+		// The source releases the UE before the target has answered the
+		// HANDOVER REQUEST, so the handover cannot be executed: cancel it to
+		// release the resources reserved in the target. Once the HANDOVER
+		// COMMAND is sent, the UE may already be on its way to the target and a
+		// HANDOVER NOTIFY can still complete the handover.
+		if targetUe := ranUe.TargetUe; targetUe != nil && targetUe.RanUeNgapId == context.RanUeNgapIdUnspecified &&
+			amfUe.OnGoing(ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+			ranUe.Log.Warn("UE context release requested during handover preparation: cancel the handover")
+			cancelHandoverPreparation(amfUe, targetUe, ran.AnType)
+		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
 		causeAll := context.CauseAll{
 			NgapCause: &models.NgApCause{
@@ -1566,6 +1576,19 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		return
 	}
 
+	// The source N2 connection was released while the target prepared the
+	// handover, so there is no source to send the HANDOVER COMMAND to and the
+	// handover cannot be executed.
+	if sourceUe := targetUe.SourceUe; sourceUe == nil || sourceUe.AmfUe == nil {
+		targetUe.Log.Warn("Source NG-RAN connection released during handover preparation: cancel the handover")
+		cause := ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+			Value: ngapType.CauseRadioNetworkPresentHandoverCancelled,
+		}}
+		hoFailCause = ngap.GetCauseErrorStr(&cause)
+		cancelHandoverPreparation(amfUe, targetUe, ran.AnType)
+		return
+	}
+
 	var pduSessionResourceHandoverList ngapType.PDUSessionResourceHandoverList
 	var pduSessionResourceToReleaseList ngapType.PDUSessionResourceToReleaseListHOCmd
 
@@ -1666,6 +1689,33 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 			*targetToSourceTransparentContainer, nil)
 	}
+}
+
+// cancelHandoverPreparation cancels an N2 handover whose source connection is
+// gone or being released before the HANDOVER COMMAND, as for a HANDOVER CANCEL
+// (TS 23.502 4.9.1.4 and 4.11.1.2.3): it ends the handover preparation at the
+// SMFs and releases the resources reserved in the target NG-RAN node. The
+// target is detached first, so its UE CONTEXT RELEASE COMPLETE only removes it.
+func cancelHandoverPreparation(amfUe *context.AmfUe, targetUe *context.RanUe, anType models.AccessType) {
+	causeAll := context.CauseAll{NgapCause: &models.NgApCause{
+		Group: int32(ngap_message.CauseChoiceRadioNetwork),
+		Value: int32(ngapType.CauseRadioNetworkPresentHandoverCancelled),
+	}}
+	amfUe.SmContextList.Range(func(key, value interface{}) bool {
+		smContext := value.(*context.SmContext)
+		_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
+		if err != nil {
+			targetUe.Log.Errorf("Send UpdateSmContextN2HandoverCanceled Error for pduSessionID[%d]", key.(int32))
+		}
+		return true
+	})
+	if amfUe.OnGoing(anType).Procedure == context.OnGoingProcedureN2Handover {
+		amfUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureNothing})
+	}
+	context.DetachSourceUeTargetUe(targetUe)
+	targetUe.DetachAmfUe()
+	ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover,
+		ngap_message.CauseChoiceRadioNetwork, ngapType.CauseRadioNetworkPresentHandoverCancelled)
 }
 
 func handleHandoverFailureMain(ran *context.AmfRan,
