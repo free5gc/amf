@@ -18,6 +18,11 @@ import (
 type RelAction int
 
 const (
+	// RanUeNgapIdUnspecified marks a RanUe that the AMF has not given a
+	// RAN-UE-NGAP-ID yet, e.g. a handover target created before the
+	// HANDOVER REQUEST ACKNOWLEDGE. 0xffffffff is also a legal RAN-UE-NGAP-ID
+	// (TS 38.413 §9.3.3.2), so it cannot be told apart from a received one by
+	// value; RanUeNgapIdAssigned says which one it is.
 	RanUeNgapIdUnspecified int64 = 0xffffffff
 )
 
@@ -29,8 +34,9 @@ const (
 
 type RanUe struct {
 	/* UE identity*/
-	RanUeNgapId int64
-	AmfUeNgapId int64
+	RanUeNgapId         int64
+	RanUeNgapIdAssigned bool // RanUeNgapId is a RAN-UE-NGAP-ID, not the placeholder
+	AmfUeNgapId         int64
 
 	/* HandOver Info*/
 	HandOverType        ie.HandoverType
@@ -85,7 +91,10 @@ func (ranUe *RanUe) Remove() error {
 		ranUe.DetachAmfUe()
 	}
 
-	ran.RanUeList.Delete(ranUe.RanUeNgapId)
+	// Delete the entry only if it is this RanUe: the handover-target
+	// placeholder is not in the list, and its RanUeNgapId may be the key of a
+	// connection whose RAN-UE-NGAP-ID is 0xffffffff.
+	ran.RanUeList.CompareAndDelete(ranUe.RanUeNgapId, ranUe)
 
 	self := GetSelf()
 	self.RanUePool.Delete(ranUe.AmfUeNgapId)
@@ -108,8 +117,8 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 
 	oldRan := ranUe.Ran
 
-	// remove ranUe from oldRan
-	oldRan.RanUeList.Delete(ranUe.RanUeNgapId)
+	// remove ranUe from oldRan (only its own entry, as in Remove)
+	oldRan.RanUeList.CompareAndDelete(ranUe.RanUeNgapId, ranUe)
 
 	// add ranUe to newRan
 	newRan.RanUeList.Store(ranUeNgapId, ranUe)
@@ -117,6 +126,7 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 	// switch to newRan
 	ranUe.Ran = newRan
 	ranUe.RanUeNgapId = ranUeNgapId
+	ranUe.RanUeNgapIdAssigned = true
 
 	// update log information
 	ranUe.UpdateLogFields()
