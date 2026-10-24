@@ -254,6 +254,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		return
 	}
 	ue.ReleaseAction = action
+	ue.ReleasePending = true
 	if ue.AmfUe != nil && ue.Ran != nil {
 		ue.AmfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
 			NgapCause: &models.NgApCause{
