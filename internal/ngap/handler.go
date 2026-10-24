@@ -1586,7 +1586,11 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	}
 
 	if rANUENGAPID != nil {
+		// Bind the RAN-UE-NGAP-ID that the target allocated. The target was
+		// not stored under the placeholder, so this is its first entry in the
+		// per-RAN list.
 		targetUe.RanUeNgapId = rANUENGAPID.Value
+		targetUe.RanUeNgapIdAssigned = true
 		ran.RanUeList.Store(targetUe.RanUeNgapId, targetUe)
 	}
 	ran.Log.Debugf("Target Ue RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
@@ -2570,7 +2574,7 @@ func ranUeFind(ran *context.AmfRan,
 	}
 
 	if rANUENGAPID == nil || firstReturnedMessage {
-		if ranUe.RanUeNgapId != context.RanUeNgapIdUnspecified {
+		if ranUe.RanUeNgapIdAssigned {
 			cause := &ngapType.Cause{
 				Choice: &ngapType.CauseRadioNetwork{
 					Value: ngapType.CauseRadioNetworkPresentInconsistentRemoteUENGAPID,
