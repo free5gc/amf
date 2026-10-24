@@ -1229,6 +1229,16 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 ) {
 	targetUe.Log.Info("Handle Handover notification")
 
+	// TS 38.413 8.4.3.2: HANDOVER NOTIFY completes one handover. If the target
+	// already is the UE's N2 connection, the handover has been completed and a
+	// repeated notify must not run the source release and the SMF completion
+	// again.
+	if amfUe := targetUe.AmfUe; amfUe != nil && amfUe.RanUe[ran.AnType] == targetUe {
+		targetUe.Log.Warn("Ignore HANDOVER NOTIFY: the handover is already completed")
+		sendHandoverNotifyNotCompatible(ran, targetUe)
+		return
+	}
+
 	if userLocationInformation != nil {
 		targetUe.UpdateLocation(userLocationInformation)
 	}
@@ -2388,6 +2398,26 @@ func buildCriticalityDiagnosticsIEItem(ieCriticality aper.Enumerated, ieID int64
 	}
 
 	return item
+}
+
+// sendHandoverNotifyNotCompatible answers a HANDOVER NOTIFY that does not fit
+// the handover state of the target. Handover Notification is a class 2
+// procedure, so TS 38.413 10.4 terminates the procedure and initiates Error
+// Indication with the cause "Message not compatible with receiver state" and
+// the Procedure Code and Triggering Message in the Criticality Diagnostics.
+func sendHandoverNotifyNotCompatible(ran *context.AmfRan, targetUe *context.RanUe) {
+	procedureCode := ngapProcedure.ProcedureCodeHandoverNotification
+	triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+	procedureCriticality := ngapType.CriticalityPresentIgnore
+	criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage,
+		&procedureCriticality, nil)
+	ngap_message.SendErrorIndication(ran,
+		&ngapType.AMFUENGAPID{Value: targetUe.AmfUeNgapId},
+		&ngapType.RANUENGAPID{Value: targetUe.RanUeNgapId},
+		&ngapType.Cause{Choice: &ngapType.CauseProtocol{
+			Value: ngapType.CauseProtocolPresentMessageNotCompatibleWithReceiverState,
+		}},
+		&criticalityDiagnostics)
 }
 
 func isLatestAmfUe(amfUe *context.AmfUe) bool {
