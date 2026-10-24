@@ -81,6 +81,9 @@ type AmfUe struct {
 	Pei                    string
 	Tmsi                   int32 // 5G-Tmsi
 	Guti                   string
+	GutiSignalled          bool   // Guti has been sent to the UE
+	OldTmsi                int32  // previous 5G-TMSI while the new 5G-GUTI is unacknowledged
+	OldGuti                string // TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)
 	GroupID                string
 	EBI                    int32
 	EventSubscriptionsInfo map[string]*AmfUeEventSubscription
@@ -329,6 +332,9 @@ func (ue *AmfUe) Remove() {
 		}
 	}
 	tmsiGenerator.FreeID(int64(ue.Tmsi))
+	if ue.OldTmsi != 0 && ue.OldTmsi != ue.Tmsi {
+		tmsiGenerator.FreeID(int64(ue.OldTmsi))
+	}
 	if len(ue.Supi) > 0 {
 		GetSelf().UePool.Delete(ue.Supi)
 	}

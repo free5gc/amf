@@ -223,6 +223,45 @@ func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
 }
 
+// ReallocateGuti selects the 5G-GUTI for a REGISTRATION ACCEPT. usedGuti is the
+// 5G-GUTI the UE included in the REGISTRATION REQUEST, if any.
+//
+// A 5G-GUTI this AMF allocated and has not sent yet (a new context) is used as
+// is. Otherwise a new 5G-GUTI is allocated and the one the UE holds stays valid
+// until the UE acknowledges or uses the new one (TS 24.501 5.3.3,
+// 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (context *AMFContext) ReallocateGuti(ue *AmfUe, usedGuti string) {
+	if !ue.GutiSignalled && ue.Tmsi != 0 {
+		ue.GutiSignalled = true
+		return
+	}
+	if ue.OldGuti != "" && usedGuti == ue.OldGuti {
+		// The UE never received the unacknowledged 5G-GUTI: it is superseded.
+		context.FreeTmsi(int64(ue.Tmsi))
+	} else {
+		// The UE did not use the old 5G-GUTI, so it is no longer valid. Keep
+		// the current one valid if this AMF allocated it.
+		context.ReleaseOldGuti(ue)
+		if ue.Tmsi != 0 {
+			ue.OldTmsi, ue.OldGuti = ue.Tmsi, ue.Guti
+		}
+	}
+	context.AllocateGutiToUe(ue)
+	ue.GutiSignalled = true
+}
+
+// ReleaseOldGuti invalidates the 5G-GUTI that was kept valid while a new one was
+// unacknowledged (TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (context *AMFContext) ReleaseOldGuti(ue *AmfUe) {
+	if ue.OldGuti == "" {
+		return
+	}
+	if ue.OldTmsi != ue.Tmsi {
+		context.FreeTmsi(int64(ue.OldTmsi))
+	}
+	ue.OldTmsi, ue.OldGuti = 0, ""
+}
+
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
 	// clear the previous registration area if need
 	if len(ue.RegistrationArea[anType]) > 0 {
@@ -452,7 +491,7 @@ func (context *AMFContext) AmfUeFindByGuti(guti string) (*AmfUe, bool) {
 	var ok bool
 	context.UePool.Range(func(key, value interface{}) bool {
 		candidate := value.(*AmfUe)
-		if ok = (candidate.Guti == guti); ok {
+		if ok = (candidate.Guti == guti || (candidate.OldGuti != "" && candidate.OldGuti == guti)); ok {
 			ue = candidate
 			return false
 		}

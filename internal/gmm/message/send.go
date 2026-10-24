@@ -582,6 +582,13 @@ func SendRegistrationAccept(
 	}
 	amfUe.GmmLog.Info("Send Registration Accept")
 
+	usedGuti := ""
+	if req := amfUe.RegistrationRequest; req != nil && req.MobileId5GS != nil &&
+		req.MobileId5GS.TypeOfId == ie.IdType_5GS_GUTI {
+		usedGuti = req.MobileId5GS.GUTIStr()
+	}
+	context.GetSelf().ReallocateGuti(amfUe, usedGuti)
+
 	nasMsg, err := BuildRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
 	if err != nil {
 		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
