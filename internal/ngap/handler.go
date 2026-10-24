@@ -27,6 +27,11 @@ import (
 	"github.com/free5gc/util/metrics/utils"
 )
 
+const (
+	nasIDType5GGUTI  = "5G-GUTI"
+	nasIDType5GSTMSI = "5G-S-TMSI"
+)
+
 func relatedContentBytes(content *multipart.RelatedContent) []byte {
 	if content == nil {
 		return nil
@@ -500,16 +505,18 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		tmsi := hex.EncodeToString(fiveGSTMSI.FiveGTMSI.Value)
 
 		id = amfSetPtrID + tmsi
-		idType = "5G-S-TMSI"
+		idType = nasIDType5GSTMSI
 		ranUe.Log.Infof("Find 5G-S-TMSI [%q] in InitialUEMessage", id)
-	} else if regReqType == ie.RegType_InitialReg {
-		// NGAP 5G-S-TMSI IE might not be present in InitialUEMessage carrying Initial Registration.
-		// Need to get 5GSMobileIdentity from Initial Registration.
-
-		id, idType, err = amf_nas.GetNas5GSMobileIdentity(gmmMessage)
-		ran.Log.Infof("5GSMobileIdentity [%q:%q, err: %v]", idType, id, err)
+	} else if id, idType, err = amf_nas.GetNas5GSMobileIdentity(gmmMessage); err == nil &&
+		(regReqType == ie.RegType_InitialReg || idType == nasIDType5GGUTI || idType == nasIDType5GSTMSI) {
+		// TS 38.413 9.2.5.1: the NGAP 5G-S-TMSI IE is optional (0..1). When it is
+		// absent, a REGISTRATION REQUEST is identified by its 5G-GUTI (TS 24.501
+		// 5.5.1.3.2) and a SERVICE REQUEST by its 5G-S-TMSI; whether the found UE
+		// context is attached is decided below by the NAS MAC. A non-initial SUCI,
+		// another initial NAS message or a ciphered one still gets ERROR INDICATION.
+		ran.Log.Infof("5GSMobileIdentity [%q:%q] from NAS PDU", idType, id)
 	} else {
-		// Missing NGAP 5G-S-TMSI IE
+		// Neither the NGAP 5G-S-TMSI IE nor a usable NAS identity is present.
 		var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
 		ranUe.Log.Warnf("Missing 5G-S-TMSI IE in InitialUEMessage; send ErrorIndication")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
@@ -522,11 +529,48 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		return
 	}
 
-	// If id type is GUTI, since MAC can't be checked here (no amfUe context), the GUTI may not direct to the right amfUe.
-	// In this case, create a new amfUe to handle the following registration procedure.
-	isInvalidGUTI := (idType == "5G-GUTI")
+	// A 5G-GUTI from the NAS cannot be authenticated before an AmfUe is
+	// selected, so for a non-initial registration look up the context found by
+	// the GUTI and let NAS integrity protection prove ownership. An initial
+	// registration named by a NAS 5G-GUTI is still never attached to the found
+	// context; it is handled below like one that fails the integrity check.
+	isInvalidGUTI := (idType == nasIDType5GGUTI && regReqType == ie.RegType_InitialReg)
 	amfUe, ok := findAmfUe(ran, id, idType)
-	if ok && !isInvalidGUTI {
+	if ok && amfUe.SecurityContextAvailable && (isInvalidGUTI ||
+		!initialNasMacVerified(ranUe, amfUe, ran.AnType, nASPDU.Value)) {
+		// The security-header bit is not proof of ownership. A plain message, or one
+		// whose MAC fails against the found 5G NAS security context, is never attached
+		// to that context: that would let it restart authentication/T3560 for, cancel
+		// the paging of, or deregister the established context. TS 24.501 4.4.4.3
+		// still requires the message to be processed.
+		switch nasMsgType {
+		case uint8(nas_message.MsgTypeRegReq):
+			// Authenticated on a new UE context. The registration continues on the found
+			// context only once the UE has authenticated as its subscriber (see
+			// gmm.continueOnStoredContext), so a sender that cannot leaves it unchanged.
+			ranUe.Log.Infof("Authenticate registration for AmfUe found by %q on a new UE context", idType)
+			newAmfUe := context.GetSelf().NewAmfUe("")
+			newAmfUe.AuthenticatingFor = amfUe
+			// A periodic REGISTRATION REQUEST may omit the UE security capability (TS 24.501 8.2.6.4).
+			newAmfUe.UESecurityCapability = amfUe.UESecurityCapability
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(newAmfUe, ranUe)
+		case uint8(nas_message.MsgTypeSvcReq):
+			// SERVICE REJECT #9; the 5GMM and 5G NAS security contexts stay unchanged.
+			ranUe.Log.Warnf("Service Request failed the integrity check for AmfUe found by %q", idType)
+			gmm_message.SendServiceReject(ranUe, nil, ie.Cause5GMM_UEIdCannotBeDerivedByTheNw)
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		default:
+			// A DEREGISTRATION REQUEST is ignored and the UE stays registered; no other
+			// initial NAS message is processed without integrity protection.
+			ranUe.Log.Warnf("Ignore initial NAS message [type %d] that failed the integrity check for AmfUe found by %q",
+				nasMsgType, idType)
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		}
+	} else if ok && !isInvalidGUTI {
 		// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
 		// last Registration Request procedure
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
@@ -591,6 +635,18 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	amf_nas.HandleNAS(ranUe, ngapProcedure.ProcedureCodeInitialUEMessage, nASPDU.Value, true)
 }
 
+// initialNasMacVerified reports whether an initial NAS message is integrity protected and its MAC
+// verifies against the 5G NAS security context of amfUe. The check runs on a copy of the uplink
+// NAS COUNT: HandleNAS decodes the message again and accepts its COUNT, once (TS 24.501 4.4.3.2).
+func initialNasMacVerified(ranUe *context.RanUe, amfUe *context.AmfUe, anType models.AccessType, nasPdu []byte) bool {
+	macVerified, err := nas_security.VerifyIntegrity(amfUe, anType, nasPdu, true)
+	if err != nil {
+		ranUe.Log.Infof("Initial NAS message not verified against the found UE context: %v", err)
+		return false
+	}
+	return macVerified
+}
+
 func findAmfUe(ran *context.AmfRan, id, idType string) (*context.AmfUe, bool) {
 	var amfUe *context.AmfUe
 	var ok bool
@@ -606,10 +662,10 @@ func findAmfUe(ran *context.AmfRan, id, idType string) (*context.AmfUe, bool) {
 	case "SUCI":
 		ran.Log.Debugf("SUCI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindBySuci(id)
-	case "5G-GUTI":
+	case nasIDType5GGUTI:
 		ran.Log.Debugf("5G-GUTI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindByGuti(id)
-	case "5G-S-TMSI":
+	case nasIDType5GSTMSI:
 		id = servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc + ngapConvert.BitStringToHex(&tmpRegionID) + id
 		ran.Log.Debugf("5G-S-TMSI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindByGuti(id)
