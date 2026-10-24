@@ -468,6 +468,18 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 			return fmt.Errorf("periodic registration updating was sent when the UE state was deregistered")
 		}
 	case ie.RegType_EmergReg:
+		// TS 24.501 5.5.1.2.5: a registration request that cannot be accepted is
+		// answered with REGISTRATION REJECT. Emergency services are not supported,
+		// so use #111: the UE handles it as an abnormal case (5.5.1.2.7 d) and,
+		// for an emergency registration, informs the upper layers (5.5.1.2.6)
+		// without invalidating its USIM as #7 would. The reject ends the
+		// registration procedure, so clear its data and ongoing state, as entering
+		// the 5GMM state would, and return an error so the registration does not
+		// continue with authentication.
+		gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ProtError, "")
+		ngap_message.SendUEContextReleaseCommand(ue.RanUe[anType], context.UeContextN2NormalRelease,
+			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+		ue.ClearRegistrationRequestData(anType)
 		return fmt.Errorf("not supported RegistrationType: Emergency Registration")
 	default:
 		ue.GmmLog.Infof("RegistrationType: %v, chage state to InitialRegistration", ue.RegistrationType5GS)
