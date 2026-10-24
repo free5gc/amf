@@ -241,15 +241,25 @@ func BuildPDUSessionResourceModifyConfirm(
 		return nil, fmt.Errorf("ranUe is nil")
 	}
 	response := &ngapMessage.PDUSessionResourceModifyConfirm{
-		AMFUENGAPID:                        &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
-		RANUENGAPID:                        &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
-		PDUSessionResourceModifyListModCfm: &modifyList,
-		CriticalityDiagnostics:             criticalityDiagnostics,
+		AMFUENGAPID:            &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
+		RANUENGAPID:            &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
+		CriticalityDiagnostics: criticalityDiagnostics,
+	}
+	// TS 38.413 §9.2.1.9: both lists are optional and hold 1..256 items.
+	if len(modifyList.List) != 0 {
+		response.PDUSessionResourceModifyListModCfm = &modifyList
 	}
 	if len(failedList.List) != 0 {
 		response.PDUSessionResourceFailedToModifyListModCfm = &failedList
 	}
 	return response.MarshalBinary()
+}
+
+// BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer builds the
+// transfer that reports why a PDU session failed to be modified
+// (TS 38.413 §9.3.4.22).
+func BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer(cause *ngapIE.Cause) ([]byte, error) {
+	return ngapIE.MarshalBinary(&ngapIE.PDUSessionResourceModifyIndicationUnsuccessfulTransfer{Cause: cause})
 }
 
 func BuildPDUSessionResourceModifyRequest(
