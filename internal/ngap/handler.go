@@ -926,6 +926,18 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 	pduSessionResourceModifyListModCfm := ngapType.PDUSessionResourceModifyListModCfm{}
 	pduSessionResourceFailedToModifyListModCfm := ngapType.PDUSessionResourceFailedToModifyListModCfm{}
 
+	// TS 38.413 §8.2.5.2: the confirm reports the result for each indicated PDU
+	// session. When the SMF provides no transfer, the AMF reports the failure.
+	reportFailedToModify := func(pduSessionID int32, cause *ngapType.Cause) {
+		transfer, err := ngap_message.BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer(cause)
+		if err != nil {
+			ranUe.Log.Errorf("Build PDUSessionResourceModifyIndicationUnsuccessfulTransfer error: %+v", err)
+			return
+		}
+		ngap_message.AppendPDUSessionResourceFailedToModifyListModCfm(
+			&pduSessionResourceFailedToModifyListModCfm, int64(pduSessionID), transfer)
+	}
+
 	if pduSessionResourceModifyIndicationList != nil {
 		ran.Log.Infof("Send PDUSessionResourceModifyIndicationTransfer to SMF")
 		for _, item := range pduSessionResourceModifyIndicationList.List {
@@ -934,7 +946,9 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
 			if !ok {
 				ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
-				// TODO: Check if doing error handling here
+				reportFailedToModify(pduSessionID, &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+					Value: ngapType.CauseRadioNetworkPresentUnknownPDUSessionID,
+				}})
 				continue
 			}
 			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
@@ -947,11 +961,15 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 				ngap_message.AppendPDUSessionResourceModifyListModCfm(
 					&pduSessionResourceModifyListModCfm,
 					int64(pduSessionID), relatedContentBytes(response.BinaryDataN2SmInformation))
-			}
-			if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
+			} else if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
 				ngap_message.AppendPDUSessionResourceFailedToModifyListModCfm(
 					&pduSessionResourceFailedToModifyListModCfm,
 					int64(pduSessionID), relatedContentBytes(errResponse.BinaryDataN2SmInformation))
+			} else {
+				ranUe.Log.Warnf("SMF returned no N2 SM information for PDU Session ID %d", pduSessionID)
+				reportFailedToModify(pduSessionID, &ngapType.Cause{Choice: &ngapType.CauseMisc{
+					Value: ngapType.CauseMiscPresentUnspecified,
+				}})
 			}
 		}
 	}
