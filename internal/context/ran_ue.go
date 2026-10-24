@@ -84,6 +84,9 @@ func (ranUe *RanUe) Remove() error {
 		ranUe.AmfUe.DetachRanUe(ran.AnType)
 		ranUe.DetachAmfUe()
 	}
+	// A removed RanUe is no longer the source or the target of an N2 handover:
+	// clear the link so that the peer RanUe does not keep a pointer to it.
+	DetachSourceUeTargetUe(ranUe)
 
 	ran.RanUeList.Delete(ranUe.RanUeNgapId)
 

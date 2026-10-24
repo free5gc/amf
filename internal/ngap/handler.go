@@ -1240,7 +1240,7 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		return
 	}
 	sourceUe := targetUe.SourceUe
-	if sourceUe == nil {
+	if sourceUe == nil && amfUe.RanUe[ran.AnType] != nil {
 		// TODO: Send to S-AMF
 		// Desciibed in (23.502 4.9.1.3.3) [conditional] 6a.Namf_Communication_N2InfoNotify.
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
@@ -1251,7 +1251,7 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		for _, pduSessionID := range targetUe.SuccessPduSessionId {
 			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
 			if !ok {
-				sourceUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
+				targetUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				// TODO: Check if doing error handling here
 				continue
 			}
@@ -1264,7 +1264,20 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE,
 			utils.SuccessMetric,
 			business_metrics.HANDOVER_EMPTY_CAUSE, targetUe.HandOverStartTime)
-		gmm_common.AttachRanUeToAmfUeAndReleaseOldHandover(amfUe, sourceUe, targetUe)
+		if sourceUe != nil {
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldHandover(amfUe, sourceUe, targetUe)
+		} else {
+			// TS 38.413 8.4.3.2 and TS 23.502 4.9.1.3.3 step 5: the UE has arrived
+			// at the target. The source N2 connection was already released (e.g.
+			// on TNGRELOCoverall expiry or loss of the source NG association) and
+			// the UE has no other N2 connection: make the target the UE's N2
+			// connection without releasing the source again.
+			targetUe.Log.Info("Source NG-RAN connection already released: complete the handover at the target")
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, targetUe)
+			if amfUe.OnGoing(ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+				amfUe.SetOnGoing(ran.AnType, &context.OnGoing{Procedure: context.OnGoingProcedureNothing})
+			}
+		}
 	}
 
 	// TODO: The UE initiates Mobility Registration Update procedure as described in clause 4.2.2.2.2.
@@ -1696,11 +1709,12 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 	targetUe.Log.Info("Handle Handover Failure")
 
 	sourceUe := targetUe.SourceUe
-	if sourceUe == nil {
+	amfUe := targetUe.AmfUe
+	n2Handover := amfUe != nil && amfUe.OnGoing(ran.AnType).Procedure == context.OnGoingProcedureN2Handover
+	if sourceUe == nil && !n2Handover {
 		// TODO: handle N2 Handover between AMF
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
-		amfUe := targetUe.AmfUe
 		if amfUe != nil {
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				pduSessionID := key.(int32)
@@ -1718,15 +1732,24 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 				return true
 			})
 		}
-		sendCause := cause
-		if sendCause == nil {
-			sendCause = &ngapType.Cause{
-				Choice: &ngapType.CauseRadioNetwork{
-					Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
-				},
+		if sourceUe == nil {
+			// The source N2 connection was released during the preparation and
+			// its RanUe removed, so there is no source to send the HANDOVER
+			// PREPARATION FAILURE to. The SMF preparation is canceled above
+			// (TS 29.502 5.2.2.3.4.2); end the ongoing N2 handover here.
+			targetUe.Log.Info("Source NG-RAN connection already released: end the handover preparation")
+			amfUe.SetOnGoing(ran.AnType, &context.OnGoing{Procedure: context.OnGoingProcedureNothing})
+		} else {
+			sendCause := cause
+			if sendCause == nil {
+				sendCause = &ngapType.Cause{
+					Choice: &ngapType.CauseRadioNetwork{
+						Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
+					},
+				}
 			}
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *sendCause, criticalityDiagnostics)
 		}
-		ngap_message.SendHandoverPreparationFailure(sourceUe, *sendCause, criticalityDiagnostics)
 	}
 
 	ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
@@ -1886,18 +1909,18 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 		causePresent, causeValue = printAndGetCause(ran, cause)
 	}
 	amfUe := sourceUe.AmfUe
-	if amfUe != nil && amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+	n2Handover := amfUe != nil && amfUe.OnGoing(sourceUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover
+	if n2Handover {
 		amfUe.SetOnGoing(sourceUe.Ran.AnType, &context.OnGoing{
 			Procedure: context.OnGoingProcedureNothing,
 		})
 	}
 	targetUe := sourceUe.TargetUe
-	if targetUe == nil {
+	if targetUe == nil && !n2Handover {
 		// Described in (23.502 4.11.1.2.3) step 2
 		// Todo : send to T-AMF invoke Namf_UeContextReleaseRequest(targetUe)
 		ran.Log.Error("N2 Handover between AMF has not been implemented yet")
 	} else {
-		ran.Log.Tracef("Target : RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
 		if amfUe != nil {
 			amfUe.SmContextList.Range(func(key, value interface{}) bool {
 				pduSessionID := key.(int32)
@@ -1915,7 +1938,14 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 				return true
 			})
 		}
-		ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
+		// A target RanUe removed after its HANDOVER REQUEST ACKNOWLEDGE (NG
+		// RESET, loss of the target NG association) has nothing left to
+		// release; the SMF and the source are still answered (TS 23.502
+		// 4.11.1.2.3 steps 4b and 6).
+		if targetUe != nil {
+			ran.Log.Tracef("Target : RAN_UE_NGAP_ID[%d] AMF_UE_NGAP_ID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
+			ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
+		}
 		ngap_message.SendHandoverCancelAcknowledge(sourceUe, nil)
 	}
 }
