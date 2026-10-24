@@ -2106,12 +2106,19 @@ func handleLocationReportMain(ran *context.AmfRan,
 
 		case ngapType.EventTypePresentUePresenceInAreaOfInterest:
 			ranUe.Log.Trace("To report UE presence in the area of interest")
+			// The Area of Interest List is optional (TS 38.413 §9.3.1.65).
+			var areaOfInterestItems []ngapType.AreaOfInterestItem
+			if locationReportingRequestType.AreaOfInterestList != nil {
+				areaOfInterestItems = locationReportingRequestType.AreaOfInterestList.List
+			} else {
+				ranUe.Log.Debug("Location Reporting Request Type has no Area of Interest List")
+			}
 			if uEPresenceInAreaOfInterestList != nil {
 				for _, uEPresenceInAreaOfInterestItem := range uEPresenceInAreaOfInterestList.List {
 					uEPresence := uEPresenceInAreaOfInterestItem.UEPresence.Value
 					referenceID := uEPresenceInAreaOfInterestItem.LocationReportingReferenceID.Value
 
-					for _, AOIitem := range locationReportingRequestType.AreaOfInterestList.List {
+					for _, AOIitem := range areaOfInterestItems {
 						if referenceID == AOIitem.LocationReportingReferenceID.Value {
 							ran.Log.Tracef("uEPresence[%d], presence AOI ReferenceID[%d]", uEPresence, referenceID)
 						}
