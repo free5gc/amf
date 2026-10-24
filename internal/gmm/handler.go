@@ -1784,9 +1784,6 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 
 	ue.GmmLog.Info("Handle Service Request")
 
-	ue.StopT3513()
-	ue.StopT3565()
-
 	amfSelf := context.GetSelf()
 	if ue.RanUe[anType] != nil {
 		ue.Location = ue.RanUe[anType].Location
@@ -1799,15 +1796,6 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		ngap_message.SendUEContextReleaseCommand(ue.RanUe[anType],
 			context.UeContextN2NormalRelease, ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 		return nil
-	}
-
-	// Set No ongoing
-	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
-		ue.SetOnGoing(anType, &context.OnGoing{
-			Procedure: context.OnGoingProcedureNothing,
-		})
-	} else if procedure != context.OnGoingProcedureNothing {
-		ue.GmmLog.Warnf("UE should not in OnGoing[%s]", procedure)
 	}
 
 	var pduStatusResult *[psiArraySize]bool
@@ -1823,6 +1811,22 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		ngap_message.SendUEContextReleaseCommand(ue.RanUe[anType],
 			context.UeContextN2NormalRelease, ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 		return nil
+	}
+
+	// TS 24.501 5.6.2.2.1: T3513 is stopped only by a response that passed the
+	// integrity check. A SERVICE REQUEST that failed it was answered above with
+	// SERVICE REJECT #9 (4.4.4.3) and leaves the paging running. T3565 is kept
+	// running in the same way, although 5.6.3.3 stops it on any SERVICE REQUEST.
+	ue.StopT3513()
+	ue.StopT3565()
+
+	// Set No ongoing
+	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
+		ue.SetOnGoing(anType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	} else if procedure != context.OnGoingProcedureNothing {
+		ue.GmmLog.Warnf("UE should not in OnGoing[%s]", procedure)
 	}
 
 	// TS 24.501 8.2.6.21: if the UE is sending a REGISTRATION REQUEST message as an initial NAS message,
