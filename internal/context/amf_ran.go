@@ -223,7 +223,12 @@ func bitStringToHex(bitString aper.BitString) string {
 func (ran *AmfRan) RanID() string {
 	switch ran.RanPresent {
 	case RanPresentGNbId:
-		return fmt.Sprintf("<PlmnID: %+v, GNbID: %s>", *ran.RanId.PlmnId, ran.RanId.GNbId.GNBValue)
+		// GNbId stays nil when the gNB-ID uses the choice-Extensions alternative.
+		gnbID := ""
+		if ran.RanId.GNbId != nil {
+			gnbID = ran.RanId.GNbId.GNBValue
+		}
+		return fmt.Sprintf("<PlmnID: %+v, GNbID: %s>", *ran.RanId.PlmnId, gnbID)
 	case RanPresentN3IwfId:
 		return fmt.Sprintf("<PlmnID: %+v, N3IwfID: %s>", *ran.RanId.PlmnId, ran.RanId.N3IwfId)
 	case RanPresentNgeNbId:
