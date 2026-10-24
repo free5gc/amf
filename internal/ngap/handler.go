@@ -164,6 +164,7 @@ func handleNGResetMain(ran *context.AmfRan,
 	switch choice := resetType.Choice.(type) {
 	case *ngapType.ResetAll:
 		ran.Log.Trace("ResetType Present: NG Interface")
+		completeUeContextReleases(ran)
 		ran.RemoveAllRanUe(false)
 		ngap_message.SendNGResetAcknowledge(ran, nil, nil)
 	case *ngapType.UEAssociatedLogicalNGConnectionList:
@@ -192,7 +193,7 @@ func handleNGResetMain(ran *context.AmfRan,
 				}
 			}
 
-			if ranUe != nil {
+			if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 				if err := ranUe.Remove(); err != nil {
 					ran.Log.Error(err.Error())
 				}
@@ -349,7 +350,13 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 	case context.UeContextReleaseUeContext:
 		ran.Log.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
 		amfUe.Lock.Lock()
-		gmm_common.RemoveAmfUe(amfUe, false)
+		// completeUeContextRelease may have removed the AmfUe for a local
+		// release of this connection while this handler waited for the lock.
+		if ranUe.AmfUe == amfUe {
+			gmm_common.RemoveAmfUe(amfUe, false)
+		} else {
+			ran.Log.Infof("Release UE[%s] Context : already released", amfUe.Supi)
+		}
 		amfUe.Lock.Unlock()
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
@@ -451,7 +458,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	uEContextRequest *ngapType.UEContextRequest,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
-	if ranUe != nil {
+	if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 		amfUe := ranUe.AmfUe
 		if amfUe != nil {
 			// The fact that an amfUe having N2 connection (ranUE) is receiving
@@ -2399,12 +2406,68 @@ func isLatestAmfUe(amfUe *context.AmfUe) bool {
 	return false
 }
 
+// completeUeContextRelease handles a UE-associated logical NG-connection that
+// ends without a UE CONTEXT RELEASE COMPLETE for it: a local release for an
+// erroneous AP ID (TS 38.413 10.6), an NG Reset (8.7.4.2.2), an INITIAL UE
+// MESSAGE that reuses its RAN UE NGAP ID (8.6.1.2) or the loss of the SCTP
+// association. If the AMF had already ordered the release of this
+// connection together with the UE context (UE CONTEXT RELEASE COMMAND with
+// UeContextReleaseUeContext), it removes the AmfUe now, as it would have done
+// on the UE CONTEXT RELEASE COMPLETE; otherwise the AmfUe is left in its GMM
+// state with no N2 connection and no timer to leave it. It reports whether the
+// RanUe is gone; if not, the caller removes the RanUe as before.
+func completeUeContextRelease(ran *context.AmfRan, ranUe *context.RanUe) bool {
+	amfUe := ranUe.AmfUe
+	if !ueContextReleaseOrdered(ran, ranUe, amfUe) {
+		return false
+	}
+	ranUe.Log.Infof("Release UE[%s] Context : Release Ue Context (N2 connection released locally)", amfUe.Supi)
+	amfUe.Lock.Lock()
+	defer amfUe.Lock.Unlock()
+	// Check again under the lock: while this call waited, the UE CONTEXT
+	// RELEASE COMPLETE (handled on another NGAP worker) or another local
+	// release may have removed the AmfUe, which must not be removed twice, or
+	// the UE may have moved to a new connection. Tell the caller whether the
+	// RanUe is gone too.
+	if !ueContextReleaseOrdered(ran, ranUe, amfUe) {
+		ranUe.Log.Infof("Release UE[%s] Context : no longer pending", amfUe.Supi)
+		return context.GetSelf().RanUeFindByAmfUeNgapID(ranUe.AmfUeNgapId) != ranUe
+	}
+	gmm_common.RemoveAmfUe(amfUe, false)
+	return true
+}
+
+// ueContextReleaseOrdered reports whether ranUe is still amfUe's connection and
+// the AMF has ordered its release together with the UE context.
+func ueContextReleaseOrdered(ran *context.AmfRan, ranUe *context.RanUe, amfUe *context.AmfUe) bool {
+	return amfUe != nil && ranUe.AmfUe == amfUe && amfUe.RanUe[ran.AnType] == ranUe &&
+		ranUe.ReleaseAction == context.UeContextReleaseUeContext
+}
+
+// completeUeContextReleases applies completeUeContextRelease to every
+// UE-associated logical NG-connection of ran before they are all removed.
+func completeUeContextReleases(ran *context.AmfRan) {
+	ran.RanUeList.Range(func(_, value interface{}) bool {
+		completeUeContextRelease(ran, value.(*context.RanUe))
+		return true
+	})
+}
+
+// removeRan removes the RAN context once its SCTP association is gone.
+func removeRan(ran *context.AmfRan) {
+	completeUeContextReleases(ran)
+	ran.Remove()
+}
+
 func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason string) {
 	if ranUe == nil {
 		return
 	}
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
+	if completeUeContextRelease(ran, ranUe) {
+		return
+	}
 	amfUe := ranUe.AmfUe
 	if amfUe != nil && amfUe.RanUe[ran.AnType] == ranUe {
 		if amfUe.T3550 != nil {
