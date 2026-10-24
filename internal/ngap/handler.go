@@ -2437,6 +2437,30 @@ func removeRanUeByInvalidUE(ran *context.AmfRan, aMFUENGAPID *ngapType.AMFUENGAP
 	}
 }
 
+// removeRanUeByUnknownAmfUeNgapID implements "10.6 Handling of AP ID" in TS
+// 38.413 for a received AMF-UE-NGAP-ID that is unknown on this NG interface.
+// For a first returned message, both nodes release the connections having the
+// received AP IDs as local or remote identifier. For any other message only the
+// unknown local AP ID is erroneous and the release is limited to connections
+// "having the erroneous AP ID as either the local or remote identifier": no
+// connection of this NG interface has it, and the connection that uses the
+// received RAN-UE-NGAP-ID does not carry it, so that connection is kept.
+func removeRanUeByUnknownAmfUeNgapID(ran *context.AmfRan,
+	aMFUENGAPID *ngapType.AMFUENGAPID, rANUENGAPID *ngapType.RANUENGAPID, firstReturnedMessage bool,
+) {
+	if firstReturnedMessage {
+		removeRanUeByInvalidUE(ran, aMFUENGAPID, rANUENGAPID)
+		return
+	}
+	if rANUENGAPID == nil {
+		return
+	}
+	if ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value); ranUe != nil {
+		ranUe.Log.Warnf("Keep RanUe: the erroneous AP ID is the unknown AmfUeNgapID[%d], not RanUeNgapID[%d]",
+			aMFUENGAPID.Value, rANUENGAPID.Value)
+	}
+}
+
 // Implementation "10.6 Handling of AP ID" in TS 38.413
 //
 // firstReturnedMessage: This argument is true in case of the search for “first returned message”.
@@ -2469,7 +2493,7 @@ func ranUeFind(ran *context.AmfRan,
 		if sendErrorIndication {
 			ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, cause, nil)
 		}
-		removeRanUeByInvalidUE(ran, aMFUENGAPID, rANUENGAPID)
+		removeRanUeByUnknownAmfUeNgapID(ran, aMFUENGAPID, rANUENGAPID, firstReturnedMessage)
 		return nil, fmt.Errorf("no RanUe Context[AmfUeNgapID: %d, RanUeNgapID: %s]",
 			aMFUENGAPID.Value, rANUENGAPID_string)
 	}
@@ -2482,7 +2506,7 @@ func ranUeFind(ran *context.AmfRan,
 		if sendErrorIndication {
 			ngap_message.SendErrorIndication(ran, aMFUENGAPID, rANUENGAPID, cause, nil)
 		}
-		removeRanUeByInvalidUE(ran, aMFUENGAPID, rANUENGAPID)
+		removeRanUeByUnknownAmfUeNgapID(ran, aMFUENGAPID, rANUENGAPID, firstReturnedMessage)
 		return nil, fmt.Errorf("RanUe Context is not in Ran[AmfUeNgapID: %d, RanUeNgapID: %s]",
 			aMFUENGAPID.Value, rANUENGAPID_string)
 	}
