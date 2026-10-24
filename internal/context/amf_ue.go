@@ -69,6 +69,10 @@ type AmfUe struct {
 	NasPduValue                        []byte
 	RetransmissionOfInitialNASMsg      bool
 	RequestIdentityType                uint8
+	// AuthenticatingFor is the UE context that a REGISTRATION REQUEST handled on this context named but
+	// failed the integrity check of (TS 24.501 4.4.4.3). This context only authenticates the UE; the
+	// registration then continues on the UE context stored for the authenticated subscriber.
+	AuthenticatingFor *AmfUe
 	/* Used for AMF relocation */
 	TargetAmfProfile *models.Nrf_NFDisc_NFProfile
 	TargetAmfUri     string
@@ -330,7 +334,9 @@ func (ue *AmfUe) Remove() {
 	}
 	tmsiGenerator.FreeID(int64(ue.Tmsi))
 	if len(ue.Supi) > 0 {
-		GetSelf().UePool.Delete(ue.Supi)
+		// Only this context's own entry: a context that has authenticated a SUPI without being
+		// stored under it (e.g. one with AuthenticatingFor set) must not remove the stored context.
+		GetSelf().UePool.CompareAndDelete(ue.Supi, ue)
 	}
 	ue.DeleteAllSmContexts()
 
