@@ -419,11 +419,12 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,
@@ -1962,11 +1963,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,

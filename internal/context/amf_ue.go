@@ -161,6 +161,7 @@ type AmfUe struct {
 	NCC                      uint8     // 0..7
 	ULCount                  message.Count
 	DLCount                  message.Count
+	nasCountMu               sync.Mutex // guards ULCount and DLCount, see WithNASCounts
 	CipheringAlg             uint8
 	IntegrityAlg             uint8
 	/* Registration Area */
@@ -541,11 +542,32 @@ func (ue *AmfUe) DerivateAlgKey() {
 	copy(ue.KnasInt[:], kint[16:32])
 }
 
+// WithNASCounts runs f with exclusive access to the uplink and downlink NAS COUNTs. Every
+// read-modify-write of ULCount or DLCount (message.Parse, message.Marshal, a COUNT reset or a
+// transferred COUNT) runs in it, so an uplink COUNT is accepted at most once (TS 24.501 4.4.3.2)
+// and no downlink COUNT is used twice (TS 24.501 4.4.3.1). nasCountMu is a leaf lock: f must not
+// block, send, or take another lock. The lock is on the AmfUe whose COUNTs it guards, so a
+// concurrent change of RanUe.AmfUe cannot make a caller lock one AmfUe and use another's COUNTs.
+func (ue *AmfUe) WithNASCounts(f func(ulCount, dlCount *message.Count)) {
+	ue.nasCountMu.Lock()
+	defer ue.nasCountMu.Unlock()
+	f(&ue.ULCount, &ue.DLCount)
+}
+
+// NASCounts returns a consistent copy of the uplink and downlink NAS COUNTs.
+func (ue *AmfUe) NASCounts() (ulCount, dlCount message.Count) {
+	ue.WithNASCounts(func(ul, dl *message.Count) {
+		ulCount, dlCount = *ul, *dl
+	})
+	return ulCount, dlCount
+}
+
 // Access Network key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 	accessType := message.AccessType3GPP // Defalut 3gpp
 	P0 := make([]byte, 4)
-	binary.BigEndian.PutUint32(P0, ue.ULCount.Get())
+	ulCount, _ := ue.NASCounts()
+	binary.BigEndian.PutUint32(P0, ulCount.Get())
 	L0 := ueauth.KDFLen(P0)
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
 		accessType = message.AccessTypeNon3GPP
@@ -866,19 +888,21 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.Amf_Comm_UeContext
 						ue.CipheringAlg = uint8(message.AlgCiphering128NEA3)
 					}
 
-					if mmContext.NasDownlinkCount != 0 {
-						overflow := uint16((uint32(mmContext.NasDownlinkCount) & 0x00ffff00) >> 8)
-						sqn := uint8(uint32(mmContext.NasDownlinkCount & 0x000000ff))
-						ue.DLCount.Set(overflow, sqn)
-					}
+					ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
+						if mmContext.NasDownlinkCount != 0 {
+							overflow := uint16((uint32(mmContext.NasDownlinkCount) & 0x00ffff00) >> 8)
+							sqn := uint8(uint32(mmContext.NasDownlinkCount & 0x000000ff))
+							dlCount.Set(overflow, sqn)
+						}
 
-					if mmContext.NasUplinkCount != 0 {
-						overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
-						sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
-						ue.ULCount.Set(overflow, sqn)
-						// TS 24.501 4.4.3.1: this is the largest uplink NAS COUNT the old AMF accepted.
-						ue.ULCount.MarkAccepted()
-					}
+						if mmContext.NasUplinkCount != 0 {
+							overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
+							sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
+							ulCount.Set(overflow, sqn)
+							// TS 24.501 4.4.3.1: this is the largest uplink NAS COUNT the old AMF accepted.
+							ulCount.MarkAccepted()
+						}
+					})
 
 					// TS 29.518 Table 6.1.6.3.2.1
 					if mmContext.UeSecurityCapability != "" {
