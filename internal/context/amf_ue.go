@@ -870,6 +870,8 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.Amf_Comm_UeContext
 						overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
 						sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
 						ue.ULCount.Set(overflow, sqn)
+						// TS 24.501 4.4.3.1: this is the largest uplink NAS COUNT the old AMF accepted.
+						ue.ULCount.MarkAccepted()
 					}
 
 					// TS 29.518 Table 6.1.6.3.2.1
