@@ -40,7 +40,7 @@ func TestHandoverRequestRetainsSelectedTargetTAI(t *testing.T) {
 	})
 	require.Len(t, conn.MsgList, 1, "Handover Request must be sent to the target RAN")
 	require.Equal(t, targetTai, sourceUe.TargetUe.Tai)
-	require.True(t, sourceUe.AmfUe.CheckSliceAvailabilityInTargetRan(snssai, targetRan, sourceUe.TargetUe.Tai))
-	require.False(t, sourceUe.AmfUe.CheckSliceAvailabilityInTargetRan(snssai, targetRan, sourceUe.Tai))
+	require.True(t, sourceUe.GetAmfUe().CheckSliceAvailabilityInTargetRan(snssai, targetRan, sourceUe.TargetUe.Tai))
+	require.False(t, sourceUe.GetAmfUe().CheckSliceAvailabilityInTargetRan(snssai, targetRan, sourceUe.Tai))
 	require.Equal(t, "000001", sourceUe.Tai.Tac, "preparation must not change the source location")
 }

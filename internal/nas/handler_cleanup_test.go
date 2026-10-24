@@ -26,7 +26,7 @@ func TestHandleNASInvalidSUCICleansNewAmfUe(t *testing.T) {
 		t.Run(fmt.Sprintf("scheme-%d", scheme), func(t *testing.T) {
 			fixture := newCleanupFixture(t)
 			ranUe := fixture.newRanUe(t)
-			require.Nil(t, ranUe.AmfUe)
+			require.Nil(t, ranUe.GetAmfUe())
 
 			fixture.handleInvalidSUCI(t, ranUe, scheme)
 
@@ -36,7 +36,7 @@ func TestHandleNASInvalidSUCICleansNewAmfUe(t *testing.T) {
 			require.NotNil(t, created)
 			require.Positive(t, created.Tmsi)
 			require.Empty(t, created.Supi)
-			require.Nil(t, ranUe.AmfUe)
+			require.Nil(t, ranUe.GetAmfUe())
 			require.Empty(t, created.RanUe)
 			require.Equal(t, 1, fixture.observer.removedUEs, "must also run AmfUe.Remove, not just detach")
 			require.True(t, created.State[fixture.ran.AnType].Is(amf_context.Deregistered))
@@ -60,7 +60,7 @@ func TestHandleNASDecodeFailurePreservesExistingAmfUe(t *testing.T) {
 
 	require.Same(t, existing, fixture.observer.decodingUE)
 	require.Zero(t, fixture.observer.removedUEs)
-	require.Same(t, existing, ranUe.AmfUe)
+	require.Same(t, existing, ranUe.GetAmfUe())
 	require.Same(t, ranUe, existing.RanUe[fixture.ran.AnType])
 	require.Equal(t, tmsi, existing.Tmsi)
 	require.Equal(t, guti, existing.Guti)
@@ -81,7 +81,7 @@ func TestHandleNASDecodeFailurePreservesRanUeResources(t *testing.T) {
 	fixture.handleInvalidSUCI(t, ranUe, 15)
 
 	require.NotNil(t, fixture.observer.decodingUE)
-	require.Nil(t, ranUe.AmfUe)
+	require.Nil(t, ranUe.GetAmfUe())
 	require.Empty(t, fixture.observer.decodingUE.RanUe)
 	require.Equal(t, 1, fixture.observer.removedUEs)
 	require.Equal(t, ranID, ranUe.RanUeNgapId)
@@ -98,7 +98,7 @@ func TestHandleNASDecodeFailurePreservesHoldingAmfUe(t *testing.T) {
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(existing, oldRanUe)
 		tmsi := existing.Tmsi
 		incoming := fixture.newRanUe(t)
-		incoming.HoldingAmfUe = existing
+		incoming.SetHoldingAmfUe(existing)
 
 		fixture.handleInvalidSUCI(t, incoming, 5)
 
@@ -106,9 +106,9 @@ func TestHandleNASDecodeFailurePreservesHoldingAmfUe(t *testing.T) {
 		require.NotSame(t, existing, fixture.observer.decodingUE)
 		require.Empty(t, fixture.observer.decodingUE.RanUe)
 		require.Equal(t, 1, fixture.observer.removedUEs)
-		require.Nil(t, incoming.AmfUe)
-		require.Same(t, existing, incoming.HoldingAmfUe)
-		require.Same(t, existing, oldRanUe.AmfUe)
+		require.Nil(t, incoming.GetAmfUe())
+		require.Same(t, existing, incoming.GetHoldingAmfUe())
+		require.Same(t, existing, oldRanUe.GetAmfUe())
 		require.Same(t, oldRanUe, existing.RanUe[fixture.ran.AnType])
 		require.Equal(t, tmsi, existing.Tmsi)
 		pooled, ok := fixture.amf.AmfUeFindBySupi(existing.Supi)
@@ -123,7 +123,7 @@ func TestHandleNASDecodeFailurePreservesHoldingAmfUe(t *testing.T) {
 		existing := fixture.newAmfUe("imsi-208930000000003")
 		tmsi := existing.Tmsi
 		incoming := fixture.newRanUe(t)
-		incoming.HoldingAmfUe = existing
+		incoming.SetHoldingAmfUe(existing)
 		require.False(t, existing.CmConnect(fixture.ran.AnType))
 
 		fixture.handleInvalidSUCI(t, incoming, 5)
@@ -132,8 +132,8 @@ func TestHandleNASDecodeFailurePreservesHoldingAmfUe(t *testing.T) {
 		// context is created, so the decode-error cleanup must leave it alone.
 		require.Same(t, existing, fixture.observer.decodingUE)
 		require.Zero(t, fixture.observer.removedUEs)
-		require.Same(t, existing, incoming.AmfUe)
-		require.Nil(t, incoming.HoldingAmfUe)
+		require.Same(t, existing, incoming.GetAmfUe())
+		require.Nil(t, incoming.GetHoldingAmfUe())
 		require.Same(t, incoming, existing.RanUe[fixture.ran.AnType])
 		require.True(t, existing.CmConnect(fixture.ran.AnType))
 		require.Equal(t, tmsi, existing.Tmsi)
@@ -175,7 +175,7 @@ func newCleanupFixture(t *testing.T) *cleanupFixture {
 		// Include any UE left attached when an assertion fails, so the tests
 		// also clean up correctly against the pre-fix implementation.
 		ran.RanUeList.Range(func(_, value interface{}) bool {
-			if ue := value.(*amf_context.RanUe).AmfUe; ue != nil {
+			if ue := value.(*amf_context.RanUe).GetAmfUe(); ue != nil {
 				fixture.ues[ue] = true
 			}
 			return true
@@ -254,7 +254,7 @@ func (h *cleanupLogObserver) Levels() []logrus.Level { return logrus.AllLevels }
 
 func (h *cleanupLogObserver) Fire(entry *logrus.Entry) error {
 	if strings.Contains(entry.Message, "unsupported protection scheme ID") && h.ranUe != nil {
-		h.decodingUE = h.ranUe.AmfUe
+		h.decodingUE = h.ranUe.GetAmfUe()
 		h.decodeError = entry.Message
 	}
 	if entry.Message == "Authentication procedure" {
