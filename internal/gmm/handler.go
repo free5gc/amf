@@ -1107,6 +1107,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 	amfSelf := context.GetSelf()
 	var err error
 
+	// The rejected S-NSSAIs sent in the REGISTRATION ACCEPT are those of this
+	// registration, not of an earlier one.
+	ue.NetworkSliceInfo = nil
+
 	if ue.RegistrationRequest.ReqNSSAI != nil {
 		logger.GmmLog.Infof("RequestedNssai: %+v", ue.RegistrationRequest.ReqNSSAI)
 		requestedNssai := make([]models.Nssf_NSSel_MappingOfSnssai, 0, len(ue.RegistrationRequest.ReqNSSAI.SNSSAIs))
@@ -1170,8 +1174,7 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 			if ue.NssfUri == "" {
 				if errSearchNssf := consumer.GetConsumer().SelectNssfWithTimeout(ue, amfSelf.NrfUri); errSearchNssf != nil {
 					ue.GmmLog.Errorf("Select NSSF failed: %+v", errSearchNssf)
-					gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ProtError, "")
-					return fmt.Errorf("handle Requested Nssai of UE failed")
+					return handleRequestedNssaiWithoutNssf(ue, anType, requestedNssai)
 				}
 			}
 
@@ -1179,12 +1182,10 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 			problemDetails, errNssfGetReg := consumer.GetConsumer().NSSelectionGetForRegistration(ue, requestedNssai)
 			if problemDetails != nil {
 				ue.GmmLog.Errorf("NSSelection Get Failed Problem[%+v]", problemDetails)
-				gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ProtError, "")
-				return fmt.Errorf("handle Requested Nssai of UE failed")
+				return handleRequestedNssaiWithoutNssf(ue, anType, requestedNssai)
 			} else if errNssfGetReg != nil {
 				ue.GmmLog.Errorf("NSSelection Get Error[%+v]", errNssfGetReg)
-				gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ProtError, "")
-				return fmt.Errorf("handle Requested Nssai of UE failed")
+				return handleRequestedNssaiWithoutNssf(ue, anType, requestedNssai)
 			}
 
 			// Step 5: Initial AMF send Namf_Communication_RegistrationCompleteNotify to old AMF
@@ -1284,29 +1285,85 @@ func handleRequestedNssai(ue *context.AmfUe, anType models.AccessType) error {
 	// if registration request has no requested nssai, or non of snssai in requested nssai is permitted by nssf
 	// then use ue subscribed snssai which is marked as default as allowed nssai
 	if len(ue.AllowedNssai[anType]) == 0 {
-		for _, snssai := range ue.SubscribedNssai {
-			if snssai.SubscribedSnssai == nil {
-				logger.GmmLog.Warn("SubscribedNssai has nil SubscribedSnssai")
-				continue
-			}
-			if snssai.DefaultIndication {
-				isSupported := ue.CheckSliceAvailabilityInCurrentRan(*snssai.SubscribedSnssai, anType)
-				if !isSupported {
-					logger.GmmLog.Warnf("SubscribedNssai[%+v] is not supported in RA", snssai.SubscribedSnssai)
-					continue
-				}
-				if amfSelf.InPlmnSupportList(*snssai.SubscribedSnssai) {
-					allowedSnssai := models.Nssf_NSSel_AllowedSnssai{
-						AllowedSnssai: snssai.SubscribedSnssai,
-					}
-					ue.AllowedNssai[anType] = append(ue.AllowedNssai[anType], allowedSnssai)
-				}
-			}
-		}
+		allowDefaultSubscribedNssai(ue, anType)
 	}
 	if len(ue.AllowedNssai[anType]) == 0 {
 		logger.GmmLog.Warnf("No AllowedNssai %v", anType)
 	}
+	return nil
+}
+
+func allowDefaultSubscribedNssai(ue *context.AmfUe, anType models.AccessType) {
+	amfSelf := context.GetSelf()
+	for _, snssai := range ue.SubscribedNssai {
+		if snssai.SubscribedSnssai == nil {
+			logger.GmmLog.Warn("SubscribedNssai has nil SubscribedSnssai")
+			continue
+		}
+		if snssai.DefaultIndication {
+			isSupported := ue.CheckSliceAvailabilityInCurrentRan(*snssai.SubscribedSnssai, anType)
+			if !isSupported {
+				logger.GmmLog.Warnf("SubscribedNssai[%+v] is not supported in RA", snssai.SubscribedSnssai)
+				continue
+			}
+			if amfSelf.InPlmnSupportList(*snssai.SubscribedSnssai) {
+				allowedSnssai := models.Nssf_NSSel_AllowedSnssai{
+					AllowedSnssai: snssai.SubscribedSnssai,
+				}
+				ue.AllowedNssai[anType] = append(ue.AllowedNssai[anType], allowedSnssai)
+			}
+		}
+	}
+}
+
+// handleRequestedNssaiWithoutNssf determines the Allowed NSSAI and the rejected
+// S-NSSAIs from the subscription and the current TA when the NSSF cannot be used
+// (TS 23.501 5.15.5.2.1 (A)), instead of rejecting the whole registration.
+// Every requested S-NSSAI is evaluated, and the result replaces any Allowed
+// NSSAI of an earlier registration:
+//   - not in the Subscribed S-NSSAIs: rejected for the PLMN;
+//   - not available in the current TA: rejected for the registration area;
+//   - not supported by this AMF: neither allowed nor rejected, since another AMF
+//     of the PLMN may serve it (TS 23.501 5.15.4.1: the UE may request it again).
+//
+// When no requested S-NSSAI is allowed, the default Subscribed S-NSSAIs are
+// used, and if there are none the registration is rejected with #62 and the
+// rejected S-NSSAIs (TS 23.501 5.15.5.2.1, TS 24.501 5.5.1.2.5).
+func handleRequestedNssaiWithoutNssf(ue *context.AmfUe, anType models.AccessType,
+	requestedNssai []models.Nssf_NSSel_MappingOfSnssai,
+) error {
+	amfSelf := context.GetSelf()
+	sliceInfo := &models.Nssf_NSSel_AuthorizedNetworkSliceInfo{}
+	ue.AllowedNssai[anType] = nil
+	for _, requested := range requestedNssai {
+		if requested.ServingSnssai == nil {
+			continue
+		}
+		snssai := *requested.ServingSnssai
+		switch {
+		case !ue.InSubscribedNssai(snssai):
+			sliceInfo.RejectedNssaiInPlmn = append(sliceInfo.RejectedNssaiInPlmn, snssai)
+		case !ue.CheckSliceAvailabilityInCurrentRan(snssai, anType):
+			sliceInfo.RejectedNssaiInTa = append(sliceInfo.RejectedNssaiInTa, snssai)
+		case !amfSelf.InPlmnSupportList(snssai):
+			ue.GmmLog.Warnf("RequestedNssai[%+v] is not supported by AMF", snssai)
+		case !ue.InAllowedNssai(snssai, anType):
+			ue.AllowedNssai[anType] = append(ue.AllowedNssai[anType], models.Nssf_NSSel_AllowedSnssai{
+				AllowedSnssai:    &snssai,
+				MappedHomeSnssai: requested.HomeSnssai,
+			})
+		}
+	}
+	ue.NetworkSliceInfo = sliceInfo
+	if len(ue.AllowedNssai[anType]) == 0 {
+		allowDefaultSubscribedNssai(ue, anType)
+	}
+	if len(ue.AllowedNssai[anType]) == 0 {
+		gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_NoNwSlicesAvailable, "")
+		return fmt.Errorf("no allowed NSSAI for UE")
+	}
+	ue.GmmLog.Warnf("NSSF not available; Allowed NSSAI determined by the AMF: %d allowed, %d rejected",
+		len(ue.AllowedNssai[anType]), len(sliceInfo.RejectedNssaiInPlmn)+len(sliceInfo.RejectedNssaiInTa))
 	return nil
 }
 
