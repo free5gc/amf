@@ -138,7 +138,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 					Release: true,
 					Cause:   models.Smf_PDUSess_Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
 					SmContextStatusUri: fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/smContextStatus/%s/%d",
-						ue.ServingAMF().GetIPv4Uri(), ue.Guti, pduSessionID),
+						ue.ServingAMF().GetIPv4Uri(), ue.GetGuti(), pduSessionID),
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
@@ -520,17 +520,15 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		servedGuami := amfSelf.ServedGuamiList[0]
 		if reflect.DeepEqual(guamiFromUeGuti, servedGuami) {
 			ue.ServingAmfChanged = false
-			// refresh 5G-GUTI according to 6.12.3 Subscription temporary identifier, TS33.501
-			if ue.SecurityContextAvailable {
-				context.GetSelf().FreeTmsi(int64(ue.Tmsi))
-				context.GetSelf().AllocateGutiToUe(ue)
-			}
+			// TS 24.501 5.3.3: a new 5G-GUTI is assigned during a successful
+			// registration, so it is allocated when the REGISTRATION ACCEPT is
+			// sent and the UE's 5G-GUTI stays valid if this request is rejected.
 		} else {
 			ue.GmmLog.Infof("Serving AMF has changed: guamiFromUeGuti[%+v], servedGuami[%+v]",
 				guamiFromUeGuti, servedGuami)
 			ue.ServingAmfChanged = true
-			context.GetSelf().FreeTmsi(int64(ue.Tmsi))
-			ue.Guti = guti
+			previousTmsi := ue.SetGutiAndTmsi(guti, 0) // the previous 5G-TMSI is not the UE's any more
+			context.GetSelf().FreeTmsi(int64(previousTmsi))
 		}
 	case ie.IdType_5GS_IMEI:
 		imei := mobileIdentity.PEIStr()
@@ -922,7 +920,7 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 	// }
 
 	amfSelf.AllocateRegistrationArea(ue, anType)
-	ue.GmmLog.Debugf("Use original GUTI[%s]", ue.Guti)
+	ue.GmmLog.Debugf("Use original GUTI[%s]", ue.GetGuti())
 
 	assignLadnInfo(ue, anType)
 
@@ -1872,9 +1870,9 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 		ue.SetSuci(suci)
 		ue.PlmnId = plmnId
 	case ie.IdType_5GS_GUTI:
-		ue.Guti = guti
+		ue.SetGuti(guti)
 	case ie.IdType_5GS_TMSI:
-		ue.Tmsi = tmsi
+		ue.SetTmsi(tmsi)
 	case ie.IdType_5GS_IMEI, ie.IdType_5GS_IMEISV:
 		ue.Pei = pei
 	}
@@ -2102,6 +2100,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 		// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
 		ue.RetransmissionOfInitialNASMsg = ue.MacFailed
+	}
+
+	// TS 24.501 5.5.1.3.8 a): the UE uses the new 5G-GUTI, so the old one is invalid.
+	if ue.HasOldGuti() && serviceRequest.TMSI5GS != nil &&
+		serviceRequest.TMSI5GS.TMSIStr() == fmt.Sprintf("%08x", uint32(ue.GetTmsi())) {
+		amfSelf.ReleaseOldGuti(ue)
 	}
 
 	serviceType := uint8(serviceRequest.SvcType.Value)
@@ -2557,6 +2561,7 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	if context.GetSelf().T3550Cfg.Enable && !ue.StopT3550() {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
+	context.GetSelf().ReleaseOldGuti(ue)
 
 	// Release existed old SmContext when Initial Registration completed
 	if ue.RegistrationType5GS == ie.RegType_InitialReg {

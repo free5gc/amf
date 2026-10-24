@@ -85,6 +85,9 @@ type AmfUe struct {
 	Pei                    string
 	Tmsi                   int32 // 5G-Tmsi
 	Guti                   string
+	GutiSignalled          bool   // Guti has been sent to the UE
+	OldTmsi                int32  // previous 5G-TMSI while the new 5G-GUTI is unacknowledged
+	OldGuti                string // TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)
 	GroupID                string
 	EBI                    int32
 	EventSubscriptionsInfo map[string]*AmfUeEventSubscription
@@ -209,8 +212,10 @@ type AmfUe struct {
 	timerMu sync.Mutex
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
-	// identityMu serializes Suci: AmfUeFindBySuci scans the UE pool from an
-	// NGAP worker while a GMM handler records the SUCI on another goroutine.
+	// identityMu serializes the identities the UE presents: Suci, Guti, Tmsi,
+	// OldGuti and OldTmsi.  AmfUeFindBySuci and AmfUeFindByGuti scan the UE
+	// pool from NGAP and SBI goroutines while a GMM handler records them on
+	// another goroutine.
 	identityMu sync.RWMutex
 
 	// logger
@@ -331,6 +336,61 @@ func (ue *AmfUe) SetSuci(suci string) {
 	ue.Suci = suci
 }
 
+// GetGuti returns the 5G-GUTI the UE holds, or "" when it has none.
+func (ue *AmfUe) GetGuti() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Guti
+}
+
+// SetGuti records the 5G-GUTI the UE holds.
+func (ue *AmfUe) SetGuti(guti string) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Guti = guti
+}
+
+// SetGutiAndTmsi replaces the 5G-GUTI and the 5G-TMSI in one step and returns
+// the 5G-TMSI the UE held before, which its holder has to free.
+func (ue *AmfUe) SetGutiAndTmsi(guti string, tmsi int32) int32 {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	previousTmsi := ue.Tmsi
+	ue.Guti, ue.Tmsi = guti, tmsi
+	return previousTmsi
+}
+
+// GetTmsi returns the 5G-TMSI the UE holds, or 0 when it has none.
+func (ue *AmfUe) GetTmsi() int32 {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Tmsi
+}
+
+// SetTmsi records the 5G-TMSI of the 5G-GUTI the UE presented.
+func (ue *AmfUe) SetTmsi(tmsi int32) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Tmsi = tmsi
+}
+
+// HasOldGuti reports whether the UE still holds a 5G-GUTI it was given in a
+// REGISTRATION ACCEPT that it has not acknowledged yet.
+func (ue *AmfUe) HasOldGuti() bool {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.OldGuti != ""
+}
+
+// MatchesGuti reports whether guti is the 5G-GUTI the UE holds or the one it
+// was given in a REGISTRATION ACCEPT it has not acknowledged yet (TS 24.501
+// 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (ue *AmfUe) MatchesGuti(guti string) bool {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Guti == guti || (ue.OldGuti != "" && ue.OldGuti == guti)
+}
+
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
 	return ue.GetRanUe(anType) != nil
 }
@@ -380,7 +440,18 @@ func (ue *AmfUe) Remove() {
 			business_metrics.DecrUeCmIdleStateGauge(accessType)
 		}
 	}
-	tmsiGenerator.FreeID(int64(ue.Tmsi))
+	// Take both 5G-TMSIs out of the UE in one step, so that a concurrent
+	// ReleaseOldGuti cannot free one of them a second time.
+	ue.identityMu.Lock()
+	tmsi, oldTmsi := ue.Tmsi, ue.OldTmsi
+	ue.Tmsi, ue.OldTmsi, ue.OldGuti = 0, 0, ""
+	ue.identityMu.Unlock()
+	if tmsi != 0 {
+		tmsiGenerator.FreeID(int64(tmsi))
+	}
+	if oldTmsi != 0 && oldTmsi != tmsi {
+		tmsiGenerator.FreeID(int64(oldTmsi))
+	}
 	if len(ue.Supi) > 0 {
 		// Only this context's own entry: a context that has authenticated a SUPI without being
 		// stored under it (e.g. one with AuthenticatingFor set) must not remove the stored context.

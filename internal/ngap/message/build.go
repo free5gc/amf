@@ -560,7 +560,7 @@ func BuildPaging(
 	if ue == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	amfID, tmsi, err := splitGUTI(ue.Guti)
+	amfID, tmsi, err := splitGUTI(ue.GetGuti())
 	if err != nil {
 		return nil, err
 	}
@@ -613,7 +613,7 @@ func BuildRerouteNasRequest(
 	if ue == nil || ue.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
-	amfID, _, err := splitGUTI(ue.Guti)
+	amfID, _, err := splitGUTI(ue.GetGuti())
 	if err != nil {
 		return nil, err
 	}
