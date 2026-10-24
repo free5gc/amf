@@ -93,6 +93,33 @@ func Decode(
 	if ue == nil {
 		return nil, false, fmt.Errorf("amfUe is nil")
 	}
+	return decode(ue, accessType, payload, initialMessage, &ue.ULCount)
+}
+
+// VerifyIntegrity runs the checks of Decode against a copy of the uplink NAS COUNT of ue and
+// reports whether the message is integrity protected and its MAC verifies. The stored COUNT is
+// not changed, so a later Decode of the same message still accepts its COUNT (TS 24.501 4.4.3.2).
+func VerifyIntegrity(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	payload []byte,
+	initialMessage bool,
+) (bool, error) {
+	if ue == nil {
+		return false, fmt.Errorf("amfUe is nil")
+	}
+	ulCount := ue.ULCount
+	_, integrityProtected, err := decode(ue, accessType, payload, initialMessage, &ulCount)
+	return integrityProtected, err
+}
+
+func decode(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	payload []byte,
+	initialMessage bool,
+	ulCount *message.Count,
+) (msg message.Message, integrityProtected bool, err error) {
 	if len(payload) == 0 {
 		return nil, false, fmt.Errorf("NAS payload is empty")
 	}
@@ -106,6 +133,7 @@ func Decode(
 	var securityContext *message.SecCtx
 	if ue.SecurityContextAvailable {
 		securityContext = newSecurityContext(ue, accessType)
+		securityContext.UplinkCount = ulCount
 	}
 
 	msg, parseErr := message.Parse(payload, securityContext)
