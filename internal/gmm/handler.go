@@ -419,11 +419,12 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,
@@ -457,13 +458,15 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		ue.SecurityContextAvailable = false // need to start authentication procedure later
 	case ie.RegType_MobilityRegUpdating:
 		ue.GmmLog.Infof("RegistrationType: Mobility Registration Updating")
-		if ue.State[anType].Is(context.Deregistered) {
+		// A context with AuthenticatingFor set only authenticates the UE; the registration itself
+		// continues on the registered context it names (continueOnStoredContext).
+		if ue.State[anType].Is(context.Deregistered) && ue.AuthenticatingFor == nil {
 			gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ImplicitlyDeregistered, "")
 			return fmt.Errorf("mobility registration updating was sent when the UE state was deregistered")
 		}
 	case ie.RegType_PeriodicRegUpdating:
 		ue.GmmLog.Infof("RegistrationType: Periodic Registration Updating")
-		if ue.State[anType].Is(context.Deregistered) {
+		if ue.State[anType].Is(context.Deregistered) && ue.AuthenticatingFor == nil {
 			gmm_message.SendRegistrationReject(ue.RanUe[anType], ie.Cause5GMM_ImplicitlyDeregistered, "")
 			return fmt.Errorf("periodic registration updating was sent when the UE state was deregistered")
 		}
@@ -631,6 +634,131 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 
 func IdentityVerification(ue *context.AmfUe) bool {
 	return ue.Supi != "" || len(ue.Suci) != 0
+}
+
+// continueOnStoredContext moves a registration from ue, a new UE context that has authenticated the UE
+// because the REGISTRATION REQUEST failed the integrity check against the UE context it named
+// (ue.AuthenticatingFor), to the UE context stored for the authenticated SUPI. TS 24.501 4.4.4.3 requires
+// this authentication; it runs on ue so that a sender that cannot complete it never changes the stored
+// context. Once the security mode control procedure has taken the new 5G NAS security context into use,
+// the stored context takes that security context and the N1 NAS connection, and runs the
+// registration as it does for a REGISTRATION REQUEST that passes the integrity check: a mobility or
+// periodic registration keeps the PDU sessions, an initial registration replaces the 5GMM context of the
+// access (TS 24.501 5.5.1.2.8 f)). A mobility or periodic registration continues only on the context it
+// named.
+//
+// It reports false when the registration continues on ue instead: an initial registration of a
+// subscriber that has no stored UE context. When it reports true, ue has left ContextSetup.
+func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
+	namedUe := ue.AuthenticatingFor
+	ue.AuthenticatingFor = nil
+	// ue registers nothing itself. It leaves ContextSetup as a failed context setup does (it has no
+	// UECM registration to undo); otherwise the GMM state gauge would count it there for ever.
+	leaveContextSetup := func() {
+		if err := GmmFSM.SendEvent(ue.State[anType], ContextSetupFailEvent, fsm.ArgsType{
+			ArgAmfUe:      ue,
+			ArgAccessType: anType,
+		}, logger.GmmLog); err != nil {
+			ue.GmmLog.Errorln(err)
+		}
+	}
+	ranUe := ue.RanUe[anType]
+	if ranUe == nil {
+		ue.GmmLog.Warnln("RanUe is nil; abort the registration")
+		leaveContextSetup()
+		gmm_common.RemoveAmfUe(ue, false)
+		return true
+	}
+	reject := func(cause uint8) bool {
+		gmm_message.SendRegistrationReject(ranUe, cause, "")
+		ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext,
+			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+		leaveContextSetup()
+		return true
+	}
+
+	storedUe, stored := context.GetSelf().AmfUeFindBySupi(ue.Supi)
+	if ue.RegistrationType5GS == ie.RegType_InitialReg {
+		if !stored {
+			return false
+		}
+	} else if !stored || storedUe != namedUe {
+		// The named UE context belongs to another subscriber or no longer exists: as for a UE
+		// context that is not found (ngap handleInitialUEMessageMain).
+		ue.GmmLog.Warnln("The UE did not authenticate as the subscriber of the UE context it named")
+		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
+	}
+	state := storedUe.State[anType]
+	if state.Is(context.Deregistered) && ue.RegistrationType5GS != ie.RegType_InitialReg {
+		// As HandleRegistrationRequest answers on the stored context.
+		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
+	}
+	if !state.Is(context.Registered) && !state.Is(context.Deregistered) ||
+		storedUe.OnGoing(anType).Procedure == context.OnGoingProcedureN2Handover {
+		// Another procedure is running on the stored context, as for the N2 handover check in
+		// ngap handleInitialUEMessageMain.
+		ue.GmmLog.Warnf("The stored UE context is busy (state %s, procedure %s)",
+			state.Current(), storedUe.OnGoing(anType).Procedure)
+		return reject(ie.Cause5GMM_Congestion)
+	}
+	ue.GmmLog.Infoln("The UE authenticated; continue the registration on its stored UE context")
+
+	// The 5G NAS security context that ue has taken into use, and the identities ue has obtained.
+	storedUe.SecurityContextAvailable = true
+	storedUe.MacFailed = false
+	storedUe.UnauthenticatedSupi = false
+	storedUe.NgKsi = ue.NgKsi
+	storedUe.ABBA = ue.ABBA
+	storedUe.Kseaf = ue.Kseaf
+	storedUe.Kamf = ue.Kamf
+	storedUe.KnasInt = ue.KnasInt
+	storedUe.KnasEnc = ue.KnasEnc
+	// The AN key of this access with NH and NCC, as UpdateSecurityContext(anType) derived them on ue.
+	// The AN key of the other access stays as the stored context has it.
+	if anType == models.AccessType_NON_3_GPP_ACCESS {
+		storedUe.Kn3iwf = ue.Kn3iwf
+	} else {
+		storedUe.Kgnb = ue.Kgnb
+	}
+	storedUe.NH = ue.NH
+	storedUe.NCC = ue.NCC
+	storedUe.ULCount = ue.ULCount
+	storedUe.DLCount = ue.DLCount
+	storedUe.CipheringAlg = ue.CipheringAlg
+	storedUe.IntegrityAlg = ue.IntegrityAlg
+	storedUe.UESecurityCapability = ue.UESecurityCapability
+	if ue.Suci != "" {
+		storedUe.Suci = ue.Suci
+	}
+	if ue.Pei != "" {
+		storedUe.Pei = ue.Pei
+	}
+	// The registration, as HandleRegistrationRequest stores it.
+	storedUe.RegistrationRequest = ue.RegistrationRequest
+	storedUe.RegistrationType5GS = ue.RegistrationType5GS
+	storedUe.IdentityTypeUsedForRegistration = ue.IdentityTypeUsedForRegistration
+	storedUe.Location = ue.Location
+	storedUe.Tai = ue.Tai
+	storedUe.RatType = ue.RatType
+	storedUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureRegistration})
+	storedUe.StopT3513()
+	storedUe.StopT3565()
+	// TS 33.501 6.12.3: a new 5G-GUTI for an initial, mobility or periodic registration.
+	context.GetSelf().FreeTmsi(int64(storedUe.Tmsi))
+	context.GetSelf().AllocateGutiToUe(storedUe)
+
+	ue.DetachRanUe(anType)
+	leaveContextSetup()
+	ue.Remove()
+	gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(storedUe, ranUe)
+	// Authentication and security mode control are skipped: the security context is valid.
+	if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
+		ArgAmfUe:      storedUe,
+		ArgAccessType: anType,
+	}, logger.GmmLog); err != nil {
+		storedUe.GmmLog.Errorln(err)
+	}
+	return true
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
@@ -1835,11 +1963,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,
