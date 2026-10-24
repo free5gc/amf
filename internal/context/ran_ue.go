@@ -72,6 +72,10 @@ type RanUe struct {
 	   UE Context Release Complete is still outstanding */
 	ReleasePending bool
 
+	/* number of Initial Context Setup Requests sent on this connection whose
+	   Response or Failure has not been received yet */
+	InitialContextSetupPending int
+
 	/* logger */
 	Log *logrus.Entry
 }
