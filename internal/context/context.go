@@ -341,7 +341,7 @@ func (context *AMFContext) AmfUeFindBySupi(supi string) (*AmfUe, bool) {
 func (context *AMFContext) AmfUeFindBySuci(suci string) (ue *AmfUe, ok bool) {
 	context.UePool.Range(func(key, value interface{}) bool {
 		candidate := value.(*AmfUe)
-		if ok = (candidate.Suci == suci); ok {
+		if ok = (candidate.GetSuci() == suci); ok {
 			ue = candidate
 			return false
 		}
