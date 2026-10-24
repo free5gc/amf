@@ -483,12 +483,13 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	case ie.IdType_5GS_None:
 		ue.GmmLog.Infof("MobileIdentity5GS: No Identity")
 	case ie.IdType_5GS_SUCI:
-		ue.Suci = mobileIdentity.SUCIStr()
+		suci := mobileIdentity.SUCIStr()
+		ue.SetSuci(suci)
 		if mobileIdentity.MCC == "" || mobileIdentity.MNC == "" {
 			return errors.New("empty plmnId")
 		}
 		ue.PlmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
-		ue.GmmLog.Infof("MobileIdentity5GS: SUCI[%s]", ue.Suci)
+		ue.GmmLog.Infof("MobileIdentity5GS: SUCI[%s]", suci)
 	case ie.IdType_5GS_GUTI:
 		guti := mobileIdentity.GUTIStr()
 		if guti == "" {
@@ -630,7 +631,7 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 }
 
 func IdentityVerification(ue *context.AmfUe) bool {
-	return ue.Supi != "" || len(ue.Suci) != 0
+	return ue.Supi != "" || len(ue.GetSuci()) != 0
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
@@ -1600,19 +1601,17 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 		return fmt.Errorf("received identity type doesn't match request type")
 	}
 
-	if ue.T3570 != nil {
-		ue.T3570.Stop()
-		ue.T3570 = nil // clear the timer
-	}
+	ue.StopT3570()
 
 	switch mobileIdentity.TypeOfId {
 	case ie.IdType_5GS_SUCI:
 		if mobileIdentity.MCC == "" || mobileIdentity.MNC == "" {
 			return errors.New("empty plmnId")
 		}
-		ue.Suci = mobileIdentity.SUCIStr()
+		suci := mobileIdentity.SUCIStr()
+		ue.SetSuci(suci)
 		ue.PlmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
-		ue.GmmLog.Debugf("get SUCI: %s", ue.Suci)
+		ue.GmmLog.Debugf("get SUCI: %s", suci)
 	case ie.IdType_5GS_GUTI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
@@ -2310,10 +2309,11 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
-	if ue.T3550 == nil {
+	// Check and stop T3550 in one step: its last expiry clears the
+	// registration request data that is read below.
+	if !ue.StopT3550() {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
-	ue.StopT3550()
 
 	// Release existed old SmContext when Initial Registration completed
 	if ue.RegistrationType5GS == ie.RegType_InitialReg {

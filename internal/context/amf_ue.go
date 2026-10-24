@@ -198,6 +198,16 @@ type AmfUe struct {
 	// attach replaces a RanUe, the stop of the 5GMM timers, which does no I/O),
 	// never across NGAP or SBI I/O.
 	RanUeMu sync.RWMutex
+	// timerMu serializes the T3513..T3570 fields above.  A timer is started by
+	// a NAS/NGAP procedure, stopped by another procedure or a release, and
+	// cleared by its own goroutine, each on a different goroutine.  Only the
+	// field update is done under the lock; Timer.Stop is called after it.
+	timerMu sync.Mutex
+	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
+	onGoingMu sync.RWMutex
+	// identityMu serializes Suci: AmfUeFindBySuci scans the UE pool from an
+	// NGAP worker while a GMM handler records the SUCI on another goroutine.
+	identityMu sync.RWMutex
 
 	// logger
 	NASLog      *logrus.Entry
@@ -301,6 +311,20 @@ func (ue *AmfUe) init() {
 
 func (ue *AmfUe) ServingAMF() *AMFContext {
 	return ue.servingAMF
+}
+
+// GetSuci returns the SUCI recorded for the UE.
+func (ue *AmfUe) GetSuci() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Suci
+}
+
+// SetSuci records the SUCI received from the UE.
+func (ue *AmfUe) SetSuci(suci string) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Suci = suci
 }
 
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
@@ -742,20 +766,38 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
 	ue.RetransmissionOfInitialNASMsg = false
+	ue.onGoingMu.Lock()
 	if onGoing := ue.onGoing[accessType]; onGoing != nil {
 		onGoing.Procedure = OnGoingProcedureNothing
 	}
+	ue.onGoingMu.Unlock()
 }
 
 func (ue *AmfUe) SetOnGoing(anType models.AccessType, onGoing *OnGoing) {
+	ue.onGoingMu.Lock()
 	prevOnGoing := ue.onGoing[anType]
 	ue.onGoing[anType] = onGoing
-	ue.GmmLog.Debugf("OnGoing[%s]->[%s] PPI[%d]->[%d]", prevOnGoing.Procedure, onGoing.Procedure,
-		prevOnGoing.Ppi, onGoing.Ppi)
+	var prevProcedure, procedure OnGoingProcedure
+	var prevPpi, ppi int32
+	if prevOnGoing != nil {
+		prevProcedure, prevPpi = prevOnGoing.Procedure, prevOnGoing.Ppi
+	}
+	if onGoing != nil {
+		procedure, ppi = onGoing.Procedure, onGoing.Ppi
+	}
+	ue.onGoingMu.Unlock()
+
+	ue.GmmLog.Debugf("OnGoing[%s]->[%s] PPI[%d]->[%d]", prevProcedure, procedure, prevPpi, ppi)
 }
 
+// OnGoing returns a copy of the procedure in progress for anType.
 func (ue *AmfUe) OnGoing(anType models.AccessType) OnGoing {
-	return *ue.onGoing[anType]
+	ue.onGoingMu.RLock()
+	defer ue.onGoingMu.RUnlock()
+	if onGoing := ue.onGoing[anType]; onGoing != nil {
+		return *onGoing
+	}
+	return OnGoing{Procedure: OnGoingProcedureNothing}
 }
 
 func (ue *AmfUe) RemoveAmPolicyAssociation() {
@@ -1016,73 +1058,76 @@ func (ue *AmfUe) UpdateBackupAmfInfo(backupAmfInfo models.BackupAmfInfo) {
 }
 
 func (ue *AmfUe) StopT3513() {
-	if ue.T3513 == nil {
+	timer := ue.takeTimer(&ue.T3513)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3513 timer")
-	ue.T3513.Stop()
-	ue.T3513 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3565() {
-	if ue.T3565 == nil {
+	timer := ue.takeTimer(&ue.T3565)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3565 timer")
-	ue.T3565.Stop()
-	ue.T3565 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3560() {
-	if ue.T3560 == nil {
+	timer := ue.takeTimer(&ue.T3560)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3560 timer")
-	ue.T3560.Stop()
-	ue.T3560 = nil // clear the timer
+	timer.Stop()
 }
 
-func (ue *AmfUe) StopT3550() {
-	if ue.T3550 == nil {
-		return
+// StopT3550 stops T3550 and reports whether it was running.  When it returns
+// true, T3550's last expiry cannot run its abort callback any more.
+func (ue *AmfUe) StopT3550() bool {
+	timer := ue.takeTimer(&ue.T3550)
+	if timer == nil {
+		return false
 	}
 
 	ue.GmmLog.Infof("Stop T3550 timer")
-	ue.T3550.Stop()
-	ue.T3550 = nil // clear the timer
+	timer.Stop()
+	return true
 }
 
 func (ue *AmfUe) StopT3522() {
-	if ue.T3522 == nil {
+	timer := ue.takeTimer(&ue.T3522)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3522 timer")
-	ue.T3522.Stop()
-	ue.T3522 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3570() {
-	if ue.T3570 == nil {
+	timer := ue.takeTimer(&ue.T3570)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3570 timer")
-	ue.T3570.Stop()
-	ue.T3570 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3555() {
-	if ue.T3555 == nil {
+	timer := ue.takeTimer(&ue.T3555)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3555 timer")
-	ue.T3555.Stop()
-	ue.T3555 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
