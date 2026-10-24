@@ -112,13 +112,13 @@ func TestAMFNGAPControlBuilderGoldenBaseline(t *testing.T) {
 			return BuildOverloadStart(nil, 0, nil)
 		}},
 		{"deactivate_trace", ngapMessage.ProcedureCodeDeactivateTrace, func() ([]byte, error) {
-			ue.AmfUe.TraceData = &models.TraceData{TraceRef: "20893-010203"}
+			ue.GetAmfUe().TraceData = &models.TraceData{TraceRef: "20893-010203"}
 			ue.Trsr = "0405"
 			defer func() {
-				ue.AmfUe.TraceData = nil
+				ue.GetAmfUe().TraceData = nil
 				ue.Trsr = ""
 			}()
-			return BuildDeactivateTrace(ue.AmfUe, models.AccessType_3_GPP_ACCESS)
+			return BuildDeactivateTrace(ue.GetAmfUe(), models.AccessType_3_GPP_ACCESS)
 		}},
 		{"ue_tnla_binding_release_request", ngapMessage.ProcedureCodeUETNLABindingRelease, func() ([]byte, error) {
 			return BuildUETNLABindingReleaseRequest(ue)
@@ -130,10 +130,10 @@ func TestAMFNGAPControlBuilderGoldenBaseline(t *testing.T) {
 			return BuildDownlinkUEAssociatedNRPPaTransport(ue, ngapType.NRPPaPDU{Value: []byte{0x01}})
 		}},
 		{"initial_context_setup_request", ngapMessage.ProcedureCodeInitialContextSetup, func() ([]byte, error) {
-			return BuildInitialContextSetupRequest(ue.AmfUe, models.AccessType_3_GPP_ACCESS, []byte{0x7e, 0, 0x41}, nil, nil, nil, nil)
+			return BuildInitialContextSetupRequest(ue.GetAmfUe(), models.AccessType_3_GPP_ACCESS, []byte{0x7e, 0, 0x41}, nil, nil, nil, nil)
 		}},
 		{"ue_context_modification_request", ngapMessage.ProcedureCodeUEContextModification, func() ([]byte, error) {
-			return BuildUEContextModificationRequest(ue.AmfUe, models.AccessType_3_GPP_ACCESS, nil, nil, nil, nil, nil)
+			return BuildUEContextModificationRequest(ue.GetAmfUe(), models.AccessType_3_GPP_ACCESS, nil, nil, nil, nil, nil)
 		}},
 		{"handover_preparation_failure", ngapMessage.ProcedureCodeHandoverPreparation, func() ([]byte, error) {
 			return BuildHandoverPreparationFailure(ue, cause, nil)
@@ -151,9 +151,9 @@ func TestAMFNGAPControlBuilderGoldenBaseline(t *testing.T) {
 			return BuildDownlinkRanStatusTransfer(ue, goldenStatusTransfer())
 		}},
 		{"reroute_nas_request", ngapMessage.ProcedureCodeRerouteNASRequest, func() ([]byte, error) {
-			return BuildRerouteNasRequest(ue.AmfUe, models.AccessType_3_GPP_ACCESS, &amfID, []byte{0x01}, nil)
+			return BuildRerouteNasRequest(ue.GetAmfUe(), models.AccessType_3_GPP_ACCESS, &amfID, []byte{0x01}, nil)
 		}},
-		{"paging", ngapMessage.ProcedureCodePaging, func() ([]byte, error) { return BuildPaging(ue.AmfUe, nil, false) }},
+		{"paging", ngapMessage.ProcedureCodePaging, func() ([]byte, error) { return BuildPaging(ue.GetAmfUe(), nil, false) }},
 		{"amf_configuration_update", ngapMessage.ProcedureCodeAMFConfigurationUpdate, func() ([]byte, error) {
 			return BuildAMFConfigurationUpdate(ngapType.TNLAssociationUsage{Value: 0}, ngapType.TNLAddressWeightFactor{Value: 1})
 		}},
@@ -161,7 +161,7 @@ func TestAMFNGAPControlBuilderGoldenBaseline(t *testing.T) {
 			return BuildHandoverCommand(ue, goldenHandoverList(), ngapType.PDUSessionResourceToReleaseListHOCmd{}, ngapType.TargetToSourceTransparentContainer{Value: []byte{1}}, nil)
 		}},
 		{"handover_request", ngapMessage.ProcedureCodeHandoverResourceAllocation, func() ([]byte, error) {
-			ue.AmfUe.NH = make([]byte, 32)
+			ue.GetAmfUe().NH = make([]byte, 32)
 			return BuildHandoverRequest(ue, cause, goldenHandoverSetupList(), ngapType.SourceToTargetTransparentContainer{Value: []byte{1}}, false)
 		}},
 		{"path_switch_request_acknowledge", ngapMessage.ProcedureCodePathSwitchRequest, func() ([]byte, error) {
@@ -254,7 +254,8 @@ func newGoldenRanUE() *context.RanUe {
 		},
 	}
 	ran := &context.AmfRan{AnType: models.AccessType_3_GPP_ACCESS}
-	ue := &context.RanUe{AmfUeNgapId: 0x01020304, RanUeNgapId: 0x05060708, AmfUe: amfUe, Ran: ran, RoutingID: "0102"}
+	ue := &context.RanUe{AmfUeNgapId: 0x01020304, RanUeNgapId: 0x05060708, Ran: ran, RoutingID: "0102"}
+	ue.SetAmfUe(amfUe)
 	amfUe.RanUe[models.AccessType_3_GPP_ACCESS] = ue
 	return ue
 }

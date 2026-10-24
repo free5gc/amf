@@ -107,7 +107,7 @@ func BuildDownlinkNasTransport(
 	if config := factory.AmfConfig.GetNgapIEMobilityRestrictionList(); config != nil &&
 		config.Enable && ue.Ran.AnType == models.AccessType_3_GPP_ACCESS &&
 		mobilityRestrictionList != nil {
-		if ue.AmfUe == nil {
+		if ue.GetAmfUe() == nil {
 			return nil, fmt.Errorf("amfUe is nil")
 		}
 		request.MobilityRestrictionList = mobilityRestrictionList
@@ -206,13 +206,17 @@ func BuildPDUSessionResourceSetupRequest(
 	nasPdu []byte,
 	setupList *ngapIE.PDUSessionResourceSetupListSUReq,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil || ue.AmfUe.AccessAndMobilitySubscriptionData == nil {
+	if ue == nil {
+		return nil, fmt.Errorf("ranUe or subscription data is nil")
+	}
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil || amfUe.AccessAndMobilitySubscriptionData == nil {
 		return nil, fmt.Errorf("ranUe or subscription data is nil")
 	}
 	if setupList == nil {
 		return nil, fmt.Errorf("PDU session resource setup list is nil")
 	}
-	subscription := ue.AmfUe.AccessAndMobilitySubscriptionData
+	subscription := amfUe.AccessAndMobilitySubscriptionData
 	if subscription.SubscribedUeAmbr == nil {
 		return nil, fmt.Errorf("subscribed UE AMBR is nil")
 	}
@@ -434,10 +438,13 @@ func BuildHandoverRequest(
 	sourceToTargetContainer ngapIE.SourceToTargetTransparentContainer,
 	newSecurityContext bool,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil {
+	if ue == nil {
 		return nil, fmt.Errorf("ranUe or amfUe is nil")
 	}
-	amfUe := ue.AmfUe
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil {
+		return nil, fmt.Errorf("ranUe or amfUe is nil")
+	}
 	if amfUe.AccessAndMobilitySubscriptionData == nil ||
 		amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
 		return nil, fmt.Errorf("subscribed UE AMBR is nil")
@@ -482,14 +489,18 @@ func BuildPathSwitchRequestAcknowledge(
 	rrcInactiveTransitionReportRequest *ngapIE.RRCInactiveTransitionReportRequest,
 	criticalityDiagnostics *ngapIE.CriticalityDiagnostics,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil {
+	if ue == nil {
+		return nil, fmt.Errorf("ranUe or amfUe is nil")
+	}
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil {
 		return nil, fmt.Errorf("ranUe or amfUe is nil")
 	}
 	response := &ngapMessage.PathSwitchRequestAcknowledge{
 		AMFUENGAPID:                    &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
 		RANUENGAPID:                    &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
-		UESecurityCapabilities:         buildUESecurityCapabilities(ue.AmfUe),
-		SecurityContext:                buildSecurityContext(ue.AmfUe),
+		UESecurityCapabilities:         buildUESecurityCapabilities(amfUe),
+		SecurityContext:                buildSecurityContext(amfUe),
 		PDUSessionResourceSwitchedList: &switchedList,
 		AllowedNSSAI:                   buildAllowedNSSAIFromModels(context.GetSelf().PlmnSupportList[0].SNssaiList),
 		CoreNetworkAssistanceInformationForInactive: coreNetworkAssistanceInformation,

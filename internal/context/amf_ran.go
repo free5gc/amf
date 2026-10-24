@@ -68,7 +68,7 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	ranUe.RanUeNgapId = ranUeNgapID
 	ranUe.Ran = ran
 	ranUe.Log = ran.Log
-	ranUe.HoldingAmfUe = nil
+	ranUe.ClearHoldingAmfUe()
 	ranUe.UpdateLogFields()
 
 	if ranUeNgapID != RanUeNgapIdUnspecified {
