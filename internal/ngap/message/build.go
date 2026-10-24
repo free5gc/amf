@@ -995,6 +995,12 @@ func buildAssistanceDataForPaging(amfUe *context.AmfUe) *ngapIE.AssistanceDataFo
 		}
 		list.List = append(list.List, item)
 	}
+	// TS 38.413 §9.3.1.71: the Recommended Cell List holds 1..16 items. If no
+	// stored cell can be encoded, omit the optional Assistance Data for Paging
+	// instead of sending an empty list, which makes the PAGING undecodable.
+	if len(list.List) == 0 {
+		return nil
+	}
 	return &ngapIE.AssistanceDataForPaging{
 		AssistanceDataForRecommendedCells: &ngapIE.AssistanceDataForRecommendedCells{
 			RecommendedCellsForPaging: &ngapIE.RecommendedCellsForPaging{
