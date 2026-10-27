@@ -124,7 +124,7 @@ func BuildUEContextReleaseCommand(
 		return nil, fmt.Errorf("ranUe is nil")
 	}
 	ids := &ngapIE.UENGAPIDs{}
-	if ue.RanUeNgapId == context.RanUeNgapIdUnspecified {
+	if !ue.RanUeNgapIdAssigned {
 		ids.Choice = &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId}
 	} else {
 		ids.Choice = &ngapIE.UENGAPIDPair{

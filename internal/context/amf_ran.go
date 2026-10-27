@@ -57,7 +57,23 @@ func (ran *AmfRan) Remove() {
 	GetSelf().DeleteAmfRan(ran.Conn)
 }
 
+// NewRanUe creates a RanUe for a RAN-UE-NGAP-ID received from the NG-RAN. The
+// value is a legal 32-bit identifier, so 0xffffffff is assigned like any
+// other and is stored in the per-RAN list (and therefore released by NG
+// Reset).
 func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
+	return ran.newRanUe(ranUeNgapID, true)
+}
+
+// NewRanUeUnspecified creates the handover-target placeholder. It has no
+// RAN-UE-NGAP-ID yet, so it is not stored in the per-RAN list and cannot
+// share the 0xffffffff key with a UE that legitimately uses that value; the
+// HANDOVER REQUEST ACKNOWLEDGE binds the real ID later.
+func (ran *AmfRan) NewRanUeUnspecified() (*RanUe, error) {
+	return ran.newRanUe(RanUeNgapIdUnspecified, false)
+}
+
+func (ran *AmfRan) newRanUe(ranUeNgapID int64, assigned bool) (*RanUe, error) {
 	ranUe := RanUe{}
 	self := GetSelf()
 	amfUeNgapID, err := self.AllocateAmfUeNgapID()
@@ -66,14 +82,13 @@ func (ran *AmfRan) NewRanUe(ranUeNgapID int64) (*RanUe, error) {
 	}
 	ranUe.AmfUeNgapId = amfUeNgapID
 	ranUe.RanUeNgapId = ranUeNgapID
+	ranUe.RanUeNgapIdAssigned = assigned
 	ranUe.Ran = ran
 	ranUe.Log = ran.Log
 	ranUe.HoldingAmfUe = nil
 	ranUe.UpdateLogFields()
 
-	if ranUeNgapID != RanUeNgapIdUnspecified {
-		// store to RanUeList only when RANUENGAPID is specified
-		// (otherwise, will be stored only in amfContext.RanUePool)
+	if assigned {
 		ran.RanUeList.Store(ranUeNgapID, &ranUe)
 	}
 	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
