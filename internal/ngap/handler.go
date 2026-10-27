@@ -1239,6 +1239,16 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		ran.Log.Error("AmfUe is nil")
 		return
 	}
+	// TS 23.502 4.9.1.3.3 steps 1-5: the target sends HANDOVER NOTIFY once the
+	// UE, moved by the HANDOVER COMMAND, has arrived. Without a HANDOVER COMMAND
+	// for this target (no acknowledge yet, or the AMF answered the source with
+	// HANDOVER PREPARATION FAILURE) the notify must not move the UE or release
+	// the source.
+	if !targetUe.HandoverCommandSent {
+		targetUe.Log.Warn("Ignore HANDOVER NOTIFY: no HANDOVER COMMAND was sent for this target")
+		sendHandoverNotifyNotCompatible(ran, targetUe)
+		return
+	}
 	sourceUe := targetUe.SourceUe
 	if sourceUe == nil {
 		// TODO: Send to S-AMF
@@ -1665,6 +1675,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 		ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 			*targetToSourceTransparentContainer, nil)
+		targetUe.HandoverCommandSent = true
 	}
 }
 
@@ -2388,6 +2399,26 @@ func buildCriticalityDiagnosticsIEItem(ieCriticality aper.Enumerated, ieID int64
 	}
 
 	return item
+}
+
+// sendHandoverNotifyNotCompatible answers a HANDOVER NOTIFY that does not fit
+// the handover state of the target. Handover Notification is a class 2
+// procedure, so TS 38.413 10.4 terminates the procedure and initiates Error
+// Indication with the cause "Message not compatible with receiver state" and
+// the Procedure Code and Triggering Message in the Criticality Diagnostics.
+func sendHandoverNotifyNotCompatible(ran *context.AmfRan, targetUe *context.RanUe) {
+	procedureCode := ngapProcedure.ProcedureCodeHandoverNotification
+	triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+	procedureCriticality := ngapType.CriticalityPresentIgnore
+	criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage,
+		&procedureCriticality, nil)
+	ngap_message.SendErrorIndication(ran,
+		&ngapType.AMFUENGAPID{Value: targetUe.AmfUeNgapId},
+		&ngapType.RANUENGAPID{Value: targetUe.RanUeNgapId},
+		&ngapType.Cause{Choice: &ngapType.CauseProtocol{
+			Value: ngapType.CauseProtocolPresentMessageNotCompatibleWithReceiverState,
+		}},
+		&criticalityDiagnostics)
 }
 
 func isLatestAmfUe(amfUe *context.AmfUe) bool {
