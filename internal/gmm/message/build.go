@@ -302,8 +302,9 @@ func BuildDeregistrationRequest(
 	if ue.Ran != nil {
 		anType = ue.Ran.AnType
 	}
-	if ue.AmfUe != nil {
-		return nas_security.Encode(ue.AmfUe, msg, anType, protectedAndCiphered)
+	amfUe := ue.GetAmfUe()
+	if amfUe != nil {
+		return nas_security.Encode(amfUe, msg, anType, protectedAndCiphered)
 	}
 	return nas_security.Encode(nil, msg, anType, nas_message.SecHdrTypePlainNas)
 }

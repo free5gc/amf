@@ -107,7 +107,7 @@ func BuildDownlinkNasTransport(
 	if config := factory.AmfConfig.GetNgapIEMobilityRestrictionList(); config != nil &&
 		config.Enable && ue.Ran.AnType == models.AccessType_3_GPP_ACCESS &&
 		mobilityRestrictionList != nil {
-		if ue.AmfUe == nil {
+		if ue.GetAmfUe() == nil {
 			return nil, fmt.Errorf("amfUe is nil")
 		}
 		request.MobilityRestrictionList = mobilityRestrictionList
@@ -206,13 +206,17 @@ func BuildPDUSessionResourceSetupRequest(
 	nasPdu []byte,
 	setupList *ngapIE.PDUSessionResourceSetupListSUReq,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil || ue.AmfUe.AccessAndMobilitySubscriptionData == nil {
+	if ue == nil {
+		return nil, fmt.Errorf("ranUe or subscription data is nil")
+	}
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil || amfUe.AccessAndMobilitySubscriptionData == nil {
 		return nil, fmt.Errorf("ranUe or subscription data is nil")
 	}
 	if setupList == nil {
 		return nil, fmt.Errorf("PDU session resource setup list is nil")
 	}
-	subscription := ue.AmfUe.AccessAndMobilitySubscriptionData
+	subscription := amfUe.AccessAndMobilitySubscriptionData
 	if subscription.SubscribedUeAmbr == nil {
 		return nil, fmt.Errorf("subscribed UE AMBR is nil")
 	}
@@ -278,8 +282,8 @@ func BuildInitialContextSetupRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	if setupList != nil && len(setupList.List) == 0 {
@@ -353,8 +357,8 @@ func BuildUEContextModificationRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	amfID := ranUe.AmfUeNgapId
@@ -434,10 +438,13 @@ func BuildHandoverRequest(
 	sourceToTargetContainer ngapIE.SourceToTargetTransparentContainer,
 	newSecurityContext bool,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil {
+	if ue == nil {
 		return nil, fmt.Errorf("ranUe or amfUe is nil")
 	}
-	amfUe := ue.AmfUe
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil {
+		return nil, fmt.Errorf("ranUe or amfUe is nil")
+	}
 	if amfUe.AccessAndMobilitySubscriptionData == nil ||
 		amfUe.AccessAndMobilitySubscriptionData.SubscribedUeAmbr == nil {
 		return nil, fmt.Errorf("subscribed UE AMBR is nil")
@@ -482,14 +489,18 @@ func BuildPathSwitchRequestAcknowledge(
 	rrcInactiveTransitionReportRequest *ngapIE.RRCInactiveTransitionReportRequest,
 	criticalityDiagnostics *ngapIE.CriticalityDiagnostics,
 ) ([]byte, error) {
-	if ue == nil || ue.AmfUe == nil {
+	if ue == nil {
+		return nil, fmt.Errorf("ranUe or amfUe is nil")
+	}
+	amfUe := ue.GetAmfUe()
+	if amfUe == nil {
 		return nil, fmt.Errorf("ranUe or amfUe is nil")
 	}
 	response := &ngapMessage.PathSwitchRequestAcknowledge{
 		AMFUENGAPID:                    &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
 		RANUENGAPID:                    &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
-		UESecurityCapabilities:         buildUESecurityCapabilities(ue.AmfUe),
-		SecurityContext:                buildSecurityContext(ue.AmfUe),
+		UESecurityCapabilities:         buildUESecurityCapabilities(amfUe),
+		SecurityContext:                buildSecurityContext(amfUe),
 		PDUSessionResourceSwitchedList: &switchedList,
 		AllowedNSSAI:                   buildAllowedNSSAIFromModels(context.GetSelf().PlmnSupportList[0].SNssaiList),
 		CoreNetworkAssistanceInformationForInactive: coreNetworkAssistanceInformation,
@@ -600,7 +611,7 @@ func BuildRerouteNasRequest(
 	encodedNGAPMessage []byte,
 	allowedNSSAI *ngapIE.AllowedNSSAI,
 ) ([]byte, error) {
-	if ue == nil || ue.RanUe[anType] == nil {
+	if ue == nil || ue.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
 	amfID, _, err := splitGUTI(ue.Guti)
@@ -610,7 +621,7 @@ func BuildRerouteNasRequest(
 	_, setID, _ := ngapConvert.AmfIdToNgap(amfID)
 	messageValue := ngapAper.OctetString(encodedNGAPMessage)
 	request := &ngapMessage.RerouteNASRequest{
-		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.RanUe[anType].RanUeNgapId},
+		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.GetRanUe(anType).RanUeNgapId},
 		NGAPMessage:  &messageValue,
 		AMFSetID:     &ngapIE.AMFSetID{Value: setID},
 		AllowedNSSAI: allowedNSSAI,
@@ -698,10 +709,10 @@ func BuildTraceStart() ([]byte, error) {
 }
 
 func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byte, error) {
-	if amfUe == nil || amfUe.RanUe[anType] == nil {
+	if amfUe == nil || amfUe.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if amfUe.TraceData == nil {
 		return nil, fmt.Errorf("trace data is nil")
 	}

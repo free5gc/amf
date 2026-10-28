@@ -85,7 +85,7 @@ func newFuzzTestAmfUe() *amf_context.AmfUe {
 	ue := new(amf_context.AmfUe)
 	ue.RanUe = make(map[models.AccessType]*amf_context.RanUe)
 	ue.RanUe[models.AccessType_3_GPP_ACCESS] = new(amf_context.RanUe)
-	ue.RanUe[models.AccessType_3_GPP_ACCESS].AmfUe = ue
+	ue.RanUe[models.AccessType_3_GPP_ACCESS].SetAmfUe(ue)
 	ue.RanUe[models.AccessType_3_GPP_ACCESS].Ran = new(amf_context.AmfRan)
 	ue.RanUe[models.AccessType_3_GPP_ACCESS].Ran.AnType = models.AccessType_3_GPP_ACCESS
 	ue.NASLog = logger.NasLog
