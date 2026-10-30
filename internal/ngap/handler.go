@@ -1326,10 +1326,11 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 		}
 	}
 
-	if rANUENGAPID != nil {
-		ranUe.RanUeNgapId = rANUENGAPID.Value
-	}
-
+	// TS 38.413 8.4.4: the target RAN assigns its RAN-UE-NGAP-ID in the
+	// PATH SWITCH REQUEST, but the source RanUe keeps its old key until the
+	// switch is committed. Overwriting the field here would make
+	// SwitchToRan delete the new key from the source RAN list and leave the
+	// old source key pointing at the moved UE (removable by a later NG Reset).
 	ranUe.UpdateLocation(userLocationInformation)
 
 	var pduSessionResourceSwitchedList ngapType.PDUSessionResourceSwitchedList
