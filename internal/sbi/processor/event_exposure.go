@@ -55,6 +55,9 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 	var isImmediate bool
 	var immediateFlags []bool
 	var reportlist []models.Amf_EvtExpos_AmfEventReport
+	// singleUe caches the UE validated below, for reuse further down instead
+	// of a second, racy pool lookup (see free5gc/amf#71).
+	var singleUe *context.AmfUe
 
 	id, err := amfSelf.EventSubscriptionIDGenerator.Allocate()
 	if err != nil {
@@ -149,6 +152,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
 			contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 			ue.Lock.Unlock()
+			singleUe = ue
 		}
 	}
 
@@ -213,7 +217,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			return true
 		})
 	} else {
-		ue, _ := amfSelf.AmfUeFindBySupi(subscription.Supi)
+		ue := singleUe // non-nil here; see declaration above
 		ue.Lock.Lock()
 		defer ue.Lock.Unlock()
 
