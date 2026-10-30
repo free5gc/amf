@@ -348,9 +348,12 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		}
 	case context.UeContextReleaseUeContext:
 		ran.Log.Infof("Release UE[%s] Context : Release Ue Context", amfUe.Supi)
-		amfUe.Lock.Lock()
-		gmm_common.RemoveAmfUe(amfUe, false)
-		amfUe.Lock.Unlock()
+		func() {
+			// Deferred so that a panic recovered by the worker does not leave the lock held.
+			amfUe.Lock.Lock()
+			defer amfUe.Lock.Unlock()
+			gmm_common.RemoveAmfUe(amfUe, false)
+		}()
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
 		// TODO: it's a workaround, need to fix it.
