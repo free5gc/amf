@@ -353,6 +353,21 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		amfUe.Lock.Unlock()
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
+		if ranUe.TargetUe == nil {
+			// Not a handover source, so there is no target to attach: e.g. the
+			// former target, released by a HANDOVER CANCEL that crossed its
+			// HANDOVER NOTIFY. Release this RanUe only; a RanUe that is not the
+			// UE's N2 connection must not detach the one that is.
+			ranUe.Log.Warnln("TargetUe is nil, release RanUe without a handover target")
+			context.DetachSourceUeTargetUe(ranUe)
+			if amfUe.RanUe[ran.AnType] != ranUe {
+				ranUe.DetachAmfUe()
+			}
+			if err := ranUe.Remove(); err != nil {
+				ran.Log.Errorln(err.Error())
+			}
+			return
+		}
 		// TODO: it's a workaround, need to fix it.
 		targetRanUe := context.GetSelf().RanUeFindByAmfUeNgapID(ranUe.TargetUe.AmfUeNgapId)
 
@@ -360,6 +375,10 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		err := ranUe.Remove()
 		if err != nil {
 			ran.Log.Errorln(err.Error())
+		}
+		if targetRanUe == nil {
+			ranUe.Log.Errorln("Target RanUe is nil, cannot attach the handover target")
+			return
 		}
 		gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe, targetRanUe)
 		// Todo: remove indirect tunnel
@@ -1729,7 +1748,7 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 		ngap_message.SendHandoverPreparationFailure(sourceUe, *sendCause, criticalityDiagnostics)
 	}
 
-	ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
+	releaseHandoverTarget(targetUe, causePresent, causeValue)
 }
 
 func handleHandoverRequiredMain(ran *context.AmfRan,
@@ -1915,9 +1934,24 @@ func handleHandoverCancelMain(ran *context.AmfRan,
 				return true
 			})
 		}
-		ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
+		releaseHandoverTarget(targetUe, causePresent, causeValue)
 		ngap_message.SendHandoverCancelAcknowledge(sourceUe, nil)
 	}
+}
+
+// releaseHandoverTarget releases the target RanUe of a canceled or failed N2
+// handover (TS 23.502 4.11.1.2.3 step 3, TS 38.413 8.4.2.3). The target never
+// carried the UE's N2 connection, so it is first unlinked from the source and
+// detached from the AmfUe, as AttachRanUeToAmfUeAndReleaseOldHandover does for
+// the source of a completed handover. Its UE CONTEXT RELEASE COMPLETE then
+// removes only the target RanUe and leaves the serving RanUe, the PDU sessions
+// and the release cause of the UE untouched.
+func releaseHandoverTarget(targetUe *context.RanUe, causePresent int, causeValue aper.Enumerated) {
+	if amfUe := targetUe.AmfUe; amfUe == nil || amfUe.RanUe[targetUe.Ran.AnType] != targetUe {
+		context.DetachSourceUeTargetUe(targetUe)
+		targetUe.DetachAmfUe()
+	}
+	ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover, causePresent, causeValue)
 }
 
 func handleUplinkRANStatusTransferMain(ran *context.AmfRan,
