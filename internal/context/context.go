@@ -20,6 +20,7 @@ import (
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/openapi/oauth"
 	"github.com/free5gc/util/idgenerator"
+	"github.com/free5gc/util/serviceuri"
 )
 
 var (
@@ -491,6 +492,7 @@ func (context *AMFContext) GetIPv4Uri() string {
 func (context *AMFContext) InitNFService(serivceName []string, version string) {
 	tmpVersion := strings.Split(version, ".")
 	versionUri := "v" + tmpVersion[0]
+	addr := serviceuri.NewAddressing(context.RegisterIPv4)
 	for index, nameString := range serivceName {
 		name := models.Nrf_NFMgmt_ServiceName(nameString)
 		context.NfService[name] = models.Nrf_NFMgmt_NFService{
@@ -504,13 +506,8 @@ func (context *AMFContext) InitNFService(serivceName []string, version string) {
 			},
 			Scheme:          context.UriScheme,
 			NfServiceStatus: models.Nrf_NFMgmt_NFServiceStatus_REGISTERED,
-			IpEndPoints: []models.Nrf_NFMgmt_IpEndPoint{
-				{
-					Ipv4Address: context.RegisterIPv4,
-					Transport:   models.Nrf_NFMgmt_TransportProtocol_TCP,
-					Port:        int32(context.SBIPort),
-				},
-			},
+			Fqdn:            addr.FQDN,
+			IpEndPoints:     addr.IpEndPoints(int32(context.SBIPort)),
 		}
 	}
 }
