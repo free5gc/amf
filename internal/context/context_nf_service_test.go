@@ -45,8 +45,8 @@ func TestInitNFServiceAddressing(t *testing.T) {
 				IpEndPoints:     s.IpEndPoints,
 			}}}
 			got, err := serviceuri.ResolveNFServiceURI(profile, s.ServiceName, serviceuri.Options{})
-			if err != nil || got.APIRoot != tt.wantAPIRoot {
-				t.Fatalf("resolved %q, error %v; want %q", got.APIRoot, err, tt.wantAPIRoot)
+			if err != nil || got != tt.wantAPIRoot {
+				t.Fatalf("resolved %q, error %v; want %q", got, err, tt.wantAPIRoot)
 			}
 		})
 	}
