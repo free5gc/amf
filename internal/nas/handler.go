@@ -22,6 +22,9 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 
 	amfSelf := amf_context.GetSelf()
 
+	// Track the AmfUe created during this call for cleanup on NAS decode failure.
+	var newlyCreatedUe *amf_context.AmfUe
+
 	if ranUe == nil {
 		metricCause = nas_metrics.RAN_UE_NIL_ERR
 		logger.NasLog.Error("RanUe is nil")
@@ -43,8 +46,9 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 			ranUe.HoldingAmfUe = nil
 		} else {
 			// Assume we have an existing UE context in CM-CONNECTED state. (RanUe <-> AmfUe)
-			// We will release it if the new UE context has a valid security context(Authenticated) in line 50.
-			ranUe.AmfUe = amfSelf.NewAmfUe("")
+			// We will release it if the new UE context has a valid security context(Authenticated) after NAS decoding.
+			newlyCreatedUe = amfSelf.NewAmfUe("")
+			ranUe.AmfUe = newlyCreatedUe
 			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(ranUe.AmfUe, ranUe)
 		}
 	}
@@ -53,6 +57,25 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 	if err != nil {
 		metricCause = nas_metrics.DECODE_NAS_MSG_ERR
 		ranUe.AmfUe.NASLog.Errorln(err)
+
+		if newlyCreatedUe != nil {
+			accessType := ranUe.Ran.AnType
+
+			// Verify the associations before cleaning up the newly created AmfUe.
+			if ranUe.AmfUe == newlyCreatedUe &&
+				newlyCreatedUe.RanUe[accessType] == ranUe {
+
+				// Detach both associations to preserve the existing RanUe.
+				newlyCreatedUe.DetachRanUe(accessType)
+				ranUe.DetachAmfUe()
+
+				// Release resources allocated for the newly created AmfUe.
+				newlyCreatedUe.Remove()
+			} else {
+				ranUe.Log.Error("Failed to clean up newly created AmfUe: unexpected RanUe association")
+			}
+		}
+
 		return
 	}
 
