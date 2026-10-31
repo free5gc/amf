@@ -205,7 +205,7 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 		additionalCause = nasMetrics.AMF_UE_NIL_ERR
 		return fmt.Errorf("SendServiceAccept: AmfUe is nil")
 	}
-	if amfUe.RanUe[anType] == nil {
+	if amfUe.GetRanUe(anType) == nil {
 		additionalCause = nasMetrics.RAN_UE_NIL_ERR
 		return fmt.Errorf("SendServiceAccept: RanUe is nil")
 	}
@@ -219,8 +219,8 @@ func SendServiceAccept(amfUe *context.AmfUe, anType models.AccessType,
 		return err
 	}
 
-	if amfUe.RanUe[anType].UeContextRequest ||
-		(!amfUe.RanUe[anType].InitialContextSetup && len(cxtList.List) > 0) {
+	if amfUe.GetRanUe(anType).UeContextRequest ||
+		(!amfUe.GetRanUe(anType).InitialContextSetup && len(cxtList.List) > 0) {
 		// update Kgnb/Kn3iwf
 		amfUe.UpdateSecurityContext(anType)
 	}
@@ -243,7 +243,7 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: AmfUe is nil")
 		return
 	}
-	if amfUe.RanUe[accessType] == nil {
+	if amfUe.GetRanUe(accessType) == nil {
 		additionalCause = nasMetrics.RAN_UE_NIL_ERR
 		logger.GmmLog.Error("SendConfigurationUpdateCommand: RanUe is nil")
 		return
@@ -259,7 +259,7 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 
 	mobilityRestrictionList := ngap_message.BuildIEMobilityRestrictionList(amfUe)
 	isNasMsgSent = true
-	ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+	ngap_message.SendDownlinkNasTransport(amfUe.GetRanUe(accessType), nasMsg, &mobilityRestrictionList)
 
 	if startT3555 && context.GetSelf().T3555Cfg.Enable {
 		cfg := context.GetSelf().T3555Cfg
@@ -270,7 +270,7 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 			timerAdditionalCause := "Timer expired, retry configuration update command"
 			defer nasMetrics.IncrMetricsSentNasMsgs(
 				nasMetrics.CONFIGURATION_UPDATE_COMMAND_TIMER, &isNasMsgSent, 0, &timerAdditionalCause)
-			ngap_message.SendDownlinkNasTransport(amfUe.RanUe[accessType], nasMsg, &mobilityRestrictionList)
+			ngap_message.SendDownlinkNasTransport(amfUe.GetRanUe(accessType), nasMsg, &mobilityRestrictionList)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
 				cfg.MaxRetryTimes)
@@ -575,7 +575,7 @@ func SendRegistrationAccept(
 		logger.GmmLog.Error("SendRegistrationAccept: AmfUe is nil")
 		return
 	}
-	if amfUe.RanUe[anType] == nil {
+	if amfUe.GetRanUe(anType) == nil {
 		additionalCause = nasMetrics.RAN_UE_NIL_ERR
 		logger.GmmLog.Error("SendRegistrationAccept: RanUe is nil")
 		return
@@ -604,7 +604,7 @@ func SendRegistrationAccept(
 		cfg := context.GetSelf().T3550Cfg
 		amfUe.GmmLog.Infof("Start T3550 timer")
 		amfUe.T3550 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
-			if amfUe.RanUe[anType] == nil {
+			if amfUe.GetRanUe(anType) == nil {
 				amfUe.GmmLog.Warnf("[NAS] UE Context released, abort retransmission of Registration Accept")
 				amfUe.T3550 = nil
 			} else {

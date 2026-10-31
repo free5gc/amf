@@ -233,10 +233,10 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		logger.GmmLog.Warnln("Reject authentication")
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		accessType = args[ArgAccessType].(models.AccessType)
-		if amfUe.RanUe[accessType] != nil {
-			ngap_message.SendUEContextReleaseCommand(amfUe.RanUe[accessType], context.UeContextN2NormalRelease,
+		if amfUe.GetRanUe(accessType) != nil {
+			ngap_message.SendUEContextReleaseCommand(amfUe.GetRanUe(accessType), context.UeContextN2NormalRelease,
 				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentAuthenticationFailure)
-			err := amfUe.RanUe[accessType].Remove()
+			err := amfUe.GetRanUe(accessType).Remove()
 			if err != nil {
 				logger.GmmLog.Errorln(err)
 			}
@@ -283,7 +283,7 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := amfUe.SelectSecurityAlg(amfSelf.SecurityAlgorithm.IntegrityOrder,
 				amfSelf.SecurityAlgorithm.CipheringOrder); err != nil {
 				amfUe.GmmLog.Errorf("Select security algorithm failed: %s", err)
-				gmm_message.SendRegistrationReject(amfUe.RanUe[accessType], ie.Cause5GMM_UESecCapabilitiesMismatch, "")
+				gmm_message.SendRegistrationReject(amfUe.GetRanUe(accessType), ie.Cause5GMM_UESecCapabilitiesMismatch, "")
 				err = GmmFSM.SendEvent(state, SecurityModeFailEvent, fsm.ArgsType{
 					ArgAmfUe:      amfUe,
 					ArgAccessType: accessType,
@@ -295,7 +295,7 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			}
 			// Generate KnasEnc, KnasInt
 			amfUe.DerivateAlgKey()
-			gmm_message.SendSecurityModeCommand(amfUe.RanUe[accessType], accessType, eapSuccess, eapMessage)
+			gmm_message.SendSecurityModeCommand(amfUe.GetRanUe(accessType), accessType, eapSuccess, eapMessage)
 		}
 	case GmmMessageEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
