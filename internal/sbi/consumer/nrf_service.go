@@ -340,10 +340,8 @@ func (s *nnrfService) SendUpdateNFInstance(ctx context.Context, patchItems []mod
 	nf models.Nrf_NFMgmt_NFProfile, problemDetails *models.ProblemDetails, err error,
 ) {
 	amfContext := s.consumer.Context()
-	tokCtx, pd, err := amfContext.GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NNRF_NFM,
-		models.Nrf_NFMgmt_NFType_NRF,
-	)
+
+	tokCtx, pd, err := amfContext.GetTokenCtxForNRF(models.Nrf_NFMgmt_ServiceName_NNRF_NFM)
 	if err != nil {
 		return nf, pd, err
 	}
