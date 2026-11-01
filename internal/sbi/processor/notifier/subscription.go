@@ -88,7 +88,7 @@ func SendAmfStatusChangeNotify(amfStatus string, guamiList []models.Guami) {
 			RequestBody: &amfStatusNotification,
 		}
 
-		callbackSvcName, targetNFType, resolveErr := resolveCallbackTokenTarget(uri, amfSelf.OAuth2Required)
+		callbackSvcName, targetNFType, resolveErr := resolveCallbackTokenTarget(uri, amfSelf.OAuth2Required.Load())
 		if resolveErr != nil {
 			HttpLog.Warnf("SendAmfStatusChangeNotify reject callback URI: %v", resolveErr)
 			return true
