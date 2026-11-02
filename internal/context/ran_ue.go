@@ -81,7 +81,7 @@ func (ranUe *RanUe) Remove() error {
 		return fmt.Errorf("RanUe not found in Ran")
 	}
 	if ranUe.AmfUe != nil {
-		ranUe.AmfUe.DetachRanUe(ran.AnType)
+		ranUe.AmfUe.DetachRanUe(ran.AnType, ranUe)
 		ranUe.DetachAmfUe()
 	}
 

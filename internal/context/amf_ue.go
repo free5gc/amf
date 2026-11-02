@@ -192,6 +192,12 @@ type AmfUe struct {
 	T3512Value             int        // default 54 min
 	Non3gppDeregTimerValue int        // default 54 min
 	Lock                   sync.Mutex // Update context to prevent race condition
+	// RanUeMu serializes access to RanUe and AnTypeFlags.  It is kept separate
+	// from Lock because Lock is held by procedures that may enter the RanUe
+	// release path.  Hold it only for the map/flag update itself (and, when an
+	// attach replaces a RanUe, the stop of the 5GMM timers, which does no I/O),
+	// never across NGAP or SBI I/O.
+	RanUeMu sync.RWMutex
 
 	// logger
 	NASLog      *logrus.Entry
@@ -298,10 +304,17 @@ func (ue *AmfUe) ServingAMF() *AMFContext {
 }
 
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
-	if _, ok := ue.RanUe[anType]; !ok {
-		return false
-	}
-	return true
+	return ue.GetRanUe(anType) != nil
+}
+
+// GetRanUe returns the RanUe attached for an access type.  The map read is
+// serialized with every attach and detach through RanUeMu, so it can be used
+// from the GMM and SBI procedures that run on different goroutines than the
+// NGAP worker which owns the RanUe.
+func (ue *AmfUe) GetRanUe(anType models.AccessType) *RanUe {
+	ue.RanUeMu.RLock()
+	defer ue.RanUeMu.RUnlock()
+	return ue.RanUe[anType]
 }
 
 func (ue *AmfUe) CmIdle(anType models.AccessType) bool {
@@ -317,13 +330,24 @@ func (ue *AmfUe) Remove() {
 	ue.StopT3570()
 	ue.StopT3555()
 
+	ue.RanUeMu.Lock()
+	ranUes := make([]*RanUe, 0, len(ue.RanUe))
 	for _, ranUe := range ue.RanUe {
+		ranUes = append(ranUes, ranUe)
+	}
+	anTypeFlags := make(map[models.AccessType]bool, len(ue.AnTypeFlags))
+	for accessType, flag := range ue.AnTypeFlags {
+		anTypeFlags[accessType] = flag
+	}
+	ue.RanUeMu.Unlock()
+
+	for _, ranUe := range ranUes {
 		if err := ranUe.Remove(); err != nil {
 			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
 	}
 
-	for accessType, flag := range ue.AnTypeFlags {
+	for accessType, flag := range anTypeFlags {
 		if flag {
 			business_metrics.DecrUeCmIdleStateGauge(accessType)
 		}
@@ -337,8 +361,29 @@ func (ue *AmfUe) Remove() {
 	logger.CtxLog.Infof("AmfUe[%s] is removed", ue.Supi)
 }
 
-func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
+// DetachRanUe detaches ranUe from the AmfUe.  A stale release (a RanUe that is
+// no longer the one attached for anType) is ignored, so it cannot delete a
+// newly attached RanUe of the same access type.
+func (ue *AmfUe) DetachRanUe(anType models.AccessType, ranUe *RanUe) {
 	if ue == nil {
+		return
+	}
+
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.detachRanUe(anType, ranUe)
+}
+
+func (ue *AmfUe) detachRanUe(anType models.AccessType, ranUe *RanUe) {
+	current, ok := ue.RanUe[anType]
+	if !ok {
+		// Another release already removed the entry; keep the metrics and the
+		// log fields consistent with an empty slot.
+		ue.updateLogFields(anType)
+		return
+	}
+	if ranUe != nil && current != ranUe {
+		// The release belongs to a RanUe that has already been replaced.
 		return
 	}
 
@@ -351,17 +396,36 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 	}
 
 	delete(ue.RanUe, anType)
-	ue.UpdateLogFields(anType)
+	ue.updateLogFields(anType)
 }
 
-// Don't call this function directly. Use gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny().
+// AttachRanUe attaches ranUe to the AmfUe.  Use
+// gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny() for the complete ownership
+// transition; this method only takes the RanUeMu lock and updates the link.
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.AttachRanUeLocked(ranUe)
+}
+
+// AttachRanUeLocked updates the link.  The caller must hold ue.RanUeMu.
+func (ue *AmfUe) AttachRanUeLocked(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
-	ue.UpdateLogFields(ranUe.Ran.AnType)
+	ue.updateLogFields(ranUe.Ran.AnType)
 }
 
+// UpdateLogFields refreshes the per-UE logger fields.  It is serialized with
+// the RanUe attach/detach transitions because it reads the current RanUe.
 func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.updateLogFields(accessType)
+}
+
+// updateLogFields refreshes the per-UE logger fields.  The caller must hold
+// ue.RanUeMu (read or write).
+func (ue *AmfUe) updateLogFields(accessType models.AccessType) {
 	anTypeStr := ""
 	switch accessType {
 	case models.AccessType_3_GPP_ACCESS:
@@ -674,7 +738,7 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.IdentityRequestSendTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
-	if ranUe := ue.RanUe[accessType]; ranUe != nil {
+	if ranUe := ue.GetRanUe(accessType); ranUe != nil {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
 	ue.RetransmissionOfInitialNASMsg = false
@@ -1022,12 +1086,13 @@ func (ue *AmfUe) StopT3555() {
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
-	if ue.RanUe[anType] == nil || ue.RanUe[anType].Ran == nil {
+	ranUe := ue.GetRanUe(anType)
+	if ranUe == nil || ranUe.Ran == nil {
 		ue.GmmLog.Warn("CheckSliceAvailabilityInCurrentRan: RanUe or Ran is nil")
 		return false
 	}
 
-	return ue.CheckSliceAvailabilityInRan(targetSnssai, ue.RanUe[anType].Ran, ue.Tai)
+	return ue.CheckSliceAvailabilityInRan(targetSnssai, ranUe.Ran, ue.Tai)
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInTargetRan(
