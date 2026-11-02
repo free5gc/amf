@@ -2,13 +2,20 @@ package ngap
 
 import (
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	amf_context "github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/logger"
+	ngaptesting "github.com/free5gc/amf/internal/ngap/testing"
 )
 
 // Mock connection for testing
@@ -395,4 +402,101 @@ func TestScheduler_NonUEMessage(t *testing.T) {
 	assert.Equal(t, int32(numMessages), atomic.LoadInt32(&processedCount),
 		"All non-UE messages should be processed")
 	t.Logf("Non-UE messages routed to worker %d", expectedWorkerIndex)
+}
+
+// runPanicThenMarker starts a worker, submits a task whose handler panics and
+// then a marker task, and waits for the marker. On the unpatched tree the
+// recover in run() ends the worker goroutine, so the marker never runs.
+func runPanicThenMarker(t *testing.T, panicking func()) {
+	t.Helper()
+	var wg sync.WaitGroup
+	marker := make(chan struct{})
+	handler := func(conn net.Conn, msg []byte) {
+		switch msg[0] {
+		case 0x01:
+			panicking()
+		case 0x02:
+			close(marker)
+		}
+	}
+
+	w := NewWorker(1, 8, handler, &wg)
+	defer func() {
+		w.Stop()
+		wg.Wait()
+	}()
+
+	require.True(t, w.Submit(Task{UEID: 1, Conn: &mockConn{}, Message: []byte{0x01}}),
+		"first task must be accepted")
+	require.True(t, w.Submit(Task{UEID: 1, Conn: &mockConn{}, Message: []byte{0x02}}),
+		"second task must be accepted")
+
+	select {
+	case <-marker:
+	case <-time.After(2 * time.Second):
+		t.Fatal("worker exited after a handler panic; the second task was never processed")
+	}
+}
+
+func captureNgapLog(t *testing.T) *logrustest.Hook {
+	t.Helper()
+	hook := new(logrustest.Hook)
+	old := logger.NgapLog.Logger.ReplaceHooks(logrus.LevelHooks{})
+	logger.NgapLog.Logger.AddHook(hook)
+	t.Cleanup(func() { logger.NgapLog.Logger.ReplaceHooks(old) })
+	return hook
+}
+
+func recoveredPanicEntry(hook *logrustest.Hook) *logrus.Entry {
+	for _, entry := range hook.AllEntries() {
+		if entry.Level == logrus.ErrorLevel && strings.Contains(entry.Message, "recovered from task panic") {
+			return entry
+		}
+	}
+	return nil
+}
+
+func panickingTestHandler() {
+	panic("boom")
+}
+
+func TestWorkerRunSurvivesHandlerPanic(t *testing.T) {
+	runPanicThenMarker(t, panickingTestHandler)
+}
+
+func TestWorkerLogsRecoveredPanicWithStack(t *testing.T) {
+	hook := captureNgapLog(t)
+	runPanicThenMarker(t, panickingTestHandler)
+
+	entry := recoveredPanicEntry(hook)
+	require.NotNil(t, entry, "the recovered panic must be logged at Error level")
+	require.Contains(t, entry.Message, "boom")
+	require.Contains(t, entry.Message, "panickingTestHandler",
+		"the log entry must carry the stack of the panicking handler")
+}
+
+// A panic raised while the UE CONTEXT RELEASE COMPLETE handler holds amfUe.Lock
+// must not leave that lock held once the worker has recovered: the next message
+// for the same UE would block the worker on it.
+func TestWorkerReleaseUeContextPanicReleasesAmfUeLock(t *testing.T) {
+	hook := captureNgapLog(t)
+	amfSelf := amf_context.GetSelf()
+	NewAmfContext(amfSelf)
+	ran := NewAmfRan(&ngaptesting.SctpConnStub{})
+	ranUe, err := ran.NewRanUe(1)
+	require.NoError(t, err)
+	amfUe := amfSelf.NewAmfUe("imsi-208930000000001")
+	amfUe.AttachRanUe(ranUe)
+	ranUe.ReleaseAction = amf_context.UeContextReleaseUeContext
+	// A nil SmContext entry makes RemoveAmfUe panic while amfUe.Lock is held.
+	// It stands in for any bug on that path.
+	amfUe.SmContextList.Store(int32(1), (*amf_context.SmContext)(nil))
+
+	runPanicThenMarker(t, func() {
+		handleUEContextReleaseCompleteMain(ran, ranUe, nil, nil, nil, nil)
+	})
+
+	require.NotNil(t, recoveredPanicEntry(hook), "the release handler must panic inside RemoveAmfUe")
+	require.True(t, amfUe.Lock.TryLock(), "amfUe.Lock is still held after the recovered panic")
+	amfUe.Lock.Unlock()
 }

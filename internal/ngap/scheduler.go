@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"runtime/debug"
 	"sync"
 
 	"github.com/free5gc/amf/internal/logger"
@@ -56,7 +57,7 @@ func (w *Worker) run() {
 		case task := <-w.taskChan:
 			logger.NgapLog.Debugf("Worker %d processing task for UE ID %d (ensuring per-UE sequentiality)",
 				w.ID, task.UEID)
-			w.handler(task.Conn, task.Message)
+			w.processTask(task)
 
 		case <-w.stopChan:
 			logger.NgapLog.Infof("Worker %d: shutdown signal received, draining queue...", w.ID)
@@ -66,13 +67,26 @@ func (w *Worker) run() {
 	}
 }
 
+// processTask runs one handler invocation and recovers a panic locally so that
+// the worker goroutine keeps draining its queue. A panic used to escape run(),
+// terminating the worker while Submit() kept queueing to a channel nobody read.
+func (w *Worker) processTask(task Task) {
+	defer func() {
+		if p := recover(); p != nil {
+			logger.NgapLog.Errorf("Worker %d recovered from task panic for UE ID %d: %v\n%s",
+				w.ID, task.UEID, p, string(debug.Stack()))
+		}
+	}()
+	w.handler(task.Conn, task.Message)
+}
+
 // drainAndExit consumes remaining tasks in the buffer without blocking.
 func (w *Worker) drainAndExit() {
 	for {
 		select {
 		case task := <-w.taskChan:
 			logger.NgapLog.Debugf("Worker %d processing residual task for UE ID %d", w.ID, task.UEID)
-			w.handler(task.Conn, task.Message)
+			w.processTask(task)
 		default:
 			// Channel is empty, exit safely
 			logger.NgapLog.Infof("Worker %d: queue drained, stopped.", w.ID)
