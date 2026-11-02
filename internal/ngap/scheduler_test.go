@@ -488,6 +488,7 @@ func TestWorkerReleaseUeContextPanicReleasesAmfUeLock(t *testing.T) {
 	amfUe := amfSelf.NewAmfUe("imsi-208930000000001")
 	amfUe.AttachRanUe(ranUe)
 	ranUe.ReleaseAction = amf_context.UeContextReleaseUeContext
+	ranUe.ReleasePending = true
 	// A nil SmContext entry makes RemoveAmfUe panic while amfUe.Lock is held.
 	// It stands in for any bug on that path.
 	amfUe.SmContextList.Store(int32(1), (*amf_context.SmContext)(nil))
