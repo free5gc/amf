@@ -238,6 +238,16 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 		return
 	}
 
+	// TS 38.413 8.3.3 / 10.4: the UE Context Release Complete answers a UE
+	// Context Release Command. Without an outstanding command the message does
+	// not name any release this AMF started, so it must not tear the
+	// connection down.
+	if !ranUe.ReleasePending {
+		ranUe.Log.Warnf("Ignore UE Context Release Complete (no release command was sent)")
+		return
+	}
+	ranUe.ReleasePending = false
+
 	if userLocationInformation != nil {
 		ranUe.UpdateLocation(userLocationInformation)
 	}

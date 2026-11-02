@@ -68,6 +68,10 @@ type RanUe struct {
 	/* send initial context setup request or not*/
 	InitialContextSetup bool
 
+	/* an N2 release was requested with a UE Context Release Command and the
+	   UE Context Release Complete is still outstanding */
+	ReleasePending bool
+
 	/* logger */
 	Log *logrus.Entry
 }
