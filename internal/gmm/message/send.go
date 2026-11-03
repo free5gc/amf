@@ -175,6 +175,7 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 
 	if context.GetSelf().T3560Cfg.Enable {
 		cfg := context.GetSelf().T3560Cfg
+		amfUe.StopT3560()
 		amfUe.GmmLog.Infof("Start T3560 timer")
 		amfUe.T3560 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Authentication Request (retry: %d)", expireTimes)
