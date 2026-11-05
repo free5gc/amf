@@ -560,7 +560,6 @@ func (context *AMFContext) Reset() {
 
 	context.NrfNfInstanceID = ""
 	context.OAuth2Required.Store(false)
-
 }
 
 // Create new AMF context
