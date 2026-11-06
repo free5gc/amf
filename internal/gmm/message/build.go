@@ -244,10 +244,11 @@ func BuildSecurityModeCommand(
 		IMEISVReq: &ie.IMEISVReq{
 			Value: ie.IMEISV_Requested,
 		},
+		// HDP is left at "KAMF derivation is not required": the AMF sends this command only after a
+		// primary authentication and never derives K'AMF horizontally (TS 33.501 6.9.3), and a UE told
+		// to derive one (TS 24.501 5.4.2.3) would not share the AMF's NAS keys.
 		Additional5GSecInfo: &ie.Additional5GSecInfo{
 			RINMR: ue.RetransmissionOfInitialNASMsg,
-			HDP: ue.RegistrationType5GS == ie.RegType_MobilityRegUpdating ||
-				ue.RegistrationType5GS == ie.RegType_PeriodicRegUpdating,
 		},
 	}
 	if ue.Pei != "" {
