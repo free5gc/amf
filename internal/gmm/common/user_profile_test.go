@@ -177,10 +177,10 @@ func TestConcurrentAttachToPooledAmfUeReleasesEveryOldRanUe(t *testing.T) {
 	var want []int64
 	for _, ranUe := range all {
 		if ranUe == winner {
-			require.True(t, ranUe.AmfUe == amfUe, "attached RanUe %d is not linked to the AmfUe", ranUe.RanUeNgapId)
+			require.True(t, ranUe.GetAmfUe() == amfUe, "attached RanUe %d is not linked to the AmfUe", ranUe.RanUeNgapId)
 			continue
 		}
-		require.True(t, ranUe.AmfUe == nil, "replaced RanUe %d is still linked to the AmfUe", ranUe.RanUeNgapId)
+		require.True(t, ranUe.GetAmfUe() == nil, "replaced RanUe %d is still linked to the AmfUe", ranUe.RanUeNgapId)
 		want = append(want, ranUe.RanUeNgapId)
 	}
 	// Every replaced RanUe gets exactly one UE CONTEXT RELEASE COMMAND.
@@ -347,7 +347,7 @@ func TestAttachDoesNotBlockAmfUeReadersDuringRelease(t *testing.T) {
 			close(oldConn.stall)
 			<-done
 			require.True(t, amfUe.RanUe[anType] == newRanUe, "new RanUe is not attached")
-			require.True(t, oldRanUe.AmfUe == nil, "old RanUe is still linked to the AmfUe")
+			require.True(t, oldRanUe.GetAmfUe() == nil, "old RanUe is still linked to the AmfUe")
 			require.Len(t, oldConn.messages(), 1)
 		})
 	}

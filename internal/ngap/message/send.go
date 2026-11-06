@@ -70,7 +70,7 @@ func SendToRanUe(ue *context.RanUe, packet []byte) (bool, string) {
 		return false, ngap_metrics.RAN_NIL_ERR
 	}
 
-	if ue.AmfUe == nil {
+	if ue.GetAmfUe() == nil {
 		ue.Log.Warn("AmfUe is nil")
 	}
 
@@ -255,8 +255,9 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 	}
 	ue.ReleaseAction = action
 	ue.ReleasePending = true
-	if ue.AmfUe != nil && ue.Ran != nil {
-		ue.AmfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
+	amfUe := ue.GetAmfUe()
+	if amfUe != nil && ue.Ran != nil {
+		amfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
 			NgapCause: &models.NgApCause{
 				Group: int32(causePresent),
 				Value: int32(cause),
@@ -609,7 +610,7 @@ func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Caus
 
 	sourceUe.Log.Info("Send Handover Preparation Failure")
 
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 	if amfUe == nil {
 		additionalCause = ngap_metrics.AMF_UE_NIL_ERR
 		sourceUe.Log.Error("amfUe is nil")
@@ -665,7 +666,7 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, tar
 
 	sourceUe.Log.Info("Send Handover Request")
 
-	amfUe := sourceUe.AmfUe
+	amfUe := sourceUe.GetAmfUe()
 	if amfUe == nil {
 		additionalCause = ngap_metrics.AMF_UE_NIL_ERR
 		sourceUe.Log.Error("amfUe is nil")
@@ -880,22 +881,11 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 	// 	ngaplog.Errorf("Build Paging failed : %s", err.Error())
 	// }
 	taiList := ue.RegistrationArea[models.AccessType_3_GPP_ACCESS]
-	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
-		ran := value.(*context.AmfRan)
-		for _, item := range ran.SupportedTAList {
-			if context.InTaiList(item.Tai, taiList) {
-				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
-				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
-				break
-			}
-		}
-		return true
-	})
 
 	if context.GetSelf().T3513Cfg.Enable {
 		cfg := context.GetSelf().T3513Cfg
 		ue.GmmLog.Infof("Start T3513 timer")
-		ue.T3513 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+		ue.StartT3513(cfg, func(expireTimes int32) {
 			ue.GmmLog.Warnf("T3513 expires, retransmit Paging (retry: %d)", expireTimes)
 			context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
 				ran := value.(*context.AmfRan)
@@ -909,12 +899,23 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 			})
 		}, func() {
 			ue.GmmLog.Warnf("T3513 expires %d times, abort paging procedure", cfg.MaxRetryTimes)
-			ue.T3513 = nil // clear the timer
 			if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
 				callback.SendN1N2TransferFailureNotification(ue, models.Amf_Comm_N1N2MessageTransferCause_UE_NOT_RESPONDING)
 			}
 		})
 	}
+
+	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*context.AmfRan)
+		for _, item := range ran.SupportedTAList {
+			if context.InTaiList(item.Tai, taiList) {
+				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
+				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
+				break
+			}
+		}
+		return true
+	})
 }
 
 // TS 23.502 4.2.2.2.3
