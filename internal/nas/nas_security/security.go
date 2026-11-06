@@ -31,6 +31,7 @@ func Encode(
 		return nil, fmt.Errorf("NAS message %s cannot be sent plain when security context is available", msg.MsgType())
 	}
 
+	newContext := false
 	switch securityHeaderType {
 	case message.SecHdrTypeIntegrityProtected:
 		ue.NASLog.Debugln("Security header type: Integrity Protected")
@@ -38,17 +39,26 @@ func Encode(
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered")
 	case message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected With New 5G Security Context")
-		ue.ULCount.Set(0, 0)
-		ue.DLCount.Set(0, 0)
+		newContext = true
 	case message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
-		ue.ULCount.Set(0, 0)
-		ue.DLCount.Set(0, 0)
+		newContext = true
 	default:
 		return nil, fmt.Errorf("wrong security header type: 0x%0x", securityHeaderType)
 	}
 
-	return message.Marshal(msg, newSecurityContext(ue, accessType), securityHeaderType)
+	// Taking the downlink COUNT and advancing it is one step, so concurrent encodes for this UE
+	// never share a COUNT (TS 24.501 4.4.3.1).
+	var payload []byte
+	var err error
+	ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
+		if newContext {
+			ulCount.Set(0, 0)
+			dlCount.Set(0, 0)
+		}
+		payload, err = message.Marshal(msg, newSecurityContext(ue, accessType), securityHeaderType)
+	})
+	return payload, err
 }
 
 func validatePlainMessage(msg message.Message) error {
@@ -93,6 +103,32 @@ func Decode(
 	if ue == nil {
 		return nil, false, fmt.Errorf("amfUe is nil")
 	}
+	return decode(ue, accessType, payload, initialMessage, true)
+}
+
+// VerifyIntegrity runs the checks of Decode against a copy of the uplink NAS COUNT of ue and
+// reports whether the message is integrity protected and its MAC verifies. The stored COUNT is
+// not changed, so a later Decode of the same message still accepts its COUNT (TS 24.501 4.4.3.2).
+func VerifyIntegrity(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	payload []byte,
+	initialMessage bool,
+) (bool, error) {
+	if ue == nil {
+		return false, fmt.Errorf("amfUe is nil")
+	}
+	_, integrityProtected, err := decode(ue, accessType, payload, initialMessage, false)
+	return integrityProtected, err
+}
+
+func decode(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	payload []byte,
+	initialMessage bool,
+	acceptCount bool,
+) (msg message.Message, integrityProtected bool, err error) {
 	if len(payload) == 0 {
 		return nil, false, fmt.Errorf("NAS payload is empty")
 	}
@@ -103,12 +139,22 @@ func Decode(
 	securityHeaderType := message.GetSecHdrType(payload)
 	ue.NASLog.Traceln("securityHeaderType is ", securityHeaderType)
 
-	var securityContext *message.SecCtx
-	if ue.SecurityContextAvailable {
-		securityContext = newSecurityContext(ue, accessType)
+	var parseErr error
+	switch {
+	case !ue.SecurityContextAvailable:
+		msg, parseErr = message.Parse(payload, nil)
+	case acceptCount:
+		// Estimating the COUNT from the stored one, checking the MAC and storing the accepted
+		// COUNT is one step, so a COUNT is not accepted by two concurrent decodes.
+		ue.WithNASCounts(func(_, _ *message.Count) {
+			msg, parseErr = message.Parse(payload, newSecurityContext(ue, accessType))
+		})
+	default:
+		ulCount, dlCount := ue.NASCounts()
+		securityContext := newSecurityContext(ue, accessType)
+		securityContext.UplinkCount, securityContext.DownlinkCount = &ulCount, &dlCount
+		msg, parseErr = message.Parse(payload, securityContext)
 	}
-
-	msg, parseErr := message.Parse(payload, securityContext)
 	if parseErr != nil {
 		var nasErr *message.Error
 		if !errors.As(parseErr, &nasErr) || nasErr.MACFailure == nil || len(nasErr.IEToDoList) != 0 || msg == nil {
@@ -286,6 +332,7 @@ func DecodePlainNasNoIntegrityCheck(payload []byte) (message.Message, error) {
 	return message.Parse(payload, nil)
 }
 
+// newSecurityContext points at the NAS COUNTs of ue: use it within ue.WithNASCounts.
 func newSecurityContext(ue *context.AmfUe, accessType models.AccessType) *message.SecCtx {
 	return &message.SecCtx{
 		Side:          message.CoreNetworkSide,

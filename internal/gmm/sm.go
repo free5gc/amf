@@ -353,6 +353,9 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		switch message := gmmMessage.(type) {
 		case *nas_message.RegReq:
 			amfUe.RegistrationRequest = message
+			if amfUe.AuthenticatingFor != nil && continueOnStoredContext(amfUe, accessType) {
+				return
+			}
 			switch amfUe.RegistrationType5GS {
 			case ie.RegType_InitialReg:
 				if err := HandleInitialRegistration(amfUe, accessType); err != nil {
