@@ -38,6 +38,10 @@ type RanUe struct {
 	SuccessPduSessionId []int32
 	SourceUe            *RanUe
 	TargetUe            *RanUe
+	// HandoverCommandSent is set on an N2 handover target once the AMF has sent
+	// the HANDOVER COMMAND for it to the source. Only then may the target
+	// report the UE's arrival with HANDOVER NOTIFY.
+	HandoverCommandSent bool
 
 	/* UserLocation*/
 	Tai      models.Tai
