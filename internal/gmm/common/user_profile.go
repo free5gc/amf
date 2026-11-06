@@ -92,7 +92,7 @@ func linkNewRanUe(amfUe *context.AmfUe, ranUe *context.RanUe) *context.RanUe {
 	}
 	amfUe.AttachRanUeLocked(ranUe)
 	if oldRanUe != nil {
-		if amfUe.T3550 != nil {
+		if amfUe.HasT3550() {
 			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
 		}
 		StopAll5GSMMTimers(amfUe)
@@ -130,7 +130,7 @@ func linkHandoverTarget(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.
 
 	amfUe.AttachRanUeLocked(targetRanUe)
 	if sourceRanUe != nil {
-		if amfUe.T3550 != nil {
+		if amfUe.HasT3550() {
 			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
 		}
 		StopAll5GSMMTimers(amfUe)
