@@ -16,6 +16,28 @@ func Encode(
 	accessType models.AccessType,
 	securityHeaderType message.SecHdrType,
 ) ([]byte, error) {
+	return encode(ue, msg, accessType, securityHeaderType, false)
+}
+
+// EncodeWithNewSecurityContext protects msg, the initial SECURITY MODE COMMAND, with the new 5G NAS
+// security context that it takes into use. Resetting the NAS COUNTs of the new context and taking
+// downlink NAS COUNT 0 for msg are one step, so no other message for the UE is protected in between
+// under that COUNT (TS 24.501 5.4.2.2).
+func EncodeWithNewSecurityContext(
+	ue *context.AmfUe,
+	msg message.Message,
+	accessType models.AccessType,
+) ([]byte, error) {
+	return encode(ue, msg, accessType, message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx, true)
+}
+
+func encode(
+	ue *context.AmfUe,
+	msg message.Message,
+	accessType models.AccessType,
+	securityHeaderType message.SecHdrType,
+	resetCounts bool,
+) ([]byte, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("NAS message is nil")
 	}
@@ -31,7 +53,6 @@ func Encode(
 		return nil, fmt.Errorf("NAS message %s cannot be sent plain when security context is available", msg.MsgType())
 	}
 
-	newContext := false
 	switch securityHeaderType {
 	case message.SecHdrTypeIntegrityProtected:
 		ue.NASLog.Debugln("Security header type: Integrity Protected")
@@ -39,10 +60,8 @@ func Encode(
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered")
 	case message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected With New 5G Security Context")
-		newContext = true
 	case message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
-		newContext = true
 	default:
 		return nil, fmt.Errorf("wrong security header type: 0x%0x", securityHeaderType)
 	}
@@ -52,7 +71,7 @@ func Encode(
 	var payload []byte
 	var err error
 	ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
-		if newContext {
+		if resetCounts {
 			ulCount.Set(0, 0)
 			dlCount.Set(0, 0)
 		}
