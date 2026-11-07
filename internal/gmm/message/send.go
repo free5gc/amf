@@ -6,6 +6,7 @@ import (
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/internal/nas/nas_security"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/nas/ie"
@@ -146,9 +147,18 @@ func SendIdentityRequest(ue *context.RanUe, accessType models.AccessType, typeOf
 				return
 			}
 			amfUe.GmmLog.Warnf("T3570 expires, retransmit Identity Request (retry: %d)", expireTimes)
+			isRetransmitted := false
 			timerAdditionalCause := "Timer expired, retransmit Identity Request"
-			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.IDENTITY_REQUEST, &isNasMsgSent, 0, &timerAdditionalCause)
-			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.IDENTITY_REQUEST, &isRetransmitted, 0, &timerAdditionalCause)
+			// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT
+			retransmission, errBuild := BuildIdentityRequest(amfUe, accessType, typeOfIdentity)
+			if errBuild != nil {
+				timerAdditionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+				amfUe.GmmLog.Error(errBuild.Error())
+				return
+			}
+			isRetransmitted = true
+			ngap_message.SendDownlinkNasTransport(ue, retransmission, nil)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3570 Expires %d times, abort identification procedure & ongoing 5GMM procedure",
 				cfg.MaxRetryTimes)
@@ -189,7 +199,13 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 		return
 	}
 
-	nasMsg, err := BuildAuthenticationRequest(amfUe, ran.AnType)
+	msg, err := authenticationRequest(amfUe)
+	if err != nil {
+		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+		amfUe.GmmLog.Error(err.Error())
+		return
+	}
+	nasMsg, err := nas_security.Encode(amfUe, msg, ran.AnType, protectedAndCiphered)
 	if err != nil {
 		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
 		amfUe.GmmLog.Error(err.Error())
@@ -215,9 +231,19 @@ func SendAuthenticationRequest(ue *context.RanUe) {
 				return
 			}
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Authentication Request (retry: %d)", expireTimes)
+			isRetransmitted := false
 			timerAdditionalCause := "Timer expired, retry authentication request"
-			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.AUTHENTICATION_REQUEST, &isNasMsgSent, 0, &timerAdditionalCause)
-			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+			defer nasMetrics.IncrMetricsSentNasMsgs(
+				nasMetrics.AUTHENTICATION_REQUEST, &isRetransmitted, 0, &timerAdditionalCause)
+			// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT
+			retransmission, errEncode := nas_security.Encode(amfUe, msg, ran.AnType, protectedAndCiphered)
+			if errEncode != nil {
+				timerAdditionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+				amfUe.GmmLog.Error(errEncode.Error())
+				return
+			}
+			isRetransmitted = true
+			ngap_message.SendDownlinkNasTransport(ue, retransmission, nil)
 		}, func() {
 			amfUe.Lock.Lock()
 			defer amfUe.Lock.Unlock()
@@ -288,7 +314,13 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 		return
 	}
 
-	nasMsg, err, startT3555 := BuildConfigurationUpdateCommand(amfUe, accessType, flags)
+	msg, err, startT3555 := configurationUpdateCommand(amfUe, accessType, flags)
+	if err != nil {
+		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
+		return
+	}
+	nasMsg, err := nas_security.Encode(amfUe, msg, accessType, protectedAndCiphered)
 	if err != nil {
 		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
 		amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", err)
@@ -305,10 +337,19 @@ func SendConfigurationUpdateCommand(amfUe *context.AmfUe,
 		amfUe.StartT3555(cfg, func(expireTimes int32) {
 			amfUe.GmmLog.Warnf("T3555 expires, retransmit Configuration Update Command (retry: %d)",
 				expireTimes)
+			isRetransmitted := false
 			timerAdditionalCause := "Timer expired, retry configuration update command"
 			defer nasMetrics.IncrMetricsSentNasMsgs(
-				nasMetrics.CONFIGURATION_UPDATE_COMMAND_TIMER, &isNasMsgSent, 0, &timerAdditionalCause)
-			ngap_message.SendDownlinkNasTransport(amfUe.GetRanUe(accessType), nasMsg, &mobilityRestrictionList)
+				nasMetrics.CONFIGURATION_UPDATE_COMMAND_TIMER, &isRetransmitted, 0, &timerAdditionalCause)
+			// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT
+			retransmission, errEncode := nas_security.Encode(amfUe, msg, accessType, protectedAndCiphered)
+			if errEncode != nil {
+				timerAdditionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+				amfUe.GmmLog.Errorf("BuildConfigurationUpdateCommand Error: %+v", errEncode)
+				return
+			}
+			isRetransmitted = true
+			ngap_message.SendDownlinkNasTransport(amfUe.GetRanUe(accessType), retransmission, &mobilityRestrictionList)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3555 Expires %d times, abort configuration update procedure",
 				cfg.MaxRetryTimes)
@@ -551,7 +592,13 @@ func SendDeregistrationRequest(ue *context.RanUe, accessType uint8, reRegistrati
 				return
 			}
 			amfUe.GmmLog.Warnf("T3522 expires, retransmit Deregistration Request (retry: %d)", expireTimes)
-			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+			// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT
+			retransmission, errBuild := BuildDeregistrationRequest(ue, accessType, reRegistrationRequired, cause5GMM)
+			if errBuild != nil {
+				amfUe.GmmLog.Error(errBuild.Error())
+				return
+			}
+			ngap_message.SendDownlinkNasTransport(ue, retransmission, nil)
 		}, func() {
 			amfUe.GmmLog.Warnf("T3522 Expires %d times, abort deregistration procedure", cfg.MaxRetryTimes)
 			switch accessType {
@@ -639,7 +686,13 @@ func SendRegistrationAccept(
 	}
 	context.GetSelf().ReallocateGuti(amfUe, usedGuti)
 
-	nasMsg, err := BuildRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
+	msg, err := registrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
+	if err != nil {
+		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+		amfUe.GmmLog.Error(err.Error())
+		return
+	}
+	nasMsg, err := nas_security.Encode(amfUe, msg, anType, protectedAndCiphered)
 	if err != nil {
 		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
 		amfUe.GmmLog.Error(err.Error())
@@ -665,10 +718,19 @@ func SendRegistrationAccept(
 				}
 			} else {
 				amfUe.GmmLog.Warnf("T3550 expires, retransmit Registration Accept (retry: %d)", expireTimes)
+				isRetransmitted := false
 				timerAdditionalCause := "Retry Registration Accept"
 				defer nasMetrics.IncrMetricsSentNasMsgs(
-					nasMetrics.REGISTRATION_ACCEPT_TIMER, &isNasMsgSent, 0, &timerAdditionalCause)
-				ngap_message.SendN2Message(amfUe, anType, nasMsg, cxtList, nil, nil, nil, nil)
+					nasMetrics.REGISTRATION_ACCEPT_TIMER, &isRetransmitted, 0, &timerAdditionalCause)
+				// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT
+				retransmission, errEncode := nas_security.Encode(amfUe, msg, anType, protectedAndCiphered)
+				if errEncode != nil {
+					timerAdditionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+					amfUe.GmmLog.Error(errEncode.Error())
+					return
+				}
+				isRetransmitted = true
+				ngap_message.SendN2Message(amfUe, anType, retransmission, cxtList, nil, nil, nil, nil)
 			}
 		}, func() {
 			amfUe.GmmLog.Warnf("T3550 Expires %d times, abort retransmission of Registration Accept", cfg.MaxRetryTimes)
