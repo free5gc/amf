@@ -44,6 +44,34 @@ func TestTimerExceedMaxRetryTimes(t *testing.T) {
 	time.Sleep(450 * time.Millisecond)
 }
 
+// Retransmit calls expiredFunc at once and restarts the interval, without counting an expiry.
+func TestTimerRetransmit(t *testing.T) {
+	expired := make(chan int32, 4)
+	timer := NewTimer(400*time.Millisecond, 3, func(expireTimes int32) {
+		expired <- expireTimes
+	}, func() {})
+	defer timer.Stop()
+
+	time.Sleep(250 * time.Millisecond)
+	timer.Retransmit()
+	select {
+	case expireTimes := <-expired:
+		assert.EqualValues(t, 0, expireTimes)
+	case <-time.After(time.Second):
+		t.Fatal("expiredFunc is not called")
+	}
+
+	// The first expiry comes 400 ms after the retransmission, not 400 ms after the start.
+	time.Sleep(250 * time.Millisecond)
+	assert.EqualValues(t, 0, timer.ExpireTimes())
+	select {
+	case expireTimes := <-expired:
+		assert.EqualValues(t, 1, expireTimes)
+	case <-time.After(time.Second):
+		t.Fatal("the timer does not expire after its retransmission")
+	}
+}
+
 /*
 func TestTimerRestartTimerWithoutExceedMaxRetry(t *testing.T) {
 	for i := 0; i < 100; i++ {

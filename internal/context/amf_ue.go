@@ -211,6 +211,10 @@ type AmfUe struct {
 	// cleared by its own goroutine, each on a different goroutine.  Only the
 	// field update is done under the lock; Timer.Stop is called after it.
 	timerMu sync.Mutex
+	// registrationAcceptResend sends the Registration Accept of the ongoing
+	// registration again, in a configuration without T3550; nil when no such
+	// accept waits for Registration Complete.  Guarded by timerMu.
+	registrationAcceptResend func()
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
 	// identityMu serializes the identities the UE presents: Suci, Guti, Tmsi,
@@ -873,6 +877,7 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.IdentityRequestSendTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
+	ue.SetRegistrationAcceptResend(nil)
 	if ranUe := ue.GetRanUe(accessType); ranUe != nil {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}

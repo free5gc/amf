@@ -676,6 +676,18 @@ func SendRegistrationAccept(
 			amfUe.State[anType].Set(context.Registered)
 			amfUe.ClearRegistrationRequestData(anType)
 		})
+	} else {
+		// No timer holds the accept: a REGISTRATION REQUEST that does not differ has it resent (TS 24.501
+		// 5.5.1.2.8 d) 2), 5.5.1.3.8 d) 2)), protected under the next NAS COUNT (4.4.3.1)
+		amfUe.SetRegistrationAcceptResend(func() {
+			resent, errBuild := BuildRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult,
+				errPduSessionId, errCause)
+			if errBuild != nil {
+				amfUe.GmmLog.Error(errBuild.Error())
+				return
+			}
+			ngap_message.SendN2Message(amfUe, anType, resent, cxtList, nil, nil, nil, nil)
+		})
 	}
 
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
