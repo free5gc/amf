@@ -70,4 +70,5 @@ func init() {
 	} else {
 		GmmFSM = f
 	}
+	context.SetImplicitDeregistration(HandleImplicitDeregistration)
 }
