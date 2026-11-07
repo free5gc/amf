@@ -368,7 +368,7 @@ func (context *AMFContext) AmfUeFindByPei(pei string) (*AmfUe, bool) {
 
 func (context *AMFContext) NewAmfRan(conn net.Conn) *AmfRan {
 	ran := AmfRan{}
-	ran.SupportedTAList = make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
+	ran.SupportedTAList = NewSupportedTAIList()
 	ran.Conn = conn
 	addr := conn.RemoteAddr()
 	if addr != nil {

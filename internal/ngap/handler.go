@@ -56,6 +56,9 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 		ran.Log.Tracef("PagingDRX[%d]", pagingDRX.Value)
 	}
 
+	// TS 38.413 8.7.1.1: the NG Setup procedure erases any existing application level configuration data and
+	// replaces it by the one received
+	ran.SupportedTAList = context.NewSupportedTAIList()
 	for i := 0; i < len(supportedTAList.List); i++ {
 		supportedTAItem := supportedTAList.List[i]
 		if supportedTAItem.TAC == nil || supportedTAItem.BroadcastPLMNList == nil {
@@ -2217,14 +2220,17 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 ) {
 	var cause ngapType.Cause
 
+	supportedTAIs := ran.SupportedTAList
 	if supportedTAList != nil {
+		// TS 38.413 8.7.2.2: the AMF overwrites the whole list of supported TAs
+		supportedTAIs = context.NewSupportedTAIList()
 		for i := 0; i < len(supportedTAList.List); i++ {
 			supportedTAItem := supportedTAList.List[i]
 			if supportedTAItem.TAC == nil || supportedTAItem.BroadcastPLMNList == nil {
 				continue
 			}
 			tac := hex.EncodeToString(supportedTAItem.TAC.Value)
-			capOfSupportTai := cap(ran.SupportedTAList)
+			capOfSupportTai := cap(supportedTAIs)
 			for j := 0; j < len(supportedTAItem.BroadcastPLMNList.List); j++ {
 				supportedTAI := context.NewSupportedTAI()
 				supportedTAI.Tai.Tac = tac
@@ -2249,8 +2255,8 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 					}
 				}
 				ran.Log.Tracef("PLMN_ID[MCC:%s MNC:%s] TAC[%s]", plmnId.Mcc, plmnId.Mnc, tac)
-				if len(ran.SupportedTAList) < capOfSupportTai {
-					ran.SupportedTAList = append(ran.SupportedTAList, supportedTAI)
+				if len(supportedTAIs) < capOfSupportTai {
+					supportedTAIs = append(supportedTAIs, supportedTAI)
 				} else {
 					break
 				}
@@ -2258,14 +2264,14 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 		}
 	}
 
-	if len(ran.SupportedTAList) == 0 {
+	if len(supportedTAIs) == 0 {
 		ran.Log.Warn("RanConfigurationUpdate failure: No supported TA exist in RanConfigurationUpdate")
 		cause.Choice = &ngapType.CauseMisc{
 			Value: ngapType.CauseMiscPresentUnspecified,
 		}
 	} else {
 		var found bool
-		for i, tai := range ran.SupportedTAList {
+		for i, tai := range supportedTAIs {
 			if context.InTaiList(tai.Tai, context.GetSelf().SupportTaiLists) {
 				ran.Log.Tracef("SERVED_TAI_INDEX[%d]", i)
 				found = true
@@ -2292,6 +2298,7 @@ func handleRANConfigurationUpdateMain(ran *context.AmfRan,
 		)
 	}
 	if cause.Choice == nil {
+		ran.SupportedTAList = supportedTAIs
 		ran.Log.Info("Handle RanConfigurationUpdateAcknowledge")
 		ngap_message.SendRanConfigurationUpdateAcknowledge(ran, &criticalityDiagnostics)
 	} else {
