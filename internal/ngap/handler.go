@@ -1911,7 +1911,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 					Value: ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem,
 				},
 			}
-			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil, nil)
 			hoFailCause = ngap.GetCauseErrorStr(cause)
 			return
 		}
@@ -1952,6 +1952,7 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 	targetUe *context.RanUe,
 	cause *ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+	targetToSourceFailureContainer *ngapType.TargettoSourceFailureTransparentContainer,
 ) {
 	causePresent := ngap_message.CauseChoiceRadioNetwork
 	causeValue := ngapType.CauseRadioNetworkPresentHoFailureInTarget5GCNgranNodeOrTargetSystem
@@ -2022,7 +2023,8 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 					},
 				}
 			}
-			ngap_message.SendHandoverPreparationFailure(sourceUe, *sendCause, criticalityDiagnostics)
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *sendCause, criticalityDiagnostics,
+				targetToSourceFailureContainer)
 		}
 	}
 
@@ -2074,7 +2076,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 			},
 		}
 		hoFailCause = ngap.GetCauseErrorStr(cause)
-		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil, nil)
 		return
 	}
 
@@ -2089,7 +2091,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 			},
 		}
 		hoFailCause = ngap.GetCauseErrorStr(cause)
-		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil, nil)
 		return
 	}
 	aMFSelf := context.GetSelf()
@@ -2155,7 +2157,7 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 				},
 			}
 			hoFailCause = ngap.GetCauseErrorStr(cause)
-			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
+			ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil, nil)
 			return
 		}
 		// Update NH
