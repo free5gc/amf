@@ -517,7 +517,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		nasMsgType = uint8(gmmMessage.MsgType())
 		if registrationRequest, ok := gmmMessage.(*nas_message.RegReq); ok &&
 			registrationRequest.RegType5GS != nil {
-			regReqType = registrationRequest.RegType5GS.Value
+			regReqType = gmm_common.RegistrationType(registrationRequest.RegType5GS.Value)
 		}
 	}
 

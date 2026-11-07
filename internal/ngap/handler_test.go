@@ -270,6 +270,48 @@ func TestHandleInitialUEMessage(t *testing.T) {
 	}
 }
 
+// TS 24.501 9.11.3.7: the network interprets the unused registration type 0 as "initial registration".
+func TestHandleInitialUEMessageRegistrationType0(t *testing.T) {
+	prevCfg := factory.AmfConfig
+	factory.AmfConfig = &factory.Config{Configuration: &factory.Configuration{}}
+	t.Cleanup(func() { factory.AmfConfig = prevCfg })
+
+	connStub := new(ngaptesting.SctpConnStub)
+	NewAmfContext(amf_context.GetSelf())
+	ran := NewAmfRan(connStub)
+	// a UE context that the SUCI finds, with a security context that an initial registration does not keep
+	amfUe := amf_context.GetSelf().NewAmfUe("imsi-208930000000001")
+	t.Cleanup(amfUe.Remove)
+	amfUe.Suci = "suci-0-208-93-0-0-0-0000000001"
+	amfUe.SecurityContextAvailable = true
+
+	// REGISTRATION REQUEST of type 0 by the SUCI, in an INITIAL UE MESSAGE without 5G-S-TMSI
+	nasPdu := nastesting.GetRegistrationRequest(
+		0,
+		mobileIdentity5GSFromBytes([]uint8{
+			0x01, 0x02, 0xf8, 0x39, 0xf0, 0xff, 0, 0, 0, 0, 0, 0, 0x10,
+		}),
+		nil, nil, nil, nil, nil,
+	)
+	message := BuildInitialUEMessage(t, 1, nasPdu, "")
+	encoded, err := message.MarshalBinary()
+	require.NoError(t, err)
+
+	handleInitialUEMessageMain(
+		ran, encoded, message.RANUENGAPID, message.NASPDU,
+		message.UserLocationInformation, message.RRCEstablishmentCause,
+		message.FiveGSTMSI, message.UEContextRequest,
+	)
+	for _, msg := range connStub.MsgList {
+		decoded, parseErr := ngapMessage.Parse(msg)
+		require.NoError(t, parseErr)
+		_, isErrorIndication := decoded.(*ngapMessage.ErrorIndication)
+		require.False(t, isErrorIndication)
+	}
+	require.Equal(t, ie.RegType_InitialReg, amfUe.RegistrationType5GS)
+	require.False(t, amfUe.SecurityContextAvailable)
+}
+
 func mobileIdentity5GSFromBytes(data []byte) ie.MobileId5GS {
 	var identity ie.MobileId5GS
 	if err := identity.UnmarshalBinary(data); err != nil {
