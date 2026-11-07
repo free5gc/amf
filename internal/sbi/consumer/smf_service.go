@@ -205,26 +205,52 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 
 		smContextRef = "urn:uuid:" + contextID
 	} else {
-		err1 = localErr
-		switch errType := localErr.(type) {
-		// API error
-		case openapi.GenericOpenAPIError:
-			switch errModel := errType.Model().(type) {
-			case Nsmf_PDUSession.PostSmContextsError:
-				problemDetail = errModel.ProblemDetails
-				errorResponse = errModel.PostSmContextsResponse400
-			case error:
-				err1 = errModel
-			default:
-				err1 = openapi.ReportError("openapi error")
-			}
-		case error:
-			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
-		default:
-			err1 = openapi.ReportError("server no response")
-		}
+		errorResponse, problemDetail, err1 = createSmContextErrorAnswer(localErr)
 	}
 	return smContextRef, errorResponse, problemDetail, err1
+}
+
+// createSmContextErrorAnswer reads the error of an SM context create. An error answer of the SMF
+// with an SmContextCreateError (TS 29.502 6.1.3.2.3.1), whatever its status code, or with
+// ProblemDetails is the SMF's answer to the request and not an error of sending it. The
+// SmContextCreateError carries the N1 SM message for the UE, such as a PDU SESSION ESTABLISHMENT REJECT.
+func createSmContextErrorAnswer(localErr error) (
+	errorResponse *models.PostSmContextsResponse400, problemDetail *models.ProblemDetails, err error,
+) {
+	err = localErr
+	switch errType := localErr.(type) {
+	// API error
+	case openapi.GenericOpenAPIError:
+		switch errModel := errType.Model().(type) {
+		case Nsmf_PDUSession.PostSmContextsError:
+			problemDetail = errModel.ProblemDetails
+			for _, answer := range []*models.PostSmContextsResponse400{
+				errModel.PostSmContextsResponse400,
+				(*models.PostSmContextsResponse400)(errModel.PostSmContextsResponse403),
+				(*models.PostSmContextsResponse400)(errModel.PostSmContextsResponse404),
+				(*models.PostSmContextsResponse400)(errModel.PostSmContextsResponse500),
+				(*models.PostSmContextsResponse400)(errModel.PostSmContextsResponse503),
+				(*models.PostSmContextsResponse400)(errModel.PostSmContextsResponse504),
+			} {
+				// Another body, such as the ProblemDetails of an SCP, decodes without the mandatory error.
+				if answer != nil && answer.JsonData != nil && answer.JsonData.Error != nil {
+					errorResponse = answer
+				}
+			}
+			if errorResponse != nil || problemDetail != nil {
+				err = nil
+			}
+		case error:
+			err = errModel
+		default:
+			err = openapi.ReportError("openapi error")
+		}
+	case error:
+		problemDetail = openapi.ProblemDetailsSystemFailure(err.Error())
+	default:
+		err = openapi.ReportError("server no response")
+	}
+	return errorResponse, problemDetail, err
 }
 
 func (s *nsmfService) buildCreateSmContextRequest(ue *amf_context.AmfUe, smContext *amf_context.SmContext,
