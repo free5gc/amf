@@ -82,6 +82,15 @@ func BuildIdentityRequest(
 }
 
 func BuildAuthenticationRequest(ue *context.AmfUe, accessType models.AccessType) ([]byte, error) {
+	msg, err := authenticationRequest(ue)
+	if err != nil {
+		return nil, err
+	}
+	return nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
+}
+
+// authenticationRequest builds the AUTHENTICATION REQUEST message, before its security protection.
+func authenticationRequest(ue *context.AmfUe) (*nas_message.AuthReq, error) {
 	msg := &nas_message.AuthReq{
 		Ngksi: &ie.NASKeySetId{
 			Tsc: secCtxType(ue.NgKsi.Tsc),
@@ -118,8 +127,7 @@ func BuildAuthenticationRequest(ue *context.AmfUe, accessType models.AccessType)
 		}
 		msg.EAPMsg = &ie.EAPMsg{Eap: rawEAPMessage}
 	}
-
-	return nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
+	return msg, nil
 }
 
 func BuildServiceAccept(
@@ -235,6 +243,19 @@ func BuildSecurityModeCommand(
 	eapSuccess bool,
 	eapMessage string,
 ) ([]byte, error) {
+	_, payload, err := initialSecurityModeCommand(ue, accessType, eapSuccess, eapMessage)
+	return payload, err
+}
+
+// initialSecurityModeCommand builds the SECURITY MODE COMMAND message, takes its 5G NAS security
+// context into use and protects the message under downlink NAS COUNT 0 (TS 24.501 5.4.2.2). It also
+// returns the message, which a retransmission protects again under the next NAS COUNT.
+func initialSecurityModeCommand(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	eapSuccess bool,
+	eapMessage string,
+) (*nas_message.SecModeCmd, []byte, error) {
 	msg := &nas_message.SecModeCmd{
 		SelectedNASSecAlgos: &ie.NASSecAlgos{
 			CipheringAlgo: ie.AlgCiphering(ue.CipheringAlg),
@@ -261,7 +282,7 @@ func BuildSecurityModeCommand(
 	if eapMessage != "" {
 		rawEAPMessage, err := base64.StdEncoding.DecodeString(eapMessage)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		msg.EAPMsg = &ie.EAPMsg{Eap: rawEAPMessage}
 		if eapSuccess {
@@ -270,17 +291,13 @@ func BuildSecurityModeCommand(
 	}
 
 	ue.SecurityContextAvailable = true
-	payload, err := nas_security.Encode(
-		ue,
-		msg,
-		accessType,
-		nas_message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx,
-	)
+	// The NAS COUNTs of the new 5G NAS security context start at zero (TS 24.501 5.4.2.2, 5.4.2.3).
+	payload, err := nas_security.EncodeWithNewSecurityContext(ue, msg, accessType)
 	if err != nil {
 		ue.SecurityContextAvailable = false
-		return nil, err
+		return nil, nil, err
 	}
-	return payload, nil
+	return msg, payload, nil
 }
 
 // T3346 timer is not supported.
@@ -332,6 +349,21 @@ func BuildRegistrationAccept(
 	reactivationResult *[16]bool,
 	errPduSessionID, errCause []uint8,
 ) ([]byte, error) {
+	msg, err := registrationAccept(ue, accessType, pduSessionStatus, reactivationResult, errPduSessionID, errCause)
+	if err != nil {
+		return nil, err
+	}
+	return nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
+}
+
+// registrationAccept builds the REGISTRATION ACCEPT message, before its security protection.
+func registrationAccept(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	pduSessionStatus *[16]bool,
+	reactivationResult *[16]bool,
+	errPduSessionID, errCause []uint8,
+) (*nas_message.RegAccept, error) {
 	msg := &nas_message.RegAccept{RegResult5GS: &ie.RegResult5GS{}}
 	if accessType == models.AccessType_3_GPP_ACCESS {
 		msg.RegResult5GS.Value = ie.RegResult_3gpp
@@ -425,7 +457,7 @@ func BuildRegistrationAccept(
 	if ie.DRXValue(ue.UESpecificDRX) != ie.DRXValueNotSpecified {
 		msg.NegotiatedDRXParams = &ie.DRXParams5GS{Value: ie.DRXValue(ue.UESpecificDRX)}
 	}
-	return nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
+	return msg, nil
 }
 
 func includeConfiguredNssaiCheck(ue *context.AmfUe) bool {
@@ -457,6 +489,24 @@ func BuildConfigurationUpdateCommand(
 	accessType models.AccessType,
 	flags *context.ConfigurationUpdateCommandFlags,
 ) ([]byte, error, bool) {
+	msg, err, needTimer := configurationUpdateCommand(ue, accessType, flags)
+	if err != nil {
+		return nil, err, false
+	}
+	payload, err := nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
+	if err != nil {
+		return nil, fmt.Errorf("BuildConfigurationUpdateCommand: %w", err), false
+	}
+	return payload, nil, needTimer
+}
+
+// configurationUpdateCommand builds the CONFIGURATION UPDATE COMMAND message, before its security
+// protection, and whether T3555 is to run for it.
+func configurationUpdateCommand(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	flags *context.ConfigurationUpdateCommandFlags,
+) (*nas_message.CfgUpdateCmd, error, bool) {
 	msg := &nas_message.CfgUpdateCmd{}
 	needTimer := false
 
@@ -584,11 +634,7 @@ func BuildConfigurationUpdateCommand(
 		return nil, fmt.Errorf("configuration update command is invalid"), false
 	}
 
-	payload, err := nas_security.Encode(ue, msg, accessType, protectedAndCiphered)
-	if err != nil {
-		return nil, fmt.Errorf("BuildConfigurationUpdateCommand: %w", err), false
-	}
-	return payload, nil, needTimer
+	return msg, nil, needTimer
 }
 
 func pduSessionErrorCauses(ids, causes []uint8) *ie.PDUSessReactivationResultErrCause {
