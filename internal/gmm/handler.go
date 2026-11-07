@@ -147,8 +147,9 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
-				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
-				if err != nil {
+				response, errResponse, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextRequest(
+					smContext, &updateData, nil, nil)
+				if err != nil || errResponse != nil || problemDetail != nil {
 					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
 					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 					return err
@@ -1637,7 +1638,7 @@ func reactivatePendingULDataPDUSession(ue *context.AmfUe, anType models.AccessTy
 		smContext.ActivateUpCnx(ranUe.Ran, ranUe, func() bool {
 			response, errRsp, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextActivateUpCnxState(
 				ue, smContext, anType)
-			return err == nil
+			return err == nil && errRsp == nil && problemDetail == nil
 		})
 		if err != nil {
 			reactivationResult[pduSessionID] = true

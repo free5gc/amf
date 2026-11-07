@@ -26,6 +26,7 @@ import (
 	"github.com/free5gc/ngap/aper"
 	ngapType "github.com/free5gc/ngap/ie"
 	ngapMessage "github.com/free5gc/ngap/message"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 )
 
@@ -85,6 +86,22 @@ func newLocalReleaseSmf(t *testing.T, hold chan struct{}) (*localReleaseSmf, str
 				t.Errorf("SMF stub write: %v", errEncode)
 			}
 			return
+		case http.StatusForbidden:
+			// An SmContextUpdateError: the SMF refuses the update (TS 29.502 6.1.3.3.4.2.2).
+			contentType, body, errSerialize := openapi.Serialize(models.UpdateSmContextResponse403{
+				JsonData: &models.Smf_PDUSess_SmContextUpdateError{
+					Error: &models.Smf_PDUSess_ExtProblemDetails{Status: http.StatusForbidden, Cause: "UNSPECIFIED"},
+				},
+			}, "application/json")
+			if errSerialize != nil {
+				t.Errorf("SMF stub serialize: %v", errSerialize)
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.WriteHeader(status)
+			if _, errWrite := w.Write(body); errWrite != nil {
+				t.Errorf("SMF stub write: %v", errWrite)
+			}
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if errEncode := json.NewEncoder(w).Encode(models.Smf_PDUSess_SmContextUpdatedData{
@@ -102,7 +119,8 @@ func newLocalReleaseSmf(t *testing.T, hold chan struct{}) (*localReleaseSmf, str
 	return smf, server.URL
 }
 
-// answer sets the HTTP status of the SMF's answers: 204 No Content, 500 with a problem, or 200 with a body.
+// answer sets the HTTP status of the SMF's answers: 204 No Content, 403 with an SmContextUpdateError, 500 with a
+// problem, or 200 with a body.
 func (smf *localReleaseSmf) answer(status func(models.Smf_PDUSess_SmContextUpdateData) int) {
 	smf.mu.Lock()
 	defer smf.mu.Unlock()
@@ -365,20 +383,25 @@ func TestLocalN2ReleaseDeactivatesUserPlaneActivatedByTheReleasedConnection(t *t
 		smf.upCnxStates("sm-context-6"))
 }
 
-// An activation at a new connection that the SMF rejects does not keep the late deactivation from being sent.
+// An activation at a new connection that the SMF rejects or refuses does not keep the late deactivation from being
+// sent.
 func TestLocalN2ReleaseDeactivatesAfterARejectedActivation(t *testing.T) {
-	smf, smfURL := newLocalReleaseSmf(t, nil)
-	smf.answer(statusFor(http.StatusInternalServerError, models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, ""))
-	_, ran, ranUe, amfUe := newLocalReleaseTestUe(t, smfURL)
-	anRelease := newLocalAnRelease(ran, ranUe,
-		ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
-	require.NotNil(t, anRelease)
+	for name, status := range map[string]int{"rejected": http.StatusInternalServerError, "refused": http.StatusForbidden} {
+		t.Run(name, func(t *testing.T) {
+			smf, smfURL := newLocalReleaseSmf(t, nil)
+			smf.answer(statusFor(status, models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, ""))
+			_, ran, ranUe, amfUe := newLocalReleaseTestUe(t, smfURL)
+			anRelease := newLocalAnRelease(ran, ranUe,
+				ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
+			require.NotNil(t, anRelease)
 
-	handlePDUSessionResourceSetupResponseMain(ran, newConnection(t, ran, amfUe), setupList(5), nil, nil)
-	anRelease.deactivateUpConnections()
+			handlePDUSessionResourceSetupResponseMain(ran, newConnection(t, ran, amfUe), setupList(5), nil, nil)
+			anRelease.deactivateUpConnections()
 
-	require.Equal(t, []models.Smf_PDUSess_UpCnxState{noUpCnxState, models.Smf_PDUSess_UpCnxState_DEACTIVATED},
-		smf.upCnxStates("sm-context-5"))
+			require.Equal(t, []models.Smf_PDUSess_UpCnxState{noUpCnxState, models.Smf_PDUSess_UpCnxState_DEACTIVATED},
+				smf.upCnxStates("sm-context-5"))
+		})
+	}
 }
 
 // The AMF removes a gNB whose SCTP association is lost before the SMFs answer the deactivations, so that a slow SMF
@@ -426,7 +449,9 @@ func newLocalReleaseTarget(t *testing.T, sourceUe *amf_context.RanUe) (*amf_cont
 // user plane stays at the source and is deactivated.
 func TestLocalN2ReleaseKeepsUserPlaneOfCompletedHandover(t *testing.T) {
 	const anType = models.AccessType_3_GPP_ACCESS
-	for name, status := range map[string]int{"accepted": http.StatusOK, "rejected": http.StatusInternalServerError} {
+	for name, status := range map[string]int{
+		"accepted": http.StatusOK, "rejected": http.StatusInternalServerError, "refused": http.StatusForbidden,
+	} {
 		t.Run(name, func(t *testing.T) {
 			smf, smfURL := newLocalReleaseSmf(t, nil)
 			smf.answer(statusFor(status, "", models.Smf_PDUSess_HoState_COMPLETED))
@@ -611,23 +636,28 @@ func TestLocalN2ReleaseAfterTwoActivationsAtTheConnectionDeactivates(t *testing.
 	}, smf.upCnxStates("sm-context-5"))
 }
 
-// A path switch that the SMF rejects leaves the user plane at the source: the release of the source deactivates it.
+// A path switch that the SMF rejects or refuses leaves the user plane at the source: the release of the source
+// deactivates it.
 func TestLocalN2ReleaseAfterARejectedPathSwitchDeactivates(t *testing.T) {
-	e := newHoTestEnv(t, false)
-	smf, smfURL := newLocalReleaseSmf(t, nil)
-	smf.answer(statusFor(http.StatusInternalServerError, models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, ""))
-	smContext, ok := e.amfUe.SmContextFindByPDUSessionID(5)
-	require.True(t, ok)
-	smContext.SetSmfUri(smfURL)
-	anRelease := newLocalAnRelease(e.srcRan, e.src,
-		ngapCause(ngap_message.CauseChoiceTransport, ngapType.CauseTransportPresentTransportResourceUnavailable))
-	require.NotNil(t, anRelease)
-	sendXnPathSwitch(e, 10, 5)
+	for name, status := range map[string]int{"rejected": http.StatusInternalServerError, "refused": http.StatusForbidden} {
+		t.Run(name, func(t *testing.T) {
+			e := newHoTestEnv(t, false)
+			smf, smfURL := newLocalReleaseSmf(t, nil)
+			smf.answer(statusFor(status, models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, ""))
+			smContext, ok := e.amfUe.SmContextFindByPDUSessionID(5)
+			require.True(t, ok)
+			smContext.SetSmfUri(smfURL)
+			anRelease := newLocalAnRelease(e.srcRan, e.src,
+				ngapCause(ngap_message.CauseChoiceTransport, ngapType.CauseTransportPresentTransportResourceUnavailable))
+			require.NotNil(t, anRelease)
+			sendXnPathSwitch(e, 10, 5)
 
-	anRelease.deactivateUpConnections()
+			anRelease.deactivateUpConnections()
 
-	require.Equal(t, []models.Smf_PDUSess_UpCnxState{noUpCnxState, models.Smf_PDUSess_UpCnxState_DEACTIVATED},
-		smf.upCnxStates("sm-context-5"))
+			require.Equal(t, []models.Smf_PDUSess_UpCnxState{noUpCnxState, models.Smf_PDUSess_UpCnxState_DEACTIVATED},
+				smf.upCnxStates("sm-context-5"))
+		})
+	}
 }
 
 // A late deactivation does not undo a path switch to the target when the source gNB's association is lost during the
