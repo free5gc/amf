@@ -1521,6 +1521,11 @@ func releaseInactivePDUSession(ue *context.AmfUe, anType models.AccessType, uePd
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
 
+		// the PDU session status is of the PDU sessions associated with the access type the message is sent over
+		if smContext.AccessType() != anType {
+			return true
+		}
+
 		// check pduSession id is valid
 		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
 			ue.GmmLog.Errorln("Invalid PDU Session ID:", pduSessionID)
@@ -1931,6 +1936,11 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 		// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
 		ue.RetransmissionOfInitialNASMsg = ue.MacFailed
+		// The PDU session status IE is not a cleartext IE: it is in the NAS message container (TS 24.501 4.4.6)
+		pduStatusResult = nil
+		if serviceRequest.PDUSessStatus != nil {
+			pduStatusResult = getPDUSessionStatus(ue, anType)
+		}
 	}
 
 	serviceType := uint8(serviceRequest.SvcType.Value)
@@ -1946,6 +1956,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		ngap_message.SendUEContextReleaseCommand(ranUe,
 			context.UeContextN2NormalRelease, ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 		return nil
+	}
+
+	if serviceRequest.PDUSessStatus != nil {
+		uePduStatus := serviceRequest.PDUSessStatus.PSI
+		pduStatusResult = new([psiArraySize]bool)
+		releaseInactivePDUSession(ue, anType, &uePduStatus, pduStatusResult)
 	}
 
 	// This spelling is the name exported by the NAS API.
@@ -1977,14 +1993,6 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 		errPduSessionId, errCause = reactivatePendingULDataPDUSession(ue, anType, serviceType, &uplinkDataPsi,
 			dlPduSessionId, &cxtList, reactivationResult, errPduSessionId, errCause)
-	}
-
-	if serviceRequest.PDUSessStatus != nil {
-		uePduStatus := serviceRequest.PDUSessStatus.PSI
-		if pduStatusResult == nil {
-			pduStatusResult = new([psiArraySize]bool)
-		}
-		releaseInactivePDUSession(ue, anType, &uePduStatus, pduStatusResult)
 	}
 
 	switch serviceType {
