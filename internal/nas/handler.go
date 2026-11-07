@@ -9,6 +9,7 @@ import (
 	"github.com/free5gc/amf/internal/nas/nas_security"
 	"github.com/free5gc/nas/ie"
 	"github.com/free5gc/nas/message"
+	"github.com/free5gc/openapi/models"
 	nas_metrics "github.com/free5gc/util/metrics/nas"
 )
 
@@ -60,6 +61,12 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 
 	ranUe.AmfUe.NasPduValue = nasPdu
 	ranUe.AmfUe.MacFailed = !integrityProtected
+	// TS 24.501 4.4.2.5: the AMF checks that the ngKSI of an initial NAS message belongs to a 5G NAS security
+	// context available in the AMF; a message under another ngKSI fails the integrity check (4.4.4.3)
+	if integrityProtected && initialMessage && !ngKsiOfCurrentContext(ranUe.AmfUe, msg) {
+		ranUe.AmfUe.NASLog.Warnln("ngKSI of the initial NAS message is not the one of the current security context")
+		ranUe.AmfUe.MacFailed = true
+	}
 
 	if ranUe.AmfUe.SecurityContextIsValid() && ranUe.HoldingAmfUe != nil {
 		gmm_common.ClearHoldingRanUe(ranUe.HoldingAmfUe.GetRanUe(ranUe.Ran.AnType))
@@ -72,6 +79,22 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 		ranUe.AmfUe.NASLog.Errorf("Handle NAS Error: %v", errDispatch)
 		isNasMsgRcv = false
 	}
+}
+
+// ngKsiOfCurrentContext reports whether the ngKSI of a REGISTRATION REQUEST or SERVICE REQUEST is the one
+// of the UE's current 5G NAS security context, and true for any other message.
+func ngKsiOfCurrentContext(ue *amf_context.AmfUe, msg message.Message) bool {
+	var ngKsi *ie.NASKeySetId
+	switch m := msg.(type) {
+	case *message.RegReq:
+		ngKsi = m.Ngksi
+	case *message.SvcReq:
+		ngKsi = m.Ngksi
+	default:
+		return true
+	}
+	mapped := ngKsi.Tsc == ie.SecCtxTypeMapped
+	return mapped == (ue.NgKsi.Tsc == models.Amf_Comm_ScType_MAPPED) && int32(ngKsi.Ksi) == ue.NgKsi.Ksi
 }
 
 // Get5GSMobileIdentityFromNASPDU is used to find MobileIdentity from plain nas
