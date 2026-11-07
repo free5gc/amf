@@ -3,6 +3,7 @@ package ngap
 import (
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -1389,11 +1390,36 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_XN_VALUE,
 		business_metrics.HANDOVER_EVENT_ATTEMPT_VALUE, business_metrics.HANDOVER_EMPTY_CAUSE, xnHandoverStartTime)
 
+	// TS 38.413 8.4.4.3, 9.2.3.10: a PATH SWITCH REQUEST FAILURE lists the PDU sessions that it releases, here each
+	// PDU session of the request once
+	var pduSessionIDs []int64
+	if pduSessionResourceToBeSwitchedInDLList != nil {
+		for _, item := range pduSessionResourceToBeSwitchedInDLList.List {
+			if !slices.Contains(pduSessionIDs, item.PDUSessionID.Value) {
+				pduSessionIDs = append(pduSessionIDs, item.PDUSessionID.Value)
+			}
+		}
+		// TS 38.413 8.4.4.4: several PDU Session ID IEs set to the same value
+		if len(pduSessionIDs) < len(pduSessionResourceToBeSwitchedInDLList.List) {
+			ran.Log.Errorf("PathSwitchRequest names a PDU Session ID more than once")
+			cause := &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+				Value: ngapType.CauseRadioNetworkPresentMultiplePDUSessionIDInstances,
+			}}
+			ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
+				pathSwitchReleasedList(ran, pduSessionIDs, cause), nil,
+				business_metrics.HANDOVER_PDU_SESSION_RES_REL_LIST_ERR, xnHandoverStartTime)
+			return
+		}
+	}
+
 	ranUe := context.GetSelf().RanUeFindByAmfUeNgapID(sourceAMFUENGAPID.Value)
 	if ranUe == nil {
 		ran.Log.Errorf("Cannot find UE from sourceAMfUeNgapID[%d]", sourceAMFUENGAPID.Value)
+		cause := &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+			Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
+		}}
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
-			nil, nil, business_metrics.HANDOVER_RAN_UE_MISSING_ERR,
+			pathSwitchReleasedList(ran, pduSessionIDs, cause), nil, business_metrics.HANDOVER_RAN_UE_MISSING_ERR,
 			xnHandoverStartTime)
 		return
 	}
@@ -1403,8 +1429,24 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ranUe.Log.Error("AmfUe is nil")
+		cause := &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+			Value: ngapType.CauseRadioNetworkPresentUnknownLocalUENGAPID,
+		}}
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
-			nil, nil, business_metrics.HANDOVER_AMF_UE_MISSING_ERR,
+			pathSwitchReleasedList(ran, pduSessionIDs, cause), nil, business_metrics.HANDOVER_AMF_UE_MISSING_ERR,
+			xnHandoverStartTime)
+		return
+	}
+
+	// TS 38.413 10.4: the source AMF UE NGAP ID must name the UE's NGAP association, not the target of an N2
+	// handover that was not executed
+	if amfUe.GetRanUe(ranUe.Ran.AnType) != ranUe {
+		ranUe.Log.Errorf("sourceAMfUeNgapID[%d] is not the UE's NGAP association", sourceAMFUENGAPID.Value)
+		cause := &ngapType.Cause{Choice: &ngapType.CauseProtocol{
+			Value: ngapType.CauseProtocolPresentMessageNotCompatibleWithReceiverState,
+		}}
+		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
+			pathSwitchReleasedList(ran, pduSessionIDs, cause), nil, business_metrics.HANDOVER_RAN_UE_MISSING_ERR,
 			xnHandoverStartTime)
 		return
 	}
@@ -1414,8 +1456,9 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 		amfUe.UpdateNH()
 	} else {
 		ranUe.Log.Errorf("No Security Context : SUPI[%s]", amfUe.Supi)
+		cause := &ngapType.Cause{Choice: &ngapType.CauseMisc{Value: ngapType.CauseMiscPresentUnspecified}}
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
-			nil, nil, business_metrics.HANDOVER_SECURITY_CONTEXT_MISSING_ERR,
+			pathSwitchReleasedList(ran, pduSessionIDs, cause), nil, business_metrics.HANDOVER_SECURITY_CONTEXT_MISSING_ERR,
 			xnHandoverStartTime)
 		return
 	}
@@ -1468,7 +1511,11 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
 			if !ok {
 				ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
-				// TODO: Check if doing error handling here
+				cause := &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+					Value: ngapType.CauseRadioNetworkPresentUnknownPDUSessionID,
+				}}
+				pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
+					pathSwitchReleasedItem(ran, int64(pduSessionID), cause))
 				continue
 			}
 			// TS 23.502 4.9.1.2.2 step 7 filter un-supported S-NSSAI in Target TAI
@@ -1585,10 +1632,36 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			xnHandoverStartTime)
 		// Can iterate through the list of pduSession and increment
 	} else {
-		// TODO: change the cause error
+		cause := &ngapType.Cause{Choice: &ngapType.CauseMisc{Value: ngapType.CauseMiscPresentUnspecified}}
 		ngap_message.SendPathSwitchRequestFailure(ran, sourceAMFUENGAPID.Value, rANUENGAPID.Value,
-			nil, nil, business_metrics.HANDOVER_EMPTY_CAUSE,
+			pathSwitchReleasedList(ran, pduSessionIDs, cause), nil, business_metrics.HANDOVER_EMPTY_CAUSE,
 			xnHandoverStartTime)
+	}
+}
+
+// pathSwitchReleasedList releases each given PDU session with the same cause.
+func pathSwitchReleasedList(
+	ran *context.AmfRan, pduSessionIDs []int64, cause *ngapType.Cause,
+) *ngapType.PDUSessionResourceReleasedListPSFail {
+	releasedList := new(ngapType.PDUSessionResourceReleasedListPSFail)
+	for _, pduSessionID := range pduSessionIDs {
+		releasedList.List = append(releasedList.List, pathSwitchReleasedItem(ran, pduSessionID, cause))
+	}
+	return releasedList
+}
+
+// pathSwitchReleasedItem releases a PDU session in a PATH SWITCH REQUEST FAILURE, with a Path Switch Request
+// Unsuccessful Transfer that the AMF generates (TS 38.413 8.4.4.4 NOTE).
+func pathSwitchReleasedItem(
+	ran *context.AmfRan, pduSessionID int64, cause *ngapType.Cause,
+) ngapType.PDUSessionResourceReleasedItemPSFail {
+	transfer, err := ngapType.MarshalBinary(&ngapType.PathSwitchRequestUnsuccessfulTransfer{Cause: cause})
+	if err != nil {
+		ran.Log.Errorf("Marshal PathSwitchRequestUnsuccessfulTransfer failed: %s", err.Error())
+	}
+	return ngapType.PDUSessionResourceReleasedItemPSFail{
+		PDUSessionID:                          &ngapType.PDUSessionID{Value: pduSessionID},
+		PathSwitchRequestUnsuccessfulTransfer: octetStringPointer(transfer),
 	}
 }
 
