@@ -866,7 +866,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				}
 			} else if errResponse != nil {
 				errJSON := errResponse.JsonData
-				n1Msg := relatedContentBytes(errResponse.BinaryDataN2SmInformation)
+				n1Msg := relatedContentBytes(errResponse.BinaryDataN1SmMessage)
 				ranUe.Log.Warnf("PDU Session Modification is rejected by SMF[pduSessionId:%d], Error[%s]\n",
 					pduSessionID, errJSON.Error.Cause)
 				if n1Msg != nil {
@@ -925,7 +925,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				}
 			} else if errResponse != nil {
 				errJSON := errResponse.JsonData
-				n1Msg := relatedContentBytes(errResponse.BinaryDataN2SmInformation)
+				n1Msg := relatedContentBytes(errResponse.BinaryDataN1SmMessage)
 				ranUe.Log.Warnf("PDU Session Release is rejected by SMF[pduSessionID:%d], Error[%s]\n",
 					pduSessionID, errJSON.Error.Cause)
 				if n1Msg != nil {

@@ -106,3 +106,93 @@ func TestCreateSmContextErrorAnswer(t *testing.T) {
 		assert.Equal(t, int32(http.StatusInternalServerError), problemDetail.Status)
 	})
 }
+
+// A 5GSM STATUS for session 5, PTI 0, cause #81 "invalid PTI value".
+var testGsmStatus = []byte{0x2e, 0x05, 0x00, 0xd6, 0x51}
+
+func testSmContextUpdateError() *models.Smf_PDUSess_SmContextUpdateError {
+	return &models.Smf_PDUSess_SmContextUpdateError{
+		Error:   &models.Smf_PDUSess_ExtProblemDetails{Status: http.StatusForbidden, Cause: "N1_SM_ERROR"},
+		N1SmMsg: &models.RefToBinaryData{ContentId: "GSM_NAS"},
+	}
+}
+
+func TestUpdateSmContextErrorAnswer(t *testing.T) {
+	t.Parallel()
+
+	n1 := func() *multipart.RelatedContent {
+		return &multipart.RelatedContent{ContentID: "GSM_NAS", Content: testGsmStatus}
+	}
+	answers := map[string]Nsmf_PDUSession.UpdateSmContextError{
+		"400": {UpdateSmContextResponse400: &models.UpdateSmContextResponse400{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+		"403": {UpdateSmContextResponse403: &models.UpdateSmContextResponse403{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+		"404": {UpdateSmContextResponse404: &models.UpdateSmContextResponse404{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+		"500": {UpdateSmContextResponse500: &models.UpdateSmContextResponse500{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+		"503": {UpdateSmContextResponse503: &models.UpdateSmContextResponse503{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+		"504": {UpdateSmContextResponse504: &models.UpdateSmContextResponse504{
+			JsonData: testSmContextUpdateError(), BinaryDataN1SmMessage: n1(),
+		}},
+	}
+	for status, answer := range answers {
+		t.Run("SmContextUpdateError "+status, func(t *testing.T) {
+			t.Parallel()
+			errorResponse, problemDetail, err := updateSmContextErrorAnswer(
+				openapi.GenericOpenAPIError{ErrorStatus: http.StatusForbidden, ErrorModel: answer})
+			require.NoError(t, err, "an answer of the SMF is no error of the request")
+			assert.Nil(t, problemDetail)
+			require.NotNil(t, errorResponse)
+			require.NotNil(t, errorResponse.BinaryDataN1SmMessage)
+			assert.Equal(t, testGsmStatus, errorResponse.BinaryDataN1SmMessage.Content)
+		})
+	}
+
+	t.Run("ProblemDetails", func(t *testing.T) {
+		t.Parallel()
+		problem := &models.ProblemDetails{Status: http.StatusLengthRequired}
+		errorResponse, problemDetail, err := updateSmContextErrorAnswer(openapi.GenericOpenAPIError{
+			ErrorStatus: http.StatusLengthRequired,
+			ErrorModel:  Nsmf_PDUSession.UpdateSmContextError{ProblemDetails: problem},
+		})
+		require.NoError(t, err)
+		assert.Nil(t, errorResponse)
+		assert.Equal(t, problem, problemDetail)
+	})
+
+	notAnswers := map[string]Nsmf_PDUSession.UpdateSmContextError{
+		"redirect without a body":    {Location: "http://smf2/"},
+		"ProblemDetails body on 503": {UpdateSmContextResponse503: &models.UpdateSmContextResponse503{}},
+		"SmContextUpdateError without its error": {UpdateSmContextResponse403: &models.UpdateSmContextResponse403{
+			JsonData:              &models.Smf_PDUSess_SmContextUpdateError{N1SmMsg: testSmContextUpdateError().N1SmMsg},
+			BinaryDataN1SmMessage: n1(),
+		}},
+	}
+	for name, answer := range notAnswers {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			errorResponse, problemDetail, err := updateSmContextErrorAnswer(
+				openapi.GenericOpenAPIError{ErrorStatus: http.StatusServiceUnavailable, ErrorModel: answer})
+			require.Error(t, err)
+			assert.Nil(t, errorResponse)
+			assert.Nil(t, problemDetail)
+		})
+	}
+
+	t.Run("no answer", func(t *testing.T) {
+		t.Parallel()
+		errorResponse, problemDetail, err := updateSmContextErrorAnswer(errors.New("connection refused"))
+		require.Error(t, err)
+		assert.Nil(t, errorResponse)
+		require.NotNil(t, problemDetail)
+		assert.Equal(t, int32(http.StatusInternalServerError), problemDetail.Status)
+	})
+}

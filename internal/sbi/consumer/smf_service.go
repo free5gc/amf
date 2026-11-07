@@ -210,10 +210,10 @@ func (s *nsmfService) SendCreateSmContextRequest(ue *amf_context.AmfUe, smContex
 	return smContextRef, errorResponse, problemDetail, err1
 }
 
-// createSmContextErrorAnswer reads the error of an SM context create. An error answer of the SMF
-// with an SmContextCreateError (TS 29.502 6.1.3.2.3.1), whatever its status code, or with
-// ProblemDetails is the SMF's answer to the request and not an error of sending it. The
-// SmContextCreateError carries the N1 SM message for the UE, such as a PDU SESSION ESTABLISHMENT REJECT.
+// createSmContextErrorAnswer reads the error of an SM context create. An error answer of the SMF with an
+// SmContextCreateError (TS 29.502 6.1.3.2.3.1), whatever its status code, or with ProblemDetails is the SMF's
+// answer to the request and not an error of sending it. The SmContextCreateError, which then has its mandatory
+// error, carries the N1 SM message for the UE, such as a PDU SESSION ESTABLISHMENT REJECT.
 func createSmContextErrorAnswer(localErr error) (
 	errorResponse *models.PostSmContextsResponse400, problemDetail *models.ProblemDetails, err error,
 ) {
@@ -542,26 +542,51 @@ func (s *nsmfService) SendUpdateSmContextRequest(smContext *amf_context.SmContex
 	if localErr == nil {
 		response = updateSmContextReponse.UpdateSmContextResponse200
 	} else {
-		err1 = localErr
-		switch errType := localErr.(type) {
-		// API error
-		case openapi.GenericOpenAPIError:
-			switch errModel := errType.Model().(type) {
-			case Nsmf_PDUSession.UpdateSmContextError:
-				problemDetail = errModel.ProblemDetails
-				errorResponse = errModel.UpdateSmContextResponse400
-			case error:
-				err1 = errModel
-			default:
-				err1 = openapi.ReportError("openapi error")
-			}
-		case error:
-			problemDetail = openapi.ProblemDetailsSystemFailure(err1.Error())
-		default:
-			err1 = openapi.ReportError("server no response")
-		}
+		errorResponse, problemDetail, err1 = updateSmContextErrorAnswer(localErr)
 	}
 	return response, errorResponse, problemDetail, err1
+}
+
+// updateSmContextErrorAnswer reads the error of an SM context update as createSmContextErrorAnswer does for a
+// create. The SmContextUpdateError (TS 29.502 6.1.3.3.4.2.2), which then has its mandatory error, carries the N1 SM
+// message for the UE, such as a 5GSM STATUS or a PDU SESSION MODIFICATION REJECT.
+func updateSmContextErrorAnswer(localErr error) (
+	errorResponse *models.UpdateSmContextResponse400, problemDetail *models.ProblemDetails, err error,
+) {
+	err = localErr
+	switch errType := localErr.(type) {
+	// API error
+	case openapi.GenericOpenAPIError:
+		switch errModel := errType.Model().(type) {
+		case Nsmf_PDUSession.UpdateSmContextError:
+			problemDetail = errModel.ProblemDetails
+			for _, answer := range []*models.UpdateSmContextResponse400{
+				errModel.UpdateSmContextResponse400,
+				(*models.UpdateSmContextResponse400)(errModel.UpdateSmContextResponse403),
+				(*models.UpdateSmContextResponse400)(errModel.UpdateSmContextResponse404),
+				(*models.UpdateSmContextResponse400)(errModel.UpdateSmContextResponse500),
+				(*models.UpdateSmContextResponse400)(errModel.UpdateSmContextResponse503),
+				(*models.UpdateSmContextResponse400)(errModel.UpdateSmContextResponse504),
+			} {
+				// Another body, such as the ProblemDetails of an SCP, decodes without the mandatory error.
+				if answer != nil && answer.JsonData != nil && answer.JsonData.Error != nil {
+					errorResponse = answer
+				}
+			}
+			if errorResponse != nil || problemDetail != nil {
+				err = nil
+			}
+		case error:
+			err = errModel
+		default:
+			err = openapi.ReportError("openapi error")
+		}
+	case error:
+		problemDetail = openapi.ProblemDetailsSystemFailure(err.Error())
+	default:
+		err = openapi.ReportError("server no response")
+	}
+	return errorResponse, problemDetail, err
 }
 
 // Release SmContext Request
