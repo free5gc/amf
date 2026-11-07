@@ -563,6 +563,9 @@ func (ue *AmfUe) DerivateKamf() {
 		return
 	}
 	ue.Kamf = hex.EncodeToString(KamfBytes)
+	// TS 24.501 5.4.1.3.1: a new KAMF belongs to a partial native 5G NAS security context, which only a
+	// security mode control procedure takes into use, even when the UE has a valid one already
+	ue.SecurityContextAvailable = false
 }
 
 // Algorithm key Derivation function defined in TS 33.501 Annex A.9
