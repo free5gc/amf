@@ -148,6 +148,7 @@ type AmfUe struct {
 	SecurityContextAvailable bool
 	UESecurityCapability     ie.UESecCapability // for security command
 	NgKsi                    models.Amf_Comm_NgKsi
+	StoredNgKsi              models.Amf_Comm_NgKsi
 	MacFailed                bool      // set to true if the integrity check of current NAS message is failed
 	KnasInt                  [16]uint8 // 16 byte
 	KnasEnc                  [16]uint8 // 16 byte
