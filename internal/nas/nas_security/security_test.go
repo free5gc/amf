@@ -10,6 +10,7 @@ import (
 	"github.com/free5gc/nas/ie"
 	"github.com/free5gc/nas/message"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/fsm"
 )
 
 func TestEncodeNewSecurityContextResetsBothCounts(t *testing.T) {
@@ -89,6 +90,67 @@ func TestDecodeCipheredMACFailureRestoresCount(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, integrityProtected)
 	require.Equal(t, uint32(2<<8|7), ue.ULCount.Get())
+}
+
+// TS 24.501 4.4.4.3: until the secure exchange of NAS messages has been established, that is while the AMF
+// authenticates the UE or runs the security mode control, it processes the messages of the clause's list that are not
+// integrity protected; once it has been established, it discards them.
+func TestDecodePlainMessagesBeforeSecureExchange(t *testing.T) {
+	testCases := []struct {
+		name  string
+		state fsm.StateType
+		msg   message.Message
+	}{
+		{
+			name:  "authentication response",
+			state: context.Authentication,
+			msg:   &message.AuthRsp{AuthRspParam: &ie.AuthRspParam{Res: make([]byte, 16)}},
+		},
+		{
+			name:  "identity response with the SUCI",
+			state: context.Authentication,
+			msg: &message.IdRsp{MobileId: &ie.MobileId5GS{
+				TypeOfId:   ie.IdType_5GS_SUCI,
+				PlmnId:     ie.PlmnId{MCC: "208", MNC: "93"},
+				MSINLength: 10,
+			}},
+		},
+		{
+			name:  "security mode reject",
+			state: context.SecurityMode,
+			msg:   &message.SecModeRej{Cause5GMM: &ie.Cause5GMM{Value: ie.Cause5GMM_SecModeRejected}},
+		},
+		{
+			name:  "deregistration request",
+			state: context.SecurityMode,
+			msg: &message.DeregReqUEOrig{
+				DeregType: &ie.DeregType{AccessType: ie.AccessType_3gpp},
+				Ngksi:     &ie.NASKeySetId{Ksi: ie.NASKeyNA},
+				MobileId5GS: &ie.MobileId5GS{
+					TypeOfId: ie.IdType_5GS_TMSI,
+					TMSI5G:   [4]byte{0, 0, 0, 1},
+				},
+			},
+		},
+	}
+	for _, tc := range testCases {
+		payload, err := message.Marshal(tc.msg, nil, message.SecHdrTypePlainNas)
+		require.NoError(t, err, tc.name)
+		for _, state := range []fsm.StateType{tc.state, context.Registered} {
+			ue := newSecurityTestUE()
+			ue.SecurityContextAvailable = true
+			ue.State = map[models.AccessType]*fsm.State{models.AccessType_3_GPP_ACCESS: fsm.NewState(state)}
+
+			decoded, integrityProtected, decodeErr := Decode(ue, models.AccessType_3_GPP_ACCESS, payload, false)
+			require.False(t, integrityProtected, tc.name)
+			if state == tc.state {
+				require.NoError(t, decodeErr, "a plain %s in the %s state", tc.name, state)
+				require.IsType(t, tc.msg, decoded)
+			} else {
+				require.Error(t, decodeErr, "a plain %s after the secure exchange is established", tc.name)
+			}
+		}
+	}
 }
 
 func newSecurityTestUE() *context.AmfUe {

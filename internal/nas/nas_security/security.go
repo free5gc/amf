@@ -129,11 +129,20 @@ func Decode(
 		securityHeaderType,
 		integrityProtected,
 		initialMessage,
+		secureExchangeEstablished(ue, accessType),
 	); err != nil {
 		return nil, false, err
 	}
 
 	return msg, integrityProtected, nil
+}
+
+// secureExchangeEstablished tells whether the secure exchange of NAS messages has been established for the NAS
+// signaling connection (TS 24.501 4.4.2.5): it is not while the AMF authenticates the UE or runs the security mode
+// control procedure, which the AMF does only when no current 5G NAS security context is in use for the connection.
+func secureExchangeEstablished(ue *context.AmfUe, accessType models.AccessType) bool {
+	state := ue.State[accessType]
+	return state == nil || (!state.Is(context.Authentication) && !state.Is(context.SecurityMode))
 }
 
 func validateUplinkSecurity(
@@ -142,6 +151,7 @@ func validateUplinkSecurity(
 	securityHeaderType message.SecHdrType,
 	integrityProtected bool,
 	initialMessage bool,
+	secureExchange bool,
 ) error {
 	msgTypeText := func() string {
 		if msg == nil {
@@ -176,6 +186,7 @@ func validateUplinkSecurity(
 		return nil
 	}
 
+	// TS 24.501 4.4.4.3: the messages of its list are processed unprotected until the secure exchange is established
 	switch msg.MsgType() {
 	case message.MsgTypeDeregReqUEOrig, message.MsgTypeRegReq:
 		if initialMessage {
@@ -183,7 +194,7 @@ func validateUplinkSecurity(
 				securityHeaderType == message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx {
 				return errWrongSecurityHeader()
 			}
-		} else if ue.SecurityContextAvailable {
+		} else if ue.SecurityContextAvailable && secureExchange {
 			if securityHeaderType != message.SecHdrTypeIntegrityProtectedAndCiphered {
 				return errWrongSecurityHeader()
 			}
@@ -216,7 +227,7 @@ func validateUplinkSecurity(
 		if !isSUCI && !ue.SecurityContextAvailable {
 			return errNoSecurityContext()
 		}
-		if ue.SecurityContextAvailable {
+		if ue.SecurityContextAvailable && (!isSUCI || secureExchange) {
 			if securityHeaderType != message.SecHdrTypeIntegrityProtectedAndCiphered {
 				return errWrongSecurityHeader()
 			}
@@ -228,7 +239,7 @@ func validateUplinkSecurity(
 		message.MsgTypeAuthFailure,
 		message.MsgTypeSecModeRej,
 		message.MsgTypeDeregAcceptUETerm:
-		if ue.SecurityContextAvailable {
+		if ue.SecurityContextAvailable && secureExchange {
 			if securityHeaderType != message.SecHdrTypeIntegrityProtectedAndCiphered {
 				return errWrongSecurityHeader()
 			}
