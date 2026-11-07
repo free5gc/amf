@@ -2,8 +2,17 @@ package consumer
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -294,6 +303,30 @@ func TestSendRegisterNFInstanceStopsOnCancel(t *testing.T) {
 	})
 }
 
+func writeTestNRFCertificate(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	now := time.Now()
+	certificate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    now.Add(-time.Minute),
+		NotAfter:     now.Add(time.Hour),
+		URIs: []*url.URL{
+			{Scheme: "urn", Opaque: "uuid:11111111-1111-4111-8111-111111111111"},
+		},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, certificate, certificate, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	path := filepath.Join(t.TempDir(), "nrf.pem")
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	require.NoError(t, os.WriteFile(path, certPEM, 0o600))
+	return path
+}
+
 func TestSendRegisterNFInstance(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -328,6 +361,9 @@ func TestSendRegisterNFInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := newNrfTestConsumer(t)
+			if tt.wantOAuth2 {
+				c.Context().NrfCertPem = writeTestNRFCertificate(t)
+			}
 
 			gock.New(testNrfUri).
 				Put(testNfIdPath).

@@ -193,6 +193,10 @@ func (a *AmfApp) SetReportCaller(reportCaller bool) {
 func (a *AmfApp) Start() {
 	self := a.Context()
 	amf_context.InitAmfContext(self)
+	if err := registerNFInstanceAtStart(a); err != nil {
+		logger.InitLog.Errorf("AMF startup registration failed: %+v", err)
+		return
+	}
 
 	// Initialize NGAP worker pool and scheduler
 	workerPoolSize := a.cfg.GetNgapWorkerPoolSize()
@@ -222,17 +226,16 @@ func (a *AmfApp) Start() {
 		}()
 	}
 
-	if err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, true); err_reg != nil {
-		logger.InitLog.Errorf("Send Register NF Instance failed: %+v", err_reg)
-	} else {
-		// Only a registered profile has something to keep alive.
-		a.Consumer().StartHeartbeat(a.ctx, &a.wg)
-	}
+	a.Consumer().StartHeartbeat(a.ctx, &a.wg)
 
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
 		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
 	}
 	a.WaitRoutineStopped()
+}
+
+func registerNFInstanceAtStart(a *AmfApp) error {
+	return a.Consumer().SendRegisterNFInstance(a.ctx, true)
 }
 
 // Used in AMF planned removal procedure

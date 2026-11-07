@@ -1,6 +1,7 @@
 package callback
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -35,15 +36,8 @@ func SendN1N2TransferFailureNotification(ue *amf_context.AmfUe, cause models.Amf
 			},
 		}
 
-		ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-			models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
-		if err != nil {
-			HttpLog.Warnf("SendN1N2TransferFailureNotification get token failed: %+v", pd)
-			return
-		}
-
-		_, err = client.N1N2MessageCollectionCollectionApi.
-			N1N2TransferFailureNotification(ctx, uri, &n1N2MsgTxfrFailureNotificationReq)
+		_, err := client.N1N2MessageCollectionCollectionApi.
+			N1N2TransferFailureNotification(context.Background(), uri, &n1N2MsgTxfrFailureNotificationReq)
 
 		if err != nil {
 			HttpLog.Errorln(err.Error())
@@ -84,15 +78,8 @@ func SendN1MessageNotify(ue *amf_context.AmfUe, n1class models.Amf_Comm_N1Messag
 				RequestBody: &n1MessageNotify,
 			}
 
-			ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
-			if err != nil {
-				HttpLog.Warnf("SendN1MessageNotify get token failed: %+v", pd)
-				return false
-			}
-
-			_, err = client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
-				N1MessageNotify(ctx, subscription.N1NotifyCallbackUri, &n1MessageNotifyReq)
+			_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+				N1MessageNotify(context.Background(), subscription.N1NotifyCallbackUri, &n1MessageNotifyReq)
 			if err != nil {
 				HttpLog.Errorln(err.Error())
 			}
@@ -138,15 +125,8 @@ func SendN1MessageNotifyAtAMFReAllocation(
 		}
 	}
 
-	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_AMF)
-	if err != nil {
-		HttpLog.Warnf("SendN1MessageNotifyAtAMFReAllocation get token failed: %+v", pd)
-		return err
-	}
-
-	_, err = client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
-		N1MessageNotify(ctx, callbackUri, &n1MessageNotifyReq)
+	_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+		N1MessageNotify(context.Background(), callbackUri, &n1MessageNotifyReq)
 	if err != nil {
 		HttpLog.Errorln(err.Error())
 		return err
@@ -223,15 +203,8 @@ func SendN2InfoNotify(ue *amf_context.AmfUe, n2class models.Amf_Comm_N2Informati
 				RequestBody: &n2InformationNotify,
 			}
 
-			ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-				models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_SMF)
-			if err != nil {
-				HttpLog.Warnf("SendN2InfoNotify get token failed: %+v", pd)
-				return false
-			}
-
-			_, err = client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
-				N2InfoNotify(ctx, subscription.N2NotifyCallbackUri, &n2InformationNotifyReq)
+			_, err := client.N1N2SubscriptionsCollectionForIndividualUEContextsCollectionApi.
+				N2InfoNotify(context.Background(), subscription.N2NotifyCallbackUri, &n2InformationNotifyReq)
 			if err != nil {
 				HttpLog.Errorln(err.Error())
 			}
