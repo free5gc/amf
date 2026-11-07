@@ -142,6 +142,19 @@ func (ue *AmfUe) HasT3550() bool {
 	return ue.hasTimer(&ue.T3550)
 }
 
+// RetransmitT3550 has a running T3550 resend the Registration Accept at once,
+// without counting an expiry (see Timer.Retransmit), and reports whether T3550
+// was running.
+func (ue *AmfUe) RetransmitT3550() bool {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	if ue.T3550 == nil {
+		return false
+	}
+	ue.T3550.Retransmit()
+	return true
+}
+
 // StopAll5GSMMTimers stops every 5GMM timer of the UE and, if paging was in
 // progress, ends the paging procedure.
 func (ue *AmfUe) StopAll5GSMMTimers() {

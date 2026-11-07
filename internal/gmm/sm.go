@@ -211,6 +211,16 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleAuthenticationFailure(amfUe, accessType, msg); err != nil {
 				logger.GmmLog.Errorln(err)
 			}
+		case *nas_message.RegReq:
+			procedureCode := args[ArgProcedureCode].(int64)
+			if err := handleRegistrationRequestDuringRegistration(state, amfUe, accessType, procedureCode,
+				msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
+		case *nas_message.DeregReqUEOrig:
+			if err := handleDeregistrationRequestDuringRegistration(state, amfUe, accessType, msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
 		case *nas_message.Status5GMM:
 			if err := HandleStatus5GMM(amfUe, accessType, msg); err != nil {
 				logger.GmmLog.Errorln(err)
@@ -220,6 +230,8 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				gmmMessage.MsgType(), state.Current())
 		}
 	case AuthSuccessEvent:
+		logger.GmmLog.Debugln(event)
+	case InitDeregistrationEvent:
 		logger.GmmLog.Debugln(event)
 	case AuthErrorEvent:
 		amfUe = args[ArgAmfUe].(*context.AmfUe)
@@ -318,6 +330,15 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err != nil {
 				logger.GmmLog.Errorln(err)
 			}
+		case *nas_message.RegReq:
+			if err := handleRegistrationRequestDuringRegistration(state, amfUe, accessType, procedureCode,
+				msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
+		case *nas_message.DeregReqUEOrig:
+			if err := handleDeregistrationRequestDuringRegistration(state, amfUe, accessType, msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
 		case *nas_message.Status5GMM:
 			if err := HandleStatus5GMM(amfUe, accessType, msg); err != nil {
 				logger.GmmLog.Errorln(err)
@@ -329,6 +350,10 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 	case SecurityModeSuccessEvent:
 		logger.GmmLog.Debugln(event)
 	case SecurityModeFailEvent:
+		logger.GmmLog.Debugln(event)
+	case StartAuthEvent:
+		logger.GmmLog.Debugln(event)
+	case InitDeregistrationEvent:
 		logger.GmmLog.Debugln(event)
 	case fsm.ExitEvent:
 		logger.GmmLog.Debugln(event)
@@ -426,6 +451,16 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleRegistrationComplete(amfUe, accessType, msg); err != nil {
 				logger.GmmLog.Errorln(err)
 			}
+		case *nas_message.RegReq:
+			procedureCode := args[ArgProcedureCode].(int64)
+			if err := handleRegistrationRequestDuringRegistration(state, amfUe, accessType, procedureCode,
+				msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
+		case *nas_message.DeregReqUEOrig:
+			if err := handleDeregistrationRequestDuringRegistration(state, amfUe, accessType, msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			}
 		case *nas_message.Status5GMM:
 			if err := HandleStatus5GMM(amfUe, accessType, msg); err != nil {
 				logger.GmmLog.Errorln(err)
@@ -434,6 +469,10 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			amfUe.GmmLog.Errorf("state mismatch: receieve gmm message[message type 0x%0x] at %s state",
 				gmmMessage.MsgType(), state.Current())
 		}
+	case StartAuthEvent:
+		logger.GmmLog.Debugln(event)
+	case InitDeregistrationEvent:
+		logger.GmmLog.Debugln(event)
 	case ContextSetupSuccessEvent:
 		logger.GmmLog.Debugln(event)
 	case ContextSetupFailEvent:
