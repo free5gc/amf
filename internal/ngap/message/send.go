@@ -593,8 +593,10 @@ func SendHandoverCommand(
 // cause = initiate the Handover Cancel procedure with the appropriate value for the Cause IE.
 // criticalityDiagnostics = criticalityDiagonstics IE in receiver node's error indication
 // when received node can't comprehend the IE or missing IE
+// targetToSourceFailureContainer = the container of the target's HANDOVER FAILURE, if any (TS 38.413 8.4.1.3)
 func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Cause,
 	criticalityDiagnostics *ngapType.CriticalityDiagnostics,
+	targetToSourceFailureContainer *ngapType.TargettoSourceFailureTransparentContainer,
 ) {
 	isHoPrepFailSent := false
 	additionalCause := ""
@@ -620,7 +622,8 @@ func SendHandoverPreparationFailure(sourceUe *context.RanUe, cause ngapType.Caus
 			Procedure: context.OnGoingProcedureNothing,
 		})
 	}
-	pkt, err := BuildHandoverPreparationFailure(sourceUe, cause, criticalityDiagnostics)
+	pkt, err := BuildHandoverPreparationFailure(sourceUe, cause, criticalityDiagnostics,
+		targetToSourceFailureContainer)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
 		sourceUe.Log.Errorf("Build HandoverPreparationFailure failed : %s", err.Error())

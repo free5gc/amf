@@ -136,7 +136,7 @@ func TestAMFNGAPControlBuilderGoldenBaseline(t *testing.T) {
 			return BuildUEContextModificationRequest(ue.AmfUe, models.AccessType_3_GPP_ACCESS, nil, nil, nil, nil, nil)
 		}},
 		{"handover_preparation_failure", ngapMessage.ProcedureCodeHandoverPreparation, func() ([]byte, error) {
-			return BuildHandoverPreparationFailure(ue, cause, nil)
+			return BuildHandoverPreparationFailure(ue, cause, nil, nil)
 		}},
 		{"path_switch_request_failure", ngapMessage.ProcedureCodePathSwitchRequest, func() ([]byte, error) {
 			return BuildPathSwitchRequestFailure(ue.AmfUeNgapId, ue.RanUeNgapId, goldenPathSwitchFailureList(), nil)
