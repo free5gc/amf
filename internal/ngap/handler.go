@@ -521,6 +521,16 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		}
 	}
 
+	if err != nil && plainMessageType(nASPDU.Value) == nas_message.MsgTypeRegReq {
+		// TS 24.501 5.5.1.2.8 b), 5.5.1.3.8 b): a REGISTRATION REQUEST with a protocol error is rejected
+		ranUe.Log.Warnf("Registration Request with a protocol error (%v); send Registration Reject "+
+			"[Invalid Mandatory Information]", err)
+		gmm_message.SendRegistrationReject(ranUe, ie.Cause5GMM_InvalidMandatoryInfo, "")
+		ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+		return
+	}
+
 	if fiveGSTMSI != nil {
 		// <5G-S-TMSI> := <AMF Set ID><AMF Pointer><5G-TMSI>
 		// GUAMI := <MCC><MNC><AMF Region ID><AMF Set ID><AMF Pointer>
@@ -2650,4 +2660,20 @@ func causeChoiceRadioNetwork(cause *ngapType.Cause) (*ngapType.CauseRadioNetwork
 	}
 	value, ok := cause.Choice.(*ngapType.CauseRadioNetwork)
 	return value, ok
+}
+
+// plainMessageType returns the message type of a plain 5GMM message, or of the plain 5GMM message in an
+// integrity protected one (TS 24.501 4.4.6), whether its IEs decode or not; 0 for any other message.
+func plainMessageType(pdu []byte) nas_message.MsgType {
+	if len(pdu) > int(nas_message.SecHdrLen) && nas_message.Epd(pdu[0]) == nas_message.Epd5GSMobilityMgmtMsg {
+		switch nas_message.GetSecHdrType(pdu) {
+		case nas_message.SecHdrTypeIntegrityProtected, nas_message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx:
+			pdu = pdu[nas_message.SecHdrLen:]
+		}
+	}
+	if len(pdu) < int(nas_message.GmmHdrLen) || nas_message.Epd(pdu[0]) != nas_message.Epd5GSMobilityMgmtMsg ||
+		nas_message.GetSecHdrType(pdu) != nas_message.SecHdrTypePlainNas {
+		return 0
+	}
+	return nas_message.MsgType(pdu[2])
 }
