@@ -216,6 +216,10 @@ func BuildRegistrationReject(
 		}
 		msg.EAPMsg = &ie.EAPMsg{Eap: rawEAPMessage}
 	}
+	// TS 24.501 5.5.1.2.5, 5.5.1.3.5: a reject with #62 includes the rejected S-NSSAIs.
+	if cause5GMM == ie.Cause5GMM_NoNwSlicesAvailable && ue != nil {
+		msg.RejectedNSSAI = rejectedNSSAI(ue)
+	}
 
 	securityHeaderType := nas_message.SecHdrTypePlainNas
 	if ue != nil && ue.SecurityContextAvailable {
