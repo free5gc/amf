@@ -63,6 +63,25 @@ func TestDecodeIntegrityProtectedServiceRequest(t *testing.T) {
 	require.Equal(t, uint32(0), ue.ULCount.Get())
 }
 
+// A UL NAS TRANSPORT whose Payload container has no contents has a
+// syntactically incorrect mandatory IE (TS 24.501 Table 8.2.10.1.1, 7.5.1).
+func TestDecodeULNASTransportWithAnEmptyPayloadContainer(t *testing.T) {
+	ue := newSecurityTestUE()
+	ue.SecurityContextAvailable = true
+	ue.CipheringAlg = uint8(message.AlgCiphering128NEA0)
+	ue.IntegrityAlg = uint8(message.AlgIntegrity128NIA0)
+	// Integrity protected and ciphered, MAC 0, SQN 0; UL NAS TRANSPORT with
+	// payload container type N1 SM information, container length 0 and PDU
+	// session ID 5.
+	payload := []byte{
+		0x7e, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x7e, 0x00, 0x67, 0x01, 0x00, 0x00, 0x12, 0x05,
+	}
+
+	decoded, _, err := Decode(ue, models.AccessType_3_GPP_ACCESS, payload, false)
+	require.ErrorContains(t, err, "PayloadCntr", "decoded %+v", decoded)
+}
+
 func TestDecodeCipheredMACFailureRestoresCount(t *testing.T) {
 	ue := newSecurityTestUE()
 	ue.SecurityContextAvailable = true

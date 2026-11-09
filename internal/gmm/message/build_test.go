@@ -125,6 +125,15 @@ func TestAMFNASBuilderGoldenBaseline(t *testing.T) {
 	}
 }
 
+// A Payload container has one octet of contents at least (TS 24.501
+// 9.11.3.39; LV-E, 3-65537 octets in Table 8.2.11.1.1).
+func TestBuildDLNASTransportRefusesAnEmptyPayloadContainer(t *testing.T) {
+	cause := ie.Cause5GMM_PayloadWasNotForwarded
+	got, err := BuildDLNASTransport(newGoldenUE(), models.AccessType_3_GPP_ACCESS,
+		ie.PayloadCntrType_N1SMInfo, nil, 5, &cause, nil, 0)
+	require.ErrorContains(t, err, "PayloadCntr", "built %x", got)
+}
+
 var amfNASGolden = map[string]string{
 	"dl_nas_transport":             "7e0200000000007e0068010003010203120158073701a2",
 	"notification":                 "7e0200000000007e006501",
