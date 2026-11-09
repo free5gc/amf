@@ -264,7 +264,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		}
 	}
 	ue.InitialContextSetup = false
-	ue.InitialContextSetupPending = 0
+	ue.InitialContextSetupPending.Store(0)
 	isUECtxReleaseCmd, additionalCause = SendToRanUe(ue, pkt)
 }
 
@@ -510,10 +510,10 @@ func SendInitialContextSetupRequest(
 	// count rather than a flag: a second request can be sent before the first
 	// response (T3550 retransmission, N1N2 message transfer), and each
 	// response must still be handled.
-	ranUe.InitialContextSetupPending++
+	ranUe.InitialContextSetupPending.Add(1)
 	isInitialCtxSetupReqSent, additionalCause = NasSendToRan(amfUe, anType, pkt)
 	if !isInitialCtxSetupReqSent {
-		ranUe.InitialContextSetupPending--
+		ranUe.TakeInitialContextSetupPending()
 	}
 }
 
