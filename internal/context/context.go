@@ -232,8 +232,8 @@ func (context *AMFContext) allocateGutiLocked(ue *AmfUe) {
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
 }
 
-// ReallocateGuti selects the 5G-GUTI for a REGISTRATION ACCEPT. usedGuti is the
-// 5G-GUTI the UE included in the REGISTRATION REQUEST, if any.
+// ReallocateGuti selects the 5G-GUTI for a REGISTRATION ACCEPT or a CONFIGURATION
+// UPDATE COMMAND. usedGuti is the 5G-GUTI the UE identified itself with, if any.
 //
 // A 5G-GUTI this AMF allocated and has not sent yet (a new context) is used as
 // is. Otherwise a new 5G-GUTI is allocated and the one the UE holds stays valid

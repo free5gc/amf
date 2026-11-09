@@ -1923,6 +1923,8 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe,
 
 	// Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	ue.StopT3555()
+	// TS 24.501 5.3.3, 5.4.4.4: the old 5G-GUTI is invalid once the configuration update is acknowledged
+	context.GetSelf().ReleaseOldGuti(ue)
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "github.com/free5gc/openapi/Nudm_SubscriberDataManagement" client.Info
 
@@ -2052,7 +2054,9 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 	ue.StopT3565()
 
 	// Set No ongoing
+	pagingResponse := false
 	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
+		pagingResponse = true
 		ue.SetOnGoing(anType, &context.OnGoing{
 			Procedure: context.OnGoingProcedureNothing,
 		})
@@ -2185,8 +2189,7 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 					gmm_message.SendDLNASTransport(ranUe,
 						ie.PayloadCntrType_UEPolicy, n1Msg, 0, 0, nil, 0)
 				}
-				ue.N1N2Message = nil
-				return nil
+				break
 			}
 
 			// TODO: Area of validity for the N2 SM information
@@ -2225,14 +2228,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 
 		// downlink signaling
-		if ue.ConfigurationUpdateCommandFlags != nil {
+		if ue.N1N2Message == nil && (pagingResponse || ue.ConfigurationUpdateCommandFlags != nil) {
 			err := gmm_message.SendServiceAccept(ue, anType, cxtList,
 				pduStatusResult, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
 				return err
 			}
-			gmm_message.SendConfigurationUpdateCommand(ue, anType, ue.ConfigurationUpdateCommandFlags)
-			ue.ConfigurationUpdateCommandFlags = nil
 		}
 	case uint8(ie.SvcType_Data):
 		if anType == models.AccessType_3_GPP_ACCESS {
@@ -2268,6 +2269,17 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 	}
 	if len(errPduSessionId) != 0 {
 		ue.GmmLog.Info(errPduSessionId, errCause)
+	}
+	// TS 24.501 5.3.3 c), TS 33.501 6.12.3: a service request that answers a paging gets a new
+	// 5G-GUTI, in a CONFIGURATION UPDATE COMMAND after the SERVICE ACCEPT. It is assigned now that
+	// the request is accepted. An old 5G-GUTI is still valid only if the UE used it in this request
+	// (see above), and stays valid.
+	if pagingResponse {
+		if ue.ConfigurationUpdateCommandFlags == nil {
+			ue.ConfigurationUpdateCommandFlags = &context.ConfigurationUpdateCommandFlags{}
+		}
+		ue.ConfigurationUpdateCommandFlags.NeedGUTI = true
+		amfSelf.ReallocateGuti(ue, "")
 	}
 	// Send Configuration Update Command if needed
 	if ue.ConfigurationUpdateCommandFlags != nil {
