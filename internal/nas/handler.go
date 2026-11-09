@@ -64,7 +64,6 @@ func HandleNAS(ranUe *amf_context.RanUe, procedureCode int64, nasPdu []byte, ini
 			// Verify the associations before cleaning up the newly created AmfUe.
 			if ranUe.AmfUe == newlyCreatedUe &&
 				newlyCreatedUe.RanUe[accessType] == ranUe {
-
 				// Detach both associations to preserve the existing RanUe.
 				newlyCreatedUe.DetachRanUe(accessType)
 				ranUe.DetachAmfUe()
