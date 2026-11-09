@@ -225,6 +225,9 @@ type AmfUeEventSubscription struct {
 	AnyUe             bool
 	RemainReports     *int32
 	EventSubscription *models.Amf_Comm_ExtAmfEventSubscription
+	// StopChan, if non-nil, stops this subscription's PERIODIC reporting
+	// ticker when closed. Only set for Options.Trigger == PERIODIC.
+	StopChan chan struct{}
 }
 
 type N1N2Message struct {

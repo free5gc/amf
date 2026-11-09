@@ -10,9 +10,14 @@ import (
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics/sbi"
 )
+
+// periodicReportTickUnit scales AmfEventMode.RepPeriod (seconds, TS 29.518)
+// into a ticker duration. Tests shrink this to keep PERIODIC coverage fast.
+var periodicReportTickUnit = time.Second
 
 func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context,
 	createEventSubscription models.Amf_EvtExpos_AmfCreateEventSubscription,
@@ -118,6 +123,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			ue.Lock.Lock()
 			ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 			*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
+			callback.StartPeriodicReporting(ue, newSubscriptionID, ue.EventSubscriptionsInfo[newSubscriptionID])
 			contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 			ue.Lock.Unlock()
 			return true
@@ -131,6 +137,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			if ue.GroupID == subscription.GroupId {
 				ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 				*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
+				callback.StartPeriodicReporting(ue, newSubscriptionID, ue.EventSubscriptionsInfo[newSubscriptionID])
 				contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 			}
 			ue.Lock.Unlock()
@@ -147,6 +154,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			ue.Lock.Lock()
 			ue.EventSubscriptionsInfo[newSubscriptionID] = new(context.AmfUeEventSubscription)
 			*ue.EventSubscriptionsInfo[newSubscriptionID] = ueEventSubscription
+			callback.StartPeriodicReporting(ue, newSubscriptionID, ue.EventSubscriptionsInfo[newSubscriptionID])
 			contextEventSubscription.UeSupiList = append(contextEventSubscription.UeSupiList, ue.Supi)
 			ue.Lock.Unlock()
 		}
@@ -171,11 +179,11 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			defer ue.Lock.Unlock()
 
 			if isImmediate {
-				p.subReports(ue, newSubscriptionID)
+				callback.SubReports(ue, newSubscriptionID)
 			}
 			for i, flag := range immediateFlags {
 				if flag {
-					report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
+					report, ok := callback.NewAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 					if ok {
 						reportlist = append(reportlist, report)
 					}
@@ -183,6 +191,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			}
 			// delete subscription
 			if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
+				callback.StopPeriodicReportingLocked(ue, newSubscriptionID)
 				delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 			}
 			return true
@@ -194,12 +203,12 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 			defer ue.Lock.Unlock()
 
 			if isImmediate {
-				p.subReports(ue, newSubscriptionID)
+				callback.SubReports(ue, newSubscriptionID)
 			}
 			if ue.GroupID == subscription.GroupId {
 				for i, flag := range immediateFlags {
 					if flag {
-						report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
+						report, ok := callback.NewAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 						if ok {
 							reportlist = append(reportlist, report)
 						}
@@ -207,6 +216,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 				}
 				// delete subscription
 				if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
+					callback.StopPeriodicReportingLocked(ue, newSubscriptionID)
 					delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 				}
 			}
@@ -218,11 +228,11 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 		defer ue.Lock.Unlock()
 
 		if isImmediate {
-			p.subReports(ue, newSubscriptionID)
+			callback.SubReports(ue, newSubscriptionID)
 		}
 		for i, flag := range immediateFlags {
 			if flag {
-				report, ok := p.newAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
+				report, ok := callback.NewAmfEventReport(ue, subscription.EventList[i].Type, newSubscriptionID)
 				if ok {
 					reportlist = append(reportlist, report)
 				}
@@ -230,6 +240,7 @@ func (p *Processor) CreateAMFEventSubscriptionProcedure(
 		}
 		// delete subscription
 		if reportlistLen := len(reportlist); reportlistLen > 0 && (!reportlist[reportlistLen-1].State.Active) {
+			callback.StopPeriodicReportingLocked(ue, newSubscriptionID)
 			delete(ue.EventSubscriptionsInfo, newSubscriptionID)
 		}
 	}
@@ -275,6 +286,7 @@ func (p *Processor) DeleteAMFEventSubscriptionProcedure(subscriptionID string) *
 	for _, supi := range subscription.UeSupiList {
 		if ue, okAmfUeFindBySupi := amfSelf.AmfUeFindBySupi(supi); okAmfUeFindBySupi {
 			ue.Lock.Lock()
+			callback.StopPeriodicReportingLocked(ue, subscriptionID)
 			delete(ue.EventSubscriptionsInfo, subscriptionID)
 			ue.Lock.Unlock()
 		}
@@ -427,104 +439,8 @@ func (p *Processor) ModifyAMFEventSubscriptionProcedure(
 	return updatedEventSubscription, nil
 }
 
-func (p *Processor) subReports(ue *context.AmfUe, subscriptionId string) {
-	remainReport := ue.EventSubscriptionsInfo[subscriptionId].RemainReports
-	if remainReport == nil {
-		return
-	}
-	*remainReport--
-}
-
-// DO NOT handle AmfEventType_PRESENCE_IN_AOI_REPORT and AmfEventType_UES_IN_AREA_REPORT(about area)
-func (p *Processor) newAmfEventReport(
-	ue *context.AmfUe,
-	amfEventType models.Amf_EvtExpos_AmfEventType,
-	subscriptionId string,
-) (
-	report models.Amf_EvtExpos_AmfEventReport, ok bool,
-) {
-	ueSubscription, ok := ue.EventSubscriptionsInfo[subscriptionId]
-	if !ok {
-		return report, ok
-	}
-
-	report.AnyUe = ueSubscription.AnyUe
-	report.Supi = ue.Supi
-	report.Type = amfEventType
-	report.TimeStamp = &ueSubscription.Timestamp
-	report.State = new(models.Amf_EvtExpos_AmfEventState)
-	mode := ueSubscription.EventSubscription.Options
-	switch {
-	case mode == nil:
-		report.State.Active = true
-	case mode.Trigger == models.Amf_EvtExpos_AmfEventTrigger_ONE_TIME:
-		report.State.Active = false
-	case mode.Trigger == models.Amf_EvtExpos_AmfEventTrigger_PERIODIC:
-		report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
-	case mode.Trigger == models.Amf_EvtExpos_AmfEventTrigger_CONTINUOUS:
-		if ueSubscription.RemainReports == nil {
-			logger.EeLog.Errorf("RemainReports is nil for CONTINUOUS subscription[%s]", subscriptionId)
-			report.State.Active = false
-		} else if *ueSubscription.RemainReports <= 0 {
-			report.State.Active = false
-		} else {
-			report.State.Active = p.getDuration(mode.Expiry, &report.State.RemainDuration)
-			if report.State.Active {
-				report.State.RemainReports = *ueSubscription.RemainReports
-			}
-		}
-	default:
-		report.State.Active = false
-	}
-
-	switch amfEventType {
-	case models.Amf_EvtExpos_AmfEventType_LOCATION_REPORT:
-		report.Location = &ue.Location
-	// case models.Amf_EvtExpos_AmfEventType_PRESENCE_IN_AOI_REPORT:
-	// report.AreaList = (*subscription.EventList)[eventIndex].AreaList
-	case models.Amf_EvtExpos_AmfEventType_TIMEZONE_REPORT:
-		report.Timezone = ue.TimeZone
-	case models.Amf_EvtExpos_AmfEventType_ACCESS_TYPE_REPORT:
-		for accessType, state := range ue.State {
-			if state.Is(context.Registered) {
-				report.AccessTypeList = append(report.AccessTypeList, accessType)
-			}
-		}
-	case models.Amf_EvtExpos_AmfEventType_REGISTRATION_STATE_REPORT:
-		var rmInfos []models.Amf_EvtExpos_RmInfo
-		for accessType, state := range ue.State {
-			rmInfo := models.Amf_EvtExpos_RmInfo{
-				RmState:    models.Amf_EvtExpos_RmState_DEREGISTERED,
-				AccessType: accessType,
-			}
-			if state.Is(context.Registered) {
-				rmInfo.RmState = models.Amf_EvtExpos_RmState_REGISTERED
-			}
-			rmInfos = append(rmInfos, rmInfo)
-		}
-		report.RmInfoList = rmInfos
-	case models.Amf_EvtExpos_AmfEventType_CONNECTIVITY_STATE_REPORT:
-		report.CmInfoList = ue.GetCmInfo()
-	case models.Amf_EvtExpos_AmfEventType_REACHABILITY_REPORT:
-		report.Reachability = ue.Reachability
-	case models.Amf_EvtExpos_AmfEventType_COMMUNICATION_FAILURE_REPORT:
-		// TODO : report.CommFailure
-	case models.Amf_EvtExpos_AmfEventType_SUBSCRIPTION_ID_CHANGE:
-		report.SubscriptionId = subscriptionId
-	case models.Amf_EvtExpos_AmfEventType_SUBSCRIPTION_ID_ADDITION:
-		report.SubscriptionId = subscriptionId
-	}
-	return report, ok
-}
-
-func (p *Processor) getDuration(expiry *time.Time, remainDuration *int32) bool {
-	if expiry != nil {
-		if time.Now().After(*expiry) {
-			return false
-		} else {
-			duration := time.Until(*expiry)
-			*remainDuration = int32(duration.Seconds())
-		}
-	}
-	return true
-}
+// Report building, PERIODIC/CONTINUOUS scheduling, and outbound delivery for
+// Namf_EventExposure live in internal/sbi/processor/notifier, since the
+// CONTINUOUS path (FireContinuousEventReport) is invoked from the GMM state
+// machine, which cannot import this package without an import cycle
+// (gmm -> processor -> nas -> gmm). See notifier/event_exposure_report.go.
