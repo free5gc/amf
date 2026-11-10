@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/mohae/deepcopy"
@@ -78,6 +79,10 @@ type RanUe struct {
 	   UE Context Release Complete is still outstanding */
 	ReleasePending bool
 
+	/* number of Initial Context Setup Requests sent on this connection whose
+	   Response or Failure has not been received yet */
+	InitialContextSetupPending atomic.Int32
+
 	/* logger */
 	Log *logrus.Entry
 }
@@ -107,6 +112,20 @@ func (ranUe *RanUe) Remove() error {
 	self.RanUePool.Delete(ranUe.AmfUeNgapId)
 	amfUeNGAPIDGenerator.FreeID(ranUe.AmfUeNgapId)
 	return nil
+}
+
+// TakeInitialContextSetupPending consumes one outstanding Initial Context
+// Setup Request and reports whether there was one.
+func (ranUe *RanUe) TakeInitialContextSetupPending() bool {
+	for {
+		pending := ranUe.InitialContextSetupPending.Load()
+		if pending <= 0 {
+			return false
+		}
+		if ranUe.InitialContextSetupPending.CompareAndSwap(pending, pending-1) {
+			return true
+		}
+	}
 }
 
 func (ranUe *RanUe) DetachAmfUe() {

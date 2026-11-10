@@ -1010,6 +1010,15 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 	}
 
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+
+	// TS 38.413 8.3.1 / 10.4: the Initial Context Setup Response answers an
+	// Initial Context Setup Request. A response without an outstanding
+	// request (e.g. one injected before the AMF sends the request) must not
+	// mark the context as set up, or the AMF stops sending the request.
+	if !ranUe.TakeInitialContextSetupPending() {
+		ranUe.Log.Warnf("Ignore unexpected Initial Context Setup Response (no request is pending)")
+		return
+	}
 	ranUe.InitialContextSetup = true
 
 	if pDUSessionResourceSetupResponseList != nil {
@@ -1095,6 +1104,13 @@ func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 	amfUe := ranUe.AmfUe
 	if amfUe == nil {
 		ran.Log.Error("amfUe is nil")
+		return
+	}
+
+	// TS 38.413 8.3.1 / 10.4: a failure without an outstanding request is a
+	// local error and must not be applied to the context.
+	if !ranUe.TakeInitialContextSetupPending() {
+		ranUe.Log.Warnf("Ignore unexpected Initial Context Setup Failure (no request is pending)")
 		return
 	}
 
