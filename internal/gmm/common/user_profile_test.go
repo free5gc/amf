@@ -86,10 +86,11 @@ func newTestRan(conn net.Conn) *context.AmfRan {
 
 func newTestRanUe(ran *context.AmfRan, id int64) *context.RanUe {
 	return &context.RanUe{
-		Ran:         ran,
-		RanUeNgapId: id,
-		AmfUeNgapId: id,
-		Log:         logger.NgapLog,
+		Ran:                 ran,
+		RanUeNgapId:         id,
+		RanUeNgapIdAssigned: true,
+		AmfUeNgapId:         id,
+		Log:                 logger.NgapLog,
 	}
 }
 
