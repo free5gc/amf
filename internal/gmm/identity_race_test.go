@@ -44,6 +44,9 @@ func TestIdentityResponseRacesSuciLookup(t *testing.T) {
 		defer wg.Done()
 		<-start
 		for i := 0; i < iterations; i++ {
+			// Each response completes the identification procedure and clears
+			// RequestIdentityType, so re-arm it as a fresh IDENTITY REQUEST would.
+			ue.RequestIdentityType = ie.IdType_5GS_SUCI
 			if err := HandleIdentityResponse(ue, identityResponse); err != nil {
 				errs <- err
 			}
