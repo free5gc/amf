@@ -1297,6 +1297,16 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		ran.Log.Error("AmfUe is nil")
 		return
 	}
+	// TS 23.502 4.9.1.3.3 steps 1-5: the target sends HANDOVER NOTIFY once the
+	// UE, moved by the HANDOVER COMMAND, has arrived. Without a HANDOVER COMMAND
+	// for this target (no acknowledge yet, or the AMF answered the source with
+	// HANDOVER PREPARATION FAILURE) the notify must not move the UE or release
+	// the source.
+	if !targetUe.HandoverCommandSent {
+		targetUe.Log.Warn("Ignore HANDOVER NOTIFY: no HANDOVER COMMAND was sent for this target")
+		sendHandoverNotifyNotCompatible(ran, targetUe)
+		return
+	}
 	sourceUe := targetUe.SourceUe
 	if sourceUe == nil && amfUe.GetRanUe(ran.AnType) != nil {
 		// TODO: Send to S-AMF
@@ -1741,6 +1751,7 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 		ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 			*targetToSourceTransparentContainer, nil)
+		targetUe.HandoverCommandSent = true
 	}
 }
 
