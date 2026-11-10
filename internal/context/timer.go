@@ -24,12 +24,23 @@ func NewTimer(d time.Duration, maxRetryTimes int,
 	expiredFunc func(expireTimes int32),
 	cancelFunc func(),
 ) *Timer {
+	t := newTimer(d, maxRetryTimes)
+	t.start(expiredFunc, cancelFunc)
+	return t
+}
+
+// newTimer returns a Timer whose goroutine has not been started yet, so the
+// caller can publish it before any callback can run.
+func newTimer(d time.Duration, maxRetryTimes int) *Timer {
 	t := &Timer{}
 	atomic.StoreInt32(&t.expireTimes, 0)
 	atomic.StoreInt32(&t.maxRetryTimes, int32(maxRetryTimes))
 	t.done = make(chan bool, 1)
 	t.ticker = time.NewTicker(d)
+	return t
+}
 
+func (t *Timer) start(expiredFunc func(expireTimes int32), cancelFunc func()) {
 	go func(ticker *time.Ticker) {
 		defer func() {
 			if p := recover(); p != nil {
@@ -55,8 +66,6 @@ func NewTimer(d time.Duration, maxRetryTimes int,
 			}
 		}
 	}(t.ticker)
-
-	return t
 }
 
 // MaxRetryTimes return the max retry times of the timer

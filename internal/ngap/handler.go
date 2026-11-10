@@ -2638,7 +2638,7 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 	}
 	amfUe := ranUe.AmfUe
 	if amfUe != nil && amfUe.GetRanUe(ran.AnType) == ranUe {
-		if amfUe.T3550 != nil {
+		if amfUe.HasT3550() {
 			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
 		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
