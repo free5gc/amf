@@ -23,7 +23,7 @@ func Dispatch(conn net.Conn, msg []byte) {
 			return
 		}
 		ran.Log.Infof("RAN close the connection.")
-		ran.Remove()
+		removeRan(ran)
 		return
 	}
 
@@ -130,16 +130,16 @@ func HandleSCTPNotification(conn net.Conn, notification sctp.Notification) {
 		switch event.State() {
 		case sctp.SCTP_COMM_LOST:
 			ran.Log.Infof("SCTP state is SCTP_COMM_LOST, close the connection")
-			ran.Remove()
+			removeRan(ran)
 		case sctp.SCTP_SHUTDOWN_COMP:
 			ran.Log.Infof("SCTP state is SCTP_SHUTDOWN_COMP, close the connection")
-			ran.Remove()
+			removeRan(ran)
 		default:
 			ran.Log.Warnf("SCTP state[%+v] is not handled", event.State())
 		}
 	case sctp.SCTP_SHUTDOWN_EVENT:
 		ran.Log.Infof("SCTP_SHUTDOWN_EVENT notification, close the connection")
-		ran.Remove()
+		removeRan(ran)
 	default:
 		ran.Log.Warnf("Non handled notification type: 0x%x", notification.Type())
 	}
@@ -155,5 +155,5 @@ func HandleSCTPConnError(conn net.Conn) {
 		logger.NgapLog.Warnf("RAN context has been removed[addr: %+v]", conn.RemoteAddr())
 		return
 	}
-	ran.Remove()
+	removeRan(ran)
 }

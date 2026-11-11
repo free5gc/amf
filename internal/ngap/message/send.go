@@ -83,7 +83,7 @@ func NasSendToRan(ue *context.AmfUe, accessType models.AccessType, packet []byte
 		return false, ngap_metrics.AMF_UE_NIL_ERR
 	}
 
-	ranUe := ue.RanUe[accessType]
+	ranUe := ue.GetRanUe(accessType)
 	if ranUe == nil {
 		logger.NgapLog.Error("RanUe is nil")
 		return false, ngap_metrics.RAN_UE_NIL_ERR
@@ -254,6 +254,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		return
 	}
 	ue.ReleaseAction = action
+	ue.ReleasePending = true
 	if ue.AmfUe != nil && ue.Ran != nil {
 		ue.AmfUe.ReleaseCause[ue.Ran.AnType] = &context.CauseAll{
 			NgapCause: &models.NgApCause{
@@ -263,6 +264,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		}
 	}
 	ue.InitialContextSetup = false
+	ue.InitialContextSetupPending.Store(0)
 	isUECtxReleaseCmd, additionalCause = SendToRanUe(ue, pkt)
 }
 
@@ -479,12 +481,18 @@ func SendInitialContextSetupRequest(
 		return
 	}
 
-	amfUe.RanUe[anType].Log.Info("Send Initial Context Setup Request")
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
+		additionalCause = ngap_metrics.RAN_UE_NIL_ERR
+		logger.NgapLog.Error("RanUe is nil")
+		return
+	}
+	ranUe.Log.Info("Send Initial Context Setup Request")
 
 	if pduSessionResourceSetupRequestList != nil {
 		if len(pduSessionResourceSetupRequestList.List) > context.MaxNumOfPDUSessions {
 			additionalCause = ngap_metrics.PDU_LIST_OOR_ERR
-			amfUe.RanUe[anType].Log.Error("Pdu List out of range")
+			ranUe.Log.Error("Pdu List out of range")
 			return
 		}
 	}
@@ -493,11 +501,20 @@ func SendInitialContextSetupRequest(
 		rrcInactiveTransitionReportRequest, coreNetworkAssistanceInfo, emergencyFallbackIndicator)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		amfUe.RanUe[anType].Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
+		ranUe.Log.Errorf("Build InitialContextSetupRequest failed : %s", err.Error())
 		return
 	}
 
+	// Count the request as outstanding before it is sent, so that a quick
+	// response is not ignored, and take it back if it could not be sent. A
+	// count rather than a flag: a second request can be sent before the first
+	// response (T3550 retransmission, N1N2 message transfer), and each
+	// response must still be handled.
+	ranUe.InitialContextSetupPending.Add(1)
 	isInitialCtxSetupReqSent, additionalCause = NasSendToRan(amfUe, anType, pkt)
+	if !isInitialCtxSetupReqSent {
+		ranUe.TakeInitialContextSetupPending()
+	}
 }
 
 func SendUEContextModificationRequest(
@@ -520,13 +537,19 @@ func SendUEContextModificationRequest(
 		return
 	}
 
-	amfUe.RanUe[anType].Log.Info("Send UE Context Modification Request")
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
+		additionalCause = ngap_metrics.RAN_UE_NIL_ERR
+		logger.NgapLog.Error("RanUe is nil")
+		return
+	}
+	ranUe.Log.Info("Send UE Context Modification Request")
 
 	pkt, err := BuildUEContextModificationRequest(amfUe, anType, oldAmfUeNgapID, rrcInactiveTransitionReportRequest,
 		coreNetworkAssistanceInfo, mobilityRestrictionList, emergencyFallbackIndicator)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		amfUe.RanUe[anType].Log.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
+		ranUe.Log.Errorf("Build UEContextModificationRequest failed : %s", err.Error())
 		return
 	}
 	isUeCtxModifReqSent, additionalCause = NasSendToRan(amfUe, anType, pkt)
@@ -623,7 +646,8 @@ a Nsmf_PDUSession_CreateSMContext Response(N2 SM Information (PDU Session ID, ca
 // sourceToTargetTransparentContainer is received from S-RAN
 // nsci: new security context indicator, if amfUe has updated security context, set nsci to true, otherwise set to false
 // N2 handover in same AMF
-func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cause ngapType.Cause,
+func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, targetTai models.Tai,
+	cause ngapType.Cause,
 	pduSessionResourceSetupListHOReq ngapType.PDUSessionResourceSetupListHOReq,
 	sourceToTargetTransparentContainer ngapType.SourceToTargetTransparentContainer, nsci bool,
 ) {
@@ -682,10 +706,13 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, cau
 	}
 
 	var targetUe *context.RanUe
-	if targetUeTmp, err := targetRan.NewRanUe(context.RanUeNgapIdUnspecified); err != nil {
+	if targetUeTmp, err := targetRan.NewRanUeUnspecified(); err != nil {
 		sourceUe.Log.Errorf("Create target UE error: %+v", err)
 	} else {
 		targetUe = targetUeTmp
+		// Handover Request Acknowledge has no user location IE. Retain the
+		// Selected TAI from Handover Required for the final target slice check.
+		targetUe.Tai = targetTai
 	}
 
 	sourceUe.Log.Tracef("Source : AMF_UE_NGAP_ID[%d], RAN_UE_NGAP_ID[%d]", sourceUe.AmfUeNgapId, sourceUe.RanUeNgapId)
@@ -863,22 +890,11 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 	// 	ngaplog.Errorf("Build Paging failed : %s", err.Error())
 	// }
 	taiList := ue.RegistrationArea[models.AccessType_3_GPP_ACCESS]
-	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
-		ran := value.(*context.AmfRan)
-		for _, item := range ran.SupportedTAList {
-			if context.InTaiList(item.Tai, taiList) {
-				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
-				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
-				break
-			}
-		}
-		return true
-	})
 
 	if context.GetSelf().T3513Cfg.Enable {
 		cfg := context.GetSelf().T3513Cfg
 		ue.GmmLog.Infof("Start T3513 timer")
-		ue.T3513 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+		ue.StartT3513(cfg, func(expireTimes int32) {
 			ue.GmmLog.Warnf("T3513 expires, retransmit Paging (retry: %d)", expireTimes)
 			context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
 				ran := value.(*context.AmfRan)
@@ -892,12 +908,23 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 			})
 		}, func() {
 			ue.GmmLog.Warnf("T3513 expires %d times, abort paging procedure", cfg.MaxRetryTimes)
-			ue.T3513 = nil // clear the timer
 			if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
 				callback.SendN1N2TransferFailureNotification(ue, models.Amf_Comm_N1N2MessageTransferCause_UE_NOT_RESPONDING)
 			}
 		})
 	}
+
+	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*context.AmfRan)
+		for _, item := range ran.SupportedTAList {
+			if context.InTaiList(item.Tai, taiList) {
+				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
+				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
+				break
+			}
+		}
+		return true
+	})
 }
 
 // TS 23.502 4.2.2.2.3
@@ -919,18 +946,24 @@ func SendRerouteNasRequest(ue *context.AmfUe, anType models.AccessType, amfUeNga
 		return
 	}
 
-	ue.RanUe[anType].Log.Info("Send Reroute Nas Request")
+	ranUe := ue.GetRanUe(anType)
+	if ranUe == nil {
+		additionalCause = ngap_metrics.RAN_UE_NIL_ERR
+		logger.NgapLog.Error("RanUe is nil")
+		return
+	}
+	ranUe.Log.Info("Send Reroute Nas Request")
 
 	if len(ngapMessage) == 0 {
 		additionalCause = ngap_metrics.NGAP_MSG_NIL_ERR
-		ue.RanUe[anType].Log.Error("Ngap Message is nil")
+		ranUe.Log.Error("Ngap Message is nil")
 		return
 	}
 
 	pkt, err := BuildRerouteNasRequest(ue, anType, amfUeNgapID, ngapMessage, allowedNSSAI)
 	if err != nil {
 		additionalCause = ngap_metrics.NGAP_MSG_BUILD_ERR
-		ue.RanUe[anType].Log.Errorf("Build RerouteNasRequest failed : %s", err.Error())
+		ranUe.Log.Errorf("Build RerouteNasRequest failed : %s", err.Error())
 		return
 	}
 	isRerouteNasReqSent, additionalCause = NasSendToRan(ue, anType, pkt)
@@ -1165,7 +1198,7 @@ func SendDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) {
 		return
 	}
 
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if ranUe == nil {
 		additionalCause = ngap_metrics.RAN_UE_NIL_ERR
 		logger.NgapLog.Error("RanUe is nil")
@@ -1333,7 +1366,7 @@ func SendN2Message(
 		return
 	}
 
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if ranUe == nil {
 		logger.NgapLog.Error("RanUe is nil")
 		return

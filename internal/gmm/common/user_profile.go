@@ -41,13 +41,13 @@ func RemoveAmfUe(ue *context.AmfUe, notifyNF bool) {
 }
 
 func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
-	if ue.RanUe[models.AccessType_3_GPP_ACCESS] != nil {
+	if ue.GetRanUe(models.AccessType_3_GPP_ACCESS) != nil {
 		err := PurgeSubscriberData(ue, models.AccessType_3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
 		}
 	}
-	if ue.RanUe[models.AccessType_NON_3_GPP_ACCESS] != nil {
+	if ue.GetRanUe(models.AccessType_NON_3_GPP_ACCESS) != nil {
 		err := PurgeSubscriberData(ue, models.AccessType_NON_3_GPP_ACCESS)
 		if err != nil {
 			logger.GmmLog.Errorf("Purge subscriber data Error[%v]", err.Error())
@@ -56,17 +56,30 @@ func PurgeAmfUeSubscriberData(ue *context.AmfUe) {
 }
 
 func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.RanUe) {
-	if oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]; oldRanUe != nil {
+	if oldRanUe := linkNewRanUe(amfUe, ranUe); oldRanUe != nil {
 		oldRanUe.Log.Infof("Implicit Deregistration - RanUeNgapID[%d]", oldRanUe.RanUeNgapId)
 		oldRanUe.DetachAmfUe()
-		if amfUe.T3550 != nil {
-			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
-		}
-		StopAll5GSMMTimers(amfUe)
 		causeGroup := ngap_message.CauseChoiceRadioNetwork
 		causeValue := ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
 		ngap_message.SendUEContextReleaseCommand(oldRanUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
-	} else {
+	}
+}
+
+// linkNewRanUe links ranUe to amfUe and returns the RanUe it replaced, if any,
+// after stopping the old connection's 5GMM timers.  Both happen under RanUeMu,
+// so concurrent attaches to one pooled AmfUe neither write the map at the same
+// time nor stop the same timer twice (a second Timer.Stop panics).  The caller
+// releases the old RanUe after the lock is dropped: the release sends an NGAP
+// message to the old gNB, and a gNB that stops reading must not block every
+// reader of this AmfUe.  The unlock is deferred so that a panic in the timer
+// stop, which ends the NGAP worker, does not also leave RanUeMu locked for
+// every other user of the AmfUe.
+func linkNewRanUe(amfUe *context.AmfUe, ranUe *context.RanUe) *context.RanUe {
+	amfUe.RanUeMu.Lock()
+	defer amfUe.RanUeMu.Unlock()
+
+	oldRanUe := amfUe.RanUe[ranUe.Ran.AnType]
+	if oldRanUe == nil {
 		// We don't increase in AttachRanUe because we don't want to fidle with the counters in a ngap handover procedure
 		if amfUe.AnTypeFlags[ranUe.Ran.AnType] {
 			business_metrics.DecrUeCmIdleStateGauge(ranUe.Ran.AnType)
@@ -77,19 +90,22 @@ func AttachRanUeToAmfUeAndReleaseOldIfAny(amfUe *context.AmfUe, ranUe *context.R
 		}
 		amfUe.AnTypeFlags[ranUe.Ran.AnType] = true
 	}
-
-	amfUe.AttachRanUe(ranUe)
+	amfUe.AttachRanUeLocked(ranUe)
+	if oldRanUe != nil {
+		if amfUe.HasT3550() {
+			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
+		}
+		StopAll5GSMMTimers(amfUe)
+	}
+	return oldRanUe
 }
 
 func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.RanUe) {
 	logger.GmmLog.Debugln("In AttachRanUeToAmfUeAndReleaseOldHandover")
 
+	linkHandoverTarget(amfUe, sourceRanUe, targetRanUe)
 	if sourceRanUe != nil {
 		sourceRanUe.DetachAmfUe()
-		if amfUe.T3550 != nil {
-			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
-		}
-		StopAll5GSMMTimers(amfUe)
 		causeGroup := ngap_message.CauseChoiceRadioNetwork
 		causeValue := ngapType.CauseRadioNetworkPresentSuccessfulHandover
 		ngap_message.SendUEContextReleaseCommand(sourceRanUe, context.UeContextReleaseHandover, causeGroup, causeValue)
@@ -97,12 +113,27 @@ func AttachRanUeToAmfUeAndReleaseOldHandover(amfUe *context.AmfUe, sourceRanUe, 
 		// This function will be call only by N2 Handover, so we can assume sourceRanUe will not be nil
 		logger.GmmLog.Errorln("AttachRanUeToAmfUeAndReleaseOldHandover() is called but sourceRanUe is nil")
 	}
-	amfUe.AttachRanUe(targetRanUe)
 	if sourceRanUe != nil && sourceRanUe.Ran != nil &&
 		amfUe.OnGoing(sourceRanUe.Ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
 		amfUe.SetOnGoing(sourceRanUe.Ran.AnType, &context.OnGoing{
 			Procedure: context.OnGoingProcedureNothing,
 		})
+	}
+}
+
+// linkHandoverTarget links targetRanUe to amfUe and, if there is a source
+// RanUe, stops the 5GMM timers, under RanUeMu as in linkNewRanUe.  The caller
+// releases the source after the lock is dropped.
+func linkHandoverTarget(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.RanUe) {
+	amfUe.RanUeMu.Lock()
+	defer amfUe.RanUeMu.Unlock()
+
+	amfUe.AttachRanUeLocked(targetRanUe)
+	if sourceRanUe != nil {
+		if amfUe.HasT3550() {
+			amfUe.State[targetRanUe.Ran.AnType].Set(context.Registered)
+		}
+		StopAll5GSMMTimers(amfUe)
 	}
 }
 

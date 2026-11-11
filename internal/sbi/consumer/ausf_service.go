@@ -59,7 +59,7 @@ func (s *nausfService) SendUEAuthenticationAuthenticateRequest(ue *amf_context.A
 	servedGuami := amfSelf.ServedGuamiList[0]
 
 	var authInfo models.Ausf_UEAU_AuthenticationInfo
-	authInfo.SupiOrSuci = ue.Suci
+	authInfo.SupiOrSuci = ue.GetSuci()
 	if mnc, err := strconv.Atoi(servedGuami.PlmnId.Mnc); err != nil {
 		return nil, nil, err
 	} else {

@@ -22,6 +22,7 @@ import (
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/amf/pkg/app"
 	"github.com/free5gc/amf/pkg/factory"
+	"github.com/free5gc/openapi"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics"
 	"github.com/free5gc/util/metrics/utils"
@@ -52,6 +53,9 @@ type AmfApp struct {
 }
 
 func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*AmfApp, error) {
+	if err := openapi.ConfigureHTTP2Clients(cfg.GetReadIdleTimeout(), cfg.GetPingTimeout()); err != nil {
+		return nil, err
+	}
 	amf := &AmfApp{
 		cfg: cfg,
 	}
@@ -83,7 +87,8 @@ func NewApp(ctx context.Context, cfg *factory.Config, tlsKeyLogPath string) (*Am
 	commonMetrics := map[utils.MetricTypeEnabled]bool{utils.SBI: true, utils.NAS: true, utils.NGAP: true}
 	if cfg.AreMetricsEnabled() {
 		if amf.metricsServer, err = metrics.NewServer(
-			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog); err != nil {
+			getInitMetrics(cfg, commonMetrics, getCustomMetrics(cfg)), tlsKeyLogPath, logger.InitLog, cfg.GetIdleTimeout(),
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -217,17 +222,11 @@ func (a *AmfApp) Start() {
 		}()
 	}
 
-	var profile models.Nrf_NFMgmt_NFProfile
-	if profileTmp, err1 := a.Consumer().BuildNFInstance(a.Context()); err1 != nil {
-		logger.InitLog.Error("Build AMF Profile Error")
+	if err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, true); err_reg != nil {
+		logger.InitLog.Errorf("Send Register NF Instance failed: %+v", err_reg)
 	} else {
-		profile = profileTmp
-	}
-	_, nfId, err_reg := a.Consumer().SendRegisterNFInstance(a.ctx, a.Context().NrfUri, a.Context().NfId, &profile)
-	if err_reg != nil {
-		logger.InitLog.Warnf("Send Register NF Instance failed: %+v", err_reg)
-	} else {
-		a.Context().NfId = nfId
+		// Only a registered profile has something to keep alive.
+		a.Consumer().StartHeartbeat(a.ctx, &a.wg)
 	}
 
 	if err := a.sbiServer.Run(context.Background(), &a.wg); err != nil {
@@ -313,6 +312,9 @@ func (a *AmfApp) terminateProcedure() {
 
 	// notify SBI subscribers before deregistering so NRF still recognizes AMF as a valid OAuth client
 	callback.SendAmfStatusChangeNotify((string)(models.Amf_Comm_StatusChange_UNAVAILABLE), amfSelf.ServedGuamiList)
+
+	// no heartbeat PATCH or re-registration PUT may land after the deregistration
+	a.Consumer().WaitHeartbeatStopped()
 
 	// deregister with NRF
 	problemDetails, err_deg := a.Consumer().SendDeregisterNFInstance()

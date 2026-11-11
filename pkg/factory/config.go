@@ -17,6 +17,7 @@ import (
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/openapi/models"
+	"github.com/free5gc/util/nfheartbeat"
 )
 
 const (
@@ -76,6 +77,9 @@ type Info struct {
 }
 
 type Configuration struct {
+	ReadIdleTimeout        *time.Duration    `yaml:"readIdleTimeout,omitempty" valid:"optional"`
+	PingTimeout            *time.Duration    `yaml:"pingTimeout,omitempty" valid:"optional"`
+	IdleTimeout            *time.Duration    `yaml:"idleTimeout,omitempty" valid:"optional"`
 	AmfName                string            `yaml:"amfName,omitempty" valid:"required, type(string)"`
 	NfInstanceId           string            `yaml:"nfInstanceId,omitempty" valid:"optional,uuidv4"`
 	NgapIpList             []string          `yaml:"ngapIpList,omitempty" valid:"required"`
@@ -109,6 +113,9 @@ type Configuration struct {
 	DefaultUECtxReq        bool              `yaml:"defaultUECtxReq,omitempty" valid:"type(bool),optional"`
 	NgapWorkerPoolSize     int               `yaml:"ngapWorkerPoolSize,omitempty" valid:"type(int),optional"`
 	NgapTaskBufferSize     int               `yaml:"ngapTaskBufferSize,omitempty" valid:"type(int),optional"`
+	// NfHeartBeatTimer is the fallback heartbeat interval in seconds, from 1 to
+	// 3600 as the NRF accepts. The interval the NRF assigns always wins.
+	NfHeartBeatTimer int32 `yaml:"nfHeartBeatTimer,omitempty" valid:"optional,range(1|3600)"`
 }
 
 type Logger struct {
@@ -347,6 +354,17 @@ func (m *Metrics) validate() (bool, error) {
 		return false, error(errs)
 	}
 	return true, nil
+}
+
+// GetNfHeartBeatTimer returns the fallback heartbeat interval in seconds.
+func (c *Config) GetNfHeartBeatTimer() int32 {
+	c.RLock()
+	defer c.RUnlock()
+
+	if c.Configuration != nil && c.Configuration.NfHeartBeatTimer > 0 {
+		return c.Configuration.NfHeartBeatTimer
+	}
+	return nfheartbeat.DefaultTimer
 }
 
 func (c *Config) GetNfInstanceId() string {
@@ -1052,4 +1070,35 @@ func (c *Config) GetNgapTaskBufferSize() int {
 		return c.Configuration.NgapTaskBufferSize
 	}
 	return 1000 // Default buffer size
+}
+
+// GetIdleTimeout returns the HTTP server idle timeout. Omitted values preserve
+// the previous 1ms timeout; an explicit zero disables the timeout.
+func (c *Config) GetIdleTimeout() time.Duration {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration == nil || c.Configuration.IdleTimeout == nil {
+		return time.Millisecond
+	}
+	return *c.Configuration.IdleTimeout
+}
+
+// GetReadIdleTimeout returns the HTTP/2 client health-check timeout.
+func (c *Config) GetReadIdleTimeout() time.Duration {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration == nil || c.Configuration.ReadIdleTimeout == nil {
+		return time.Second
+	}
+	return *c.Configuration.ReadIdleTimeout
+}
+
+// GetPingTimeout returns the HTTP/2 client health-check timeout.
+func (c *Config) GetPingTimeout() time.Duration {
+	c.RLock()
+	defer c.RUnlock()
+	if c.Configuration == nil || c.Configuration.PingTimeout == nil {
+		return 2 * time.Second
+	}
+	return *c.Configuration.PingTimeout
 }

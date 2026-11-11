@@ -254,7 +254,7 @@ func newGoldenRanUE() *context.RanUe {
 		},
 	}
 	ran := &context.AmfRan{AnType: models.AccessType_3_GPP_ACCESS}
-	ue := &context.RanUe{AmfUeNgapId: 0x01020304, RanUeNgapId: 0x05060708, AmfUe: amfUe, Ran: ran, RoutingID: "0102"}
+	ue := &context.RanUe{AmfUeNgapId: 0x01020304, RanUeNgapId: 0x05060708, RanUeNgapIdAssigned: true, AmfUe: amfUe, Ran: ran, RoutingID: "0102"}
 	amfUe.RanUe[models.AccessType_3_GPP_ACCESS] = ue
 	return ue
 }

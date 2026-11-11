@@ -26,6 +26,16 @@ func relatedContentBytes(content *multipart.RelatedContent) []byte {
 	return content.Content
 }
 
+// Checks whether the request SMF is authorized for the SM context.
+func isSmfAuthorizedForN1N2Transfer(smContext *context.SmContext, nfIDs ...string) bool {
+	for _, nfID := range nfIDs {
+		if nfID != "" && nfID != smContext.SmfID() {
+			return false
+		}
+	}
+	return true
+}
+
 // TS23502 4.2.3.3, 4.2.4.3, 4.3.2.2, 4.3.2.3, 4.3.3.2, 4.3.7
 func (p *Processor) HandleN1N2MessageTransferRequest(c *gin.Context,
 	n1n2MessageTransferRequest models.N1N2MessageTransferRequestBody,
@@ -159,6 +169,22 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 		}
 	}
 
+	// Validate the SMF before forwarding or paging.
+	if smContext != nil {
+		nfIDs := []string{requestData.NfId}
+		if requestData.N1MessageContainer != nil {
+			nfIDs = append(nfIDs, requestData.N1MessageContainer.NfId)
+		}
+		if !isSmfAuthorizedForN1N2Transfer(smContext, nfIDs...) {
+			ue.ProducerLog.Warnf("Reject N1/N2 transfer for PDU Session ID[%d]: unauthorized SMF", requestData.PduSessionId)
+			problemDetails = &models.ProblemDetails{
+				Status: http.StatusForbidden,
+				Cause:  "INVALID_SM_CONTEXT",
+			}
+			return nil, "", problemDetails, nil
+		}
+	}
+
 	onGoing := ue.OnGoing(anType)
 	// 4xx response cases
 	// TODO: Error Status 307, 403 in TS29.518 Table 6.1.3.5.3.1-3
@@ -207,7 +233,17 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	}
 
 	// UE is CM-Connected
-	if ue.CmConnect(anType) {
+	if ranUe := ue.GetRanUe(anType); ranUe != nil {
+		if ranUe.AmfUe != ue {
+			ue.ProducerLog.Warnf("RanUe is not attached to this AmfUe, reject N1N2 message transfer")
+			transferErr = new(models.Amf_Comm_N1N2MessageTransferError)
+			transferErr.Error = &models.ProblemDetails{
+				Status: http.StatusConflict,
+				Cause:  "TEMPORARY_REJECT_REGISTRATION_ONGOING",
+			}
+			return nil, "", nil, transferErr
+		}
+
 		var (
 			nasPdu []byte
 			err    error
@@ -227,7 +263,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			}
 			if n2Info == nil {
 				ue.ProducerLog.Debug("Forward N1 Message to UE")
-				ngap_message.SendDownlinkNasTransport(ue.RanUe[anType], nasPdu, nil)
+				ngap_message.SendDownlinkNasTransport(ranUe, nasPdu, nil)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -248,15 +284,15 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 					}
 					return nil, "", problemDetails, nil
 				}
-				if ue.RanUe[anType].InitialContextSetup {
+				if ranUe.InitialContextSetup {
 					list := ngapType.PDUSessionResourceSetupListSUReq{}
 					ngap_message.AppendPDUSessionResourceSetupListSUReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
-					ngap_message.SendPDUSessionResourceSetupRequest(ue.RanUe[anType], nil, &list)
+					ngap_message.SendPDUSessionResourceSetupRequest(ranUe, nil, &list)
 				} else {
 					list := ngapType.PDUSessionResourceSetupListCxtReq{}
 					ngap_message.AppendPDUSessionResourceSetupListCxtReq(&list, smInfo.PduSessionId, *smInfo.SNssai, nasPdu, n2Info)
 					ngap_message.SendInitialContextSetupRequest(ue, anType, nil, &list, nil, nil, nil)
-					ue.RanUe[anType].InitialContextSetup = true
+					ranUe.InitialContextSetup = true
 				}
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
@@ -265,7 +301,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Modify Request from SMF")
 				list := ngapType.PDUSessionResourceModifyListModReq{}
 				ngap_message.AppendPDUSessionResourceModifyListModReq(&list, smInfo.PduSessionId, nasPdu, n2Info)
-				ngap_message.SendPDUSessionResourceModifyRequest(ue.RanUe[anType], list)
+				ngap_message.SendPDUSessionResourceModifyRequest(ranUe, list)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -273,7 +309,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				ue.ProducerLog.Debugln("AMF Transfer NGAP PDU Session Resource Release Command from SMF")
 				list := ngapType.PDUSessionResourceToReleaseListRelCmd{}
 				ngap_message.AppendPDUSessionResourceToReleaseListRelCmd(&list, smInfo.PduSessionId, n2Info)
-				ngap_message.SendPDUSessionResourceReleaseCommand(ue.RanUe[anType], nasPdu, list)
+				ngap_message.SendPDUSessionResourceReleaseCommand(ranUe, nasPdu, list)
 				n1n2MessageTransferRspData = new(models.Amf_Comm_N1N2MessageTransferRspData)
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
 				return n1n2MessageTransferRspData, "", nil, nil
@@ -381,10 +417,10 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 	} else {
 		// Case B (UE is CM-IDLE in Non-3GPP access but CM-CONNECTED in 3GPP access and the associated
 		// access type is Non-3GPP access)in subclause 5.2.2.3.1.2 of TS29518
-		if ue.CmConnect(models.AccessType_3_GPP_ACCESS) {
+		if ranUe3gpp := ue.GetRanUe(models.AccessType_3_GPP_ACCESS); ranUe3gpp != nil {
 			if n2Info == nil {
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED
-				gmm_message.SendDLNASTransport(ue.RanUe[models.AccessType_3_GPP_ACCESS],
+				gmm_message.SendDLNASTransport(ranUe3gpp,
 					ie.PayloadCntrType_N1SMInfo, n1Msg, requestData.PduSessionId, 0, nil, 0)
 			} else {
 				n1n2MessageTransferRspData.Cause = models.Amf_Comm_N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE
@@ -399,7 +435,7 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 					logger.GmmLog.Errorf("Build Notification failed : %s", err.Error())
 					return n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr
 				}
-				gmm_message.SendNotification(ue.RanUe[models.AccessType_3_GPP_ACCESS], nasMsg)
+				gmm_message.SendNotification(ranUe3gpp, nasMsg)
 			}
 			return n1n2MessageTransferRspData, locationHeader, nil, nil
 		} else {

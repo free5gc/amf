@@ -124,7 +124,7 @@ func BuildUEContextReleaseCommand(
 		return nil, fmt.Errorf("ranUe is nil")
 	}
 	ids := &ngapIE.UENGAPIDs{}
-	if ue.RanUeNgapId == context.RanUeNgapIdUnspecified {
+	if !ue.RanUeNgapIdAssigned {
 		ids.Choice = &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId}
 	} else {
 		ids.Choice = &ngapIE.UENGAPIDPair{
@@ -241,15 +241,25 @@ func BuildPDUSessionResourceModifyConfirm(
 		return nil, fmt.Errorf("ranUe is nil")
 	}
 	response := &ngapMessage.PDUSessionResourceModifyConfirm{
-		AMFUENGAPID:                        &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
-		RANUENGAPID:                        &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
-		PDUSessionResourceModifyListModCfm: &modifyList,
-		CriticalityDiagnostics:             criticalityDiagnostics,
+		AMFUENGAPID:            &ngapIE.AMFUENGAPID{Value: ue.AmfUeNgapId},
+		RANUENGAPID:            &ngapIE.RANUENGAPID{Value: ue.RanUeNgapId},
+		CriticalityDiagnostics: criticalityDiagnostics,
+	}
+	// TS 38.413 §9.2.1.9: both lists are optional and hold 1..256 items.
+	if len(modifyList.List) != 0 {
+		response.PDUSessionResourceModifyListModCfm = &modifyList
 	}
 	if len(failedList.List) != 0 {
 		response.PDUSessionResourceFailedToModifyListModCfm = &failedList
 	}
 	return response.MarshalBinary()
+}
+
+// BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer builds the
+// transfer that reports why a PDU session failed to be modified
+// (TS 38.413 §9.3.4.22).
+func BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer(cause *ngapIE.Cause) ([]byte, error) {
+	return ngapIE.MarshalBinary(&ngapIE.PDUSessionResourceModifyIndicationUnsuccessfulTransfer{Cause: cause})
 }
 
 func BuildPDUSessionResourceModifyRequest(
@@ -278,8 +288,8 @@ func BuildInitialContextSetupRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	if setupList != nil && len(setupList.List) == 0 {
@@ -353,8 +363,8 @@ func BuildUEContextModificationRequest(
 	if amfUe == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	ranUe, ok := amfUe.RanUe[anType]
-	if !ok || ranUe == nil {
+	ranUe := amfUe.GetRanUe(anType)
+	if ranUe == nil {
 		return nil, fmt.Errorf("ranUe for %s is nil", anType)
 	}
 	amfID := ranUe.AmfUeNgapId
@@ -600,7 +610,7 @@ func BuildRerouteNasRequest(
 	encodedNGAPMessage []byte,
 	allowedNSSAI *ngapIE.AllowedNSSAI,
 ) ([]byte, error) {
-	if ue == nil || ue.RanUe[anType] == nil {
+	if ue == nil || ue.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
 	amfID, _, err := splitGUTI(ue.Guti)
@@ -610,7 +620,7 @@ func BuildRerouteNasRequest(
 	_, setID, _ := ngapConvert.AmfIdToNgap(amfID)
 	messageValue := ngapAper.OctetString(encodedNGAPMessage)
 	request := &ngapMessage.RerouteNASRequest{
-		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.RanUe[anType].RanUeNgapId},
+		RANUENGAPID:  &ngapIE.RANUENGAPID{Value: ue.GetRanUe(anType).RanUeNgapId},
 		NGAPMessage:  &messageValue,
 		AMFSetID:     &ngapIE.AMFSetID{Value: setID},
 		AllowedNSSAI: allowedNSSAI,
@@ -698,10 +708,10 @@ func BuildTraceStart() ([]byte, error) {
 }
 
 func BuildDeactivateTrace(amfUe *context.AmfUe, anType models.AccessType) ([]byte, error) {
-	if amfUe == nil || amfUe.RanUe[anType] == nil {
+	if amfUe == nil || amfUe.GetRanUe(anType) == nil {
 		return nil, fmt.Errorf("amfUe or ranUe for %s is nil", anType)
 	}
-	ranUe := amfUe.RanUe[anType]
+	ranUe := amfUe.GetRanUe(anType)
 	if amfUe.TraceData == nil {
 		return nil, fmt.Errorf("trace data is nil")
 	}
@@ -994,6 +1004,12 @@ func buildAssistanceDataForPaging(amfUe *context.AmfUe) *ngapIE.AssistanceDataFo
 			continue
 		}
 		list.List = append(list.List, item)
+	}
+	// TS 38.413 §9.3.1.71: the Recommended Cell List holds 1..16 items. If no
+	// stored cell can be encoded, omit the optional Assistance Data for Paging
+	// instead of sending an empty list, which makes the PAGING undecodable.
+	if len(list.List) == 0 {
+		return nil
 	}
 	return &ngapIE.AssistanceDataForPaging{
 		AssistanceDataForRecommendedCells: &ngapIE.AssistanceDataForRecommendedCells{

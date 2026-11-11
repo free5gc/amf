@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/mohae/deepcopy"
@@ -18,6 +19,11 @@ import (
 type RelAction int
 
 const (
+	// RanUeNgapIdUnspecified marks a RanUe that the AMF has not given a
+	// RAN-UE-NGAP-ID yet, e.g. a handover target created before the
+	// HANDOVER REQUEST ACKNOWLEDGE. 0xffffffff is also a legal RAN-UE-NGAP-ID
+	// (TS 38.413 §9.3.3.2), so it cannot be told apart from a received one by
+	// value; RanUeNgapIdAssigned says which one it is.
 	RanUeNgapIdUnspecified int64 = 0xffffffff
 )
 
@@ -29,8 +35,9 @@ const (
 
 type RanUe struct {
 	/* UE identity*/
-	RanUeNgapId int64
-	AmfUeNgapId int64
+	RanUeNgapId         int64
+	RanUeNgapIdAssigned bool // RanUeNgapId is a RAN-UE-NGAP-ID, not the placeholder
+	AmfUeNgapId         int64
 
 	/* HandOver Info*/
 	HandOverType        ie.HandoverType
@@ -38,6 +45,10 @@ type RanUe struct {
 	SuccessPduSessionId []int32
 	SourceUe            *RanUe
 	TargetUe            *RanUe
+	// HandoverCommandSent is set on an N2 handover target once the AMF has sent
+	// the HANDOVER COMMAND for it to the source. Only then may the target
+	// report the UE's arrival with HANDOVER NOTIFY.
+	HandoverCommandSent bool
 
 	/* UserLocation*/
 	Tai      models.Tai
@@ -68,6 +79,14 @@ type RanUe struct {
 	/* send initial context setup request or not*/
 	InitialContextSetup bool
 
+	/* an N2 release was requested with a UE Context Release Command and the
+	   UE Context Release Complete is still outstanding */
+	ReleasePending bool
+
+	/* number of Initial Context Setup Requests sent on this connection whose
+	   Response or Failure has not been received yet */
+	InitialContextSetupPending atomic.Int32
+
 	/* logger */
 	Log *logrus.Entry
 }
@@ -81,16 +100,36 @@ func (ranUe *RanUe) Remove() error {
 		return fmt.Errorf("RanUe not found in Ran")
 	}
 	if ranUe.AmfUe != nil {
-		ranUe.AmfUe.DetachRanUe(ran.AnType)
+		ranUe.AmfUe.DetachRanUe(ran.AnType, ranUe)
 		ranUe.DetachAmfUe()
 	}
+	// A removed RanUe is no longer the source or the target of an N2 handover:
+	// clear the link so that the peer RanUe does not keep a pointer to it.
+	DetachSourceUeTargetUe(ranUe)
 
-	ran.RanUeList.Delete(ranUe.RanUeNgapId)
+	// Delete the entry only if it is this RanUe: the handover-target
+	// placeholder is not in the list, and its RanUeNgapId may be the key of a
+	// connection whose RAN-UE-NGAP-ID is 0xffffffff.
+	ran.RanUeList.CompareAndDelete(ranUe.RanUeNgapId, ranUe)
 
 	self := GetSelf()
 	self.RanUePool.Delete(ranUe.AmfUeNgapId)
 	amfUeNGAPIDGenerator.FreeID(ranUe.AmfUeNgapId)
 	return nil
+}
+
+// TakeInitialContextSetupPending consumes one outstanding Initial Context
+// Setup Request and reports whether there was one.
+func (ranUe *RanUe) TakeInitialContextSetupPending() bool {
+	for {
+		pending := ranUe.InitialContextSetupPending.Load()
+		if pending <= 0 {
+			return false
+		}
+		if ranUe.InitialContextSetupPending.CompareAndSwap(pending, pending-1) {
+			return true
+		}
+	}
 }
 
 func (ranUe *RanUe) DetachAmfUe() {
@@ -108,8 +147,8 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 
 	oldRan := ranUe.Ran
 
-	// remove ranUe from oldRan
-	oldRan.RanUeList.Delete(ranUe.RanUeNgapId)
+	// remove ranUe from oldRan (only its own entry, as in Remove)
+	oldRan.RanUeList.CompareAndDelete(ranUe.RanUeNgapId, ranUe)
 
 	// add ranUe to newRan
 	newRan.RanUeList.Store(ranUeNgapId, ranUe)
@@ -117,6 +156,7 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 	// switch to newRan
 	ranUe.Ran = newRan
 	ranUe.RanUeNgapId = ranUeNgapId
+	ranUe.RanUeNgapIdAssigned = true
 
 	// update log information
 	ranUe.UpdateLogFields()

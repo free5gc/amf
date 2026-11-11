@@ -192,6 +192,22 @@ type AmfUe struct {
 	T3512Value             int        // default 54 min
 	Non3gppDeregTimerValue int        // default 54 min
 	Lock                   sync.Mutex // Update context to prevent race condition
+	// RanUeMu serializes access to RanUe and AnTypeFlags.  It is kept separate
+	// from Lock because Lock is held by procedures that may enter the RanUe
+	// release path.  Hold it only for the map/flag update itself (and, when an
+	// attach replaces a RanUe, the stop of the 5GMM timers, which does no I/O),
+	// never across NGAP or SBI I/O.
+	RanUeMu sync.RWMutex
+	// timerMu serializes the T3513..T3570 fields above.  A timer is started by
+	// a NAS/NGAP procedure, stopped by another procedure or a release, and
+	// cleared by its own goroutine, each on a different goroutine.  Only the
+	// field update is done under the lock; Timer.Stop is called after it.
+	timerMu sync.Mutex
+	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
+	onGoingMu sync.RWMutex
+	// identityMu serializes Suci: AmfUeFindBySuci scans the UE pool from an
+	// NGAP worker while a GMM handler records the SUCI on another goroutine.
+	identityMu sync.RWMutex
 
 	// logger
 	NASLog      *logrus.Entry
@@ -297,11 +313,32 @@ func (ue *AmfUe) ServingAMF() *AMFContext {
 	return ue.servingAMF
 }
 
+// GetSuci returns the SUCI recorded for the UE.
+func (ue *AmfUe) GetSuci() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Suci
+}
+
+// SetSuci records the SUCI received from the UE.
+func (ue *AmfUe) SetSuci(suci string) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Suci = suci
+}
+
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
-	if _, ok := ue.RanUe[anType]; !ok {
-		return false
-	}
-	return true
+	return ue.GetRanUe(anType) != nil
+}
+
+// GetRanUe returns the RanUe attached for an access type.  The map read is
+// serialized with every attach and detach through RanUeMu, so it can be used
+// from the GMM and SBI procedures that run on different goroutines than the
+// NGAP worker which owns the RanUe.
+func (ue *AmfUe) GetRanUe(anType models.AccessType) *RanUe {
+	ue.RanUeMu.RLock()
+	defer ue.RanUeMu.RUnlock()
+	return ue.RanUe[anType]
 }
 
 func (ue *AmfUe) CmIdle(anType models.AccessType) bool {
@@ -317,13 +354,24 @@ func (ue *AmfUe) Remove() {
 	ue.StopT3570()
 	ue.StopT3555()
 
+	ue.RanUeMu.Lock()
+	ranUes := make([]*RanUe, 0, len(ue.RanUe))
 	for _, ranUe := range ue.RanUe {
+		ranUes = append(ranUes, ranUe)
+	}
+	anTypeFlags := make(map[models.AccessType]bool, len(ue.AnTypeFlags))
+	for accessType, flag := range ue.AnTypeFlags {
+		anTypeFlags[accessType] = flag
+	}
+	ue.RanUeMu.Unlock()
+
+	for _, ranUe := range ranUes {
 		if err := ranUe.Remove(); err != nil {
 			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
 	}
 
-	for accessType, flag := range ue.AnTypeFlags {
+	for accessType, flag := range anTypeFlags {
 		if flag {
 			business_metrics.DecrUeCmIdleStateGauge(accessType)
 		}
@@ -337,8 +385,29 @@ func (ue *AmfUe) Remove() {
 	logger.CtxLog.Infof("AmfUe[%s] is removed", ue.Supi)
 }
 
-func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
+// DetachRanUe detaches ranUe from the AmfUe.  A stale release (a RanUe that is
+// no longer the one attached for anType) is ignored, so it cannot delete a
+// newly attached RanUe of the same access type.
+func (ue *AmfUe) DetachRanUe(anType models.AccessType, ranUe *RanUe) {
 	if ue == nil {
+		return
+	}
+
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.detachRanUe(anType, ranUe)
+}
+
+func (ue *AmfUe) detachRanUe(anType models.AccessType, ranUe *RanUe) {
+	current, ok := ue.RanUe[anType]
+	if !ok {
+		// Another release already removed the entry; keep the metrics and the
+		// log fields consistent with an empty slot.
+		ue.updateLogFields(anType)
+		return
+	}
+	if ranUe != nil && current != ranUe {
+		// The release belongs to a RanUe that has already been replaced.
 		return
 	}
 
@@ -351,17 +420,36 @@ func (ue *AmfUe) DetachRanUe(anType models.AccessType) {
 	}
 
 	delete(ue.RanUe, anType)
-	ue.UpdateLogFields(anType)
+	ue.updateLogFields(anType)
 }
 
-// Don't call this function directly. Use gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny().
+// AttachRanUe attaches ranUe to the AmfUe.  Use
+// gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny() for the complete ownership
+// transition; this method only takes the RanUeMu lock and updates the link.
 func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.AttachRanUeLocked(ranUe)
+}
+
+// AttachRanUeLocked updates the link.  The caller must hold ue.RanUeMu.
+func (ue *AmfUe) AttachRanUeLocked(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
-	ue.UpdateLogFields(ranUe.Ran.AnType)
+	ue.updateLogFields(ranUe.Ran.AnType)
 }
 
+// UpdateLogFields refreshes the per-UE logger fields.  It is serialized with
+// the RanUe attach/detach transitions because it reads the current RanUe.
 func (ue *AmfUe) UpdateLogFields(accessType models.AccessType) {
+	ue.RanUeMu.Lock()
+	defer ue.RanUeMu.Unlock()
+	ue.updateLogFields(accessType)
+}
+
+// updateLogFields refreshes the per-UE logger fields.  The caller must hold
+// ue.RanUeMu (read or write).
+func (ue *AmfUe) updateLogFields(accessType models.AccessType) {
 	anTypeStr := ""
 	switch accessType {
 	case models.AccessType_3_GPP_ACCESS:
@@ -674,24 +762,42 @@ func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.IdentityRequestSendTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
-	if ranUe := ue.RanUe[accessType]; ranUe != nil {
+	if ranUe := ue.GetRanUe(accessType); ranUe != nil {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
 	ue.RetransmissionOfInitialNASMsg = false
+	ue.onGoingMu.Lock()
 	if onGoing := ue.onGoing[accessType]; onGoing != nil {
 		onGoing.Procedure = OnGoingProcedureNothing
 	}
+	ue.onGoingMu.Unlock()
 }
 
 func (ue *AmfUe) SetOnGoing(anType models.AccessType, onGoing *OnGoing) {
+	ue.onGoingMu.Lock()
 	prevOnGoing := ue.onGoing[anType]
 	ue.onGoing[anType] = onGoing
-	ue.GmmLog.Debugf("OnGoing[%s]->[%s] PPI[%d]->[%d]", prevOnGoing.Procedure, onGoing.Procedure,
-		prevOnGoing.Ppi, onGoing.Ppi)
+	var prevProcedure, procedure OnGoingProcedure
+	var prevPpi, ppi int32
+	if prevOnGoing != nil {
+		prevProcedure, prevPpi = prevOnGoing.Procedure, prevOnGoing.Ppi
+	}
+	if onGoing != nil {
+		procedure, ppi = onGoing.Procedure, onGoing.Ppi
+	}
+	ue.onGoingMu.Unlock()
+
+	ue.GmmLog.Debugf("OnGoing[%s]->[%s] PPI[%d]->[%d]", prevProcedure, procedure, prevPpi, ppi)
 }
 
+// OnGoing returns a copy of the procedure in progress for anType.
 func (ue *AmfUe) OnGoing(anType models.AccessType) OnGoing {
-	return *ue.onGoing[anType]
+	ue.onGoingMu.RLock()
+	defer ue.onGoingMu.RUnlock()
+	if onGoing := ue.onGoing[anType]; onGoing != nil {
+		return *onGoing
+	}
+	return OnGoing{Procedure: OnGoingProcedureNothing}
 }
 
 func (ue *AmfUe) RemoveAmPolicyAssociation() {
@@ -952,82 +1058,86 @@ func (ue *AmfUe) UpdateBackupAmfInfo(backupAmfInfo models.BackupAmfInfo) {
 }
 
 func (ue *AmfUe) StopT3513() {
-	if ue.T3513 == nil {
+	timer := ue.takeTimer(&ue.T3513)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3513 timer")
-	ue.T3513.Stop()
-	ue.T3513 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3565() {
-	if ue.T3565 == nil {
+	timer := ue.takeTimer(&ue.T3565)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3565 timer")
-	ue.T3565.Stop()
-	ue.T3565 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3560() {
-	if ue.T3560 == nil {
+	timer := ue.takeTimer(&ue.T3560)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3560 timer")
-	ue.T3560.Stop()
-	ue.T3560 = nil // clear the timer
+	timer.Stop()
 }
 
-func (ue *AmfUe) StopT3550() {
-	if ue.T3550 == nil {
-		return
+// StopT3550 stops T3550 and reports whether it was running.  When it returns
+// true, T3550's last expiry cannot run its abort callback any more.
+func (ue *AmfUe) StopT3550() bool {
+	timer := ue.takeTimer(&ue.T3550)
+	if timer == nil {
+		return false
 	}
 
 	ue.GmmLog.Infof("Stop T3550 timer")
-	ue.T3550.Stop()
-	ue.T3550 = nil // clear the timer
+	timer.Stop()
+	return true
 }
 
 func (ue *AmfUe) StopT3522() {
-	if ue.T3522 == nil {
+	timer := ue.takeTimer(&ue.T3522)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3522 timer")
-	ue.T3522.Stop()
-	ue.T3522 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3570() {
-	if ue.T3570 == nil {
+	timer := ue.takeTimer(&ue.T3570)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3570 timer")
-	ue.T3570.Stop()
-	ue.T3570 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) StopT3555() {
-	if ue.T3555 == nil {
+	timer := ue.takeTimer(&ue.T3555)
+	if timer == nil {
 		return
 	}
 
 	ue.GmmLog.Infof("Stop T3555 timer")
-	ue.T3555.Stop()
-	ue.T3555 = nil // clear the timer
+	timer.Stop()
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
-	if ue.RanUe[anType] == nil || ue.RanUe[anType].Ran == nil {
+	ranUe := ue.GetRanUe(anType)
+	if ranUe == nil || ranUe.Ran == nil {
 		ue.GmmLog.Warn("CheckSliceAvailabilityInCurrentRan: RanUe or Ran is nil")
 		return false
 	}
 
-	return ue.CheckSliceAvailabilityInRan(targetSnssai, ue.RanUe[anType].Ran, ue.Tai)
+	return ue.CheckSliceAvailabilityInRan(targetSnssai, ranUe.Ran, ue.Tai)
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInTargetRan(
