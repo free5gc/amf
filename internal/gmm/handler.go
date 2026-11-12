@@ -753,9 +753,8 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	storedUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureRegistration})
 	storedUe.StopT3513()
 	storedUe.StopT3565()
-	// TS 33.501 6.12.3: a new 5G-GUTI for an initial, mobility or periodic registration.
-	context.GetSelf().FreeTmsi(int64(storedUe.Tmsi))
-	context.GetSelf().AllocateGutiToUe(storedUe)
+	// The new 5G-GUTI (TS 33.501 6.12.3) is allocated when the REGISTRATION ACCEPT is sent, and the
+	// UE's 5G-GUTI stays valid until the UE acknowledges it (TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)).
 
 	ue.DetachRanUe(anType, ranUe)
 	leaveContextSetup()

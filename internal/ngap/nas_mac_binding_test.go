@@ -45,6 +45,7 @@ func bindingVictim(t *testing.T, secured bool) *amf_context.AmfUe {
 	amfSelf := amf_context.GetSelf()
 	amfUe := amfSelf.NewAmfUe("imsi-208930000000001")
 	amfUe.Guti = "20893cafe0000000001"
+	amfUe.GutiSignalled = true // a registered UE holds the 5G-GUTI of its last REGISTRATION ACCEPT
 	amfUe.SetSuci(bindingSuci.IdStr())
 	amfUe.State[models.AccessType_3_GPP_ACCESS].Set(amf_context.Registered)
 	amfUe.SecurityContextAvailable = secured
