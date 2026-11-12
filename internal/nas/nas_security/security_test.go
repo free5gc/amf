@@ -12,7 +12,10 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func TestEncodeNewSecurityContextResetsBothCounts(t *testing.T) {
+// The initial SECURITY MODE COMMAND resets the NAS COUNTs before it is encoded; Encode protects a
+// message under the current downlink NAS COUNT for every security header type, so that a
+// retransmitted SECURITY MODE COMMAND takes the next one (TS 24.501 4.4.3.1).
+func TestEncodeNewSecurityContextKeepsCounts(t *testing.T) {
 	ue := newSecurityTestUE()
 	ue.SecurityContextAvailable = true
 	ue.ULCount.Set(3, 9)
@@ -27,8 +30,11 @@ func TestEncodeNewSecurityContextResetsBothCounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx,
 		message.GetSecHdrType(payload))
-	require.Equal(t, uint32(0), ue.ULCount.Get())
-	require.Equal(t, uint32(1), ue.DLCount.Get())
+	header := new(message.SecProtectedHdr)
+	require.NoError(t, header.UnmarshalBinary(payload))
+	require.Equal(t, uint8(10), header.SequenceNumber)
+	require.Equal(t, uint32(3<<8|9), ue.ULCount.Get())
+	require.Equal(t, uint32(4<<8|11), ue.DLCount.Get())
 }
 
 func TestDecodeIntegrityProtectedServiceRequest(t *testing.T) {

@@ -243,6 +243,19 @@ func BuildSecurityModeCommand(
 	eapSuccess bool,
 	eapMessage string,
 ) ([]byte, error) {
+	_, payload, err := initialSecurityModeCommand(ue, accessType, eapSuccess, eapMessage)
+	return payload, err
+}
+
+// initialSecurityModeCommand builds the SECURITY MODE COMMAND message, takes its 5G NAS security
+// context into use and protects the message under downlink NAS COUNT 0 (TS 24.501 5.4.2.2). It also
+// returns the message, which a retransmission protects again under the next NAS COUNT.
+func initialSecurityModeCommand(
+	ue *context.AmfUe,
+	accessType models.AccessType,
+	eapSuccess bool,
+	eapMessage string,
+) (*nas_message.SecModeCmd, []byte, error) {
 	msg := &nas_message.SecModeCmd{
 		SelectedNASSecAlgos: &ie.NASSecAlgos{
 			CipheringAlgo: ie.AlgCiphering(ue.CipheringAlg),
@@ -269,7 +282,7 @@ func BuildSecurityModeCommand(
 	if eapMessage != "" {
 		rawEAPMessage, err := base64.StdEncoding.DecodeString(eapMessage)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		msg.EAPMsg = &ie.EAPMsg{Eap: rawEAPMessage}
 		if eapSuccess {
@@ -278,6 +291,11 @@ func BuildSecurityModeCommand(
 	}
 
 	ue.SecurityContextAvailable = true
+	// The NAS COUNTs of the new 5G NAS security context start at zero (TS 24.501 5.4.2.2, 5.4.2.3).
+	ue.WithNASCounts(func(ulCount, dlCount *nas_message.Count) {
+		ulCount.Set(0, 0)
+		dlCount.Set(0, 0)
+	})
 	payload, err := nas_security.Encode(
 		ue,
 		msg,
@@ -286,9 +304,9 @@ func BuildSecurityModeCommand(
 	)
 	if err != nil {
 		ue.SecurityContextAvailable = false
-		return nil, err
+		return nil, nil, err
 	}
-	return payload, nil
+	return msg, payload, nil
 }
 
 // T3346 timer is not supported.

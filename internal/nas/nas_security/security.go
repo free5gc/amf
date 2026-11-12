@@ -31,7 +31,6 @@ func Encode(
 		return nil, fmt.Errorf("NAS message %s cannot be sent plain when security context is available", msg.MsgType())
 	}
 
-	newContext := false
 	switch securityHeaderType {
 	case message.SecHdrTypeIntegrityProtected:
 		ue.NASLog.Debugln("Security header type: Integrity Protected")
@@ -39,10 +38,8 @@ func Encode(
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered")
 	case message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected With New 5G Security Context")
-		newContext = true
 	case message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx:
 		ue.NASLog.Debugln("Security header type: Integrity Protected And Ciphered With New 5G Security Context")
-		newContext = true
 	default:
 		return nil, fmt.Errorf("wrong security header type: 0x%0x", securityHeaderType)
 	}
@@ -51,11 +48,7 @@ func Encode(
 	// never share a COUNT (TS 24.501 4.4.3.1).
 	var payload []byte
 	var err error
-	ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
-		if newContext {
-			ulCount.Set(0, 0)
-			dlCount.Set(0, 0)
-		}
+	ue.WithNASCounts(func(_, _ *message.Count) {
 		payload, err = message.Marshal(msg, newSecurityContext(ue, accessType), securityHeaderType)
 	})
 	return payload, err

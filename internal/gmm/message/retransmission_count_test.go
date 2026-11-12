@@ -117,6 +117,13 @@ func TestRetransmissionUsesNextNasCount(t *testing.T) {
 		{"T3522 deregistration request", &amfSelf.T3522Cfg, true, func(ue *context.AmfUe) {
 			SendDeregistrationRequest(ue.GetRanUe(accessType), ie.AccessType_3gpp, false, 0)
 		}},
+		// The initial SECURITY MODE COMMAND resets the downlink NAS COUNT (5.4.2.2); its
+		// retransmission does not.
+		{"T3560 security mode command", &amfSelf.T3560Cfg, true, func(ue *context.AmfUe) {
+			ue.UESecurityCapability = ie.UESecCapability{Length: 2}
+			ue.DLCount.Set(0, 5)
+			SendSecurityModeCommand(ue.GetRanUe(accessType), accessType, false, "")
+		}},
 		// Without a security context, the message is plain and sent again as it is.
 		{"T3560 plain authentication request", &amfSelf.T3560Cfg, false, func(ue *context.AmfUe) {
 			SendAuthenticationRequest(ue.GetRanUe(accessType))

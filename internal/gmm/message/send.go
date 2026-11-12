@@ -10,6 +10,7 @@ import (
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/nas/ie"
+	nas_message "github.com/free5gc/nas/message"
 	ngapType "github.com/free5gc/ngap/ie"
 	"github.com/free5gc/openapi/models"
 	nasMetrics "github.com/free5gc/util/metrics/nas"
@@ -530,7 +531,7 @@ func SendSecurityModeCommand(ue *context.RanUe, accessType models.AccessType, ea
 	amfUe := ue.AmfUe
 	amfUe.GmmLog.Info("Send Security Mode Command")
 
-	nasMsg, err := BuildSecurityModeCommand(amfUe, accessType, eapSuccess, eapMessage)
+	msg, nasMsg, err := initialSecurityModeCommand(amfUe, accessType, eapSuccess, eapMessage)
 	if err != nil {
 		additionalCause = nasMetrics.NAS_MSG_BUILD_ERR
 		amfUe.GmmLog.Error(err.Error())
@@ -549,9 +550,21 @@ func SendSecurityModeCommand(ue *context.RanUe, accessType models.AccessType, ea
 				return
 			}
 			amfUe.GmmLog.Warnf("T3560 expires, retransmit Security Mode Command (retry: %d)", expireTimes)
+			isRetransmitted := false
 			timerAdditionalCause := "Retry Security Mode Command"
-			defer nasMetrics.IncrMetricsSentNasMsgs(nasMetrics.SECURITY_MODE_COMMAND, &isNasMsgSent, 0, &timerAdditionalCause)
-			ngap_message.SendDownlinkNasTransport(ue, nasMsg, nil)
+			defer nasMetrics.IncrMetricsSentNasMsgs(
+				nasMetrics.SECURITY_MODE_COMMAND, &isRetransmitted, 0, &timerAdditionalCause)
+			// TS 24.501 4.4.3.1: a retransmission is protected under the next NAS COUNT; only the
+			// initial SECURITY MODE COMMAND is at NAS COUNT 0 (5.4.2.2)
+			retransmission, errEncode := nas_security.Encode(amfUe, msg, accessType,
+				nas_message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx)
+			if errEncode != nil {
+				timerAdditionalCause = nasMetrics.NAS_MSG_BUILD_ERR
+				amfUe.GmmLog.Error(errEncode.Error())
+				return
+			}
+			isRetransmitted = true
+			ngap_message.SendDownlinkNasTransport(ue, retransmission, nil)
 		}, func() {
 			amfUe.Lock.Lock()
 			defer amfUe.Lock.Unlock()
