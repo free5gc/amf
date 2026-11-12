@@ -454,7 +454,12 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	switch ue.RegistrationType5GS {
 	case ie.RegType_InitialReg:
 		ue.GmmLog.Infof("RegistrationType: Initial Registration")
-		ue.SecurityContextAvailable = false // need to start authentication procedure later
+		// An initial registration is authenticated anew. A request that passed the integrity check keeps
+		// the 5G NAS security context until the new one is taken into use: the secure exchange of NAS
+		// messages is established, so every message to the UE is integrity protected (TS 24.501 4.4.4.1).
+		if ue.MacFailed {
+			ue.SecurityContextAvailable = false
+		}
 	case ie.RegType_MobilityRegUpdating:
 		ue.GmmLog.Infof("RegistrationType: Mobility Registration Updating")
 		// A context with AuthenticatingFor set only authenticates the UE; the registration itself
@@ -763,7 +768,9 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	leaveContextSetup()
 	ue.Remove()
 	gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(storedUe, ranUe)
-	// Authentication and security mode control are skipped: the security context is valid.
+	// Authentication and security mode control are skipped: the security context is valid, and an
+	// initial registration has been authenticated on ue.
+	storedUe.AuthenticatedElsewhere = true
 	if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
 		ArgAmfUe:      storedUe,
 		ArgAccessType: anType,
@@ -1938,7 +1945,8 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	// Check whether UE has SUCI and SUPI
 	if IdentityVerification(ue) {
 		ue.GmmLog.Debugln("UE has SUCI / SUPI")
-		if ue.SecurityContextIsValid() {
+		// An initial registration is authenticated anew, unless it has been authenticated on another UE context.
+		if ue.SecurityContextIsValid() && (ue.RegistrationType5GS != ie.RegType_InitialReg || ue.AuthenticatedElsewhere) {
 			ue.GmmLog.Debugln("UE has a valid security context - skip the authentication procedure")
 			return true, nil
 		}

@@ -247,6 +247,7 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
 		amfUe.GmmLog.Debugln(event)
 		amfUe.AuthenticationCtx = nil
+		amfUe.AuthenticatedElsewhere = false
 		amfUe.AuthFailureCauseSynchFailureTimes = 0
 		amfUe.IdentityRequestSendTimes = 0
 		business_metrics.DecrGmmStateGauge(string(accessType), string(state.Current()), amfUe.GmmStateEnterTime)
