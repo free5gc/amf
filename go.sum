@@ -29,6 +29,8 @@ github.com/free5gc/nas v1.3.1-0.20261020065227-320605c34466 h1:/WUpCYToRAMDr8djL
 github.com/free5gc/nas v1.3.1-0.20261020065227-320605c34466/go.mod h1:T/krdGjxSut+MQJAFFBS4lsWZa/NPEz7wO0G/D3qHeE=
 github.com/free5gc/ngap v1.2.0 h1:tZPokNiF/J97dmq0DVATcE1lZi7stCo7LZaosSB8otQ=
 github.com/free5gc/ngap v1.2.0/go.mod h1:1lfw7JP0fs8bdv0B685KDC2/shOciL9gf1f3KwKnGvk=
+github.com/free5gc/openapi v1.3.1-0.20261104070955-7fad8e868cb2 h1:BOJSQK6arB7Ohf51fAceHY/cPwXSyb07Tnj6bpm5Wxw=
+github.com/free5gc/openapi v1.3.1-0.20261104070955-7fad8e868cb2/go.mod h1:ixcBUsgwkQBAT/4peVVB0daqxk0qv6V8zOMSFvhKVfo=
 github.com/free5gc/sctp v1.2.0 h1:xzvFWZSMUdJkW7Q0Xo6YY77SbkNZwSw9Hl2rH1njSlo=
 github.com/free5gc/sctp v1.2.0/go.mod h1:wOvct9P1T6DGk1fxkleF7zeTHsU8ZKxKzewu2ciZh/4=
 github.com/free5gc/util v1.4.1-0.20261014070359-d865b0ce854b h1:PEj810Hxh0XFH2w3VEmAt+rXRoZ25hsnc0hZo0624Iw=
@@ -67,8 +69,6 @@ github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 h1:2VTzZjLZBgl62/EtslC
 github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542/go.mod h1:Ow0tF8D4Kplbc8s8sSb3V2oUCygFHVp8gC3Dn6U4MNI=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/ki225/openapi v0.0.0-20261023075527-6c3ba053ced3 h1:Cs9fSGvzbJwdV47cvt7BoZDPGZyRjo1/aposOfyAJbE=
-github.com/ki225/openapi v0.0.0-20261023075527-6c3ba053ced3/go.mod h1:ixcBUsgwkQBAT/4peVVB0daqxk0qv6V8zOMSFvhKVfo=
 github.com/klauspost/compress v1.18.7 h1:aUyZsS4kH3QTKurYhAOwAHxllVPnOthb3vPfnF1Ehjw=
 github.com/klauspost/compress v1.18.7/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
