@@ -162,13 +162,18 @@ func handleNGResetMain(ran *context.AmfRan,
 	cause *ngapType.Cause,
 	resetType *ngapType.ResetType,
 ) {
+	releaseCause := ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified)
 	if cause != nil {
-		printAndGetCause(ran, cause)
+		releaseCause = ngapCause(printAndGetCause(ran, cause))
 	}
 
 	switch choice := resetType.Choice.(type) {
 	case *ngapType.ResetAll:
 		ran.Log.Trace("ResetType Present: NG Interface")
+		ran.RanUeList.Range(func(_, value interface{}) bool {
+			deactivateUpConnections(ran, value.(*context.RanUe), releaseCause)
+			return true
+		})
 		completeUeContextReleases(ran)
 		ran.RemoveAllRanUe(false)
 		ngap_message.SendNGResetAcknowledge(ran, nil, nil)
@@ -198,7 +203,11 @@ func handleNGResetMain(ran *context.AmfRan,
 				}
 			}
 
-			if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
+			if ranUe == nil {
+				continue
+			}
+			deactivateUpConnections(ran, ranUe, releaseCause)
+			if !completeUeContextRelease(ran, ranUe) {
 				if err := ranUe.Remove(); err != nil {
 					ran.Log.Error(err.Error())
 				}
@@ -2734,8 +2743,42 @@ func completeUeContextReleases(ran *context.AmfRan) {
 	})
 }
 
+// deactivateUpConnections performs locally the AN release of the UE whose N2 connection ranUe is,
+// when the AMF releases that connection without the N2 messages of the procedure (the SCTP association
+// of its gNB is lost, or an NG RESET): the user plane of each PDU session of the UE on this access is
+// deactivated at its SMF (TS 23.502 4.2.6).
+func deactivateUpConnections(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) {
+	amfUe := ranUe.AmfUe
+	if amfUe == nil || amfUe.GetRanUe(ran.AnType) != ranUe {
+		return
+	}
+	amfUe.SmContextList.Range(func(_, value interface{}) bool {
+		smContext := value.(*context.SmContext)
+		if smContext.AccessType() != ran.AnType {
+			return true
+		}
+		response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, cause)
+		if err != nil {
+			ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
+		} else if response == nil {
+			ranUe.Log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
+		}
+		return true
+	})
+}
+
+// ngapCause is the NGAP cause of a release, as the SMF receives it.
+func ngapCause(group int, value aper.Enumerated) context.CauseAll {
+	return context.CauseAll{NgapCause: &models.NgApCause{Group: int32(group), Value: int32(value)}}
+}
+
 // removeRan removes the RAN context once its SCTP association is gone.
 func removeRan(ran *context.AmfRan) {
+	cause := ngapCause(ngap_message.CauseChoiceTransport, ngapType.CauseTransportPresentTransportResourceUnavailable)
+	ran.RanUeList.Range(func(_, value interface{}) bool {
+		deactivateUpConnections(ran, value.(*context.RanUe), cause)
+		return true
+	})
 	completeUeContextReleases(ran)
 	ran.Remove()
 }
