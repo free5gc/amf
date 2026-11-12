@@ -9,7 +9,6 @@ import (
 	"github.com/free5gc/ngap/aper"
 	ngapType "github.com/free5gc/ngap/ie"
 	ngapMessage "github.com/free5gc/ngap/message"
-	"github.com/free5gc/openapi/models"
 )
 
 // hoLinkTargetNGReset: the target NG-RAN node resets its NG interface
@@ -58,7 +57,6 @@ func TestTargetNGResetDuringHandoverClearsLink(t *testing.T) {
 // (steps 4b and 6); nothing is sent for the removed target. A new HANDOVER
 // REQUIRED then reaches the target node.
 func TestHandoverCancelAfterTargetRemoved(t *testing.T) {
-	hoStateCanceled := string(models.Smf_PDUSess_HoState_CANCELLED) //nolint:misspell // OpenAPI enum value
 	for _, tc := range []struct {
 		name       string
 		remove     func(e *hoTestEnv)
@@ -97,14 +95,48 @@ func TestHandoverCancelAfterTargetRemoved(t *testing.T) {
 	}
 }
 
-// The source releases the UE while the target prepares (TS 38.413 8.3.2), and
-// the target then refuses the handover with HANDOVER FAILURE. The SMF
-// preparation is canceled (TS 29.502 5.2.2.3.4.2), the ongoing N2 handover is
-// ended and the target is released; nothing is sent for the removed source.
+// The source releases the UE while the target prepares (TS 38.413 8.3.2). The
+// handover cannot be executed, so it is canceled at once: the SMF preparation
+// is canceled (TS 29.502 5.2.2.3.4.2), the ongoing N2 handover is ended and the
+// target is released. A HANDOVER FAILURE the target sends afterwards answers a
+// handover that is already canceled and changes nothing.
 func TestHandoverFailureAfterSourceRelease(t *testing.T) {
 	e := newHoTestEnv(t, true)
+	smfBefore := len(e.smf.requests())
 	hoLinkReleaseSource(e, ngapType.CauseRadioNetworkPresentUserInactivity)
 	hoRequireSent(t, e.srcConn, "source not released", "UEContextReleaseCommand")
+	// The source release cancels the handover at once (TS 23.502 4.9.1.4), so
+	// the SMF preparation is canceled and the target released before the target
+	// answers.
+	e.smf.requireRequests(t, smfBefore, "SMF preparation not canceled on the source release", hoStateCanceled)
+	require.Equal(t, amf_context.OnGoingProcedureNothing, e.amfUe.OnGoing(hoTestAnType).Procedure,
+		"N2 handover left ongoing")
+	hoRequireSent(t, e.tgtConn, "target not released", "HandoverRequest", "UEContextReleaseCommand")
+	smfBefore = len(e.smf.requests())
+
+	dispatchMain(e.tgtRan, &ngapMessage.HandoverFailure{
+		AMFUENGAPID: &ngapType.AMFUENGAPID{Value: e.tgt.AmfUeNgapId},
+		Cause: &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+			Value: ngapType.CauseRadioNetworkPresentNoRadioResourcesAvailableInTargetCell,
+		}},
+	}, nil)
+
+	// The failure answers a handover that is already canceled: it changes nothing.
+	e.smf.requireRequests(t, smfBefore, "SMF request for the failure of a canceled handover")
+	hoRequireSent(t, e.srcConn, "message sent for the removed source", "UEContextReleaseCommand")
+	hoRequireSent(t, e.tgtConn, "target not released", "HandoverRequest", "UEContextReleaseCommand")
+}
+
+// The source NG association is lost while the target prepares the handover, and
+// the target then refuses it with HANDOVER FAILURE. There was no UE CONTEXT
+// RELEASE REQUEST, so nothing canceled the handover earlier: the failure
+// cancels the preparation at the SMF (TS 29.502 5.2.2.3.4.2), ends the ongoing
+// N2 handover and releases the target.
+func TestHandoverFailureAfterSourceAssociationLoss(t *testing.T) {
+	e := newHoTestEnv(t, true)
+	e.srcRan.Remove()
+	require.Nil(t, e.amfUe.RanUe[hoTestAnType])
+	require.Nil(t, e.tgt.SourceUe)
 	smfBefore := len(e.smf.requests())
 
 	dispatchMain(e.tgtRan, &ngapMessage.HandoverFailure{
@@ -114,11 +146,9 @@ func TestHandoverFailureAfterSourceRelease(t *testing.T) {
 		}},
 	}, nil)
 
-	hoStateCanceled := string(models.Smf_PDUSess_HoState_CANCELLED) //nolint:misspell // OpenAPI enum value
 	e.smf.requireRequests(t, smfBefore, "SMF preparation not canceled", hoStateCanceled)
 	require.Equal(t, amf_context.OnGoingProcedureNothing, e.amfUe.OnGoing(hoTestAnType).Procedure,
 		"N2 handover left ongoing")
-	hoRequireSent(t, e.srcConn, "message sent for the removed source", "UEContextReleaseCommand")
 	hoRequireSent(t, e.tgtConn, "target not released", "HandoverRequest", "UEContextReleaseCommand")
 }
 

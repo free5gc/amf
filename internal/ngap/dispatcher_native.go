@@ -148,7 +148,7 @@ func dispatchMain(ran *context.AmfRan, decoded ngapMessage.Message, encoded []by
 		// as an AP ID error (TS 38.413 10.6) below.
 		if message.AMFUENGAPID != nil && message.RANUENGAPID != nil {
 			if targetUe := context.GetSelf().RanUeFindByAmfUeNgapID(message.AMFUENGAPID.Value); targetUe != nil &&
-				targetUe.Ran == ran && targetUe.RanUeNgapId != context.RanUeNgapIdUnspecified &&
+				targetUe.Ran == ran && targetUe.RanUeNgapIdAssigned &&
 				targetUe.RanUeNgapId == message.RANUENGAPID.Value {
 				ran.Log.Warnf("Ignore duplicate HandoverRequestAcknowledge[AmfUeNgapID: %d, RanUeNgapID: %d]",
 					targetUe.AmfUeNgapId, targetUe.RanUeNgapId)
