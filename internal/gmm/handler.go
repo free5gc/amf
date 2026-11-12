@@ -2313,33 +2313,20 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 		concat = append(concat, p1...)
 		hResStarBytes := sha256.Sum256(concat)
 		hResStar := hex.EncodeToString(hResStarBytes[16:])
-
-		if hResStar != av5gAka.HxresStar {
+		hResStarMatches := hResStar == av5gAka.HxresStar
+		if !hResStarMatches {
 			ue.GmmLog.Errorf("HRES* Validation Failure (received: %s, expected: %s)", hResStar, av5gAka.HxresStar)
-
-			if ue.IdentityTypeUsedForRegistration == ie.IdType_5GS_GUTI && ue.IdentityRequestSendTimes == 0 {
-				ue.IdentityRequestSendTimes++
-				gmm_message.SendIdentityRequest(ranUe, accessType, ie.IdType_5GS_SUCI)
-				return nil
-			} else {
-				gmm_message.SendAuthenticationReject(ranUe, "", 0, nasMetrics.HRES_AUTH_ERR)
-				return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
-					ArgAmfUe:      ue,
-					ArgAccessType: accessType,
-				}, logger.GmmLog)
-			}
 		}
 
+		// TS 33.501 6.1.3.2.2: the SEAF sends the RES* to the AUSF even when HRES* and HXRES* differ, and the
+		// authentication fails when the SEAF or the AUSF finds the RES* wrong, or the AUSF does not answer.
 		response, problemDetails, err := consumer.GetConsumer().SendAuth5gAkaConfirmRequest(
 			ue, hex.EncodeToString(resStar))
 		if err != nil {
-			return err
+			ue.GmmLog.Errorf("Auth5gAkaConfirm Error[%+v]", err)
 		} else if problemDetails != nil {
-			ue.GmmLog.Debugf("Auth5gAkaConfirm Error[Problem Detail: %+v]", problemDetails)
-			return nil
-		}
-		switch response.AuthResult {
-		case models.Ausf_UEAU_AuthResult_SUCCESS:
+			ue.GmmLog.Errorf("Auth5gAkaConfirm Error[Problem Detail: %+v]", problemDetails)
+		} else if hResStarMatches && response.AuthResult == models.Ausf_UEAU_AuthResult_SUCCESS {
 			ue.UnauthenticatedSupi = false
 			ue.Kseaf = response.Kseaf
 			ue.Supi = response.Supi
@@ -2351,19 +2338,13 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 				ArgEAPSuccess: false,
 				ArgEAPMessage: "",
 			}, logger.GmmLog)
-		case models.Ausf_UEAU_AuthResult_FAILURE:
-			if ue.IdentityTypeUsedForRegistration == ie.IdType_5GS_GUTI && ue.IdentityRequestSendTimes == 0 {
-				ue.IdentityRequestSendTimes++
-				gmm_message.SendIdentityRequest(ranUe, accessType, ie.IdType_5GS_SUCI)
-				return nil
-			} else {
-				gmm_message.SendAuthenticationReject(ranUe, "", 0, nasMetrics.AUSF_AUTH_ERR)
-				return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
-					ArgAmfUe:      ue,
-					ArgAccessType: accessType,
-				}, logger.GmmLog)
-			}
 		}
+
+		cause := nasMetrics.AUSF_AUTH_ERR
+		if !hResStarMatches {
+			cause = nasMetrics.HRES_AUTH_ERR
+		}
+		return authenticationFailed(ue, accessType, cause)
 	case models.Ausf_UEAU_AuthType_EAP_AKA_PRIME:
 		ue.StopT3560()
 		// EAPMessage IE is optional in the NAS-AuthenticationResponse;
@@ -2377,11 +2358,9 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}, logger.GmmLog)
 		}
 		response, pd, err := consumer.GetConsumer().SendEapAuthConfirmRequest(ue, *authenticationResponse.EAPMsg)
-		if err != nil {
-			return err
-		} else if pd != nil {
-			ue.GmmLog.Debugf("EapAuthConfirm Error[Problem Detail: %+v]", pd)
-			return nil
+		if err != nil || pd != nil {
+			ue.GmmLog.Errorf("EapAuthConfirm Error[%v][Problem Detail: %+v]", err, pd)
+			return authenticationFailed(ue, accessType, nasMetrics.AUSF_AUTH_ERR)
 		}
 
 		switch response.AuthResult {
@@ -2421,6 +2400,22 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 	}
 
 	return nil
+}
+
+// authenticationFailed ends an authentication that failed with no EAP message for the UE (TS 33.501 6.1.3.2.2):
+// a UE that registered with its 5G-GUTI is asked for its SUCI once, and any other gets AUTHENTICATION REJECT.
+func authenticationFailed(ue *context.AmfUe, accessType models.AccessType, cause string) error {
+	ranUe := ue.GetRanUe(accessType)
+	if ue.IdentityTypeUsedForRegistration == ie.IdType_5GS_GUTI && ue.IdentityRequestSendTimes == 0 {
+		ue.IdentityRequestSendTimes++
+		gmm_message.SendIdentityRequest(ranUe, accessType, ie.IdType_5GS_SUCI)
+		return nil
+	}
+	gmm_message.SendAuthenticationReject(ranUe, "", 0, cause)
+	return GmmFSM.SendEvent(ue.State[accessType], AuthFailEvent, fsm.ArgsType{
+		ArgAmfUe:      ue,
+		ArgAccessType: accessType,
+	}, logger.GmmLog)
 }
 
 func HandleAuthenticationError(ue *context.AmfUe, anType models.AccessType) error {
