@@ -9,15 +9,20 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/gmm"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
 	gmm_message "github.com/free5gc/amf/internal/gmm/message"
 	"github.com/free5gc/amf/internal/logger"
 	amf_nas "github.com/free5gc/amf/internal/nas"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
+	nas_message "github.com/free5gc/nas/message"
 	ngapType "github.com/free5gc/ngap/message"
 	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/util/metrics/sbi"
 )
+
+// createPDUSession forwards an initial request for a PDU session to an SMF; a variable for the tests.
+var createPDUSession = gmm.CreatePDUSession
 
 func (p *Processor) HandleSmContextStatusNotify(c *gin.Context,
 	smContextStatusNotification models.Smf_PDUSess_SmContextStatusNotification,
@@ -83,14 +88,37 @@ func (p *Processor) SmContextStatusNotifyProcedure(supi string, pduSessionID int
 	}
 
 	if smContextStatusNotification.StatusInfo.ResourceStatus == models.Smf_PDUSess_ResourceStatus_RELEASED {
+		var (
+			initialRequest *nas_message.ULNASTransport
+			anType         models.AccessType
+		)
 		if smContext.PduSessionIDDuplicated() {
 			ue.ProducerLog.Infof("Local release duplicated SmContext[%d]", pduSessionID)
 			smContext.SetDuplicatedPduSessionID(false)
+			initialRequest, anType = smContext.ULNASTransport()
 		} else {
 			ue.ProducerLog.Infof("Release SmContext[%d] (Cause: %s)", pduSessionID,
 				smContextStatusNotification.StatusInfo.Cause)
 		}
 		ue.DeleteSmContext(pduSessionID, smContext.AccessType())
+		if initialRequest != nil {
+			// TS 29.502 5.2.2.3.11: once the SM context is deleted in the SMF, proceed with the
+			// "initial request" (TS 24.501 5.4.5.2.5 a) 12)). CreatePDUSession takes the UE lock,
+			// which this procedure holds until it returns.
+			go func() {
+				defer func() {
+					if p := recover(); p != nil {
+						logger.CallbackLog.Errorf("panic: %v\n%s", p, string(debug.Stack()))
+					}
+				}()
+
+				if _, err := createPDUSession(initialRequest, ue, anType, pduSessionID,
+					initialRequest.PayloadCntr.Contents); err != nil {
+					ue.ProducerLog.Errorf("Create PDU session[%d] after the duplicated one failed: %+v",
+						pduSessionID, err)
+				}
+			}()
+		}
 	} else {
 		problemDetails := &models.ProblemDetails{
 			Status: http.StatusBadRequest,

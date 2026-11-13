@@ -27,8 +27,9 @@ type SmContext struct {
 	vSmfID string
 
 	// for duplicate pdu session id handling
-	ulNASTransport *message.ULNASTransport
-	duplicated     bool
+	ulNASTransport       *message.ULNASTransport
+	ulNASTransportAnType models.AccessType
+	duplicated           bool
 }
 
 func NewSmContext(pduSessionID int32) *SmContext {
@@ -192,16 +193,17 @@ func (c *SmContext) SetDuplicatedPduSessionID(duplicated bool) {
 	c.duplicated = duplicated
 }
 
-func (c *SmContext) ULNASTransport() *message.ULNASTransport {
+func (c *SmContext) ULNASTransport() (*message.ULNASTransport, models.AccessType) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.ulNASTransport
+	return c.ulNASTransport, c.ulNASTransportAnType
 }
 
-func (c *SmContext) StoreULNASTransport(msg *message.ULNASTransport) {
+func (c *SmContext) StoreULNASTransport(msg *message.ULNASTransport, anType models.AccessType) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.ulNASTransport = msg
+	c.ulNASTransportAnType = anType
 }
 
 func (c *SmContext) DeleteULNASTransport() {

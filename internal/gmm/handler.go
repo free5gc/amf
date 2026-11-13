@@ -131,25 +131,25 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 
 			switch requestType.Value {
 			case ie.ReqType_InitialReq:
-				smContext.StoreULNASTransport(ulNasTransport)
+				smContext.StoreULNASTransport(ulNasTransport, anType)
 				//  perform a local release of the PDU session identified by the PDU session ID and shall request
 				// the SMF to perform a local release of the PDU session
 				updateData := models.Smf_PDUSess_SmContextUpdateData{
 					Release: true,
 					Cause:   models.Smf_PDUSess_Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
 					SmContextStatusUri: fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/smContextStatus/%s/%d",
-						ue.ServingAMF().GetIPv4Uri(), ue.Guti, pduSessionID),
+						ue.ServingAMF().GetIPv4Uri(), ue.Supi, pduSessionID),
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
+				// On success, the request proceeds once the SMF notifies that the SM context is deleted
+				// (TS 29.502 5.2.2.3.11); on failure, at once.
 				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 				if err != nil {
-					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
+					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]: %+v", pduSessionID, err)
 					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
+					_, err = CreatePDUSession(ulNasTransport, ue, anType, pduSessionID, smMessage)
 					return err
-				} else if response == nil {
-					ue.GmmLog.Errorf("Response to update smContext is nil, local release SmContext[%d]", pduSessionID)
-					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 				} else if response != nil {
 					smContext.SetUserLocation(ue.Location)
 					responseData := response.JsonData
