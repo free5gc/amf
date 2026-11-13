@@ -22,7 +22,8 @@ import (
 // TS 33.501 6.1.3.2.2 (TS 33.512 4.2.2.1.2, test cases A and B): when HRES* and HXRES* differ, the SEAF
 // still sends the RES* that the UE sent to the AUSF, then rejects the authentication of a UE that registered
 // with its SUCI, or asks a UE that registered with its 5G-GUTI for its SUCI. It does the same when the AUSF
-// does not confirm the authentication.
+// does not confirm the authentication, and the authentication fails if either the SEAF or the AUSF finds the
+// RES* wrong.
 func TestResStarIsSentToTheAusf(t *testing.T) {
 	rand := []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	xresStar := []byte{15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}
@@ -34,19 +35,28 @@ func TestResStarIsSentToTheAusf(t *testing.T) {
 		identity   uint8
 		resStar    []byte
 		ausfStatus int // the AUSF's answer: 200 with the result of its own check, or an error
+		ausfResult models.Ausf_UEAU_AuthResult
 		want       nasMessage.MsgType
 	}{
 		{
 			"a wrong RES* of a UE that registered with its SUCI", ie.IdType_5GS_SUCI, wrongResStar,
-			http.StatusOK, nasMessage.MsgTypeAuthRej,
+			http.StatusOK, models.Ausf_UEAU_AuthResult_FAILURE, nasMessage.MsgTypeAuthRej,
 		},
 		{
 			"a wrong RES* of a UE that registered with its 5G-GUTI", ie.IdType_5GS_GUTI, wrongResStar,
-			http.StatusOK, nasMessage.MsgTypeIdReq,
+			http.StatusOK, models.Ausf_UEAU_AuthResult_FAILURE, nasMessage.MsgTypeIdReq,
 		},
 		{
 			"no confirmation of the AUSF", ie.IdType_5GS_SUCI, xresStar,
-			http.StatusInternalServerError, nasMessage.MsgTypeAuthRej,
+			http.StatusInternalServerError, "", nasMessage.MsgTypeAuthRej,
+		},
+		{
+			"a wrong RES* that the AUSF confirms", ie.IdType_5GS_SUCI, wrongResStar,
+			http.StatusOK, models.Ausf_UEAU_AuthResult_SUCCESS, nasMessage.MsgTypeAuthRej,
+		},
+		{
+			"a RES* that matches HXRES* and that the AUSF finds wrong", ie.IdType_5GS_SUCI, xresStar,
+			http.StatusOK, models.Ausf_UEAU_AuthResult_FAILURE, nasMessage.MsgTypeAuthRej,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -66,7 +76,11 @@ func TestResStarIsSentToTheAusf(t *testing.T) {
 					}
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(tc.ausfStatus)
-					var body any = models.Ausf_UEAU_ConfirmationDataResponse{AuthResult: models.Ausf_UEAU_AuthResult_FAILURE}
+					var body any = models.Ausf_UEAU_ConfirmationDataResponse{
+						AuthResult: tc.ausfResult,
+						Supi:       "imsi-208930000000001",
+						Kseaf:      "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+					}
 					if tc.ausfStatus != http.StatusOK {
 						body = models.ProblemDetails{Status: int32(tc.ausfStatus), Cause: "UPSTREAM_SERVER_ERROR"}
 					}
