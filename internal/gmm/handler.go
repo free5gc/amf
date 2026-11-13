@@ -2769,6 +2769,33 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	return nil
 }
 
+// TS 24.501 5.3.7: the implicit de-registration timer expired before the UE contacted the network
+// over 3GPP access, so the AMF de-registers the UE: its PDU sessions, its AM policy association,
+// its registration and subscription in the UDM, and its context.
+func HandleImplicitDeregistration(ue *context.AmfUe) {
+	ue.Lock.Lock()
+	defer ue.Lock.Unlock()
+
+	if ue.CmConnect(models.AccessType_3_GPP_ACCESS) {
+		return
+	}
+	if !ue.State[models.AccessType_NON_3_GPP_ACCESS].Is(context.Deregistered) {
+		ue.GmmLog.Warnln("Implicit De-registration over 3GPP access of a UE registered over non-3GPP access " +
+			"is not supported")
+		return
+	}
+
+	ue.GmmLog.Info("Implicit De-registration")
+	if current, ok := context.GetSelf().AmfUeFindBySupi(ue.Supi); ok && current != ue {
+		// A new registration of the UE replaced this context: the registration in the UDM is the new one's
+		ue.UeCmRegistered[models.AccessType_3_GPP_ACCESS] = false
+	}
+	if err := gmm_common.PurgeSubscriberData(ue, models.AccessType_3_GPP_ACCESS); err != nil {
+		ue.GmmLog.Errorf("Purge subscriber data Error[%v]", err)
+	}
+	gmm_common.RemoveAmfUe(ue, true)
+}
+
 // TS 23.502 4.2.2.3
 func HandleDeregistrationAccept(ue *context.AmfUe, anType models.AccessType,
 	deregistrationAccept *nas_message.DeregAcceptUETerm,

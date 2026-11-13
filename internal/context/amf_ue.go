@@ -189,6 +189,9 @@ type AmfUe struct {
 	T3570 *Timer
 	/* T3555 (for configuration update command) */
 	T3555 *Timer
+	/* Mobile reachable timer and implicit de-registration timer over 3GPP access (TS 24.501 5.3.7) */
+	MobileReachableTimer        *Timer
+	ImplicitDeregistrationTimer *Timer
 	/* Ue Context Release Cause */
 	ReleaseCause map[models.AccessType]*CauseAll
 	/* T3502 (Assigned by AMF, and used by UE to initialize registration procedure) */
@@ -374,6 +377,10 @@ func (ue *AmfUe) Remove() {
 			logger.CtxLog.Errorf("Remove RanUe error: %v", err)
 		}
 	}
+	// Stop these timers after the RanUe removal: detaching a RanUe starts the mobile reachable timer
+	ue.RanUeMu.Lock()
+	ue.stopMobileReachableTimers()
+	ue.RanUeMu.Unlock()
 
 	for accessType, flag := range anTypeFlags {
 		if flag {
@@ -427,6 +434,11 @@ func (ue *AmfUe) detachRanUe(anType models.AccessType, ranUe *RanUe) {
 
 	delete(ue.RanUe, anType)
 	ue.updateLogFields(anType)
+
+	// TS 24.501 5.3.7: the NAS signaling connection of the UE is released
+	if anType == models.AccessType_3_GPP_ACCESS && ue.State[anType] != nil && !ue.State[anType].Is(Deregistered) {
+		ue.startMobileReachableTimer()
+	}
 }
 
 // AttachRanUe attaches ranUe to the AmfUe.  Use
@@ -443,6 +455,11 @@ func (ue *AmfUe) AttachRanUeLocked(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
 	ranUe.AmfUe = ue
 	ue.updateLogFields(ranUe.Ran.AnType)
+
+	// TS 24.501 5.3.7: a NAS signaling connection is established for the UE
+	if ranUe.Ran.AnType == models.AccessType_3_GPP_ACCESS {
+		ue.stopMobileReachableTimers()
+	}
 }
 
 // UpdateLogFields refreshes the per-UE logger fields.  It is serialized with
@@ -1134,6 +1151,81 @@ func (ue *AmfUe) StopT3555() {
 
 	ue.GmmLog.Infof("Stop T3555 timer")
 	timer.Stop()
+}
+
+// mobileReachableTimerMargin is how much longer than T3512 the mobile reachable timer and the
+// implicit de-registration timer are: 4 minutes by default (TS 24.501 5.3.7).
+var mobileReachableTimerMargin = 4 * time.Minute
+
+// implicitDeregistration de-registers a UE whose implicit de-registration timer expired.
+// Package gmm sets it with SetImplicitDeregistration.
+var implicitDeregistration func(ue *AmfUe)
+
+// SetImplicitDeregistration sets the procedure that runs when the implicit de-registration timer
+// of a UE expires before the UE contacts the network (TS 24.501 5.3.7).
+func SetImplicitDeregistration(procedure func(ue *AmfUe)) {
+	implicitDeregistration = procedure
+}
+
+// startMobileReachableTimer starts the mobile reachable timer of a UE whose NAS signaling
+// connection over 3GPP access is released.  Its expiry starts the implicit de-registration timer,
+// and the expiry of that one de-registers the UE (TS 24.501 5.3.7).  A UE that was given no T3512
+// value, in a REGISTRATION ACCEPT over 3GPP access, has no periodic registration to supervise.
+// The caller must hold ue.RanUeMu.
+func (ue *AmfUe) startMobileReachableTimer() {
+	ue.stopMobileReachableTimers()
+	if ue.T3512Value <= 0 {
+		return
+	}
+	value := time.Duration(ue.T3512Value)*time.Second + mobileReachableTimerMargin
+	ue.GmmLog.Infof("Start mobile reachable timer (%v)", value)
+	var timer *Timer
+	timer = NewTimer(value, 0, func(int32) {}, func() {
+		ue.RanUeMu.Lock()
+		defer ue.RanUeMu.Unlock()
+		if ue.MobileReachableTimer != timer {
+			return
+		}
+		ue.MobileReachableTimer = nil
+		ue.GmmLog.Infof("Mobile reachable timer expires, start implicit de-registration timer (%v)", value)
+		ue.startImplicitDeregistrationTimer(value)
+	})
+	ue.MobileReachableTimer = timer
+}
+
+// startImplicitDeregistrationTimer starts the implicit de-registration timer.  The caller must
+// hold ue.RanUeMu.
+func (ue *AmfUe) startImplicitDeregistrationTimer(value time.Duration) {
+	var timer *Timer
+	timer = NewTimer(value, 0, func(int32) {}, func() {
+		ue.RanUeMu.Lock()
+		expired := ue.ImplicitDeregistrationTimer == timer
+		if expired {
+			ue.ImplicitDeregistrationTimer = nil
+		}
+		ue.RanUeMu.Unlock()
+		if !expired || implicitDeregistration == nil {
+			return
+		}
+		ue.GmmLog.Infof("Implicit de-registration timer expires")
+		implicitDeregistration(ue)
+	})
+	ue.ImplicitDeregistrationTimer = timer
+}
+
+// stopMobileReachableTimers stops the mobile reachable timer and the implicit de-registration
+// timer.  The caller must hold ue.RanUeMu.
+func (ue *AmfUe) stopMobileReachableTimers() {
+	if ue.MobileReachableTimer != nil {
+		ue.GmmLog.Infof("Stop mobile reachable timer")
+		ue.MobileReachableTimer.Stop()
+		ue.MobileReachableTimer = nil
+	}
+	if ue.ImplicitDeregistrationTimer != nil {
+		ue.GmmLog.Infof("Stop implicit de-registration timer")
+		ue.ImplicitDeregistrationTimer.Stop()
+		ue.ImplicitDeregistrationTimer = nil
+	}
 }
 
 func (ue *AmfUe) CheckSliceAvailabilityInCurrentRan(targetSnssai models.Snssai, anType models.AccessType) bool {
