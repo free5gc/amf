@@ -450,7 +450,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	ue.RetransmissionOfInitialNASMsg = ue.MacFailed
 
 	ue.RegistrationRequest = registrationRequest
-	ue.RegistrationType5GS = registrationRequest.RegType5GS.Value
+	ue.RegistrationType5GS = gmm_common.RegistrationType(registrationRequest.RegType5GS.Value)
 	switch ue.RegistrationType5GS {
 	case ie.RegType_InitialReg:
 		ue.GmmLog.Infof("RegistrationType: Initial Registration")
