@@ -543,6 +543,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	// NgKsi: TS 24.501 9.11.3.32
+	ue.StoredNgKsi = ue.NgKsi
 	switch registrationRequest.Ngksi.Tsc {
 	case ie.SecCtxTypeNative:
 		ue.NgKsi.Tsc = models.Amf_Comm_ScType_NATIVE
@@ -2002,9 +2003,24 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	}
 	ue.AuthenticationCtx = response
 	ue.ABBA = []uint8{0x00, 0x00} // set ABBA value as described at TS 33.501 Annex A.7.1
+	selectNewNgKsi(ue)
 
 	gmm_message.SendAuthenticationRequest(ue.GetRanUe(accessType))
 	return false, nil
+}
+
+// selectNewNgKsi gives a new AUTHENTICATION REQUEST an ngKSI other than the one of the initial NAS message
+// (TS 24.501 5.4.1.3.2, 5.4.1.2.2.2) and the one of the AMF's security context (TS 24.501 5.4.1.3.4).
+func selectNewNgKsi(ue *context.AmfUe) {
+	request := ue.RegistrationRequest.Ngksi
+	for (request.Tsc == ie.SecCtxTypeNative && int32(request.Ksi) == ue.NgKsi.Ksi) ||
+		(ue.StoredNgKsi.Tsc == models.Amf_Comm_ScType_NATIVE && ue.StoredNgKsi.Ksi == ue.NgKsi.Ksi) {
+		if ue.NgKsi.Ksi < 6 { // ksi is range from 0 to 6
+			ue.NgKsi.Ksi += 1
+		} else {
+			ue.NgKsi.Ksi = 0
+		}
+	}
 }
 
 // TS 24501 5.6.1
