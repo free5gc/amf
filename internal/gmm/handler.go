@@ -1569,6 +1569,7 @@ func reactivatePendingULDataPDUSession(ue *context.AmfUe, anType models.AccessTy
 	uplinkDataPsi *[psiArraySize]bool, dlPduSessionId int32, cxtList *ngapType.PDUSessionResourceSetupListCxtReq,
 	reactivationResult *[psiArraySize]bool, errPduSessionId, errCause []uint8,
 ) ([]uint8, []uint8) {
+	ranUe := ue.GetRanUe(anType)
 	ue.SmContextList.Range(func(key, value interface{}) bool {
 		pduSessionID := key.(int32)
 		smContext := value.(*context.SmContext)
@@ -1613,8 +1614,15 @@ func reactivatePendingULDataPDUSession(ue *context.AmfUe, anType models.AccessTy
 		// TODO: determine the UE presence in LADN service area and forward the UE presence
 		// in LADN service area towards the SMF, if the corresponding PDU session is
 		// a PDU session for LADN
-		response, errRsp, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextActivateUpCnxState(
-			ue, smContext, anType)
+		var response *models.UpdateSmContextResponse200
+		var errRsp *models.UpdateSmContextResponse400
+		var problemDetail *models.ProblemDetails
+		var err error
+		smContext.ActivateUpCnx(ranUe.Ran, ranUe, func() bool {
+			response, errRsp, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextActivateUpCnxState(
+				ue, smContext, anType)
+			return err == nil
+		})
 		if err != nil {
 			reactivationResult[pduSessionID] = true
 			ue.GmmLog.Errorf("SendUpdateSmContextActivateUpCnxState[pduSessionID:%d] Error: %+v",

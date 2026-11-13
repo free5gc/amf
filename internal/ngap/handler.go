@@ -527,7 +527,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
 	if ranUe != nil {
-		// TS 38.413 8.6.1.2: the connection that has this RAN UE NGAP ID is released locally.
+		// An existing connection has this RAN UE NGAP ID: it is released locally below.
 		deactivateUpConnections(ran, ranUe, ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
 	}
 	if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
@@ -788,8 +788,12 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 				ranUe.Log.Errorf("SmContext[PDU Session ID:%d] not found", pduSessionID)
 				continue
 			}
-			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
-				models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+			var err error
+			smContext.ActivateUpCnx(ran, ranUe, func() bool {
+				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
+					models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+				return err == nil
+			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
 			}
@@ -1149,8 +1153,12 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
-				models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+			var err error
+			smContext.ActivateUpCnx(ran, ranUe, func() bool {
+				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
+					models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
+				return err == nil
+			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
 			}
@@ -1450,7 +1458,11 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 				// TODO: Check if doing error handling here
 				continue
 			}
-			_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverComplete(amfUe, smContext, "", nil)
+			var err error
+			smContext.ActivateUpCnx(ran, targetUe, func() bool {
+				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2HandoverComplete(amfUe, smContext, "", nil)
+				return err == nil
+			})
 			if err != nil {
 				ran.Log.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
 			}
@@ -1602,8 +1614,15 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			} else {
 				ranUe.Log.Warn("Target TAI is missing; skip proactive S-NSSAI filtering and rely on RAN/SMF failure handling")
 			}
-			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
-				models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, transfer)
+			// The path is switched to the target: ranUe is then at ran.
+			var response *models.UpdateSmContextResponse200
+			var errResponse *models.UpdateSmContextResponse400
+			var err error
+			smContext.ActivateUpCnx(ran, ranUe, func() bool {
+				response, errResponse, _, err = consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
+					models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, transfer)
+				return err == nil
+			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextXnHandover[PathSwitchRequestTransfer] Error:\n%s", err.Error())
 			}
@@ -2775,6 +2794,8 @@ func completeUeContextReleases(ran *context.AmfRan) {
 // RESET, or an AP ID error): the user plane of each PDU session of the UE on this access is
 // deactivated at its SMF (TS 23.502 4.2.6).
 type localAnRelease struct {
+	ran        *context.AmfRan
+	ranUe      *context.RanUe
 	smContexts []*context.SmContext
 	// location is the UE's location when the AMF released the connection.
 	location models.UserLocation
@@ -2790,7 +2811,7 @@ func newLocalAnRelease(ran *context.AmfRan, ranUe *context.RanUe, cause context.
 	if amfUe == nil || amfUe.GetRanUe(ran.AnType) != ranUe {
 		return nil
 	}
-	anRelease := &localAnRelease{cause: cause, log: ranUe.Log}
+	anRelease := &localAnRelease{ran: ran, ranUe: ranUe, cause: cause, log: ranUe.Log}
 	amfUe.SmContextList.Range(func(_, value interface{}) bool {
 		if smContext := value.(*context.SmContext); smContext.AccessType() == ran.AnType {
 			anRelease.smContexts = append(anRelease.smContexts, smContext)
@@ -2804,15 +2825,21 @@ func newLocalAnRelease(ran *context.AmfRan, ranUe *context.RanUe, cause context.
 	return anRelease
 }
 
-// deactivateUpConnections asks the SMF of each PDU session to deactivate its user plane.
+// deactivateUpConnections asks the SMF of each PDU session to deactivate its user plane, unless the
+// SMF has since accepted an activation at another connection of the UE.
 func (r *localAnRelease) deactivateUpConnections() {
 	for _, smContext := range r.smContexts {
-		response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(
-			&r.location, smContext, r.cause)
-		if err != nil {
-			r.log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
-		} else if response == nil {
-			r.log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
+		sent := smContext.DeactivateUpCnx(r.ran, r.ranUe, func() {
+			response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(
+				&r.location, smContext, r.cause)
+			if err != nil {
+				r.log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
+			} else if response == nil {
+				r.log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
+			}
+		})
+		if !sent {
+			r.log.Infof("PDU session %d activated at another connection: not deactivated", smContext.PduSessionID())
 		}
 	}
 }
