@@ -15,10 +15,6 @@ import (
 	"github.com/free5gc/util/metrics/sbi"
 )
 
-// periodicReportTickUnit scales AmfEventMode.RepPeriod (seconds, TS 29.518)
-// into a ticker duration. Tests shrink this to keep PERIODIC coverage fast.
-var periodicReportTickUnit = time.Second
-
 func (p *Processor) HandleCreateAMFEventSubscription(c *gin.Context,
 	createEventSubscription models.Amf_EvtExpos_AmfCreateEventSubscription,
 ) {

@@ -72,13 +72,15 @@ const testNfId = "22221155-70de-4c1f-a7c4-8d7b7e297876"
 // fakeNrfServer speaks h2c (HTTP/2 over cleartext): the generated NRF
 // discovery client sends an HTTP/2 preface unconditionally, which a plain
 // httptest.NewServer (HTTP/1.1) can't parse ("frame too large").
-func fakeNrfServer(t *testing.T, profile models.Nrf_NFDisc_NFProfile) *httptest.Server {
+func fakeNrfServer(t *testing.T, profile *models.Nrf_NFDisc_NFProfile) *httptest.Server {
 	t.Helper()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(models.Nrf_NFDisc_SearchResult{
-			NfInstances: []models.Nrf_NFDisc_NFProfile{profile},
-		})
+		if err := json.NewEncoder(w).Encode(models.Nrf_NFDisc_SearchResult{
+			NfInstances: []models.Nrf_NFDisc_NFProfile{*profile},
+		}); err != nil {
+			t.Errorf("encoding fake NRF response: %v", err)
+		}
 	})
 	server := httptest.NewServer(h2c.NewHandler(handler, &http2.Server{}))
 	t.Cleanup(server.Close)
@@ -92,7 +94,7 @@ func TestVerifyNotifyHostAgainstNrf(t *testing.T) {
 		NfType:        models.Nrf_NFMgmt_NFType_PCF,
 		Ipv4Addresses: []string{"203.0.113.10"},
 	}
-	server := fakeNrfServer(t, profile)
+	server := fakeNrfServer(t, &profile)
 	amfSelf.NrfUri = server.URL
 	newTestConsumer(t, amfSelf)
 

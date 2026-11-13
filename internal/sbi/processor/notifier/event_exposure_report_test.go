@@ -207,7 +207,10 @@ func TestFireContinuousEventReport_IgnoresUnrelatedEventType(t *testing.T) {
 			NfId:           testNfId,
 			SourceNfType:   models.Nrf_NFMgmt_NFType_PCF,
 			EventList:      []models.Amf_EvtExpos_AmfEvent{{Type: models.Amf_EvtExpos_AmfEventType_ACCESS_TYPE_REPORT}},
-			Options:        &models.Amf_EvtExpos_AmfEventMode{Trigger: models.Amf_EvtExpos_AmfEventTrigger_CONTINUOUS, MaxReports: 5},
+			Options: &models.Amf_EvtExpos_AmfEventMode{
+				Trigger:    models.Amf_EvtExpos_AmfEventTrigger_CONTINUOUS,
+				MaxReports: 5,
+			},
 		},
 	}
 	ue.Lock.Unlock()

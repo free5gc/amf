@@ -2,6 +2,7 @@ package callback
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -100,7 +101,11 @@ func SendAmfEventNotify(sub *models.Amf_Comm_ExtAmfEventSubscription, reportList
 		HttpLog.Errorln(err.Error())
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			HttpLog.Warnf("closing SendAmfEventNotify response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode >= http.StatusBadRequest {
 		HttpLog.Warnf("SendAmfEventNotify to %s returned status %d", sub.EventNotifyUri, resp.StatusCode)
 	}
@@ -126,12 +131,14 @@ func isDisallowedNotifyHost(host string) bool {
 	if ip := net.ParseIP(host); ip != nil {
 		return isDisallowedIP(ip)
 	}
-	ips, err := net.LookupIP(host)
-	if err != nil || len(ips) == 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ipAddrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil || len(ipAddrs) == 0 {
 		return true
 	}
-	for _, ip := range ips {
-		if isDisallowedIP(ip) {
+	for _, ipAddr := range ipAddrs {
+		if isDisallowedIP(ipAddr.IP) {
 			return true
 		}
 	}
@@ -162,7 +169,8 @@ func verifyNotifyHostAgainstNrf(nfId string, nfType models.Nrf_NFMgmt_NFType, ho
 	if err != nil || result == nil {
 		return false
 	}
-	for _, profile := range result.NfInstances {
+	for i := range result.NfInstances {
+		profile := &result.NfInstances[i]
 		if profile.NfInstanceId != nfId {
 			continue
 		}
