@@ -97,8 +97,13 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 
 	if id := ulNasTransport.PDUSessID; id != nil {
 		pduSessionID = int32(id.Value)
-		if !validator.IsPduSessionIdInPsiRange(pduSessionID) {
-			return errors.New("PDU Session ID is invalid")
+		// TS 24.501 7.3.2 c): a PDU session ID that is unassigned (0) or reserved (16 to 255, TS 24.007 11.2.3.1b)
+		// is answered with 5GMM cause #90 "payload was not forwarded"
+		if pduSessionID < 1 || pduSessionID > 15 {
+			ue.GmmLog.Warnf("PDU Session ID[%d] is unassigned or reserved", pduSessionID)
+			gmm_message.SendDLNASTransport(ue.GetRanUe(anType), ie.PayloadCntrType_N1SMInfo,
+				smMessage, pduSessionID, ie.Cause5GMM_PayloadWasNotForwarded, nil, 0)
+			return nil
 		}
 	} else {
 		return errors.New("PDU Session ID is nil")
