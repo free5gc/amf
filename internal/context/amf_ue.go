@@ -73,6 +73,10 @@ type AmfUe struct {
 	// failed the integrity check of (TS 24.501 4.4.4.3). This context only authenticates the UE; the
 	// registration then continues on the UE context stored for the authenticated subscriber.
 	AuthenticatingFor *AmfUe
+	// AuthenticatedElsewhere is set when a registration continues on this context after a context with
+	// AuthenticatingFor has authenticated the UE for it: an initial registration then needs no new
+	// authentication. It is cleared when the Authentication state is left.
+	AuthenticatedElsewhere bool
 	/* Used for AMF relocation */
 	TargetAmfProfile *models.Nrf_NFDisc_NFProfile
 	TargetAmfUri     string
@@ -593,6 +597,9 @@ func (ue *AmfUe) DerivateKamf() {
 		return
 	}
 	ue.Kamf = hex.EncodeToString(KamfBytes)
+	// TS 24.501 5.4.1.3.1: a new KAMF belongs to a partial native 5G NAS security context, which only a
+	// security mode control procedure takes into use, even when the UE has a valid one already
+	ue.SecurityContextAvailable = false
 }
 
 // Algorithm key Derivation function defined in TS 33.501 Annex A.9
