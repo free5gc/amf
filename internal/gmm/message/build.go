@@ -292,16 +292,7 @@ func initialSecurityModeCommand(
 
 	ue.SecurityContextAvailable = true
 	// The NAS COUNTs of the new 5G NAS security context start at zero (TS 24.501 5.4.2.2, 5.4.2.3).
-	ue.WithNASCounts(func(ulCount, dlCount *nas_message.Count) {
-		ulCount.Set(0, 0)
-		dlCount.Set(0, 0)
-	})
-	payload, err := nas_security.Encode(
-		ue,
-		msg,
-		accessType,
-		nas_message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx,
-	)
+	payload, err := nas_security.EncodeWithNewSecurityContext(ue, msg, accessType)
 	if err != nil {
 		ue.SecurityContextAvailable = false
 		return nil, nil, err

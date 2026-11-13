@@ -95,3 +95,48 @@ func TestConcurrentEncodeUsesEachDownlinkCountOnce(t *testing.T) {
 	require.Len(t, seen, encoders*perEncoder)
 	require.Equal(t, uint32(encoders*perEncoder), ue.DLCount.Get())
 }
+
+// TS 24.501 5.4.2.2: the initial SECURITY MODE COMMAND takes downlink NAS COUNT 0 of its new 5G NAS security context,
+// even while another procedure protects messages for the UE.
+func TestEncodeWithNewSecurityContextTakesCountZero(t *testing.T) {
+	ue := newSecurityTestUE()
+	ue.SecurityContextAvailable = true
+	securityModeCommand := &message.SecModeCmd{
+		SelectedNASSecAlgos: &ie.NASSecAlgos{
+			CipheringAlgo: ie.AlgCiphering(ue.CipheringAlg), MsgIntAlgo: ie.AlgIntegrity(ue.IntegrityAlg),
+		},
+		Ngksi:                     &ie.NASKeySetId{Tsc: ie.SecCtxTypeNative, Ksi: 1},
+		ReplayedUESecCapabilities: &ie.UESecCapability{Length: 2},
+	}
+
+	for round := range 1000 {
+		ue.WithNASCounts(func(_, dlCount *message.Count) { dlCount.Set(0, 5) })
+		stop, started := make(chan struct{}), make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for first := true; ; first = false {
+				if first {
+					close(started)
+				}
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				if _, err := Encode(ue, &message.CfgUpdateCmd{}, models.AccessType_3_GPP_ACCESS,
+					message.SecHdrTypeIntegrityProtectedAndCiphered); err != nil {
+					t.Error(err)
+					return
+				}
+			}
+		}()
+		<-started
+		payload, err := EncodeWithNewSecurityContext(ue, securityModeCommand, models.AccessType_3_GPP_ACCESS)
+		close(stop)
+		wg.Wait()
+		require.NoError(t, err)
+		require.Equal(t, uint8(0), payload[6], "round %d: downlink SQN of the SECURITY MODE COMMAND", round)
+	}
+}

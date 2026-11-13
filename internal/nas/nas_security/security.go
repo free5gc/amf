@@ -16,6 +16,28 @@ func Encode(
 	accessType models.AccessType,
 	securityHeaderType message.SecHdrType,
 ) ([]byte, error) {
+	return encode(ue, msg, accessType, securityHeaderType, false)
+}
+
+// EncodeWithNewSecurityContext protects msg, the initial SECURITY MODE COMMAND, with the new 5G NAS
+// security context that it takes into use. Resetting the NAS COUNTs of the new context and taking
+// downlink NAS COUNT 0 for msg are one step, so no other message for the UE is protected in between
+// under that COUNT (TS 24.501 5.4.2.2).
+func EncodeWithNewSecurityContext(
+	ue *context.AmfUe,
+	msg message.Message,
+	accessType models.AccessType,
+) ([]byte, error) {
+	return encode(ue, msg, accessType, message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx, true)
+}
+
+func encode(
+	ue *context.AmfUe,
+	msg message.Message,
+	accessType models.AccessType,
+	securityHeaderType message.SecHdrType,
+	resetCounts bool,
+) ([]byte, error) {
 	if msg == nil {
 		return nil, fmt.Errorf("NAS message is nil")
 	}
@@ -48,7 +70,11 @@ func Encode(
 	// never share a COUNT (TS 24.501 4.4.3.1).
 	var payload []byte
 	var err error
-	ue.WithNASCounts(func(_, _ *message.Count) {
+	ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
+		if resetCounts {
+			ulCount.Set(0, 0)
+			dlCount.Set(0, 0)
+		}
 		payload, err = message.Marshal(msg, newSecurityContext(ue, accessType), securityHeaderType)
 	})
 	return payload, err
