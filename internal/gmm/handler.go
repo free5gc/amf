@@ -2682,6 +2682,12 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	ue.GmmLog.Info("Handle Deregistration Request(UE Originating)")
 
 	targetDeregistrationAccessType := deregistrationRequest.DeregType.AccessType
+	// TS 24.501 5.6.2.2.1: a DEREGISTRATION REQUEST that answers a paging stops T3513 only once it passed the integrity
+	// check. The de-registration also ends the UE's other 5GMM procedures, so all their timers stop.
+	if anType == models.AccessType_3_GPP_ACCESS && !ue.MacFailed {
+		gmm_common.StopAll5GSMMTimers(ue)
+	}
+
 	ue.SmContextList.Range(func(key, value interface{}) bool {
 		smContext := value.(*context.SmContext)
 
