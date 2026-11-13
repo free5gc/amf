@@ -2551,8 +2551,10 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	ue.GmmLog.Info("Handle Registration Complete")
 
 	// Check and stop T3550 in one step: its last expiry clears the
-	// registration request data that is read below.
-	if !ue.StopT3550() {
+	// registration request data that is read below. A configuration without
+	// T3550 has no timer to supervise the acknowledgement, so it cannot be
+	// required there either.
+	if context.GetSelf().T3550Cfg.Enable && !ue.StopT3550() {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
 
