@@ -1,14 +1,17 @@
 package gmm
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/free5gc/amf/internal/context"
+	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	ngaptesting "github.com/free5gc/amf/internal/ngap/testing"
 	"github.com/free5gc/nas/ie"
 	nasMessage "github.com/free5gc/nas/message"
+	ngapIE "github.com/free5gc/ngap/ie"
 	ngapMessage "github.com/free5gc/ngap/message"
 	"github.com/free5gc/openapi/mediatype/multipart"
 	"github.com/free5gc/openapi/models"
@@ -101,6 +104,35 @@ func TestPagedServiceRequestGetsNewGuti(t *testing.T) {
 	require.NoError(t, HandleConfigurationUpdateComplete(ue, &nasMessage.CfgUpdateComplete{}))
 	require.False(t, gutiResolves(pagedGuti), "the paged 5G-GUTI is still valid after CONFIGURATION UPDATE COMPLETE")
 	require.True(t, gutiResolves(ue.Guti))
+}
+
+// pagingTestTmsi returns the 5G-TMSI that a PAGING for the UE carries.
+func pagingTestTmsi(t *testing.T, ue *context.AmfUe) uint32 {
+	t.Helper()
+	pkt, err := ngap_message.BuildPaging(ue, nil, false)
+	require.NoError(t, err)
+	decoded, err := ngapMessage.Parse(pkt)
+	require.NoError(t, err)
+	paging, ok := decoded.(*ngapMessage.Paging)
+	require.True(t, ok, "NGAP message is %T", decoded)
+	sTmsi, ok := paging.UEPagingIdentity.Choice.(*ngapIE.FiveGSTMSI)
+	require.True(t, ok, "UE paging identity is %T", paging.UEPagingIdentity.Choice)
+	return binary.BigEndian.Uint32(sTmsi.FiveGTMSI.Value)
+}
+
+// TS 24.501 5.4.4.6 b)1)i): until the UE acknowledges the new 5G-GUTI of the CONFIGURATION UPDATE COMMAND, it may
+// hold only the 5G-GUTI it was paged with, and the AMF pages it with that 5G-S-TMSI; afterwards, with the new one.
+func TestPagingUsesOldGutiUntilAcknowledged(t *testing.T) {
+	ue, _ := newGutiPagedTestUe(t)
+	ue.RegistrationArea[models.AccessType_3_GPP_ACCESS] = []models.Tai{gutiTestTai}
+	pagedTmsi := uint32(ue.Tmsi)
+
+	gutiPagingServiceRequest(t, ue, ie.SvcType_MobileTermSvc, ue.Tmsi)
+	require.NotEqual(t, pagedTmsi, uint32(ue.Tmsi), "no new 5G-GUTI after the paged service request")
+	require.Equal(t, pagedTmsi, pagingTestTmsi(t, ue), "the PAGING names a 5G-S-TMSI the UE may not have")
+
+	require.NoError(t, HandleConfigurationUpdateComplete(ue, &nasMessage.CfgUpdateComplete{}))
+	require.Equal(t, uint32(ue.Tmsi), pagingTestTmsi(t, ue))
 }
 
 // The UE did not receive the 5G-GUTI of a REGISTRATION ACCEPT whose completion was lost, and answers the paging with

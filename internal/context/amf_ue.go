@@ -343,6 +343,18 @@ func (ue *AmfUe) GetGuti() string {
 	return ue.Guti
 }
 
+// PagingGuti returns the 5G-GUTI whose 5G-S-TMSI pages the UE. While the UE has not acknowledged a
+// new 5G-GUTI, it may not have received it, and the AMF pages it with the old 5G-S-TMSI (TS 24.501
+// 5.4.4.6 b)1)i), 5.5.1.3.8 a)3)).
+func (ue *AmfUe) PagingGuti() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	if ue.OldGuti != "" {
+		return ue.OldGuti
+	}
+	return ue.Guti
+}
+
 // SetGuti records the 5G-GUTI the UE holds.
 func (ue *AmfUe) SetGuti(guti string) {
 	ue.identityMu.Lock()

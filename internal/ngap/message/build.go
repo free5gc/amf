@@ -560,7 +560,7 @@ func BuildPaging(
 	if ue == nil {
 		return nil, fmt.Errorf("amfUe is nil")
 	}
-	amfID, tmsi, err := splitGUTI(ue.GetGuti())
+	amfID, tmsi, err := splitGUTI(ue.PagingGuti())
 	if err != nil {
 		return nil, err
 	}
