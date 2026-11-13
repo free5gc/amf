@@ -666,3 +666,15 @@ func TestLocalN2ReleaseSendsTheLocationOfTheRelease(t *testing.T) {
 	require.NotNil(t, update.UeLocation.NrLocation)
 	require.Equal(t, "000001", update.UeLocation.NrLocation.Tai.Tac)
 }
+
+// When the AMF has ordered the release of the UE context with the connection, it removes the UE context, and
+// deactivates no user plane.
+func TestLocalN2ReleaseOfAReleasedUeContextDeactivatesNothing(t *testing.T) {
+	smf, smfURL := newLocalReleaseSmf(t, nil)
+	conn, _, ranUe, _ := newLocalReleaseTestUe(t, smfURL)
+	ranUe.ReleaseAction = amf_context.UeContextReleaseUeContext
+
+	Dispatch(conn, nil)
+
+	require.Empty(t, smf.received())
+}

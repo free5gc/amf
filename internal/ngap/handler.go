@@ -2804,11 +2804,15 @@ type localAnRelease struct {
 }
 
 // newLocalAnRelease returns the AN release of the UE whose N2 connection ranUe is, or nil when the UE
-// has no PDU session on this access, or when ranUe is not its connection (the other side of a
-// handover).
+// has no PDU session on this access, when ranUe is not its connection (the other side of a
+// handover), or when the AMF has ordered the release of the UE context with the connection.
 func newLocalAnRelease(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) *localAnRelease {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil || amfUe.GetRanUe(ran.AnType) != ranUe {
+		return nil
+	}
+	if ueContextReleaseOrdered(ran, ranUe, amfUe) {
+		// completeUeContextRelease removes the UE context.
 		return nil
 	}
 	anRelease := &localAnRelease{ran: ran, ranUe: ranUe, cause: cause, log: ranUe.Log}
