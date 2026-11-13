@@ -1552,7 +1552,8 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextXnHandover[PathSwitchRequestTransfer] Error:\n%s", err.Error())
 			}
-			if response != nil && response.BinaryDataN2SmInformation != nil {
+			switched := response != nil && response.BinaryDataN2SmInformation != nil
+			if switched {
 				pduSessionResourceSwitchedItem := ngapType.PDUSessionResourceSwitchedItem{
 					PDUSessionID: &ngapType.PDUSessionID{Value: int64(pduSessionID)},
 					PathSwitchRequestAcknowledgeTransfer: octetStringPointer(
@@ -1570,6 +1571,11 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 				}
 				pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
 					pduSessionResourceReleasedItem)
+			} else if !switched {
+				// The SMF answered without N2 SM information: the acknowledge lists it as released
+				cause := &ngapType.Cause{Choice: &ngapType.CauseMisc{Value: ngapType.CauseMiscPresentUnspecified}}
+				pduSessionResourceReleasedListPSFail.List = append(pduSessionResourceReleasedListPSFail.List,
+					pathSwitchReleasedItem(ran, int64(pduSessionID), cause))
 			}
 		}
 	}
@@ -1616,6 +1622,15 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 	// TS 23.502 4.9.1.2.2 step 7: send ack to Target NG-RAN. If none of the requested PDU Sessions have been switched
 	// successfully, the AMF shall send an N2 Path Switch Request Failure message to the Target NG-RAN
 	if len(pduSessionResourceSwitchedList.List) > 0 {
+		// TS 23.502 4.9.1.2.2 step 7, TS 38.413 8.4.4.2: the acknowledge has the Failed PDU Sessions, the sessions of
+		// the request that were not switched, in its PDU Session Resource Released List
+		for _, item := range pduSessionResourceReleasedListPSFail.List {
+			pduSessionResourceReleasedListPSAck.List = append(pduSessionResourceReleasedListPSAck.List,
+				ngapType.PDUSessionResourceReleasedItemPSAck{
+					PDUSessionID:                          item.PDUSessionID,
+					PathSwitchRequestUnsuccessfulTransfer: item.PathSwitchRequestUnsuccessfulTransfer,
+				})
+		}
 		// TODO: set newSecurityContextIndicator to true if there is a new security context
 		err := ranUe.SwitchToRan(ran, rANUENGAPID.Value)
 		if err != nil {

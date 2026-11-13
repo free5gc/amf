@@ -1,14 +1,18 @@
 package ngap
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	amf_context "github.com/free5gc/amf/internal/context"
 	ngaptesting "github.com/free5gc/amf/internal/ngap/testing"
 	"github.com/free5gc/ngap/aper"
 	ngapType "github.com/free5gc/ngap/ie"
 	ngapMessage "github.com/free5gc/ngap/message"
+	"github.com/free5gc/openapi/models"
 )
 
 // newPathSwitchTestRequest is a PATH SWITCH REQUEST from the target node that names the given PDU sessions.
@@ -94,4 +98,41 @@ func TestPathSwitchIsAcknowledged(t *testing.T) {
 
 	hoRequireSent(t, e.tgtConn, "path switch not acknowledged", "PathSwitchRequestAcknowledge")
 	e.smf.requireRequests(t, 0, "session not switched", "PATH_SWITCH_REQ")
+}
+
+// TS 23.502 4.9.1.2.2 step 7, TS 38.413 8.4.4.2: a PATH SWITCH REQUEST that names PDU session 5, the unknown PDU
+// session 9 and PDU session 6, whose SMF answers without N2 SM information, is acknowledged for session 5, and the
+// acknowledge lists sessions 9 and 6 as released in its PDU Session Resource Released List.
+func TestPathSwitchAcknowledgeListsTheSessionsNotSwitched(t *testing.T) {
+	e := newHoTestEnv(t, false)
+	failingSmf := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(failingSmf.Close)
+	sm := amf_context.NewSmContext(6)
+	sm.SetSmfUri(failingSmf.URL)
+	sm.SetSmContextRef("sm-context-6")
+	sm.SetSnssai(models.Snssai{Sst: 1, Sd: "010203"})
+	sm.SetAccessType(hoTestAnType)
+	e.amfUe.StoreSmContext(6, sm)
+
+	dispatchMain(e.tgtRan, newPathSwitchTestRequest(e.src.AmfUeNgapId, 5, 9, 6), nil)
+
+	hoRequireSent(t, e.tgtConn, "path switch not acknowledged", "PathSwitchRequestAcknowledge")
+	m, err := ngapMessage.Parse(e.tgtConn.MsgList[0])
+	require.NoError(t, err)
+	ack := m.(*ngapMessage.PathSwitchRequestAcknowledge)
+	require.Len(t, ack.PDUSessionResourceSwitchedList.List, 1)
+	require.EqualValues(t, 5, ack.PDUSessionResourceSwitchedList.List[0].PDUSessionID.Value)
+	require.NotNil(t, ack.PDUSessionResourceReleasedListPSAck, "no PDU Session Resource Released List")
+	causes := map[int64]*ngapType.Cause{}
+	for _, item := range ack.PDUSessionResourceReleasedListPSAck.List {
+		var transfer ngapType.PathSwitchRequestUnsuccessfulTransfer
+		require.NoError(t, ngapType.UnmarshalBinary(*item.PathSwitchRequestUnsuccessfulTransfer, &transfer))
+		causes[item.PDUSessionID.Value] = transfer.Cause
+	}
+	require.Equal(t, map[int64]*ngapType.Cause{
+		9: {Choice: &ngapType.CauseRadioNetwork{Value: ngapType.CauseRadioNetworkPresentUnknownPDUSessionID}},
+		6: {Choice: &ngapType.CauseMisc{Value: ngapType.CauseMiscPresentUnspecified}},
+	}, causes)
 }
