@@ -163,11 +163,16 @@ func (s *namfService) CreateUEContextRequest(
 	if client == nil {
 		return nil, nil, openapi.ReportError("amf not found")
 	}
+	targetAMFID, err := targetAMFInstanceID(ue)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req := models.CreateUEContextRequestBody{
 		JsonData: &ueContextCreateData,
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -212,6 +217,10 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 	if client == nil {
 		return nil, openapi.ReportError("amf not found")
 	}
+	targetAMFID, err := targetAMFInstanceID(ue)
+	if err != nil {
+		return nil, err
+	}
 
 	var ueContextId string
 	if ue.Supi != "" {
@@ -227,7 +236,8 @@ func (s *namfService) ReleaseUEContextRequest(ue *amf_context.AmfUe, ngapCause m
 		ueContextRelease.Supi = ue.Supi
 		ueContextRelease.UnauthenticatedSupi = true
 	}
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
 	if err != nil {
 		return nil, err
 	}
@@ -268,6 +278,10 @@ func (s *namfService) UEContextTransferRequest(
 	if client == nil {
 		return nil, nil, openapi.ReportError("amf not found")
 	}
+	targetAMFID, err := targetAMFInstanceID(ue)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	ueContextTransferReqData := models.Amf_Comm_UeContextTransferReqData{
 		Reason:     transferReason,
@@ -294,7 +308,8 @@ func (s *namfService) UEContextTransferRequest(
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -354,10 +369,15 @@ func (s *namfService) RegistrationStatusUpdate(
 	if client == nil {
 		return false, nil, openapi.ReportError("amf not found")
 	}
+	targetAMFID, err := targetAMFInstanceID(ue)
+	if err != nil {
+		return false, nil, err
+	}
 
 	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
+		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
 	if err != nil {
 		return regStatusTransferComplete, nil, err
 	}
@@ -390,4 +410,11 @@ func (s *namfService) RegistrationStatusUpdate(
 		}
 	}
 	return regStatusTransferComplete, problemDetails, err
+}
+
+func targetAMFInstanceID(ue *amf_context.AmfUe) (string, error) {
+	if ue == nil || ue.TargetAmfProfile == nil {
+		return "", openapi.ReportError("target AMF profile not found")
+	}
+	return ue.TargetAmfProfile.NfInstanceId, nil
 }
