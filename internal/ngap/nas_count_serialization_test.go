@@ -94,7 +94,8 @@ func TestPreBindingVerifyWithConcurrentDecode(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			for i := 0; i < len(uplink) && !attackerDone.Load(); i++ {
+			// At least one decode, also when the other goroutine is done first.
+			for i := 0; i < len(uplink) && (i == 0 || !attackerDone.Load()); i++ {
 				_, integrityProtected, decodeErr := nas_security.Decode(
 					amfUe, models.AccessType_3_GPP_ACCESS, uplink[i], false)
 				if decodeErr == nil && integrityProtected {
