@@ -576,6 +576,11 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	if registrationRequest.UESecCapability != nil {
+		// TS 24.501 5.5.1.2.8 i)
+		if ue.RegistrationType5GS == ie.RegType_InitialReg && !hasSecurityAlgorithms(registrationRequest.UESecCapability) {
+			gmm_message.SendRegistrationReject(ue.GetRanUe(anType), ie.Cause5GMM_UESecCapabilitiesMismatch, "")
+			return fmt.Errorf("UE security capabilities have no 5GS encryption or integrity algorithm")
+		}
 		ue.UESecurityCapability = *registrationRequest.UESecCapability
 	} else if registrationRequest.RegType5GS.Value != ie.RegType_PeriodicRegUpdating {
 		// TS 23.501 8.2.6.4
@@ -597,6 +602,13 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	return nil
+}
+
+// hasSecurityAlgorithms reports whether UE security capabilities have at least one 5GS encryption
+// algorithm and one 5GS integrity algorithm (TS 24.501 9.11.3.54: octets 3 and 4).
+func hasSecurityAlgorithms(capability *ie.UESecCapability) bool {
+	octets, err := capability.MarshalBinary()
+	return err == nil && octets[0] != 0 && octets[1] != 0
 }
 
 func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldAmfGuami models.Guami) error {
