@@ -150,6 +150,17 @@ func TestLocalN2ReleaseDeactivatesUserPlane(t *testing.T) {
 			}})
 		}, localReleaseCause(ngap_message.CauseChoiceRadioNetwork,
 			int(ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason))},
+		// TS 38.413 10.6: a local release of the connection that has an erroneous AP ID.
+		{"erroneous AP ID", func(_ *ngaptesting.SctpConnStub, ran *amf_context.AmfRan, ranUe *amf_context.RanUe) {
+			removeRanUeByInvalidUE(ran, &ngapType.AMFUENGAPID{Value: ranUe.AmfUeNgapId}, nil)
+		}, unspecified},
+		// TS 38.413 8.6.1.2: an INITIAL UE MESSAGE whose RAN UE NGAP ID an existing connection has.
+		{"INITIAL UE MESSAGE that reuses the RAN UE NGAP ID", func(_ *ngaptesting.SctpConnStub,
+			ran *amf_context.AmfRan, ranUe *amf_context.RanUe,
+		) {
+			handleInitialUEMessageMain(ran, nil, &ngapType.RANUENGAPID{Value: ranUe.RanUeNgapId},
+				&ngapType.NASPDU{Value: []byte{0x7e, 0x00}}, nil, nil, nil, nil)
+		}, unspecified},
 	}
 
 	for _, release := range releases {

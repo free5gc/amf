@@ -526,6 +526,10 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	uEContextRequest *ngapType.UEContextRequest,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
+	if ranUe != nil {
+		// TS 38.413 8.6.1.2: the connection that has this RAN UE NGAP ID is released locally.
+		deactivateUpConnections(ran, ranUe, ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
+	}
 	if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 		amfUe := ranUe.AmfUe
 		if amfUe != nil {
@@ -2767,8 +2771,8 @@ func completeUeContextReleases(ran *context.AmfRan) {
 }
 
 // localAnRelease is the AN release that the AMF performs locally when it releases the N2 connection
-// of a UE without the N2 messages of the procedure (the SCTP association of its gNB is lost, or an NG
-// RESET): the user plane of each PDU session of the UE on this access is
+// of a UE without the N2 messages of the procedure (the SCTP association of its gNB is lost, an NG
+// RESET, or an AP ID error): the user plane of each PDU session of the UE on this access is
 // deactivated at its SMF (TS 23.502 4.2.6).
 type localAnRelease struct {
 	smContexts []*context.SmContext
@@ -2842,6 +2846,7 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 	}
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
+	deactivateUpConnections(ran, ranUe, ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
 	if completeUeContextRelease(ran, ranUe) {
 		return
 	}
