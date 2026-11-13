@@ -51,6 +51,11 @@ func NewSupportedTAI() (tai SupportedTAI) {
 	return
 }
 
+// NewSupportedTAIList returns an empty list of the TAs that a RAN supports.
+func NewSupportedTAIList() []SupportedTAI {
+	return make([]SupportedTAI, 0, MaxNumOfTAI*MaxNumOfBroadcastPLMNs)
+}
+
 func (ran *AmfRan) Remove() {
 	ran.Log.Infof("Remove RAN Context[ID: %+v]", ran.RanID())
 	ran.RemoveAllRanUe(true)
