@@ -51,18 +51,11 @@ func TestNotificationRoutesWithoutOAuthToken(t *testing.T) {
 		})
 	}
 
-	t.Run("other routes still require OAuth", func(t *testing.T) {
+	t.Run("non-notification services still require OAuth", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(
-			t.Context(), http.MethodGet, factory.AmfCallbackResUriPrefix+"/", nil,
-		)
-		response := httptest.NewRecorder()
-		router.ServeHTTP(response, req)
-		require.Equal(t, http.StatusUnauthorized, response.Code)
-
-		req = httptest.NewRequestWithContext(
 			t.Context(), http.MethodPost, factory.AmfCommResUriPrefix+"/ue-contexts/test/n1-n2-messages", nil,
 		)
-		response = httptest.NewRecorder()
+		response := httptest.NewRecorder()
 		router.ServeHTTP(response, req)
 		require.Equal(t, http.StatusUnauthorized, response.Code)
 	})

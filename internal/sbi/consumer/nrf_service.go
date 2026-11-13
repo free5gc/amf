@@ -321,7 +321,7 @@ func (s *nnrfService) processRegisterResponse(
 
 	if applyOAuth2 {
 		if err := amfContext.SetOAuth2Required(oauth2); err != nil {
-			return fmt.Errorf("apply NRF OAuth2 setting: %w", err)
+			return err
 		}
 	} else if oauth2 != amfContext.OAuth2Required.Load() {
 		logger.ConsumerLog.Warnf(

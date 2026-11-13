@@ -195,8 +195,8 @@ func (a *AmfApp) SetReportCaller(reportCaller bool) {
 func (a *AmfApp) Start() {
 	self := a.Context()
 	amf_context.InitAmfContext(self)
-	if err := registerNFInstanceAtStart(a); err != nil {
-		logger.InitLog.Errorf("AMF startup registration failed: %+v", err)
+	if err := a.Consumer().SendRegisterNFInstance(a.ctx, true); err != nil {
+		logger.InitLog.Errorf("Send Register NF Instance failed: %+v", err)
 		return
 	}
 
@@ -234,10 +234,6 @@ func (a *AmfApp) Start() {
 		logger.MainLog.Fatalf("Run SBI server failed: %+v", err)
 	}
 	a.WaitRoutineStopped()
-}
-
-func registerNFInstanceAtStart(a *AmfApp) error {
-	return a.Consumer().SendRegisterNFInstance(a.ctx, true)
 }
 
 // Used in AMF planned removal procedure

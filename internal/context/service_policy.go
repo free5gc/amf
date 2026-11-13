@@ -36,6 +36,14 @@ var servicePolicies = map[models.Nrf_NFMgmt_ServiceName][]models.Nrf_NFMgmt_NFTy
 		models.Nrf_NFMgmt_NFType_GMLC,
 		models.Nrf_NFMgmt_NFType_UDM,
 	},
+	// TS 29.518 §5.1 / TS 23.247 §7.2: Namf_MBSCommunication and
+	// Namf_MBSBroadcast are consumed by the MB-SMF.
+	models.Nrf_NFMgmt_ServiceName_NAMF_MBS_COMM: {
+		models.Nrf_NFMgmt_NFType_MB_SMF,
+	},
+	models.Nrf_NFMgmt_ServiceName_NAMF_MBS_BC: {
+		models.Nrf_NFMgmt_NFType_MB_SMF,
+	},
 	ServiceNameNamfCallback: {
 		models.Nrf_NFMgmt_NFType_AMF,
 		models.Nrf_NFMgmt_NFType_SMF,

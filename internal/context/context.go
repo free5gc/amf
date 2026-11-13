@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
@@ -584,7 +584,7 @@ func (c *AMFContext) GetTokenCtxForNFInstance(serviceName models.Nrf_NFMgmt_Serv
 	}
 	targetID, err := uuid.Parse(strings.TrimSpace(targetNFInstanceID))
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "invalid target NF instance ID")
+		return nil, nil, fmt.Errorf("invalid target NF instance ID: %w", err)
 	}
 	if targetID.Version() != 4 {
 		return nil, nil, errors.New("invalid target NF instance ID: UUID must be version 4")
@@ -633,7 +633,7 @@ func (c *AMFContext) SetOAuth2Required(required bool) error {
 	}
 	nrfNfInstanceID, err := oauth.NFInstanceIDFromCertificate(c.NrfCertPem)
 	if err != nil {
-		return errors.Wrap(err, "derive trusted NRF instance ID from certificate")
+		return fmt.Errorf("derive trusted NRF instance ID from certificate: %w", err)
 	}
 	c.NrfNfInstanceID = nrfNfInstanceID
 	c.OAuth2Required.Store(true)
@@ -646,7 +646,7 @@ func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFM
 		return nil
 	}
 
-	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
+	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: tokenPresent[%t] serviceName[%s]", token != "", serviceName)
 	return oauth.VerifyOAuth(token, string(serviceName), oauth.AudiencePolicy{
 		NFInstanceID: c.NfId,
 		NFType:       models.Nrf_NFMgmt_NFType_AMF,
