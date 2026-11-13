@@ -406,6 +406,7 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		Procedure: context.OnGoingProcedureRegistration,
 	})
 
+	ue.DeferredDeregistrationRequest = nil
 	ue.StopT3513()
 	ue.StopT3565()
 
@@ -2666,8 +2667,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	//	2. AMF determines that it needs to update the Homogeneous Support of IMS Voice over PS Sessions (TS 23.501 5.16.3.3)
 	// Then invoke Nudm_UECM_Update to send "Homogeneous Support of IMS Voice over PS Sessions" indication to udm
 
+	// A de-registration that came before this completion releases the connection itself
 	if ue.RegistrationRequest.UplinkDataStatus == nil &&
-		!ue.RegistrationRequest.RegType5GS.FOR_Pending {
+		!ue.RegistrationRequest.RegType5GS.FOR_Pending && ue.DeferredDeregistrationRequest == nil {
 		ngap_message.SendUEContextReleaseCommand(ue.GetRanUe(accessType), context.UeContextN2NormalRelease,
 			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 	}
@@ -2850,10 +2852,23 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 // is ongoing, in the Authentication, SecurityMode or ContextSetup state. One for switch off aborts the ongoing
 // procedure (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)). One not for switch off aborts the security mode control (TS 24.501
 // 5.4.2.7 c)) and, once the REGISTRATION ACCEPT has been sent, a registration for initial registration (TS 24.501
-// 5.5.1.2.8 h)). The de-registration is then progressed.
+// 5.5.1.2.8 h)). The de-registration is then progressed. One not for switch off during an identification (of the
+// SUCI or of the IMEI), or before the REGISTRATION COMPLETE of a registration for mobility and periodic registration
+// update, is progressed once that procedure completes (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)).
 func handleDeregistrationRequestDuringRegistration(state *fsm.State, ue *context.AmfUe, anType models.AccessType,
 	deregistrationRequest *nas_message.DeregReqUEOrig,
 ) error {
+	// An IDENTITY REQUEST is outstanding, or the REGISTRATION ACCEPT waits for its completion, with or without the
+	// timers T3570 and T3550 in the configuration
+	if !deregistrationRequest.DeregType.Switchoff && (ue.RequestIdentityType != ie.IdType_5GS_None ||
+		(state.Is(context.ContextSetup) && ue.RegistrationAcceptSent() &&
+			ue.RegistrationType5GS != ie.RegType_InitialReg)) {
+		// The identification (TS 24.501 5.4.3.6 f)), or the registration for mobility and periodic registration
+		// update (TS 24.501 5.5.1.3.8 g)), completes first: the de-registration is progressed then
+		ue.GmmLog.Info("Deregistration Request, progressed once the ongoing procedure completes")
+		ue.DeferredDeregistrationRequest = deregistrationRequest
+		return nil
+	}
 	if !deregistrationRequest.DeregType.Switchoff && !state.Is(context.SecurityMode) &&
 		(!ue.RegistrationAcceptSent() || ue.RegistrationType5GS != ie.RegType_InitialReg) {
 		return fmt.Errorf("deregistration request (not switch off) at %s state is not handled before the "+
@@ -2864,6 +2879,24 @@ func handleDeregistrationRequestDuringRegistration(state *fsm.State, ue *context
 	ue.StopT3560()
 	ue.StopT3570()
 	return GmmFSM.SendEvent(state, InitDeregistrationEvent, fsm.ArgsType{
+		ArgAmfUe:      ue,
+		ArgAccessType: anType,
+		ArgNASMessage: deregistrationRequest,
+	}, logger.GmmLog)
+}
+
+// progressDeferredDeregistration progresses deregistrationRequest, the DEREGISTRATION REQUEST that came during the
+// procedure that has just completed, if there is one (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)), and reports whether there
+// was one.
+func progressDeferredDeregistration(state *fsm.State, ue *context.AmfUe, anType models.AccessType,
+	deregistrationRequest *nas_message.DeregReqUEOrig,
+) (bool, error) {
+	if deregistrationRequest == nil {
+		return false, nil
+	}
+	ue.DeferredDeregistrationRequest = nil
+	ue.GmmLog.Info("Progress the Deregistration Request received during the procedure")
+	return true, GmmFSM.SendEvent(state, InitDeregistrationEvent, fsm.ArgsType{
 		ArgAmfUe:      ue,
 		ArgAccessType: anType,
 		ArgNASMessage: deregistrationRequest,
