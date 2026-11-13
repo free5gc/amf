@@ -3,8 +3,11 @@ package ngap
 import (
 	"encoding/hex"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/free5gc/amf/internal/context"
 	gmm_common "github.com/free5gc/amf/internal/gmm/common"
@@ -167,11 +170,14 @@ func handleNGResetMain(ran *context.AmfRan,
 		releaseCause = ngapCause(printAndGetCause(ran, cause))
 	}
 
+	var anReleases []*localAnRelease
 	switch choice := resetType.Choice.(type) {
 	case *ngapType.ResetAll:
 		ran.Log.Trace("ResetType Present: NG Interface")
 		ran.RanUeList.Range(func(_, value interface{}) bool {
-			deactivateUpConnections(ran, value.(*context.RanUe), releaseCause)
+			if anRelease := newLocalAnRelease(ran, value.(*context.RanUe), releaseCause); anRelease != nil {
+				anReleases = append(anReleases, anRelease)
+			}
 			return true
 		})
 		completeUeContextReleases(ran)
@@ -206,7 +212,9 @@ func handleNGResetMain(ran *context.AmfRan,
 			if ranUe == nil {
 				continue
 			}
-			deactivateUpConnections(ran, ranUe, releaseCause)
+			if anRelease := newLocalAnRelease(ran, ranUe, releaseCause); anRelease != nil {
+				anReleases = append(anReleases, anRelease)
+			}
 			if !completeUeContextRelease(ran, ranUe) {
 				if err := ranUe.Remove(); err != nil {
 					ran.Log.Error(err.Error())
@@ -216,6 +224,19 @@ func handleNGResetMain(ran *context.AmfRan,
 		ngap_message.SendNGResetAcknowledge(ran, partOfNGInterface, nil)
 	default:
 		ran.Log.Warnf("Invalid ResetType[%T]", resetType.Choice)
+	}
+
+	// The SMFs are told after the NG RESET ACKNOWLEDGE, each UE on a goroutine of its own: NG RESET is
+	// handled with the other non-UE-associated messages, which the SMFs' answers must not hold up.
+	for _, anRelease := range anReleases {
+		go func() {
+			defer func() {
+				if p := recover(); p != nil {
+					anRelease.log.Errorf("panic: %v\n%s", p, string(debug.Stack()))
+				}
+			}()
+			anRelease.deactivateUpConnections()
+		}()
 	}
 }
 
@@ -350,7 +371,8 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 					// TODO: Check if doing error handling here
 					continue
 				}
-				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, cause)
+				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(
+					&amfUe.Location, smContext, cause)
 				if err != nil {
 					ran.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 				} else if response == nil {
@@ -1283,7 +1305,8 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 						// TODO: Check if doing error handling here
 						continue
 					}
-					rsp, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, causeAll)
+					rsp, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(
+						&amfUe.Location, smContext, causeAll)
 					if err != nil {
 						ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
 					} else if rsp == nil {
@@ -2743,28 +2766,58 @@ func completeUeContextReleases(ran *context.AmfRan) {
 	})
 }
 
-// deactivateUpConnections performs locally the AN release of the UE whose N2 connection ranUe is,
-// when the AMF releases that connection without the N2 messages of the procedure (the SCTP association
-// of its gNB is lost, or an NG RESET): the user plane of each PDU session of the UE on this access is
+// localAnRelease is the AN release that the AMF performs locally when it releases the N2 connection
+// of a UE without the N2 messages of the procedure (the SCTP association of its gNB is lost, or an NG
+// RESET): the user plane of each PDU session of the UE on this access is
 // deactivated at its SMF (TS 23.502 4.2.6).
-func deactivateUpConnections(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) {
+type localAnRelease struct {
+	smContexts []*context.SmContext
+	// location is the UE's location when the AMF released the connection.
+	location models.UserLocation
+	cause    context.CauseAll
+	log      *logrus.Entry
+}
+
+// newLocalAnRelease returns the AN release of the UE whose N2 connection ranUe is, or nil when the UE
+// has no PDU session on this access, or when ranUe is not its connection (the other side of a
+// handover).
+func newLocalAnRelease(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) *localAnRelease {
 	amfUe := ranUe.AmfUe
 	if amfUe == nil || amfUe.GetRanUe(ran.AnType) != ranUe {
-		return
+		return nil
 	}
+	anRelease := &localAnRelease{cause: cause, log: ranUe.Log}
 	amfUe.SmContextList.Range(func(_, value interface{}) bool {
-		smContext := value.(*context.SmContext)
-		if smContext.AccessType() != ran.AnType {
-			return true
-		}
-		response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(amfUe, smContext, cause)
-		if err != nil {
-			ranUe.Log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
-		} else if response == nil {
-			ranUe.Log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
+		if smContext := value.(*context.SmContext); smContext.AccessType() == ran.AnType {
+			anRelease.smContexts = append(anRelease.smContexts, smContext)
 		}
 		return true
 	})
+	if len(anRelease.smContexts) == 0 {
+		return nil
+	}
+	anRelease.location = ranUe.LocationCopy()
+	return anRelease
+}
+
+// deactivateUpConnections asks the SMF of each PDU session to deactivate its user plane.
+func (r *localAnRelease) deactivateUpConnections() {
+	for _, smContext := range r.smContexts {
+		response, _, _, err := consumer.GetConsumer().SendUpdateSmContextDeactivateUpCnxState(
+			&r.location, smContext, r.cause)
+		if err != nil {
+			r.log.Errorf("Send Update SmContextDeactivate UpCnxState Error[%s]", err.Error())
+		} else if response == nil {
+			r.log.Errorln("Send Update SmContextDeactivate UpCnxState Error")
+		}
+	}
+}
+
+// deactivateUpConnections performs the local AN release of the UE whose N2 connection ranUe is.
+func deactivateUpConnections(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) {
+	if anRelease := newLocalAnRelease(ran, ranUe, cause); anRelease != nil {
+		anRelease.deactivateUpConnections()
+	}
 }
 
 // ngapCause is the NGAP cause of a release, as the SMF receives it.

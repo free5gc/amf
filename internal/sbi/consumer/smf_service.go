@@ -296,13 +296,13 @@ func (s *nsmfService) SendUpdateSmContextActivateUpCnxState(
 	return s.consumer.SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
 }
 
-func (s *nsmfService) SendUpdateSmContextDeactivateUpCnxState(ue *amf_context.AmfUe,
+func (s *nsmfService) SendUpdateSmContextDeactivateUpCnxState(ueLocation *models.UserLocation,
 	smContext *amf_context.SmContext, cause amf_context.CauseAll) (
 	*models.UpdateSmContextResponse200, *models.UpdateSmContextResponse400, *models.ProblemDetails, error,
 ) {
 	updateData := models.Smf_PDUSess_SmContextUpdateData{}
 	updateData.UpCnxState = models.Smf_PDUSess_UpCnxState_DEACTIVATED
-	updateData.UeLocation = &ue.Location
+	updateData.UeLocation = ueLocation
 	if cause.Cause != nil {
 		updateData.Cause = *cause.Cause
 	}

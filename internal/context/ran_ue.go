@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -53,6 +54,8 @@ type RanUe struct {
 	/* UserLocation*/
 	Tai      models.Tai
 	Location models.UserLocation
+	// locationMu orders UpdateLocation and SetLocation with LocationCopy, which other goroutines call.
+	locationMu sync.Mutex
 	/* context about udm */
 	SupportVoPSn3gpp  bool
 	SupportVoPS       bool
@@ -189,10 +192,26 @@ func (ranUe *RanUe) UpdateLogFields() {
 	}
 }
 
+// SetLocation sets the location of the UE at this N2 connection.
+func (ranUe *RanUe) SetLocation(location models.UserLocation) {
+	ranUe.locationMu.Lock()
+	defer ranUe.locationMu.Unlock()
+	ranUe.Location = location
+}
+
+// LocationCopy returns a copy of the location of the UE at this N2 connection.
+func (ranUe *RanUe) LocationCopy() models.UserLocation {
+	ranUe.locationMu.Lock()
+	defer ranUe.locationMu.Unlock()
+	return deepcopy.Copy(ranUe.Location).(models.UserLocation)
+}
+
 func (ranUe *RanUe) UpdateLocation(userLocationInformation *ie.UserLocationInformation) {
 	if userLocationInformation == nil {
 		return
 	}
+	ranUe.locationMu.Lock()
+	defer ranUe.locationMu.Unlock()
 
 	switch location := userLocationInformation.Choice.(type) {
 	case *ie.UserLocationInformationEUTRA:
