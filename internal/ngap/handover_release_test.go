@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	amf_context "github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/ngap/aper"
 	ngapType "github.com/free5gc/ngap/ie"
 	ngapMessage "github.com/free5gc/ngap/message"
 )
@@ -58,16 +59,24 @@ func TestHandoverCancelThenTargetReleaseComplete(t *testing.T) {
 }
 
 // TS 38.413 8.4.2.3: the target answers HANDOVER FAILURE; the AMF sends
-// HANDOVER PREPARATION FAILURE to the source and releases the target.
+// HANDOVER PREPARATION FAILURE to the source, with the target's Target to
+// Source Failure Transparent Container (8.4.1.3), and releases the target.
 func TestHandoverFailureThenTargetReleaseComplete(t *testing.T) {
 	e := newHoTestEnv(t, true)
+	container := &ngapType.TargettoSourceFailureTransparentContainer{Value: aper.OctetString{0x0a, 0x0b}}
 	dispatchMain(e.tgtRan, &ngapMessage.HandoverFailure{
 		AMFUENGAPID: &ngapType.AMFUENGAPID{Value: e.tgt.AmfUeNgapId},
 		Cause: &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
 			Value: ngapType.CauseRadioNetworkPresentNoRadioResourcesAvailableInTargetCell,
 		}},
+		TargettoSourceFailureTransparentContainer: container,
 	}, nil)
 	hoRequireSent(t, e.srcConn, "source not told", "HandoverPreparationFailure")
+	failure, err := ngapMessage.Parse(e.srcConn.MsgList[0])
+	require.NoError(t, err)
+	require.Equal(t, container,
+		failure.(*ngapMessage.HandoverPreparationFailure).TargettoSourceFailureTransparentContainer,
+		"target's container not carried to the source")
 	hoRequireSent(t, e.tgtConn, "target not released", "HandoverRequest", "UEContextReleaseCommand")
 
 	// The target never acknowledged, so the AMF still holds the placeholder

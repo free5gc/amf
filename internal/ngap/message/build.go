@@ -425,6 +425,7 @@ func BuildHandoverPreparationFailure(
 	sourceUe *context.RanUe,
 	cause ngapIE.Cause,
 	criticalityDiagnostics *ngapIE.CriticalityDiagnostics,
+	targetToSourceFailureContainer *ngapIE.TargettoSourceFailureTransparentContainer,
 ) ([]byte, error) {
 	if sourceUe == nil {
 		return nil, fmt.Errorf("source ranUe is nil")
@@ -434,6 +435,7 @@ func BuildHandoverPreparationFailure(
 		RANUENGAPID:            &ngapIE.RANUENGAPID{Value: sourceUe.RanUeNgapId},
 		Cause:                  &cause,
 		CriticalityDiagnostics: criticalityDiagnostics,
+		TargettoSourceFailureTransparentContainer: targetToSourceFailureContainer,
 	}).MarshalBinary()
 }
 
