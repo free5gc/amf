@@ -2425,10 +2425,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 
 func HandleAuthenticationError(ue *context.AmfUe, anType models.AccessType) error {
 	ue.GmmLog.Info("Handle Authentication Error")
-	if ue.RegistrationRequest != nil {
-		gmm_message.SendRegistrationReject(ue.GetRanUe(anType), ie.Cause5GMM_TrackingAreaNotAllowed, "")
-	}
-
+	// AuthenticationProcedure has already sent the REGISTRATION REJECT for the error.
 	return nil
 }
 
