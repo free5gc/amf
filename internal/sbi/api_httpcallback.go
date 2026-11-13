@@ -12,15 +12,8 @@ import (
 	"github.com/free5gc/util/metrics/sbi"
 )
 
-func (s *Server) getHttpCallBackRoutes() []Route {
+func (s *Server) getNotificationRoutes() []Route {
 	return []Route{
-		{
-			Method:  http.MethodGet,
-			Pattern: "/",
-			APIFunc: func(c *gin.Context) {
-				c.String(http.StatusOK, "Hello World!")
-			},
-		},
 		{
 			Name:    "AmPolicyControlUpdateNotifyUpdate",
 			Method:  http.MethodPost,

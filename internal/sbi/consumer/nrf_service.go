@@ -103,7 +103,7 @@ func (s *nnrfService) SendSearchNFInstances(nrfUri string, targetNfType, request
 		return nil, openapi.ReportError("nrf not found")
 	}
 
-	ctx, _, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NNRF_DISC, models.Nrf_NFMgmt_NFType_NRF)
+	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNRF(models.Nrf_NFMgmt_ServiceName_NNRF_DISC)
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +231,11 @@ func (s *nnrfService) buildNFInstance(context *amf_context.AMFContext) (
 	profile.Ipv6Addresses = addr.IPv6Addresses
 	service := []models.Nrf_NFMgmt_NFService{}
 	for _, nfService := range context.NfService {
+		allowed, known := amf_context.AllowedNfTypesForService(nfService.ServiceName)
+		if !known {
+			return profile, fmt.Errorf("no AllowedNfTypes policy for service %q", nfService.ServiceName)
+		}
+		nfService.AllowedNfTypes = allowed
 		service = append(service, nfService)
 	}
 	if len(service) > 0 {
@@ -269,8 +274,7 @@ func (s *nnrfService) SendRegisterNFInstance(ctx context.Context, applyOAuth2 bo
 	for ctx.Err() == nil {
 		res, err = client.NFInstanceIDDocumentApi.RegisterNFInstance(ctx, registerNFInstanceRequest)
 		if err == nil && res != nil {
-			s.processRegisterResponse(amfContext, res.Nrf_NFMgmt_NFProfile, applyOAuth2)
-			return nil
+			return s.processRegisterResponse(amfContext, res.Nrf_NFMgmt_NFProfile, applyOAuth2)
 		}
 		logger.ConsumerLog.Errorf("AMF register to NRF Error[%v]", err)
 		select {
@@ -287,7 +291,7 @@ func (s *nnrfService) processRegisterResponse(
 	amfContext *amf_context.AMFContext,
 	nf *models.Nrf_NFMgmt_NFProfile,
 	applyOAuth2 bool,
-) {
+) error {
 	if nf == nil {
 		nf = &models.Nrf_NFMgmt_NFProfile{}
 	}
@@ -300,14 +304,19 @@ func (s *nnrfService) processRegisterResponse(
 			logger.MainLog.Infoln("OAuth2 setting receive from NRF:", oauth2)
 		}
 	}
+
 	if applyOAuth2 {
-		amfContext.OAuth2Required.Store(oauth2)
-		if oauth2 && amfContext.NrfCertPem == "" {
-			logger.CfgLog.Error("OAuth2 enable but no nrfCertPem provided in config.")
+		if err := amfContext.SetOAuth2Required(oauth2); err != nil {
+			return err
 		}
 	} else if oauth2 != amfContext.OAuth2Required.Load() {
-		logger.ConsumerLog.Warnf("NRF OAuth2 setting changed to %v, restart AMF to apply it", oauth2)
+		logger.ConsumerLog.Warnf(
+			"NRF OAuth2 setting changed to %v, restart AMF to apply it",
+			oauth2,
+		)
 	}
+
+	return nil
 }
 
 // SendUpdateNFInstance sends an NFUpdate PATCH to the NRF, honoring ctx. The
@@ -317,10 +326,8 @@ func (s *nnrfService) SendUpdateNFInstance(ctx context.Context, patchItems []mod
 	nf models.Nrf_NFMgmt_NFProfile, problemDetails *models.ProblemDetails, err error,
 ) {
 	amfContext := s.consumer.Context()
-	tokCtx, pd, err := amfContext.GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName_NNRF_NFM,
-		models.Nrf_NFMgmt_NFType_NRF,
-	)
+
+	tokCtx, pd, err := amfContext.GetTokenCtxForNRF(models.Nrf_NFMgmt_ServiceName_NNRF_NFM)
 	if err != nil {
 		return nf, pd, err
 	}
@@ -368,7 +375,7 @@ func (s *nnrfService) SendDeregisterNFInstance() (problemDetails *models.Problem
 		return nil, openapi.ReportError("nrf not found")
 	}
 
-	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(models.Nrf_NFMgmt_ServiceName_NNRF_NFM, models.Nrf_NFMgmt_NFType_NRF)
+	ctx, pd, err := amf_context.GetSelf().GetTokenCtxForNRF(models.Nrf_NFMgmt_ServiceName_NNRF_NFM)
 	if err != nil {
 		return pd, err
 	}

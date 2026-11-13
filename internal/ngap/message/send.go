@@ -264,6 +264,7 @@ func SendUEContextReleaseCommand(ue *context.RanUe, action context.RelAction, ca
 		}
 	}
 	ue.InitialContextSetup = false
+	ue.InitialContextSetupPending.Store(0)
 	isUECtxReleaseCmd, additionalCause = SendToRanUe(ue, pkt)
 }
 
@@ -504,7 +505,16 @@ func SendInitialContextSetupRequest(
 		return
 	}
 
+	// Count the request as outstanding before it is sent, so that a quick
+	// response is not ignored, and take it back if it could not be sent. A
+	// count rather than a flag: a second request can be sent before the first
+	// response (T3550 retransmission, N1N2 message transfer), and each
+	// response must still be handled.
+	ranUe.InitialContextSetupPending.Add(1)
 	isInitialCtxSetupReqSent, additionalCause = NasSendToRan(amfUe, anType, pkt)
+	if !isInitialCtxSetupReqSent {
+		ranUe.TakeInitialContextSetupPending()
+	}
 }
 
 func SendUEContextModificationRequest(
@@ -696,7 +706,7 @@ func SendHandoverRequest(sourceUe *context.RanUe, targetRan *context.AmfRan, tar
 	}
 
 	var targetUe *context.RanUe
-	if targetUeTmp, err := targetRan.NewRanUe(context.RanUeNgapIdUnspecified); err != nil {
+	if targetUeTmp, err := targetRan.NewRanUeUnspecified(); err != nil {
 		sourceUe.Log.Errorf("Create target UE error: %+v", err)
 	} else {
 		targetUe = targetUeTmp
@@ -880,22 +890,11 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 	// 	ngaplog.Errorf("Build Paging failed : %s", err.Error())
 	// }
 	taiList := ue.RegistrationArea[models.AccessType_3_GPP_ACCESS]
-	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
-		ran := value.(*context.AmfRan)
-		for _, item := range ran.SupportedTAList {
-			if context.InTaiList(item.Tai, taiList) {
-				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
-				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
-				break
-			}
-		}
-		return true
-	})
 
 	if context.GetSelf().T3513Cfg.Enable {
 		cfg := context.GetSelf().T3513Cfg
 		ue.GmmLog.Infof("Start T3513 timer")
-		ue.T3513 = context.NewTimer(cfg.ExpireTime, cfg.MaxRetryTimes, func(expireTimes int32) {
+		ue.StartT3513(cfg, func(expireTimes int32) {
 			ue.GmmLog.Warnf("T3513 expires, retransmit Paging (retry: %d)", expireTimes)
 			context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
 				ran := value.(*context.AmfRan)
@@ -909,12 +908,23 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 			})
 		}, func() {
 			ue.GmmLog.Warnf("T3513 expires %d times, abort paging procedure", cfg.MaxRetryTimes)
-			ue.T3513 = nil // clear the timer
 			if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
 				callback.SendN1N2TransferFailureNotification(ue, models.Amf_Comm_N1N2MessageTransferCause_UE_NOT_RESPONDING)
 			}
 		})
 	}
+
+	context.GetSelf().AmfRanPool.Range(func(key, value interface{}) bool {
+		ran := value.(*context.AmfRan)
+		for _, item := range ran.SupportedTAList {
+			if context.InTaiList(item.Tai, taiList) {
+				ue.GmmLog.Infof("Send Paging to TAI(%+v, Tac:%+v)", item.Tai.PlmnId, item.Tai.Tac)
+				isPagingSent, additionalCause = SendToRan(ran, ngapBuf)
+				break
+			}
+		}
+		return true
+	})
 }
 
 // TS 23.502 4.2.2.2.3

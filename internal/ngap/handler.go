@@ -27,6 +27,11 @@ import (
 	"github.com/free5gc/util/metrics/utils"
 )
 
+const (
+	nasIDType5GGUTI  = "5G-GUTI"
+	nasIDType5GSTMSI = "5G-S-TMSI"
+)
+
 func relatedContentBytes(content *multipart.RelatedContent) []byte {
 	if content == nil {
 		return nil
@@ -164,6 +169,7 @@ func handleNGResetMain(ran *context.AmfRan,
 	switch choice := resetType.Choice.(type) {
 	case *ngapType.ResetAll:
 		ran.Log.Trace("ResetType Present: NG Interface")
+		completeUeContextReleases(ran)
 		ran.RemoveAllRanUe(false)
 		ngap_message.SendNGResetAcknowledge(ran, nil, nil)
 	case *ngapType.UEAssociatedLogicalNGConnectionList:
@@ -192,7 +198,7 @@ func handleNGResetMain(ran *context.AmfRan,
 				}
 			}
 
-			if ranUe != nil {
+			if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 				if err := ranUe.Remove(); err != nil {
 					ran.Log.Error(err.Error())
 				}
@@ -362,7 +368,13 @@ func handleUEContextReleaseCompleteMain(ran *context.AmfRan,
 			// Deferred so that a panic recovered by the worker does not leave the lock held.
 			amfUe.Lock.Lock()
 			defer amfUe.Lock.Unlock()
-			gmm_common.RemoveAmfUe(amfUe, false)
+			// completeUeContextRelease may have removed the AmfUe for a local
+			// release of this connection while this handler waited for the lock.
+			if ranUe.AmfUe == amfUe {
+				gmm_common.RemoveAmfUe(amfUe, false)
+			} else {
+				ran.Log.Infof("Release UE[%s] Context : already released", amfUe.Supi)
+			}
 		}()
 	case context.UeContextReleaseHandover:
 		ran.Log.Infof("Release UE[%s] Context : Release for Handover", amfUe.Supi)
@@ -483,7 +495,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	uEContextRequest *ngapType.UEContextRequest,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
-	if ranUe != nil {
+	if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 		amfUe := ranUe.AmfUe
 		if amfUe != nil {
 			// The fact that an amfUe having N2 connection (ranUE) is receiving
@@ -532,16 +544,18 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		tmsi := hex.EncodeToString(fiveGSTMSI.FiveGTMSI.Value)
 
 		id = amfSetPtrID + tmsi
-		idType = "5G-S-TMSI"
+		idType = nasIDType5GSTMSI
 		ranUe.Log.Infof("Find 5G-S-TMSI [%q] in InitialUEMessage", id)
-	} else if regReqType == ie.RegType_InitialReg {
-		// NGAP 5G-S-TMSI IE might not be present in InitialUEMessage carrying Initial Registration.
-		// Need to get 5GSMobileIdentity from Initial Registration.
-
-		id, idType, err = amf_nas.GetNas5GSMobileIdentity(gmmMessage)
-		ran.Log.Infof("5GSMobileIdentity [%q:%q, err: %v]", idType, id, err)
+	} else if id, idType, err = amf_nas.GetNas5GSMobileIdentity(gmmMessage); err == nil &&
+		(regReqType == ie.RegType_InitialReg || idType == nasIDType5GGUTI || idType == nasIDType5GSTMSI) {
+		// TS 38.413 9.2.5.1: the NGAP 5G-S-TMSI IE is optional (0..1). When it is
+		// absent, a REGISTRATION REQUEST is identified by its 5G-GUTI (TS 24.501
+		// 5.5.1.3.2) and a SERVICE REQUEST by its 5G-S-TMSI; whether the found UE
+		// context is attached is decided below by the NAS MAC. A non-initial SUCI,
+		// another initial NAS message or a ciphered one still gets ERROR INDICATION.
+		ran.Log.Infof("5GSMobileIdentity [%q:%q] from NAS PDU", idType, id)
 	} else {
-		// Missing NGAP 5G-S-TMSI IE
+		// Neither the NGAP 5G-S-TMSI IE nor a usable NAS identity is present.
 		var iesCriticalityDiagnostics ngapType.CriticalityDiagnosticsIEList
 		ranUe.Log.Warnf("Missing 5G-S-TMSI IE in InitialUEMessage; send ErrorIndication")
 		item := buildCriticalityDiagnosticsIEItem(ngapType.CriticalityPresentReject,
@@ -554,11 +568,48 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 		return
 	}
 
-	// If id type is GUTI, since MAC can't be checked here (no amfUe context), the GUTI may not direct to the right amfUe.
-	// In this case, create a new amfUe to handle the following registration procedure.
-	isInvalidGUTI := (idType == "5G-GUTI")
+	// A 5G-GUTI from the NAS cannot be authenticated before an AmfUe is
+	// selected, so for a non-initial registration look up the context found by
+	// the GUTI and let NAS integrity protection prove ownership. An initial
+	// registration named by a NAS 5G-GUTI is still never attached to the found
+	// context; it is handled below like one that fails the integrity check.
+	isInvalidGUTI := (idType == nasIDType5GGUTI && regReqType == ie.RegType_InitialReg)
 	amfUe, ok := findAmfUe(ran, id, idType)
-	if ok && !isInvalidGUTI {
+	if ok && amfUe.SecurityContextAvailable && (isInvalidGUTI ||
+		!initialNasMacVerified(ranUe, amfUe, ran.AnType, nASPDU.Value)) {
+		// The security-header bit is not proof of ownership. A plain message, or one
+		// whose MAC fails against the found 5G NAS security context, is never attached
+		// to that context: that would let it restart authentication/T3560 for, cancel
+		// the paging of, or deregister the established context. TS 24.501 4.4.4.3
+		// still requires the message to be processed.
+		switch nasMsgType {
+		case uint8(nas_message.MsgTypeRegReq):
+			// Authenticated on a new UE context. The registration continues on the found
+			// context only once the UE has authenticated as its subscriber (see
+			// gmm.continueOnStoredContext), so a sender that cannot leaves it unchanged.
+			ranUe.Log.Infof("Authenticate registration for AmfUe found by %q on a new UE context", idType)
+			newAmfUe := context.GetSelf().NewAmfUe("")
+			newAmfUe.AuthenticatingFor = amfUe
+			// A periodic REGISTRATION REQUEST may omit the UE security capability (TS 24.501 8.2.6.4).
+			newAmfUe.UESecurityCapability = amfUe.UESecurityCapability
+			gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(newAmfUe, ranUe)
+		case uint8(nas_message.MsgTypeSvcReq):
+			// SERVICE REJECT #9; the 5GMM and 5G NAS security contexts stay unchanged.
+			ranUe.Log.Warnf("Service Request failed the integrity check for AmfUe found by %q", idType)
+			gmm_message.SendServiceReject(ranUe, nil, ie.Cause5GMM_UEIdCannotBeDerivedByTheNw)
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		default:
+			// A DEREGISTRATION REQUEST is ignored and the UE stays registered; no other
+			// initial NAS message is processed without integrity protection.
+			ranUe.Log.Warnf("Ignore initial NAS message [type %d] that failed the integrity check for AmfUe found by %q",
+				nasMsgType, idType)
+			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextN2NormalRelease,
+				ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+			return
+		}
+	} else if ok && !isInvalidGUTI {
 		// TODO: invoke Namf_Communication_UEContextTransfer if serving AMF has changed since
 		// last Registration Request procedure
 		// Described in TS 23.502 4.2.2.2.2 step 4 (without UDSF deployment)
@@ -623,6 +674,18 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	amf_nas.HandleNAS(ranUe, ngapProcedure.ProcedureCodeInitialUEMessage, nASPDU.Value, true)
 }
 
+// initialNasMacVerified reports whether an initial NAS message is integrity protected and its MAC
+// verifies against the 5G NAS security context of amfUe. The check runs on a copy of the uplink
+// NAS COUNT: HandleNAS decodes the message again and accepts its COUNT, once (TS 24.501 4.4.3.2).
+func initialNasMacVerified(ranUe *context.RanUe, amfUe *context.AmfUe, anType models.AccessType, nasPdu []byte) bool {
+	macVerified, err := nas_security.VerifyIntegrity(amfUe, anType, nasPdu, true)
+	if err != nil {
+		ranUe.Log.Infof("Initial NAS message not verified against the found UE context: %v", err)
+		return false
+	}
+	return macVerified
+}
+
 func findAmfUe(ran *context.AmfRan, id, idType string) (*context.AmfUe, bool) {
 	var amfUe *context.AmfUe
 	var ok bool
@@ -638,10 +701,10 @@ func findAmfUe(ran *context.AmfRan, id, idType string) (*context.AmfUe, bool) {
 	case "SUCI":
 		ran.Log.Debugf("SUCI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindBySuci(id)
-	case "5G-GUTI":
+	case nasIDType5GGUTI:
 		ran.Log.Debugf("5G-GUTI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindByGuti(id)
-	case "5G-S-TMSI":
+	case nasIDType5GSTMSI:
 		id = servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc + ngapConvert.BitStringToHex(&tmpRegionID) + id
 		ran.Log.Debugf("5G-S-TMSI %s", id)
 		amfUe, ok = amfSelf.AmfUeFindByGuti(id)
@@ -958,6 +1021,18 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 	pduSessionResourceModifyListModCfm := ngapType.PDUSessionResourceModifyListModCfm{}
 	pduSessionResourceFailedToModifyListModCfm := ngapType.PDUSessionResourceFailedToModifyListModCfm{}
 
+	// TS 38.413 §8.2.5.2: the confirm reports the result for each indicated PDU
+	// session. When the SMF provides no transfer, the AMF reports the failure.
+	reportFailedToModify := func(pduSessionID int32, cause *ngapType.Cause) {
+		transfer, err := ngap_message.BuildPDUSessionResourceModifyIndicationUnsuccessfulTransfer(cause)
+		if err != nil {
+			ranUe.Log.Errorf("Build PDUSessionResourceModifyIndicationUnsuccessfulTransfer error: %+v", err)
+			return
+		}
+		ngap_message.AppendPDUSessionResourceFailedToModifyListModCfm(
+			&pduSessionResourceFailedToModifyListModCfm, int64(pduSessionID), transfer)
+	}
+
 	if pduSessionResourceModifyIndicationList != nil {
 		ran.Log.Infof("Send PDUSessionResourceModifyIndicationTransfer to SMF")
 		for _, item := range pduSessionResourceModifyIndicationList.List {
@@ -966,7 +1041,9 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 			smContext, ok := amfUe.SmContextFindByPDUSessionID(pduSessionID)
 			if !ok {
 				ranUe.Log.Warnf("SmContext[PDU Session ID:%d] not found", pduSessionID)
-				// TODO: Check if doing error handling here
+				reportFailedToModify(pduSessionID, &ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+					Value: ngapType.CauseRadioNetworkPresentUnknownPDUSessionID,
+				}})
 				continue
 			}
 			response, errResponse, _, err := consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
@@ -979,11 +1056,15 @@ func handlePDUSessionResourceModifyIndicationMain(ran *context.AmfRan,
 				ngap_message.AppendPDUSessionResourceModifyListModCfm(
 					&pduSessionResourceModifyListModCfm,
 					int64(pduSessionID), relatedContentBytes(response.BinaryDataN2SmInformation))
-			}
-			if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
+			} else if errResponse != nil && errResponse.BinaryDataN2SmInformation != nil {
 				ngap_message.AppendPDUSessionResourceFailedToModifyListModCfm(
 					&pduSessionResourceFailedToModifyListModCfm,
 					int64(pduSessionID), relatedContentBytes(errResponse.BinaryDataN2SmInformation))
+			} else {
+				ranUe.Log.Warnf("SMF returned no N2 SM information for PDU Session ID %d", pduSessionID)
+				reportFailedToModify(pduSessionID, &ngapType.Cause{Choice: &ngapType.CauseMisc{
+					Value: ngapType.CauseMiscPresentUnspecified,
+				}})
 			}
 		}
 	}
@@ -1010,6 +1091,15 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 	}
 
 	ran.Log.Tracef("RanUeNgapID[%d] AmfUeNgapID[%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
+
+	// TS 38.413 8.3.1 / 10.4: the Initial Context Setup Response answers an
+	// Initial Context Setup Request. A response without an outstanding
+	// request (e.g. one injected before the AMF sends the request) must not
+	// mark the context as set up, or the AMF stops sending the request.
+	if !ranUe.TakeInitialContextSetupPending() {
+		ranUe.Log.Warnf("Ignore unexpected Initial Context Setup Response (no request is pending)")
+		return
+	}
 	ranUe.InitialContextSetup = true
 
 	if pDUSessionResourceSetupResponseList != nil {
@@ -1098,6 +1188,13 @@ func handleInitialContextSetupFailureMain(ran *context.AmfRan,
 		return
 	}
 
+	// TS 38.413 8.3.1 / 10.4: a failure without an outstanding request is a
+	// local error and must not be applied to the context.
+	if !ranUe.TakeInitialContextSetupPending() {
+		ranUe.Log.Warnf("Ignore unexpected Initial Context Setup Failure (no request is pending)")
+		return
+	}
+
 	if pDUSessionResourceFailedToSetupList != nil {
 		ranUe.Log.Infof("Send PDUSessionResourceSetupUnsuccessfulTransfer to SMF")
 
@@ -1145,6 +1242,16 @@ func handleUEContextReleaseRequestMain(ran *context.AmfRan,
 			causeValue = ngapType.CauseRadioNetworkPresentReleaseDueToNgranGeneratedReason
 			ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext, causeGroup, causeValue)
 			return
+		}
+		// The source releases the UE before the target has answered the
+		// HANDOVER REQUEST, so the handover cannot be executed: cancel it to
+		// release the resources reserved in the target. Once the HANDOVER
+		// COMMAND is sent, the UE may already be on its way to the target and a
+		// HANDOVER NOTIFY can still complete the handover.
+		if targetUe := ranUe.TargetUe; targetUe != nil && !targetUe.RanUeNgapIdAssigned &&
+			amfUe.OnGoing(ran.AnType).Procedure == context.OnGoingProcedureN2Handover {
+			ranUe.Log.Warn("UE context release requested during handover preparation: cancel the handover")
+			cancelHandoverPreparation(amfUe, targetUe, ran.AnType)
 		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
 		causeAll := context.CauseAll{
@@ -1261,6 +1368,16 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 ) {
 	targetUe.Log.Info("Handle Handover notification")
 
+	// TS 38.413 8.4.3.2: HANDOVER NOTIFY completes one handover. If the target
+	// already is the UE's N2 connection, the handover has been completed and a
+	// repeated notify must not run the source release and the SMF completion
+	// again.
+	if amfUe := targetUe.AmfUe; amfUe != nil && amfUe.GetRanUe(ran.AnType) == targetUe {
+		targetUe.Log.Warn("Ignore HANDOVER NOTIFY: the handover is already completed")
+		sendHandoverNotifyNotCompatible(ran, targetUe)
+		return
+	}
+
 	if userLocationInformation != nil {
 		targetUe.UpdateLocation(userLocationInformation)
 	}
@@ -1269,6 +1386,16 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 		business_metrics.IncrHoEventCounter(business_metrics.HANDOVER_TYPE_NGAP_VALUE, utils.FailureMetric,
 			business_metrics.HANDOVER_AMF_UE_MISSING_ERR, targetUe.HandOverStartTime)
 		ran.Log.Error("AmfUe is nil")
+		return
+	}
+	// TS 23.502 4.9.1.3.3 steps 1-5: the target sends HANDOVER NOTIFY once the
+	// UE, moved by the HANDOVER COMMAND, has arrived. Without a HANDOVER COMMAND
+	// for this target (no acknowledge yet, or the AMF answered the source with
+	// HANDOVER PREPARATION FAILURE) the notify must not move the UE or release
+	// the source.
+	if !targetUe.HandoverCommandSent {
+		targetUe.Log.Warn("Ignore HANDOVER NOTIFY: no HANDOVER COMMAND was sent for this target")
+		sendHandoverNotifyNotCompatible(ran, targetUe)
 		return
 	}
 	sourceUe := targetUe.SourceUe
@@ -1371,10 +1498,11 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 		}
 	}
 
-	if rANUENGAPID != nil {
-		ranUe.RanUeNgapId = rANUENGAPID.Value
-	}
-
+	// TS 38.413 8.4.4: the target RAN assigns its RAN-UE-NGAP-ID in the
+	// PATH SWITCH REQUEST, but the source RanUe keeps its old key until the
+	// switch is committed. Overwriting the field here would make
+	// SwitchToRan delete the new key from the source RAN list and leave the
+	// old source key pointing at the moved UE (removable by a later NG Reset).
 	ranUe.UpdateLocation(userLocationInformation)
 
 	var pduSessionResourceSwitchedList ngapType.PDUSessionResourceSwitchedList
@@ -1599,7 +1727,11 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	}
 
 	if rANUENGAPID != nil {
+		// Bind the RAN-UE-NGAP-ID that the target allocated. The target was
+		// not stored under the placeholder, so this is its first entry in the
+		// per-RAN list.
 		targetUe.RanUeNgapId = rANUENGAPID.Value
+		targetUe.RanUeNgapIdAssigned = true
 		ran.RanUeList.Store(targetUe.RanUeNgapId, targetUe)
 	}
 	ran.Log.Debugf("Target Ue RanUeNgapID[%d] AmfUeNgapID[%d]", targetUe.RanUeNgapId, targetUe.AmfUeNgapId)
@@ -1608,6 +1740,19 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 	if amfUe == nil {
 		hoFailCause = business_metrics.HANDOVER_TARGET_UE_MISSING_ERR
 		targetUe.Log.Error("amfUe is nil")
+		return
+	}
+
+	// The source N2 connection was released while the target prepared the
+	// handover, so there is no source to send the HANDOVER COMMAND to and the
+	// handover cannot be executed.
+	if sourceUe := targetUe.SourceUe; sourceUe == nil || sourceUe.AmfUe == nil {
+		targetUe.Log.Warn("Source NG-RAN connection released during handover preparation: cancel the handover")
+		cause := ngapType.Cause{Choice: &ngapType.CauseRadioNetwork{
+			Value: ngapType.CauseRadioNetworkPresentHandoverCancelled,
+		}}
+		hoFailCause = ngap.GetCauseErrorStr(&cause)
+		cancelHandoverPreparation(amfUe, targetUe, ran.AnType)
 		return
 	}
 
@@ -1710,7 +1855,35 @@ func handleHandoverRequestAcknowledgeMain(ran *context.AmfRan,
 		}
 		ngap_message.SendHandoverCommand(sourceUe, pduSessionResourceHandoverList, pduSessionResourceToReleaseList,
 			*targetToSourceTransparentContainer, nil)
+		targetUe.HandoverCommandSent = true
 	}
+}
+
+// cancelHandoverPreparation cancels an N2 handover whose source connection is
+// gone or being released before the HANDOVER COMMAND, as for a HANDOVER CANCEL
+// (TS 23.502 4.9.1.4 and 4.11.1.2.3): it ends the handover preparation at the
+// SMFs and releases the resources reserved in the target NG-RAN node. The
+// target is detached first, so its UE CONTEXT RELEASE COMPLETE only removes it.
+func cancelHandoverPreparation(amfUe *context.AmfUe, targetUe *context.RanUe, anType models.AccessType) {
+	causeAll := context.CauseAll{NgapCause: &models.NgApCause{
+		Group: int32(ngap_message.CauseChoiceRadioNetwork),
+		Value: int32(ngapType.CauseRadioNetworkPresentHandoverCancelled),
+	}}
+	amfUe.SmContextList.Range(func(key, value interface{}) bool {
+		smContext := value.(*context.SmContext)
+		_, _, _, err := consumer.GetConsumer().SendUpdateSmContextN2HandoverCanceled(amfUe, smContext, causeAll)
+		if err != nil {
+			targetUe.Log.Errorf("Send UpdateSmContextN2HandoverCanceled Error for pduSessionID[%d]", key.(int32))
+		}
+		return true
+	})
+	if amfUe.OnGoing(anType).Procedure == context.OnGoingProcedureN2Handover {
+		amfUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureNothing})
+	}
+	context.DetachSourceUeTargetUe(targetUe)
+	targetUe.DetachAmfUe()
+	ngap_message.SendUEContextReleaseCommand(targetUe, context.UeContextReleaseHandover,
+		ngap_message.CauseChoiceRadioNetwork, ngapType.CauseRadioNetworkPresentHandoverCancelled)
 }
 
 func handleHandoverFailureMain(ran *context.AmfRan,
@@ -1742,6 +1915,13 @@ func handleHandoverFailureMain(ran *context.AmfRan,
 
 	sourceUe := targetUe.SourceUe
 	amfUe := targetUe.AmfUe
+	if amfUe == nil && sourceUe == nil {
+		// The handover was already canceled and the target released when the
+		// source connection went away, so this failure answers no outstanding
+		// preparation (TS 38.413 10.4: local error handling).
+		targetUe.Log.Warn("Ignore HANDOVER FAILURE: the handover is already canceled")
+		return
+	}
 	n2Handover := amfUe != nil && amfUe.OnGoing(ran.AnType).Procedure == context.OnGoingProcedureN2Handover
 	if sourceUe == nil && !n2Handover {
 		// TODO: handle N2 Handover between AMF
@@ -2478,6 +2658,26 @@ func buildCriticalityDiagnosticsIEItem(ieCriticality aper.Enumerated, ieID int64
 	return item
 }
 
+// sendHandoverNotifyNotCompatible answers a HANDOVER NOTIFY that does not fit
+// the handover state of the target. Handover Notification is a class 2
+// procedure, so TS 38.413 10.4 terminates the procedure and initiates Error
+// Indication with the cause "Message not compatible with receiver state" and
+// the Procedure Code and Triggering Message in the Criticality Diagnostics.
+func sendHandoverNotifyNotCompatible(ran *context.AmfRan, targetUe *context.RanUe) {
+	procedureCode := ngapProcedure.ProcedureCodeHandoverNotification
+	triggeringMessage := ngapType.TriggeringMessagePresentInitiatingMessage
+	procedureCriticality := ngapType.CriticalityPresentIgnore
+	criticalityDiagnostics := buildCriticalityDiagnostics(&procedureCode, &triggeringMessage,
+		&procedureCriticality, nil)
+	ngap_message.SendErrorIndication(ran,
+		&ngapType.AMFUENGAPID{Value: targetUe.AmfUeNgapId},
+		&ngapType.RANUENGAPID{Value: targetUe.RanUeNgapId},
+		&ngapType.Cause{Choice: &ngapType.CauseProtocol{
+			Value: ngapType.CauseProtocolPresentMessageNotCompatibleWithReceiverState,
+		}},
+		&criticalityDiagnostics)
+}
+
 func isLatestAmfUe(amfUe *context.AmfUe) bool {
 	if latestAmfUe, ok := context.GetSelf().AmfUeFindByUeContextID(amfUe.Supi); ok {
 		if amfUe == latestAmfUe {
@@ -2487,15 +2687,71 @@ func isLatestAmfUe(amfUe *context.AmfUe) bool {
 	return false
 }
 
+// completeUeContextRelease handles a UE-associated logical NG-connection that
+// ends without a UE CONTEXT RELEASE COMPLETE for it: a local release for an
+// erroneous AP ID (TS 38.413 10.6), an NG Reset (8.7.4.2.2), an INITIAL UE
+// MESSAGE that reuses its RAN UE NGAP ID (8.6.1.2) or the loss of the SCTP
+// association. If the AMF had already ordered the release of this
+// connection together with the UE context (UE CONTEXT RELEASE COMMAND with
+// UeContextReleaseUeContext), it removes the AmfUe now, as it would have done
+// on the UE CONTEXT RELEASE COMPLETE; otherwise the AmfUe is left in its GMM
+// state with no N2 connection and no timer to leave it. It reports whether the
+// RanUe is gone; if not, the caller removes the RanUe as before.
+func completeUeContextRelease(ran *context.AmfRan, ranUe *context.RanUe) bool {
+	amfUe := ranUe.AmfUe
+	if !ueContextReleaseOrdered(ran, ranUe, amfUe) {
+		return false
+	}
+	ranUe.Log.Infof("Release UE[%s] Context : Release Ue Context (N2 connection released locally)", amfUe.Supi)
+	amfUe.Lock.Lock()
+	defer amfUe.Lock.Unlock()
+	// Check again under the lock: while this call waited, the UE CONTEXT
+	// RELEASE COMPLETE (handled on another NGAP worker) or another local
+	// release may have removed the AmfUe, which must not be removed twice, or
+	// the UE may have moved to a new connection. Tell the caller whether the
+	// RanUe is gone too.
+	if !ueContextReleaseOrdered(ran, ranUe, amfUe) {
+		ranUe.Log.Infof("Release UE[%s] Context : no longer pending", amfUe.Supi)
+		return context.GetSelf().RanUeFindByAmfUeNgapID(ranUe.AmfUeNgapId) != ranUe
+	}
+	gmm_common.RemoveAmfUe(amfUe, false)
+	return true
+}
+
+// ueContextReleaseOrdered reports whether ranUe is still amfUe's connection and
+// the AMF has ordered its release together with the UE context.
+func ueContextReleaseOrdered(ran *context.AmfRan, ranUe *context.RanUe, amfUe *context.AmfUe) bool {
+	return amfUe != nil && ranUe.AmfUe == amfUe && amfUe.GetRanUe(ran.AnType) == ranUe &&
+		ranUe.ReleaseAction == context.UeContextReleaseUeContext
+}
+
+// completeUeContextReleases applies completeUeContextRelease to every
+// UE-associated logical NG-connection of ran before they are all removed.
+func completeUeContextReleases(ran *context.AmfRan) {
+	ran.RanUeList.Range(func(_, value interface{}) bool {
+		completeUeContextRelease(ran, value.(*context.RanUe))
+		return true
+	})
+}
+
+// removeRan removes the RAN context once its SCTP association is gone.
+func removeRan(ran *context.AmfRan) {
+	completeUeContextReleases(ran)
+	ran.Remove()
+}
+
 func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason string) {
 	if ranUe == nil {
 		return
 	}
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
+	if completeUeContextRelease(ran, ranUe) {
+		return
+	}
 	amfUe := ranUe.AmfUe
 	if amfUe != nil && amfUe.GetRanUe(ran.AnType) == ranUe {
-		if amfUe.T3550 != nil {
+		if amfUe.HasT3550() {
 			amfUe.State[ranUe.Ran.AnType].Set(context.Registered)
 		}
 		gmm_common.StopAll5GSMMTimers(amfUe)
@@ -2600,7 +2856,7 @@ func ranUeFind(ran *context.AmfRan,
 	}
 
 	if rANUENGAPID == nil || firstReturnedMessage {
-		if ranUe.RanUeNgapId != context.RanUeNgapIdUnspecified {
+		if ranUe.RanUeNgapIdAssigned {
 			cause := &ngapType.Cause{
 				Choice: &ngapType.CauseRadioNetwork{
 					Value: ngapType.CauseRadioNetworkPresentInconsistentRemoteUENGAPID,

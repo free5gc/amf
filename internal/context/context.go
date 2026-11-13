@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
@@ -75,6 +78,7 @@ type AMFContext struct {
 	AMFStatusSubscriptions       sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                       string
 	NrfCertPem                   string
+	NrfNfInstanceID              string
 	SecurityAlgorithm            SecurityAlgorithm
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
@@ -344,7 +348,7 @@ func (context *AMFContext) AmfUeFindBySupi(supi string) (*AmfUe, bool) {
 func (context *AMFContext) AmfUeFindBySuci(suci string) (ue *AmfUe, ok bool) {
 	context.UePool.Range(func(key, value interface{}) bool {
 		candidate := value.(*AmfUe)
-		if ok = (candidate.Suci == suci); ok {
+		if ok = (candidate.GetSuci() == suci); ok {
 			ue = candidate
 			return false
 		}
@@ -549,6 +553,8 @@ func (context *AMFContext) Reset() {
 	context.Name = "amf"
 	context.NrfUri = ""
 	context.NrfCertPem = ""
+
+	context.NrfNfInstanceID = ""
 	context.OAuth2Required.Store(false)
 }
 
@@ -563,8 +569,71 @@ func (c *AMFContext) GetTokenCtx(serviceName models.Nrf_NFMgmt_ServiceName, targ
 	if !c.OAuth2Required.Load() {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.Nrf_NFMgmt_NFType_AMF, targetNF,
-		c.NfId, c.NrfUri, string(serviceName))
+	return oauth.GetTokenCtx(c.tokenRequest(serviceName, targetNF))
+}
+
+func (c *AMFContext) GetTokenCtxForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) (context.Context, *models.ProblemDetails, error) {
+	if !c.OAuth2Required.Load() {
+		return context.TODO(), nil, nil
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(targetNFInstanceID))
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid target NF instance ID: %w", err)
+	}
+	if targetID.Version() != 4 {
+		return nil, nil, errors.New("invalid target NF instance ID: UUID must be version 4")
+	}
+	return oauth.GetTokenCtx(c.tokenRequestForNFInstance(serviceName, targetNF, targetNFInstanceID))
+}
+
+func (c *AMFContext) GetTokenCtxForNRF(serviceName models.Nrf_NFMgmt_ServiceName) (
+	context.Context, *models.ProblemDetails, error,
+) {
+	return c.GetTokenCtxForNFInstance(serviceName, models.Nrf_NFMgmt_NFType_NRF, c.NrfNfInstanceID)
+}
+
+func (c *AMFContext) tokenRequest(
+	serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType,
+) oauth.TokenRequest {
+	return oauth.TokenRequest{
+		ConsumerNFType:       models.Nrf_NFMgmt_NFType_AMF,
+		ConsumerNFInstanceID: c.NfId,
+		TargetNFType:         targetNF,
+		NRFURI:               c.NrfUri,
+		Scope:                string(serviceName),
+	}
+}
+
+func (c *AMFContext) tokenRequestForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) oauth.TokenRequest {
+	request := c.tokenRequest(serviceName, targetNF)
+	request.TargetNFInstanceID = targetNFInstanceID
+	return request
+}
+
+func (c *AMFContext) SetOAuth2Required(required bool) error {
+	if !required {
+		c.OAuth2Required.Store(false)
+		c.NrfNfInstanceID = ""
+		return nil
+	}
+	if strings.TrimSpace(c.NrfCertPem) == "" {
+		return errors.New("OAuth2 enabled but NRF certificate path is empty")
+	}
+	if strings.TrimSpace(c.NrfUri) == "" {
+		return errors.New("OAuth2 enabled but NRF URI is empty")
+	}
+	nrfNfInstanceID, err := oauth.NFInstanceIDFromCertificate(c.NrfCertPem)
+	if err != nil {
+		return fmt.Errorf("derive trusted NRF instance ID from certificate: %w", err)
+	}
+	c.NrfNfInstanceID = nrfNfInstanceID
+	c.OAuth2Required.Store(true)
+	return nil
 }
 
 func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFMgmt_ServiceName) error {
@@ -573,6 +642,9 @@ func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFM
 		return nil
 	}
 
-	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
-	return oauth.VerifyOAuth(token, string(serviceName), c.NrfCertPem)
+	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: tokenPresent[%t] serviceName[%s]", token != "", serviceName)
+	return oauth.VerifyOAuth(token, string(serviceName), oauth.AudiencePolicy{
+		NFInstanceID: c.NfId,
+		NFType:       models.Nrf_NFMgmt_NFType_AMF,
+	}, c.NrfNfInstanceID, c.NrfCertPem)
 }

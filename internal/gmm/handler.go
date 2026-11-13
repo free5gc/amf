@@ -457,17 +457,31 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		ue.SecurityContextAvailable = false // need to start authentication procedure later
 	case ie.RegType_MobilityRegUpdating:
 		ue.GmmLog.Infof("RegistrationType: Mobility Registration Updating")
-		if ue.State[anType].Is(context.Deregistered) {
+		// A context with AuthenticatingFor set only authenticates the UE; the registration itself
+		// continues on the registered context it names (continueOnStoredContext).
+		if ue.State[anType].Is(context.Deregistered) && ue.AuthenticatingFor == nil {
 			gmm_message.SendRegistrationReject(ue.GetRanUe(anType), ie.Cause5GMM_ImplicitlyDeregistered, "")
 			return fmt.Errorf("mobility registration updating was sent when the UE state was deregistered")
 		}
 	case ie.RegType_PeriodicRegUpdating:
 		ue.GmmLog.Infof("RegistrationType: Periodic Registration Updating")
-		if ue.State[anType].Is(context.Deregistered) {
+		if ue.State[anType].Is(context.Deregistered) && ue.AuthenticatingFor == nil {
 			gmm_message.SendRegistrationReject(ue.GetRanUe(anType), ie.Cause5GMM_ImplicitlyDeregistered, "")
 			return fmt.Errorf("periodic registration updating was sent when the UE state was deregistered")
 		}
 	case ie.RegType_EmergReg:
+		// TS 24.501 5.5.1.2.5: a registration request that cannot be accepted is
+		// answered with REGISTRATION REJECT. Emergency services are not supported,
+		// so use #111: the UE handles it as an abnormal case (5.5.1.2.7 d) and,
+		// for an emergency registration, informs the upper layers (5.5.1.2.6)
+		// without invalidating its USIM as #7 would. The reject ends the
+		// registration procedure, so clear its data and ongoing state, as entering
+		// the 5GMM state would, and return an error so the registration does not
+		// continue with authentication.
+		gmm_message.SendRegistrationReject(ue.GetRanUe(anType), ie.Cause5GMM_ProtError, "")
+		ngap_message.SendUEContextReleaseCommand(ue.GetRanUe(anType), context.UeContextN2NormalRelease,
+			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+		ue.ClearRegistrationRequestData(anType)
 		return fmt.Errorf("not supported RegistrationType: Emergency Registration")
 	default:
 		ue.GmmLog.Infof("RegistrationType: %v, chage state to InitialRegistration", ue.RegistrationType5GS)
@@ -483,12 +497,13 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	case ie.IdType_5GS_None:
 		ue.GmmLog.Infof("MobileIdentity5GS: No Identity")
 	case ie.IdType_5GS_SUCI:
-		ue.Suci = mobileIdentity.SUCIStr()
+		suci := mobileIdentity.SUCIStr()
+		ue.SetSuci(suci)
 		if mobileIdentity.MCC == "" || mobileIdentity.MNC == "" {
 			return errors.New("empty plmnId")
 		}
 		ue.PlmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
-		ue.GmmLog.Infof("MobileIdentity5GS: SUCI[%s]", ue.Suci)
+		ue.GmmLog.Infof("MobileIdentity5GS: SUCI[%s]", suci)
 	case ie.IdType_5GS_GUTI:
 		guti := mobileIdentity.GUTIStr()
 		if guti == "" {
@@ -630,7 +645,132 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 }
 
 func IdentityVerification(ue *context.AmfUe) bool {
-	return ue.Supi != "" || len(ue.Suci) != 0
+	return ue.Supi != "" || len(ue.GetSuci()) != 0
+}
+
+// continueOnStoredContext moves a registration from ue, a new UE context that has authenticated the UE
+// because the REGISTRATION REQUEST failed the integrity check against the UE context it named
+// (ue.AuthenticatingFor), to the UE context stored for the authenticated SUPI. TS 24.501 4.4.4.3 requires
+// this authentication; it runs on ue so that a sender that cannot complete it never changes the stored
+// context. Once the security mode control procedure has taken the new 5G NAS security context into use,
+// the stored context takes that security context and the N1 NAS connection, and runs the
+// registration as it does for a REGISTRATION REQUEST that passes the integrity check: a mobility or
+// periodic registration keeps the PDU sessions, an initial registration replaces the 5GMM context of the
+// access (TS 24.501 5.5.1.2.8 f)). A mobility or periodic registration continues only on the context it
+// named.
+//
+// It reports false when the registration continues on ue instead: an initial registration of a
+// subscriber that has no stored UE context. When it reports true, ue has left ContextSetup.
+func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
+	namedUe := ue.AuthenticatingFor
+	ue.AuthenticatingFor = nil
+	// ue registers nothing itself. It leaves ContextSetup as a failed context setup does (it has no
+	// UECM registration to undo); otherwise the GMM state gauge would count it there for ever.
+	leaveContextSetup := func() {
+		if err := GmmFSM.SendEvent(ue.State[anType], ContextSetupFailEvent, fsm.ArgsType{
+			ArgAmfUe:      ue,
+			ArgAccessType: anType,
+		}, logger.GmmLog); err != nil {
+			ue.GmmLog.Errorln(err)
+		}
+	}
+	ranUe := ue.GetRanUe(anType)
+	if ranUe == nil {
+		ue.GmmLog.Warnln("RanUe is nil; abort the registration")
+		leaveContextSetup()
+		gmm_common.RemoveAmfUe(ue, false)
+		return true
+	}
+	reject := func(cause uint8) bool {
+		gmm_message.SendRegistrationReject(ranUe, cause, "")
+		ngap_message.SendUEContextReleaseCommand(ranUe, context.UeContextReleaseUeContext,
+			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
+		leaveContextSetup()
+		return true
+	}
+
+	storedUe, stored := context.GetSelf().AmfUeFindBySupi(ue.Supi)
+	if ue.RegistrationType5GS == ie.RegType_InitialReg {
+		if !stored {
+			return false
+		}
+	} else if !stored || storedUe != namedUe {
+		// The named UE context belongs to another subscriber or no longer exists: as for a UE
+		// context that is not found (ngap handleInitialUEMessageMain).
+		ue.GmmLog.Warnln("The UE did not authenticate as the subscriber of the UE context it named")
+		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
+	}
+	state := storedUe.State[anType]
+	if state.Is(context.Deregistered) && ue.RegistrationType5GS != ie.RegType_InitialReg {
+		// As HandleRegistrationRequest answers on the stored context.
+		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
+	}
+	if !state.Is(context.Registered) && !state.Is(context.Deregistered) ||
+		storedUe.OnGoing(anType).Procedure == context.OnGoingProcedureN2Handover {
+		// Another procedure is running on the stored context, as for the N2 handover check in
+		// ngap handleInitialUEMessageMain.
+		ue.GmmLog.Warnf("The stored UE context is busy (state %s, procedure %s)",
+			state.Current(), storedUe.OnGoing(anType).Procedure)
+		return reject(ie.Cause5GMM_Congestion)
+	}
+	ue.GmmLog.Infoln("The UE authenticated; continue the registration on its stored UE context")
+
+	// The 5G NAS security context that ue has taken into use, and the identities ue has obtained.
+	storedUe.SecurityContextAvailable = true
+	storedUe.MacFailed = false
+	storedUe.UnauthenticatedSupi = false
+	storedUe.NgKsi = ue.NgKsi
+	storedUe.ABBA = ue.ABBA
+	storedUe.Kseaf = ue.Kseaf
+	storedUe.Kamf = ue.Kamf
+	storedUe.KnasInt = ue.KnasInt
+	storedUe.KnasEnc = ue.KnasEnc
+	// The AN key of this access with NH and NCC, as UpdateSecurityContext(anType) derived them on ue.
+	// The AN key of the other access stays as the stored context has it.
+	if anType == models.AccessType_NON_3_GPP_ACCESS {
+		storedUe.Kn3iwf = ue.Kn3iwf
+	} else {
+		storedUe.Kgnb = ue.Kgnb
+	}
+	storedUe.NH = ue.NH
+	storedUe.NCC = ue.NCC
+	storedUe.ULCount = ue.ULCount
+	storedUe.DLCount = ue.DLCount
+	storedUe.CipheringAlg = ue.CipheringAlg
+	storedUe.IntegrityAlg = ue.IntegrityAlg
+	storedUe.UESecurityCapability = ue.UESecurityCapability
+	if suci := ue.GetSuci(); suci != "" {
+		storedUe.SetSuci(suci)
+	}
+	if ue.Pei != "" {
+		storedUe.Pei = ue.Pei
+	}
+	// The registration, as HandleRegistrationRequest stores it.
+	storedUe.RegistrationRequest = ue.RegistrationRequest
+	storedUe.RegistrationType5GS = ue.RegistrationType5GS
+	storedUe.IdentityTypeUsedForRegistration = ue.IdentityTypeUsedForRegistration
+	storedUe.Location = ue.Location
+	storedUe.Tai = ue.Tai
+	storedUe.RatType = ue.RatType
+	storedUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureRegistration})
+	storedUe.StopT3513()
+	storedUe.StopT3565()
+	// TS 33.501 6.12.3: a new 5G-GUTI for an initial, mobility or periodic registration.
+	context.GetSelf().FreeTmsi(int64(storedUe.Tmsi))
+	context.GetSelf().AllocateGutiToUe(storedUe)
+
+	ue.DetachRanUe(anType, ranUe)
+	leaveContextSetup()
+	ue.Remove()
+	gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(storedUe, ranUe)
+	// Authentication and security mode control are skipped: the security context is valid.
+	if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
+		ArgAmfUe:      storedUe,
+		ArgAccessType: anType,
+	}, logger.GmmLog); err != nil {
+		storedUe.GmmLog.Errorln(err)
+	}
+	return true
 }
 
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
@@ -1652,56 +1792,83 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 	if mobileIdentity == nil {
 		return errors.New("empty Mobile Identity")
 	}
+	// TS 24.501 5.4.3.4: an IDENTITY RESPONSE completes the identification
+	// procedure. A response without an outstanding IDENTITY REQUEST (e.g. the
+	// answer to a retransmitted one) must not restart the ongoing procedure.
+	if ue.RequestIdentityType == ie.IdType_5GS_None {
+		return errors.New("IDENTITY RESPONSE without an ongoing identification procedure")
+	}
 	if mobileIdentity.TypeOfId != ue.RequestIdentityType {
 		return fmt.Errorf("received identity type doesn't match request type")
 	}
 
-	if ue.T3570 != nil {
-		ue.T3570.Stop()
-		ue.T3570 = nil // clear the timer
-	}
-
+	// Validate the response into locals first: nothing is recorded on the UE
+	// before T3570 is stopped, so a T3570 expiry cannot start the abort
+	// procedure (which removes the UE) in the middle of these writes.
+	var (
+		suci   string
+		plmnId models.PlmnId
+		guti   string
+		tmsi   int32
+		pei    string
+	)
 	switch mobileIdentity.TypeOfId {
 	case ie.IdType_5GS_SUCI:
 		if mobileIdentity.MCC == "" || mobileIdentity.MNC == "" {
 			return errors.New("empty plmnId")
 		}
-		ue.Suci = mobileIdentity.SUCIStr()
-		ue.PlmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
-		ue.GmmLog.Debugf("get SUCI: %s", ue.Suci)
+		suci = mobileIdentity.SUCIStr()
+		plmnId = models.PlmnId{Mcc: mobileIdentity.MCC, Mnc: mobileIdentity.MNC}
+		ue.GmmLog.Debugf("get SUCI: %s", suci)
 	case ie.IdType_5GS_GUTI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		guti := mobileIdentity.GUTIStr()
-		ue.Guti = guti
+		guti = mobileIdentity.GUTIStr()
 		ue.GmmLog.Debugf("get GUTI: %s", guti)
 	case ie.IdType_5GS_TMSI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
 		sTmsi := mobileIdentity.FiveGSTMSIStr()
-		if tmp, err := strconv.ParseUint(mobileIdentity.TMSIStr(), 16, 32); err != nil {
+		tmp, err := strconv.ParseUint(mobileIdentity.TMSIStr(), 16, 32)
+		if err != nil {
 			return err
-		} else {
-			ue.Tmsi = int32(tmp)
 		}
+		tmsi = int32(tmp)
 		ue.GmmLog.Debugf("get 5G-S-TMSI: %s", sTmsi)
 	case ie.IdType_5GS_IMEI:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imei := mobileIdentity.PEIStr()
-		ue.Pei = imei
-		ue.GmmLog.Debugf("get PEI: %s", imei)
+		pei = mobileIdentity.PEIStr()
+		ue.GmmLog.Debugf("get PEI: %s", pei)
 	case ie.IdType_5GS_IMEISV:
 		if ue.MacFailed {
 			return fmt.Errorf("NAS message integrity check failed")
 		}
-		imeisv := mobileIdentity.PEIStr()
-		ue.Pei = imeisv
-		ue.GmmLog.Debugf("get PEI: %s", imeisv)
+		pei = mobileIdentity.PEIStr()
+		ue.GmmLog.Debugf("get PEI: %s", pei)
 	}
+
+	// TS 24.501 5.4.3.4: the IDENTITY RESPONSE completes the identification
+	// procedure, so stop T3570 only once the response is usable. A response
+	// rejected above is ignored (TS 24.501 7.5.1, 7.8): T3570 keeps running and
+	// retransmits the IDENTITY REQUEST or aborts the procedure (5.4.3.6 b).
+	ue.StopT3570()
+
+	switch mobileIdentity.TypeOfId {
+	case ie.IdType_5GS_SUCI:
+		ue.SetSuci(suci)
+		ue.PlmnId = plmnId
+	case ie.IdType_5GS_GUTI:
+		ue.Guti = guti
+	case ie.IdType_5GS_TMSI:
+		ue.Tmsi = tmsi
+	case ie.IdType_5GS_IMEI, ie.IdType_5GS_IMEISV:
+		ue.Pei = pei
+	}
+	ue.RequestIdentityType = ie.IdType_5GS_None
 	return nil
 }
 
@@ -1835,9 +2002,6 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 	ue.GmmLog.Info("Handle Service Request")
 	ranUe := ue.GetRanUe(anType)
 
-	ue.StopT3513()
-	ue.StopT3565()
-
 	amfSelf := context.GetSelf()
 	if ranUe != nil {
 		ue.Location = ranUe.Location
@@ -1850,15 +2014,6 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		ngap_message.SendUEContextReleaseCommand(ranUe,
 			context.UeContextN2NormalRelease, ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 		return nil
-	}
-
-	// Set No ongoing
-	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
-		ue.SetOnGoing(anType, &context.OnGoing{
-			Procedure: context.OnGoingProcedureNothing,
-		})
-	} else if procedure != context.OnGoingProcedureNothing {
-		ue.GmmLog.Warnf("UE should not in OnGoing[%s]", procedure)
 	}
 
 	var pduStatusResult *[psiArraySize]bool
@@ -1874,6 +2029,22 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		ngap_message.SendUEContextReleaseCommand(ranUe,
 			context.UeContextN2NormalRelease, ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 		return nil
+	}
+
+	// TS 24.501 5.6.2.2.1: T3513 is stopped only by a response that passed the
+	// integrity check. A SERVICE REQUEST that failed it was answered above with
+	// SERVICE REJECT #9 (4.4.4.3) and leaves the paging running. T3565 is kept
+	// running in the same way, although 5.6.3.3 stops it on any SERVICE REQUEST.
+	ue.StopT3513()
+	ue.StopT3565()
+
+	// Set No ongoing
+	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
+		ue.SetOnGoing(anType, &context.OnGoing{
+			Procedure: context.OnGoingProcedureNothing,
+		})
+	} else if procedure != context.OnGoingProcedureNothing {
+		ue.GmmLog.Warnf("UE should not in OnGoing[%s]", procedure)
 	}
 
 	// TS 24.501 8.2.6.21: if the UE is sending a REGISTRATION REQUEST message as an initial NAS message,
@@ -2096,8 +2267,6 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 	ue.GmmLog.Info("Handle Authentication Response")
 	ranUe := ue.GetRanUe(accessType)
 
-	ue.StopT3560()
-
 	if ue.AuthenticationCtx == nil {
 		return fmt.Errorf("ue authentication context is nil")
 	}
@@ -2109,8 +2278,12 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			return fmt.Errorf("Var5gAuthData Convert Type Error")
 		}
 		if authenticationResponse.AuthRspParam == nil {
+			// TS 24.501 8.2.2.2, 7.7.2: RES* is missing, so the message is
+			// ignored and T3560 keeps supervising the challenge (5.4.1.3.7 b).
 			return fmt.Errorf("AuthenticationResponseParamete is nil")
 		}
+		// TS 24.501 5.4.1.3.4: stop T3560 and check RES*.
+		ue.StopT3560()
 		resStar := authenticationResponse.AuthRspParam.Res
 
 		// Calculate HRES* (TS 33.501 Annex A.5)
@@ -2176,6 +2349,7 @@ func HandleAuthenticationResponse(ue *context.AmfUe, accessType models.AccessTyp
 			}
 		}
 	case models.Ausf_UEAU_AuthType_EAP_AKA_PRIME:
+		ue.StopT3560()
 		// EAPMessage IE is optional in the NAS-AuthenticationResponse;
 		// reject the UE if it is omitted instead of dereferencing nil.
 		if authenticationResponse.EAPMsg == nil {
@@ -2360,10 +2534,11 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 ) error {
 	ue.GmmLog.Info("Handle Registration Complete")
 
-	if ue.T3550 == nil {
+	// Check and stop T3550 in one step: its last expiry clears the
+	// registration request data that is read below.
+	if !ue.StopT3550() {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
-	ue.StopT3550()
 
 	// Release existed old SmContext when Initial Registration completed
 	if ue.RegistrationType5GS == ie.RegType_InitialReg {
