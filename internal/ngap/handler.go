@@ -2832,12 +2832,19 @@ func ngapCause(group int, value aper.Enumerated) context.CauseAll {
 // removeRan removes the RAN context once its SCTP association is gone.
 func removeRan(ran *context.AmfRan) {
 	cause := ngapCause(ngap_message.CauseChoiceTransport, ngapType.CauseTransportPresentTransportResourceUnavailable)
+	var anReleases []*localAnRelease
 	ran.RanUeList.Range(func(_, value interface{}) bool {
-		deactivateUpConnections(ran, value.(*context.RanUe), cause)
+		if anRelease := newLocalAnRelease(ran, value.(*context.RanUe), cause); anRelease != nil {
+			anReleases = append(anReleases, anRelease)
+		}
 		return true
 	})
 	completeUeContextReleases(ran)
 	ran.Remove()
+	// The SMFs are told once the RAN is removed, so that their answers do not keep it in the AMF.
+	for _, anRelease := range anReleases {
+		anRelease.deactivateUpConnections()
+	}
 }
 
 func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason string) {

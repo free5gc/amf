@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -229,6 +230,32 @@ func TestLocalN2ReleaseOfAnotherConnectionKeepsUserPlane(t *testing.T) {
 
 	require.Empty(t, smf.received())
 	require.Equal(t, ranUe, amfUe.GetRanUe(anType))
+}
+
+// The AMF removes a gNB whose SCTP association is lost before the SMFs answer the deactivations, so that a slow SMF
+// does not keep the gNB that is gone.
+func TestLostAssociationRemovesTheRanBeforeTheSmfAnswers(t *testing.T) {
+	hold := make(chan struct{})
+	smf, smfURL := newLocalReleaseSmf(t, hold)
+	conn, ran, _, _ := newLocalReleaseTestUe(t, smfURL)
+
+	done := make(chan struct{})
+	go func() {
+		Dispatch(conn, nil)
+		close(done)
+	}()
+	gone := func() bool {
+		_, ok := amf_context.GetSelf().AmfRanFindByConn(ran.Conn)
+		return !ok
+	}
+	if !assert.Eventually(t, gone, 2*time.Second, 10*time.Millisecond, "the gNB stays while the SMF answers") {
+		close(hold)
+		<-done
+		t.FailNow()
+	}
+	close(hold)
+	<-done
+	require.Len(t, smf.received(), 2)
 }
 
 // TS 23.502 4.2.6: the deactivation carries the UE's location at the connection when the AMF released it, not a
