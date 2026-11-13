@@ -136,10 +136,29 @@ func (ue *AmfUe) StartT3570(cfg factory.TimerValue, expired func(expireTimes int
 	ue.startSimpleTimer(&ue.T3570, cfg, expired, cancel)
 }
 
+// HasT3570 reports whether T3570 is running, i.e. an Identity Request is
+// waiting for Identity Response.
+func (ue *AmfUe) HasT3570() bool {
+	return ue.hasTimer(&ue.T3570)
+}
+
 // HasT3550 reports whether T3550 is running, i.e. a Registration Accept is
 // waiting for Registration Complete.
 func (ue *AmfUe) HasT3550() bool {
 	return ue.hasTimer(&ue.T3550)
+}
+
+// RetransmitT3550 has a running T3550 resend the Registration Accept at once,
+// without counting an expiry (see Timer.Retransmit), and reports whether T3550
+// was running.
+func (ue *AmfUe) RetransmitT3550() bool {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	if ue.T3550 == nil {
+		return false
+	}
+	ue.T3550.Retransmit()
+	return true
 }
 
 // StopAll5GSMMTimers stops every 5GMM timer of the UE and, if paging was in

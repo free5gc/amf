@@ -11,9 +11,11 @@ import (
 // Timer can be used for retransmission, it will manage retry times automatically
 type Timer struct {
 	ticker        *time.Ticker
+	interval      time.Duration
 	expireTimes   int32 // accessed atomically
 	maxRetryTimes int32 // accessed atomically
 	done          chan bool
+	retransmit    chan struct{}
 }
 
 // NewTimer will return a Timer struct and create a goroutine. Then it calls expiredFunc every time interval d until
@@ -36,6 +38,8 @@ func newTimer(d time.Duration, maxRetryTimes int) *Timer {
 	atomic.StoreInt32(&t.expireTimes, 0)
 	atomic.StoreInt32(&t.maxRetryTimes, int32(maxRetryTimes))
 	t.done = make(chan bool, 1)
+	t.retransmit = make(chan struct{}, 1)
+	t.interval = d
 	t.ticker = time.NewTicker(d)
 	return t
 }
@@ -55,6 +59,9 @@ func (t *Timer) start(expiredFunc func(expireTimes int32), cancelFunc func()) {
 			select {
 			case <-t.done:
 				return
+			case <-t.retransmit:
+				ticker.Reset(t.interval)
+				expiredFunc(t.ExpireTimes())
 			case <-ticker.C:
 				atomic.AddInt32(&t.expireTimes, 1)
 				if t.ExpireTimes() > t.MaxRetryTimes() {
@@ -76,6 +83,16 @@ func (t *Timer) MaxRetryTimes() int32 {
 // ExpireTimes return the current expire times of the timer
 func (t *Timer) ExpireTimes() int32 {
 	return atomic.LoadInt32(&t.expireTimes)
+}
+
+// Retransmit calls expiredFunc at once, with the current expire times, and restarts the interval, without counting
+// an expiry. E.g. TS 24.501 5.5.1.2.8 d) 2): the REGISTRATION ACCEPT is resent and T3550 restarted, and the
+// retransmission counter related to T3550 is not incremented.
+func (t *Timer) Retransmit() {
+	select {
+	case t.retransmit <- struct{}{}:
+	default: // a retransmission is already pending
+	}
 }
 
 // Stop turns off the timer, after Stop, no more timeout event will be triggered. User should call Stop() only once

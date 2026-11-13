@@ -406,45 +406,13 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		Procedure: context.OnGoingProcedureRegistration,
 	})
 
+	ue.DeferredDeregistrationRequest = nil
 	ue.StopT3513()
 	ue.StopT3565()
 
-	// TS 24.501 8.2.6.21: if the UE is sending a REGISTRATION REQUEST message as an initial NAS message,
-	// the UE has a valid 5G NAS security context and the UE needs to send non-cleartext IEs
-	// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS message
-	// container IE, the UE shall set the security header type of the initial NAS message to "integrity protected"
-	if registrationRequest.NASMsgCntr != nil && !ue.MacFailed {
-		contents := registrationRequest.NASMsgCntr.Contents
-
-		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
-		// message container IE, the UE shall set the security header type of the initial NAS message to
-		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
-		securityContext := &nas_message.SecCtx{
-			Side:          nas_message.CoreNetworkSide,
-			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
-			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
-			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
-			KnasEnc:       ue.KnasEnc,
-			KnasInt:       ue.KnasInt,
-		}
-		contents, err := securityContext.NASEncrypt(nas_message.DirectionUplink, contents)
-		if err != nil {
-			ue.SecurityContextAvailable = false
-		} else {
-			decoded, decodeErr := nas_message.ParseGMM(contents)
-			if decodeErr != nil {
-				return decodeErr
-			}
-			innerRegistrationRequest, ok := decoded.(*nas_message.RegReq)
-			if !ok {
-				return errors.New("The payload of NAS Message Container is not Registration Request")
-			}
-			// TS 24.501 4.4.6: The AMF shall consider the NAS message that is obtained from the NAS message container
-			// IE as the initial NAS message that triggered the procedure
-			registrationRequest = innerRegistrationRequest
-		}
+	registrationRequest, decipherErr := decipherRegistrationRequest(ue, anType, registrationRequest)
+	if decipherErr != nil {
+		return decipherErr
 	}
 	// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
 	ue.RetransmissionOfInitialNASMsg = ue.MacFailed
@@ -597,6 +565,94 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 	}
 
 	return nil
+}
+
+// decipherRegistrationRequest returns the REGISTRATION REQUEST of the NAS message container IE, deciphered, if the
+// request has one and passed the integrity check, and else the request itself.
+func decipherRegistrationRequest(ue *context.AmfUe, anType models.AccessType,
+	registrationRequest *nas_message.RegReq,
+) (*nas_message.RegReq, error) {
+	// TS 24.501 8.2.6.21: if the UE is sending a REGISTRATION REQUEST message as an initial NAS message,
+	// the UE has a valid 5G NAS security context and the UE needs to send non-cleartext IEs
+	// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS message
+	// container IE, the UE shall set the security header type of the initial NAS message to "integrity protected"
+	if registrationRequest.NASMsgCntr != nil && !ue.MacFailed {
+		contents := registrationRequest.NASMsgCntr.Contents
+
+		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
+		// message container IE, the UE shall set the security header type of the initial NAS message to
+		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		securityContext := &nas_message.SecCtx{
+			Side:          nas_message.CoreNetworkSide,
+			Bearer:        nas_security.GetBearerType(anType),
+			UplinkCount:   &ue.ULCount,
+			DownlinkCount: &ue.DLCount,
+			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
+			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
+			KnasEnc:       ue.KnasEnc,
+			KnasInt:       ue.KnasInt,
+		}
+		contents, err := securityContext.NASEncrypt(nas_message.DirectionUplink, contents)
+		if err != nil {
+			ue.SecurityContextAvailable = false
+		} else {
+			decoded, decodeErr := nas_message.ParseGMM(contents)
+			if decodeErr != nil {
+				return nil, decodeErr
+			}
+			innerRegistrationRequest, ok := decoded.(*nas_message.RegReq)
+			if !ok {
+				return nil, errors.New("The payload of NAS Message Container is not Registration Request")
+			}
+			// TS 24.501 4.4.6: The AMF shall consider the NAS message that is obtained from the NAS message container
+			// IE as the initial NAS message that triggered the procedure
+			registrationRequest = innerRegistrationRequest
+		}
+	}
+	return registrationRequest, nil
+}
+
+// handleRegistrationRequestDuringRegistration handles a REGISTRATION REQUEST that comes while a registration is
+// ongoing, in the Authentication, SecurityMode or ContextSetup state (TS 24.501 5.4.2.7 c), 5.4.3.6 d),
+// 5.5.1.2.8 d), e), g), 5.5.1.3.8 d), e)). The information elements compared are those of the request in the NAS
+// message container, if it has one (TS 24.501 4.4.6).
+func handleRegistrationRequestDuringRegistration(state *fsm.State, ue *context.AmfUe, anType models.AccessType,
+	procedureCode int64, registrationRequest *nas_message.RegReq,
+) error {
+	initialRequest, err := decipherRegistrationRequest(ue, anType, registrationRequest)
+	if err != nil {
+		return err
+	}
+	if reflect.DeepEqual(initialRequest, ue.RegistrationRequest) {
+		if ue.RetransmitT3550() {
+			// The information elements do not differ and the REGISTRATION ACCEPT has been sent: it is resent and
+			// T3550 restarted, the retransmission counter related to T3550 not incremented
+			ue.GmmLog.Info("Registration Request again, resend Registration Accept")
+		} else {
+			// The information elements do not differ and no REGISTRATION ACCEPT has been sent: the network goes
+			// on with the ongoing registration and does not treat this request any further
+			ue.GmmLog.Info("Registration Request again, continue with the ongoing registration")
+		}
+		return nil
+	}
+
+	// The information elements differ: the ongoing registration is aborted and the new one progressed
+	ue.GmmLog.Info("New Registration Request, abort the ongoing registration")
+	ue.StopT3550()
+	ue.StopT3560()
+	ue.StopT3570()
+	if err = HandleRegistrationRequest(ue, anType, procedureCode, registrationRequest); err != nil {
+		return err
+	}
+	event := StartAuthEvent
+	if state.Is(context.Authentication) {
+		event = AuthRestartEvent
+	}
+	return GmmFSM.SendEvent(state, event, fsm.ArgsType{
+		ArgAmfUe:         ue,
+		ArgAccessType:    anType,
+		ArgProcedureCode: procedureCode,
+	}, logger.GmmLog)
 }
 
 func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldAmfGuami models.Guami) error {
@@ -2589,8 +2645,9 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	//	2. AMF determines that it needs to update the Homogeneous Support of IMS Voice over PS Sessions (TS 23.501 5.16.3.3)
 	// Then invoke Nudm_UECM_Update to send "Homogeneous Support of IMS Voice over PS Sessions" indication to udm
 
+	// A de-registration that came before this completion releases the connection itself
 	if ue.RegistrationRequest.UplinkDataStatus == nil &&
-		!ue.RegistrationRequest.RegType5GS.FOR_Pending {
+		!ue.RegistrationRequest.RegType5GS.FOR_Pending && ue.DeferredDeregistrationRequest == nil {
 		ngap_message.SendUEContextReleaseCommand(ue.GetRanUe(accessType), context.UeContextN2NormalRelease,
 			ngap_message.CauseChoiceNas, ngapType.CauseNasPresentNormalRelease)
 	}
@@ -2767,6 +2824,58 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	}
 
 	return nil
+}
+
+// handleDeregistrationRequestDuringRegistration handles a DEREGISTRATION REQUEST that comes while a registration
+// is ongoing, in the Authentication, SecurityMode or ContextSetup state. One for switch off aborts the ongoing
+// procedure (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)). One not for switch off aborts the security mode control (TS 24.501
+// 5.4.2.7 c)) and, once the REGISTRATION ACCEPT has been sent, a registration for initial registration (TS 24.501
+// 5.5.1.2.8 h)). The de-registration is then progressed. One not for switch off during an identification (of the
+// SUCI or of the IMEI), or before the REGISTRATION COMPLETE of a registration for mobility and periodic registration
+// update, is progressed once that procedure completes (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)).
+func handleDeregistrationRequestDuringRegistration(state *fsm.State, ue *context.AmfUe, anType models.AccessType,
+	deregistrationRequest *nas_message.DeregReqUEOrig,
+) error {
+	if !deregistrationRequest.DeregType.Switchoff && (ue.HasT3570() ||
+		(state.Is(context.ContextSetup) && ue.HasT3550() && ue.RegistrationType5GS != ie.RegType_InitialReg)) {
+		// The identification (TS 24.501 5.4.3.6 f)), or the registration for mobility and periodic registration
+		// update (TS 24.501 5.5.1.3.8 g)), completes first: the de-registration is progressed then
+		ue.GmmLog.Info("Deregistration Request, progressed once the ongoing procedure completes")
+		ue.DeferredDeregistrationRequest = deregistrationRequest
+		return nil
+	}
+	if !deregistrationRequest.DeregType.Switchoff && !state.Is(context.SecurityMode) &&
+		(!ue.HasT3550() || ue.RegistrationType5GS != ie.RegType_InitialReg) {
+		return fmt.Errorf("deregistration request (not switch off) at %s state is not handled before the "+
+			"registration is complete", state.Current())
+	}
+	ue.GmmLog.Info("Deregistration Request, abort the ongoing registration")
+	ue.StopT3550()
+	ue.StopT3560()
+	ue.StopT3570()
+	return GmmFSM.SendEvent(state, InitDeregistrationEvent, fsm.ArgsType{
+		ArgAmfUe:      ue,
+		ArgAccessType: anType,
+		ArgNASMessage: deregistrationRequest,
+	}, logger.GmmLog)
+}
+
+// progressDeferredDeregistration progresses deregistrationRequest, the DEREGISTRATION REQUEST that came during the
+// procedure that has just completed, if there is one (TS 24.501 5.4.3.6 f), 5.5.1.3.8 g)), and reports whether there
+// was one.
+func progressDeferredDeregistration(state *fsm.State, ue *context.AmfUe, anType models.AccessType,
+	deregistrationRequest *nas_message.DeregReqUEOrig,
+) (bool, error) {
+	if deregistrationRequest == nil {
+		return false, nil
+	}
+	ue.DeferredDeregistrationRequest = nil
+	ue.GmmLog.Info("Progress the Deregistration Request received during the procedure")
+	return true, GmmFSM.SendEvent(state, InitDeregistrationEvent, fsm.ArgsType{
+		ArgAmfUe:      ue,
+		ArgAccessType: anType,
+		ArgNASMessage: deregistrationRequest,
+	}, logger.GmmLog)
 }
 
 // TS 23.502 4.2.2.3

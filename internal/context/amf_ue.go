@@ -63,6 +63,7 @@ type AmfUe struct {
 	RegistrationType5GS                uint8
 	IdentityTypeUsedForRegistration    uint8
 	RegistrationRequest                *message.RegReq
+	DeferredDeregistrationRequest      *message.DeregReqUEOrig // progressed once the procedure completes
 	ServingAmfChanged                  bool
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
@@ -762,6 +763,7 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) error {
 
 func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.RegistrationRequest = nil
+	ue.DeferredDeregistrationRequest = nil
 	ue.RegistrationType5GS = 0
 	ue.IdentityTypeUsedForRegistration = 0
 	ue.AuthFailureCauseSynchFailureTimes = 0
