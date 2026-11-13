@@ -57,7 +57,11 @@ func handleNGSetupRequestMain(ran *context.AmfRan,
 	}
 
 	// TS 38.413 8.7.1.1: the NG Setup procedure erases any existing application level configuration data and
-	// replaces it by the one received
+	// replaces it by the one received. The AMF does not agree on retaining the UE contexts (it never answers the UE
+	// Retention Information), so the procedure also erases the UE-associated logical NG-connections of the gNB, as an
+	// NG Reset does.
+	completeUeContextReleases(ran)
+	ran.RemoveAllRanUe(false)
 	ran.SupportedTAList = context.NewSupportedTAIList()
 	for i := 0; i < len(supportedTAList.List); i++ {
 		supportedTAItem := supportedTAList.List[i]
