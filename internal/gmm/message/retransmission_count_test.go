@@ -1,9 +1,12 @@
 package message
 
 import (
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/free5gc/amf/internal/context"
@@ -158,5 +161,88 @@ func TestRetransmissionUsesNextNasCount(t *testing.T) {
 			}
 			require.Equal(t, messages[0], messages[1])
 		})
+	}
+}
+
+// warningHook signals each warning that starts with prefix.
+type warningHook struct {
+	prefix string
+	logged chan struct{}
+}
+
+func (h warningHook) Levels() []logrus.Level {
+	return []logrus.Level{logrus.WarnLevel}
+}
+
+func (h warningHook) Fire(entry *logrus.Entry) error {
+	if strings.HasPrefix(entry.Message, h.prefix) {
+		h.logged <- struct{}{}
+	}
+	return nil
+}
+
+// A retransmission takes its NAS COUNT while other messages for the UE are protected, so no two
+// messages are sent under the same NAS COUNT (TS 24.501 4.4.3.1). Run it with -race as well.
+func TestRetransmissionDuringEncodeUsesDistinctNasCounts(t *testing.T) {
+	amfSelf := context.GetSelf()
+	accessType := models.AccessType_3_GPP_ACCESS
+	saved := amfSelf.T3555Cfg
+	amfSelf.T3555Cfg = factory.TimerValue{Enable: true, ExpireTime: time.Millisecond, MaxRetryTimes: 4}
+	t.Cleanup(func() { amfSelf.T3555Cfg = saved })
+	// The test waits for T3555 to run out before the UE is removed.
+	ranOut := warningHook{prefix: "T3555 Expires", logged: make(chan struct{}, 1)}
+	hooks := logger.Log.ReplaceHooks(logrus.LevelHooks{})
+	logger.Log.AddHook(ranOut)
+	t.Cleanup(func() { logger.Log.ReplaceHooks(hooks) })
+	ue, conn := newRetransmissionTestUe(t, true)
+
+	// Another procedure protects messages for the UE while T3555 runs. 200 messages and the five
+	// of T3555 keep the NAS sequence numbers below their wrap-around.
+	stop := make(chan struct{})
+	encoded := make(chan []byte, 200)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range cap(encoded) {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			pdu, err := BuildIdentityRequest(ue, accessType, ie.IdType_5GS_IMEI)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			encoded <- pdu
+			time.Sleep(10 * time.Microsecond)
+		}
+	}()
+	SendConfigurationUpdateCommand(ue, accessType, &context.ConfigurationUpdateCommandFlags{NeedGUTI: true})
+
+	// The command and its four retransmissions.
+	pdus := make([][]byte, 0, 5+cap(encoded))
+	for range 5 {
+		pdus = append(pdus, conn.nextNasPdu(t))
+	}
+	select {
+	case <-ranOut.logged:
+	case <-time.After(2 * time.Second):
+		t.Fatal("T3555 did not run out")
+	}
+	close(stop)
+	wg.Wait()
+	close(encoded)
+	for pdu := range encoded {
+		pdus = append(pdus, pdu)
+	}
+	sequenceNumbers := make(map[uint8]bool)
+	for _, pdu := range pdus {
+		header := new(nas_message.SecProtectedHdr)
+		require.NoError(t, header.UnmarshalBinary(pdu))
+		require.False(t, sequenceNumbers[header.SequenceNumber], "NAS sequence number %d sent twice",
+			header.SequenceNumber)
+		sequenceNumbers[header.SequenceNumber] = true
 	}
 }
