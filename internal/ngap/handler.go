@@ -526,6 +526,10 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	uEContextRequest *ngapType.UEContextRequest,
 ) {
 	ranUe := ran.RanUeFindByRanUeNgapID(rANUENGAPID.Value)
+	if ranUe != nil {
+		// An existing connection has this RAN UE NGAP ID: it is released locally below.
+		deactivateUpConnections(ran, ranUe, ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
+	}
 	if ranUe != nil && !completeUeContextRelease(ran, ranUe) {
 		amfUe := ranUe.GetAmfUe()
 		if amfUe != nil {
@@ -2786,8 +2790,8 @@ func completeUeContextReleases(ran *context.AmfRan) {
 }
 
 // localAnRelease is the AN release that the AMF performs locally when it releases the N2 connection
-// of a UE without the N2 messages of the procedure (the SCTP association of its gNB is lost, or an NG
-// RESET): the user plane of each PDU session of the UE on this access is
+// of a UE without the N2 messages of the procedure (the SCTP association of its gNB is lost, an NG
+// RESET, or an AP ID error): the user plane of each PDU session of the UE on this access is
 // deactivated at its SMF (TS 23.502 4.2.6).
 type localAnRelease struct {
 	ran        *context.AmfRan
@@ -2844,6 +2848,13 @@ func (r *localAnRelease) deactivateUpConnections() {
 	}
 }
 
+// deactivateUpConnections performs the local AN release of the UE whose N2 connection ranUe is.
+func deactivateUpConnections(ran *context.AmfRan, ranUe *context.RanUe, cause context.CauseAll) {
+	if anRelease := newLocalAnRelease(ran, ranUe, cause); anRelease != nil {
+		anRelease.deactivateUpConnections()
+	}
+}
+
 // ngapCause is the NGAP cause of a release, as the SMF receives it.
 func ngapCause(group int, value aper.Enumerated) context.CauseAll {
 	return context.CauseAll{NgapCause: &models.NgApCause{Group: int32(group), Value: int32(value)}}
@@ -2873,6 +2884,7 @@ func removeRanUeByInvalidId(ran *context.AmfRan, ranUe *context.RanUe, reason st
 	}
 
 	ranUe.Log.Errorf("Remove RanUe by %s", reason)
+	deactivateUpConnections(ran, ranUe, ngapCause(ngap_message.CauseChoiceMisc, ngapType.CauseMiscPresentUnspecified))
 	if completeUeContextRelease(ran, ranUe) {
 		return
 	}
