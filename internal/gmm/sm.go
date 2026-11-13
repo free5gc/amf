@@ -187,6 +187,11 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		case *nas_message.IdRsp:
 			if err := HandleIdentityResponse(amfUe, msg); err != nil {
 				logger.GmmLog.Errorln(err)
+			} else if deferred, errDereg := progressDeferredDeregistration(state, amfUe, accessType,
+				amfUe.DeferredDeregistrationRequest); deferred {
+				if errDereg != nil {
+					logger.GmmLog.Errorln(errDereg)
+				}
 			} else {
 				// update identity type used for reauthentication
 				amfUe.IdentityTypeUsedForRegistration = msg.MobileId.TypeOfId
@@ -419,6 +424,11 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		case *nas_message.IdRsp:
 			if err := HandleIdentityResponse(amfUe, msg); err != nil {
 				logger.GmmLog.Errorln(err)
+			} else if deferred, errDereg := progressDeferredDeregistration(state, amfUe, accessType,
+				amfUe.DeferredDeregistrationRequest); deferred {
+				if errDereg != nil {
+					logger.GmmLog.Errorln(errDereg)
+				}
 			} else {
 				switch amfUe.RegistrationType5GS {
 				case ie.RegType_InitialReg:
@@ -448,7 +458,13 @@ func ContextSetup(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				}
 			}
 		case *nas_message.RegComplete:
+			// HandleRegistrationComplete enters 5GMM-REGISTERED, which clears the deferred request with the other
+			// registration data
+			deregistrationRequest := amfUe.DeferredDeregistrationRequest
 			if err := HandleRegistrationComplete(amfUe, accessType, msg); err != nil {
+				logger.GmmLog.Errorln(err)
+			} else if _, err = progressDeferredDeregistration(state, amfUe, accessType,
+				deregistrationRequest); err != nil {
 				logger.GmmLog.Errorln(err)
 			}
 		case *nas_message.RegReq:

@@ -2,6 +2,7 @@ package gmm
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,11 +20,39 @@ import (
 )
 
 // Plain REGISTRATION REQUESTs for an initial registration by a 5G-GUTI of PLMN 208 93 and AMF ID cafe00, with the
-// 5G-TMSIs fffffffe and fffffffd.
+// 5G-TMSIs fffffffe and fffffffd, and the follow-on request pending. The last one is for a mobility registration
+// update, without a follow-on request.
 const (
-	registrationRequestByGuti      = "7e004179000bf202f839cafe00fffffffe2e02f0f0"
-	otherRegistrationRequestByGuti = "7e004179000bf202f839cafe00fffffffd2e02f0f0"
+	registrationRequestByGuti         = "7e004179000bf202f839cafe00fffffffe2e02f0f0"
+	otherRegistrationRequestByGuti    = "7e004179000bf202f839cafe00fffffffd2e02f0f0"
+	mobilityRegistrationRequestByGuti = "7e004172000bf202f839cafe00fffffffe2e02f0f0"
 )
+
+// notSwitchOff is a DEREGISTRATION REQUEST not for switch off.
+func notSwitchOff() *nasMessage.DeregReqUEOrig {
+	return &nasMessage.DeregReqUEOrig{
+		DeregType: &ie.DeregType{AccessType: ie.AccessType_3gpp},
+		Ngksi:     &ie.NASKeySetId{Ksi: ie.NASKeyNA},
+	}
+}
+
+// sentNames returns the type of each NGAP message that the AMF has sent to the gNB, or of its NAS message for a
+// DOWNLINK NAS TRANSPORT.
+func sentNames(t *testing.T, conn *ngaptesting.SctpConnStub) []string {
+	t.Helper()
+	var names []string
+	for i := range conn.MsgList {
+		decoded := sent(t, conn, i)
+		if transport, ok := decoded.(*ngapMessage.DownlinkNASTransport); ok {
+			msg, err := nasMessage.ParseGMM(transport.NASPDU.Value)
+			require.NoError(t, err)
+			names = append(names, fmt.Sprintf("%T", msg))
+		} else {
+			names = append(names, fmt.Sprintf("%T", decoded))
+		}
+	}
+	return names
+}
 
 // sent returns the i-th NGAP message that the AMF has sent to the gNB.
 func sent(t *testing.T, conn *ngaptesting.SctpConnStub, i int) ngapMessage.Message {
@@ -183,6 +212,8 @@ func TestDeregistrationRequestBeforeMobilityRegistrationComplete(t *testing.T) {
 
 	t.Run("not switch off", func(t *testing.T) {
 		ue, conn := registeringUe(t, context.ContextSetup)
+		// Without a follow-on request, the completion alone would release the connection
+		ue.RegistrationRequest = registrationRequest(t, mobilityRegistrationRequestByGuti)
 		ue.RegistrationType5GS = ie.RegType_MobilityRegUpdating
 		t3550, _ := runningTimer(t)
 		ue.T3550 = t3550
@@ -196,7 +227,109 @@ func TestDeregistrationRequestBeforeMobilityRegistrationComplete(t *testing.T) {
 		require.Empty(t, conn.MsgList)
 		require.Same(t, t3550, ue.T3550)
 		require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.ContextSetup))
+
+		// The registration completes, and the de-registration is progressed then
+		sendGmmMessage(t, ue, &nasMessage.RegComplete{})
+
+		// The UE has no security context here, so no CONFIGURATION UPDATE COMMAND is sent, and the de-registration
+		// releases the connection, not the completion
+		require.Equal(t, []string{"*message.DeregAcceptUEOrig", "*message.UEContextReleaseCommand"},
+			sentNames(t, conn))
+		require.Nil(t, ue.DeferredDeregistrationRequest)
+		require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.Deregistered))
 	})
+}
+
+// TS 24.501 5.4.3.6 f): a DEREGISTRATION REQUEST not for switch off during an identification lets the identification
+// complete, and the de-registration is progressed then.
+func TestDeregistrationRequestDuringIdentificationIsProgressedAfterIt(t *testing.T) {
+	ue, conn := registeringUe(t, context.Authentication)
+	t3570, _ := runningTimer(t)
+	ue.T3570 = t3570
+	ue.RequestIdentityType = ie.IdType_5GS_SUCI
+	t.Cleanup(ue.StopT3570)
+
+	sendGmmMessage(t, ue, &nasMessage.DeregReqUEOrig{
+		DeregType: &ie.DeregType{AccessType: ie.AccessType_3gpp},
+		Ngksi:     &ie.NASKeySetId{Ksi: ie.NASKeyNA},
+	})
+
+	require.Empty(t, conn.MsgList)
+	require.Same(t, t3570, ue.T3570)
+	require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.Authentication))
+
+	// An IDENTITY RESPONSE with a SUCI of the null scheme, of PLMN 208 93.
+	b, err := hex.DecodeString("7e005c000c0102f839f0ff000000004778")
+	require.NoError(t, err)
+	identityResponse, err := nasMessage.ParseGMM(b)
+	require.NoError(t, err)
+	sendGmmMessage(t, ue, identityResponse)
+
+	require.Len(t, conn.MsgList, 2)
+	_, ok := nas(t, sent(t, conn, 0)).(*nasMessage.DeregAcceptUEOrig)
+	require.True(t, ok, "the deregistration request is not accepted")
+	_, ok = sent(t, conn, 1).(*ngapMessage.UEContextReleaseCommand)
+	require.True(t, ok)
+	require.Nil(t, ue.T3570)
+	require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.Deregistered))
+}
+
+// TS 24.501 5.4.3.6 f): the same holds for the identification of the IMEI that a registration starts after the
+// security mode control.
+func TestDeregistrationRequestDuringIMEIIdentificationIsProgressedAfterIt(t *testing.T) {
+	ue, conn := registeringUe(t, context.ContextSetup)
+	t3570, _ := runningTimer(t)
+	ue.T3570 = t3570
+	ue.RequestIdentityType = ie.IdType_5GS_IMEI
+	t.Cleanup(ue.StopT3570)
+
+	sendGmmMessage(t, ue, notSwitchOff())
+
+	require.Empty(t, conn.MsgList)
+	require.NotNil(t, ue.DeferredDeregistrationRequest, "the de-registration is neither deferred nor answered")
+	require.Same(t, t3570, ue.T3570)
+	require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.ContextSetup))
+
+	// An IDENTITY RESPONSE with the IMEI 356938035643809.
+	b, err := hex.DecodeString("7e005c00083b65390853468390")
+	require.NoError(t, err)
+	identityResponse, err := nasMessage.ParseGMM(b)
+	require.NoError(t, err)
+	sendGmmMessage(t, ue, identityResponse)
+
+	require.Equal(t, "imei-356938035643809", ue.Pei)
+	require.Equal(t, []string{"*message.DeregAcceptUEOrig", "*message.UEContextReleaseCommand"}, sentNames(t, conn))
+	require.Nil(t, ue.T3570)
+	require.Nil(t, ue.DeferredDeregistrationRequest)
+	require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.Deregistered))
+}
+
+// A REGISTRATION REQUEST that differs, during an identification, starts a new registration, which does not progress
+// the DEREGISTRATION REQUEST that came during the first one.
+func TestNewRegistrationRequestForgetsDeferredDeregistration(t *testing.T) {
+	ue, _ := registeringUe(t, context.Authentication)
+	t3570, _ := runningTimer(t)
+	ue.T3570 = t3570
+	ue.RequestIdentityType = ie.IdType_5GS_SUCI
+
+	sendGmmMessage(t, ue, notSwitchOff())
+	require.NotNil(t, ue.DeferredDeregistrationRequest)
+
+	sendGmmMessage(t, ue, registrationRequest(t, otherRegistrationRequestByGuti))
+
+	require.Nil(t, ue.DeferredDeregistrationRequest)
+	require.True(t, ue.State[models.AccessType_3_GPP_ACCESS].Is(context.Authentication))
+}
+
+// The DEREGISTRATION REQUEST that waits for a procedure of the registration is cleared with the other registration
+// data, as entering 5GMM-REGISTERED or 5GMM-DEREGISTERED does.
+func TestRegistrationRequestDataIncludesDeferredDeregistration(t *testing.T) {
+	ue, _ := registeringUe(t, context.ContextSetup)
+	ue.DeferredDeregistrationRequest = notSwitchOff()
+
+	ue.ClearRegistrationRequestData(models.AccessType_3_GPP_ACCESS)
+
+	require.Nil(t, ue.DeferredDeregistrationRequest)
 }
 
 // TS 24.501 5.4.2.7 c): a DEREGISTRATION REQUEST not for switch off during the security mode control aborts it and
