@@ -279,7 +279,7 @@ func (a *air) authenticate(resStar []byte) *nas_message.SecModeCmd {
 		return nil
 	}
 	// The UE derives the same keys from KAMF; the test takes them from the AMF.
-	amfUe := a.ranUe.AmfUe
+	amfUe := a.ranUe.GetAmfUe()
 	a.ueSec = nas_message.NewSecCtx(nas_message.UESide, nas_message.Bearer3GPP,
 		ie.AlgCiphering(amfUe.CipheringAlg), ie.AlgIntegrity(amfUe.IntegrityAlg), amfUe.KnasEnc[:], amfUe.KnasInt[:])
 	if a.ran.AnType == models.AccessType_NON_3_GPP_ACCESS {
@@ -346,7 +346,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 	// when the test ends.
 	newContext := func(t *testing.T, a *air, victim *amf_context.AmfUe) *amf_context.AmfUe {
 		t.Helper()
-		amfUe := a.ranUe.AmfUe
+		amfUe := a.ranUe.GetAmfUe()
 		require.NotNil(t, amfUe)
 		require.NotSame(t, victim, amfUe, "attached to the found context before authentication")
 		require.Same(t, victim, amfUe.AuthenticatingFor)
@@ -403,7 +403,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 				NASMsgCntr: &ie.NASMsgCntr{Contents: plainNas(t, request)},
 			}, nas_message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx))
 
-			require.Same(t, victim, a.ranUe.AmfUe)
+			require.Same(t, victim, a.ranUe.GetAmfUe())
 			require.Same(t, a.ranUe, victim.RanUe[models.AccessType_3_GPP_ACCESS])
 			require.Equal(t, bindingSuci.IdStr(), victim.GetSuci(),
 				"SUCI not taken over from the authenticated context")
@@ -552,7 +552,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 			NASMsgCntr: &ie.NASMsgCntr{Contents: plainNas(t, request)},
 		}, nas_message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx))
 
-		require.Same(t, victim, a.ranUe.AmfUe)
+		require.Same(t, victim, a.ranUe.GetAmfUe())
 		procedures, nasMessages := a.sent()
 		require.Equal(t, []string{sentDLNAS}, procedures)
 		require.Equal(t, nas_message.MsgTypeRegAccept, nasMessages[0].MsgType())
@@ -584,7 +584,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 				NASMsgCntr: &ie.NASMsgCntr{Contents: plainNas(t, request)},
 			}, nas_message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx))
 
-			require.Same(t, newUe, a.ranUe.AmfUe)
+			require.Same(t, newUe, a.ranUe.GetAmfUe())
 			_, nasMessages := a.sent()
 			require.Len(t, nasMessages, 1)
 			require.Equal(t, nas_message.MsgTypeRegAccept, nasMessages[0].MsgType())
@@ -609,7 +609,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 				NASMsgCntr: &ie.NASMsgCntr{Contents: plainNas(t, request)},
 			}, nas_message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx))
 
-			require.Same(t, victim, a.ranUe.AmfUe)
+			require.Same(t, victim, a.ranUe.GetAmfUe())
 			require.Same(t, a.ranUe, victim.RanUe[models.AccessType_NON_3_GPP_ACCESS])
 			procedures, _ := a.sent()
 			// The REGISTRATION ACCEPT is sent once the N3IWF has set up the context.
@@ -645,7 +645,7 @@ func TestUnverifiedRegistrationAuthenticatesBeforeTheFoundContext(t *testing.T) 
 				NASMsgCntr: &ie.NASMsgCntr{Contents: plainNas(t, request)},
 			}, nas_message.SecHdrTypeIntegrityProtectedAndCipheredWithNew5gNasSecCtx))
 
-			require.Same(t, victim, a.ranUe.AmfUe)
+			require.Same(t, victim, a.ranUe.GetAmfUe())
 			require.Same(t, a.ranUe, victim.RanUe[models.AccessType_NON_3_GPP_ACCESS])
 			procedures, _ := a.sent()
 			// The REGISTRATION ACCEPT is sent once the N3IWF has set up the context.

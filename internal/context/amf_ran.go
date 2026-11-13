@@ -85,7 +85,7 @@ func (ran *AmfRan) newRanUe(ranUeNgapID int64, assigned bool) (*RanUe, error) {
 	ranUe.RanUeNgapIdAssigned = assigned
 	ranUe.Ran = ran
 	ranUe.Log = ran.Log
-	ranUe.HoldingAmfUe = nil
+	ranUe.ClearHoldingAmfUe()
 	ranUe.UpdateLogFields()
 
 	if assigned {

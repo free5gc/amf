@@ -98,7 +98,9 @@ func TestAMFNASBuilderGoldenBaseline(t *testing.T) {
 			return BuildSecurityModeCommand(ue, models.AccessType_3_GPP_ACCESS, true, "AQIDBA==")
 		}},
 		{"deregistration_request", func(ue *context.AmfUe) ([]byte, error) {
-			return BuildDeregistrationRequest(&context.RanUe{AmfUe: ue}, 1, true, 0x07)
+			ranUe := &context.RanUe{}
+			ranUe.SetAmfUe(ue)
+			return BuildDeregistrationRequest(ranUe, 1, true, 0x07)
 		}},
 		{"deregistration_accept", func(ue *context.AmfUe) ([]byte, error) {
 			return BuildDeregistrationAccept(ue, models.AccessType_3_GPP_ACCESS)
