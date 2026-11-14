@@ -17,6 +17,7 @@ import (
 	Nnrf_NFManagement "github.com/free5gc/openapi/nrf/NFMgmt"
 	sbi_metrics "github.com/free5gc/util/metrics/sbi"
 	"github.com/free5gc/util/nfheartbeat"
+	"github.com/free5gc/util/serviceuri"
 )
 
 const registerRetryInterval = 2 * time.Second
@@ -126,15 +127,9 @@ func (s *nnrfService) SearchUdmSdmInstance(
 		return localErr
 	}
 
-	// select the first UDM_SDM, TODO: select base on other info
-	var sdmUri string
-	for index := range resp.NfInstances {
-		ue.UdmId = resp.NfInstances[index].NfInstanceId
-		sdmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NUDM_SDM,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if sdmUri != "" {
-			break
-		}
+	udm, sdmUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NUDM_SDM)
+	if udm != nil {
+		ue.UdmId = udm.NfInstanceId
 	}
 	ue.NudmSDMUri = sdmUri
 	if ue.NudmSDMUri == "" {
@@ -154,15 +149,9 @@ func (s *nnrfService) SearchNssfNSSelectionInstance(
 		return localErr
 	}
 
-	// select the first NSSF, TODO: select base on other info
-	var nssfUri string
-	for index := range resp.NfInstances {
-		ue.NssfId = resp.NfInstances[index].NfInstanceId
-		nssfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if nssfUri != "" {
-			break
-		}
+	nssf, nssfUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NNSSF_NSSELECTION)
+	if nssf != nil {
+		ue.NssfId = nssf.NfInstanceId
 	}
 	ue.NssfUri = nssfUri
 	if ue.NssfUri == "" {
@@ -180,20 +169,14 @@ func (s *nnrfService) SearchAmfCommunicationInstance(ue *amf_context.AmfUe, nrfU
 		return
 	}
 
-	// select the first AMF, TODO: select base on other info
-	var amfUri string
-	for index := range resp.NfInstances {
-		if resp.NfInstances[index].NfInstanceId == amf_context.GetSelf().NfId {
-			continue
-		}
-		ue.TargetAmfProfile = &resp.NfInstances[index]
-		amfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NAMF_COMM,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if amfUri != "" {
-			break
+	// Exclude this AMF itself from the target AMF candidates.
+	targets := make([]models.Nrf_NFDisc_NFProfile, 0, len(resp.NfInstances))
+	for i := range resp.NfInstances {
+		if resp.NfInstances[i].NfInstanceId != amf_context.GetSelf().NfId {
+			targets = append(targets, resp.NfInstances[i])
 		}
 	}
-	ue.TargetAmfUri = amfUri
+	ue.TargetAmfProfile, ue.TargetAmfUri = util.SelectNFService(targets, models.Nrf_NFMgmt_ServiceName_NAMF_COMM)
 	if ue.TargetAmfUri == "" {
 		err = fmt.Errorf("AMF can not select an target AMF by NRF")
 	}
@@ -242,7 +225,10 @@ func (s *nnrfService) buildNFInstance(context *amf_context.AMFContext) (
 		err = fmt.Errorf("AMF Address is empty")
 		return profile, err
 	}
-	profile.Ipv4Addresses = append(profile.Ipv4Addresses, context.RegisterIPv4)
+	addr := serviceuri.NewAddressing(context.RegisterIPv4)
+	profile.Fqdn = addr.FQDN
+	profile.Ipv4Addresses = addr.IPv4Addresses
+	profile.Ipv6Addresses = addr.IPv6Addresses
 	service := []models.Nrf_NFMgmt_NFService{}
 	for _, nfService := range context.NfService {
 		allowed, known := amf_context.AllowedNfTypesForService(nfService.ServiceName)
