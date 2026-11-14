@@ -91,6 +91,51 @@ func TestDecodeCipheredMACFailureRestoresCount(t *testing.T) {
 	require.Equal(t, uint32(2<<8|7), ue.ULCount.Get())
 }
 
+// TS 24.501 4.4.3.2: a given NAS COUNT value is accepted at most one time.
+func TestDecodeRejectsReplayedUplinkCount(t *testing.T) {
+	ue := newSecurityTestUE()
+	ue.SecurityContextAvailable = true
+	pduSessionReleaseRequest, err := (&message.PDUSessRelReq{PDUSessId: 5, PTI: 2}).MarshalBinary()
+	require.NoError(t, err)
+	ulNasTransport := &message.ULNASTransport{
+		PayloadCntrType: &ie.PayloadCntrType{Value: ie.PayloadCntrType_N1SMInfo},
+		PayloadCntr:     &ie.PayloadCntr{Pct: ie.PayloadCntrType_N1SMInfo, Contents: pduSessionReleaseRequest},
+		PDUSessID:       &ie.PDUSessId2{Value: 5},
+	}
+	encode := func(count uint32) []byte {
+		uplinkSecurity := message.NewSecCtx(
+			message.UESide,
+			message.Bearer3GPP,
+			ie.AlgCiphering(ue.CipheringAlg),
+			ie.AlgIntegrity(ue.IntegrityAlg),
+			ue.KnasEnc[:],
+			ue.KnasInt[:],
+		)
+		uplinkSecurity.UplinkCount.Set(uint16(count>>8), uint8(count))
+		payload, marshalErr := message.Marshal(
+			ulNasTransport, uplinkSecurity, message.SecHdrTypeIntegrityProtectedAndCiphered)
+		require.NoError(t, marshalErr)
+		return payload
+	}
+	atCount100 := encode(100)
+
+	decoded, integrityProtected, err := Decode(ue, models.AccessType_3_GPP_ACCESS, atCount100, false)
+	require.NoError(t, err)
+	require.True(t, integrityProtected)
+	require.IsType(t, &message.ULNASTransport{}, decoded)
+	require.Equal(t, uint32(100), ue.ULCount.Get())
+
+	_, integrityProtected, err = Decode(ue, models.AccessType_3_GPP_ACCESS, atCount100, false)
+	require.Error(t, err)
+	require.False(t, integrityProtected)
+	require.Equal(t, uint32(100), ue.ULCount.Get())
+
+	_, integrityProtected, err = Decode(ue, models.AccessType_3_GPP_ACCESS, encode(101), false)
+	require.NoError(t, err)
+	require.True(t, integrityProtected)
+	require.Equal(t, uint32(101), ue.ULCount.Get())
+}
+
 func newSecurityTestUE() *context.AmfUe {
 	ue := &context.AmfUe{
 		CipheringAlg: uint8(message.AlgCiphering128NEA2),
