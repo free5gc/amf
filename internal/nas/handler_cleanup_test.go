@@ -34,7 +34,7 @@ func TestHandleNASInvalidSUCICleansNewAmfUe(t *testing.T) {
 			// cleanup. This rules out a test passing solely on early rejection.
 			created := fixture.observer.decodingUE
 			require.NotNil(t, created)
-			require.Positive(t, created.Tmsi)
+			require.Positive(t, fixture.observer.decodingTmsi)
 			require.Empty(t, created.Supi)
 			require.Nil(t, ranUe.AmfUe)
 			require.Empty(t, created.RanUe)
@@ -245,6 +245,7 @@ func (f *cleanupFixture) requireRanUePreserved(t *testing.T, ranUe *amf_context.
 type cleanupLogObserver struct {
 	ranUe               *amf_context.RanUe
 	decodingUE          *amf_context.AmfUe
+	decodingTmsi        int32 // read when the error is logged: Remove frees the 5G-TMSI
 	decodeError         string
 	authenticationCalls int
 	removedUEs          int
@@ -255,6 +256,9 @@ func (h *cleanupLogObserver) Levels() []logrus.Level { return logrus.AllLevels }
 func (h *cleanupLogObserver) Fire(entry *logrus.Entry) error {
 	if strings.Contains(entry.Message, "unsupported protection scheme ID") && h.ranUe != nil {
 		h.decodingUE = h.ranUe.AmfUe
+		if h.decodingUE != nil {
+			h.decodingTmsi = h.decodingUE.GetTmsi()
+		}
 		h.decodeError = entry.Message
 	}
 	if entry.Message == "Authentication procedure" {

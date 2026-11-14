@@ -138,7 +138,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 					Release: true,
 					Cause:   models.Smf_PDUSess_Cause_REL_DUE_TO_DUPLICATE_SESSION_ID,
 					SmContextStatusUri: fmt.Sprintf("%s"+factory.AmfCallbackResUriPrefix+"/smContextStatus/%s/%d",
-						ue.ServingAMF().GetIPv4Uri(), ue.Guti, pduSessionID),
+						ue.ServingAMF().GetIPv4Uri(), ue.GetGuti(), pduSessionID),
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
@@ -520,17 +520,15 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		servedGuami := amfSelf.ServedGuamiList[0]
 		if reflect.DeepEqual(guamiFromUeGuti, servedGuami) {
 			ue.ServingAmfChanged = false
-			// refresh 5G-GUTI according to 6.12.3 Subscription temporary identifier, TS33.501
-			if ue.SecurityContextAvailable {
-				context.GetSelf().FreeTmsi(int64(ue.Tmsi))
-				context.GetSelf().AllocateGutiToUe(ue)
-			}
+			// TS 24.501 5.3.3: a new 5G-GUTI is assigned during a successful
+			// registration, so it is allocated when the REGISTRATION ACCEPT is
+			// sent and the UE's 5G-GUTI stays valid if this request is rejected.
 		} else {
 			ue.GmmLog.Infof("Serving AMF has changed: guamiFromUeGuti[%+v], servedGuami[%+v]",
 				guamiFromUeGuti, servedGuami)
 			ue.ServingAmfChanged = true
-			context.GetSelf().FreeTmsi(int64(ue.Tmsi))
-			ue.Guti = guti
+			previousTmsi := ue.SetGutiAndTmsi(guti, 0) // the previous 5G-TMSI is not the UE's any more
+			context.GetSelf().FreeTmsi(int64(previousTmsi))
 		}
 	case ie.IdType_5GS_IMEI:
 		imei := mobileIdentity.PEIStr()
@@ -755,9 +753,8 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	storedUe.SetOnGoing(anType, &context.OnGoing{Procedure: context.OnGoingProcedureRegistration})
 	storedUe.StopT3513()
 	storedUe.StopT3565()
-	// TS 33.501 6.12.3: a new 5G-GUTI for an initial, mobility or periodic registration.
-	context.GetSelf().FreeTmsi(int64(storedUe.Tmsi))
-	context.GetSelf().AllocateGutiToUe(storedUe)
+	// The new 5G-GUTI (TS 33.501 6.12.3) is allocated when the REGISTRATION ACCEPT is sent, and the
+	// UE's 5G-GUTI stays valid until the UE acknowledges it (TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)).
 
 	ue.DetachRanUe(anType, ranUe)
 	leaveContextSetup()
@@ -922,7 +919,7 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 	// }
 
 	amfSelf.AllocateRegistrationArea(ue, anType)
-	ue.GmmLog.Debugf("Use original GUTI[%s]", ue.Guti)
+	ue.GmmLog.Debugf("Use original GUTI[%s]", ue.GetGuti())
 
 	assignLadnInfo(ue, anType)
 
@@ -1872,9 +1869,9 @@ func HandleIdentityResponse(ue *context.AmfUe, identityResponse *nas_message.IdR
 		ue.SetSuci(suci)
 		ue.PlmnId = plmnId
 	case ie.IdType_5GS_GUTI:
-		ue.Guti = guti
+		ue.SetGuti(guti)
 	case ie.IdType_5GS_TMSI:
-		ue.Tmsi = tmsi
+		ue.SetTmsi(tmsi)
 	case ie.IdType_5GS_IMEI, ie.IdType_5GS_IMEISV:
 		ue.Pei = pei
 	}
@@ -1926,6 +1923,8 @@ func HandleConfigurationUpdateComplete(ue *context.AmfUe,
 
 	// Stop timer T3555 in TS 24.501 Figure 5.4.4.1.1 in handler
 	ue.StopT3555()
+	// TS 24.501 5.3.3, 5.4.4.4: the old 5G-GUTI is invalid once the configuration update is acknowledged
+	context.GetSelf().ReleaseOldGuti(ue)
 	// TODO: Send acknowledgment by Nudm_SMD_Info_Service to UDM in handler
 	//		import "github.com/free5gc/openapi/Nudm_SubscriberDataManagement" client.Info
 
@@ -2055,7 +2054,9 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 	ue.StopT3565()
 
 	// Set No ongoing
+	pagingResponse := false
 	if procedure := ue.OnGoing(anType).Procedure; procedure == context.OnGoingProcedurePaging {
+		pagingResponse = true
 		ue.SetOnGoing(anType, &context.OnGoing{
 			Procedure: context.OnGoingProcedureNothing,
 		})
@@ -2102,6 +2103,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 		// TS 33.501 6.4.6 step 3: if the initial NAS message was protected but did not pass the integrity check
 		ue.RetransmissionOfInitialNASMsg = ue.MacFailed
+	}
+
+	// TS 24.501 5.5.1.3.8 a): the UE uses the new 5G-GUTI, so the old one is invalid.
+	if ue.HasOldGuti() && serviceRequest.TMSI5GS != nil &&
+		serviceRequest.TMSI5GS.TMSIStr() == fmt.Sprintf("%08x", uint32(ue.GetTmsi())) {
+		amfSelf.ReleaseOldGuti(ue)
 	}
 
 	serviceType := uint8(serviceRequest.SvcType.Value)
@@ -2182,8 +2189,7 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 					gmm_message.SendDLNASTransport(ranUe,
 						ie.PayloadCntrType_UEPolicy, n1Msg, 0, 0, nil, 0)
 				}
-				ue.N1N2Message = nil
-				return nil
+				break
 			}
 
 			// TODO: Area of validity for the N2 SM information
@@ -2222,14 +2228,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		}
 
 		// downlink signaling
-		if ue.ConfigurationUpdateCommandFlags != nil {
+		if ue.N1N2Message == nil && (pagingResponse || ue.ConfigurationUpdateCommandFlags != nil) {
 			err := gmm_message.SendServiceAccept(ue, anType, cxtList,
 				pduStatusResult, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
 				return err
 			}
-			gmm_message.SendConfigurationUpdateCommand(ue, anType, ue.ConfigurationUpdateCommandFlags)
-			ue.ConfigurationUpdateCommandFlags = nil
 		}
 	case uint8(ie.SvcType_Data):
 		if anType == models.AccessType_3_GPP_ACCESS {
@@ -2265,6 +2269,17 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 	}
 	if len(errPduSessionId) != 0 {
 		ue.GmmLog.Info(errPduSessionId, errCause)
+	}
+	// TS 24.501 5.3.3 c), TS 33.501 6.12.3: a service request that answers a paging gets a new
+	// 5G-GUTI, in a CONFIGURATION UPDATE COMMAND after the SERVICE ACCEPT. It is assigned now that
+	// the request is accepted. An old 5G-GUTI is still valid only if the UE used it in this request
+	// (see above), and stays valid.
+	if pagingResponse {
+		if ue.ConfigurationUpdateCommandFlags == nil {
+			ue.ConfigurationUpdateCommandFlags = &context.ConfigurationUpdateCommandFlags{}
+		}
+		ue.ConfigurationUpdateCommandFlags.NeedGUTI = true
+		amfSelf.ReallocateGuti(ue, "")
 	}
 	// Send Configuration Update Command if needed
 	if ue.ConfigurationUpdateCommandFlags != nil {
@@ -2551,10 +2566,13 @@ func HandleRegistrationComplete(ue *context.AmfUe, accessType models.AccessType,
 	ue.GmmLog.Info("Handle Registration Complete")
 
 	// Check and stop T3550 in one step: its last expiry clears the
-	// registration request data that is read below.
-	if !ue.StopT3550() {
+	// registration request data that is read below. A configuration without
+	// T3550 has no timer to supervise the acknowledgement, so it cannot be
+	// required there either.
+	if context.GetSelf().T3550Cfg.Enable && !ue.StopT3550() {
 		return fmt.Errorf("unexpected Registration Complete: T3550 not running")
 	}
+	context.GetSelf().ReleaseOldGuti(ue)
 
 	// Release existed old SmContext when Initial Registration completed
 	if ue.RegistrationType5GS == ie.RegType_InitialReg {

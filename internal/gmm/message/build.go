@@ -345,9 +345,9 @@ func BuildRegistrationAccept(
 		}
 	}
 
-	if ue.Guti != "" {
+	if ue.GetGuti() != "" {
 		msg.GUTI5G = new(ie.MobileId5GS)
-		if err := msg.GUTI5G.FromGUTIStr(ue.Guti); err != nil {
+		if err := msg.GUTI5G.FromGUTIStr(ue.GetGuti()); err != nil {
 			return nil, fmt.Errorf("encode GUTI failed: %w", err)
 		}
 	}
@@ -464,11 +464,11 @@ func BuildConfigurationUpdateCommand(
 		msg.NwSlicingInd = &ie.NwSlicingInd{NSSCI: true}
 	}
 	if flags.NeedGUTI {
-		if ue.Guti == "" {
+		if ue.GetGuti() == "" {
 			logger.GmmLog.Warn("Require 5G-GUTI, but got nothing.")
 		} else {
 			msg.GUTI5G = new(ie.MobileId5GS)
-			if err := msg.GUTI5G.FromGUTIStr(ue.Guti); err != nil {
+			if err := msg.GUTI5G.FromGUTIStr(ue.GetGuti()); err != nil {
 				return nil, fmt.Errorf("encode GUTI failed: %w", err), false
 			}
 		}
