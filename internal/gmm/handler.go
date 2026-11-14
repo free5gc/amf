@@ -408,6 +408,10 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 
 	ue.StopT3513()
 	ue.StopT3565()
+	// TS 24.501 5.4.4.6 d): a registration request for mobility or periodic registration update aborts an
+	// ongoing generic UE configuration update procedure. An initial registration aborts it too: a later
+	// retransmission would be protected under the security context of the new registration.
+	ue.StopT3555()
 
 	// TS 24.501 8.2.6.21: if the UE is sending a REGISTRATION REQUEST message as an initial NAS message,
 	// the UE has a valid 5G NAS security context and the UE needs to send non-cleartext IEs
@@ -419,11 +423,12 @@ func HandleRegistrationRequest(ue *context.AmfUe, anType models.AccessType, proc
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,
@@ -2074,11 +2079,12 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		// TS 24.501 4.4.6: When the UE sends a REGISTRATION REQUEST or SERVICE REQUEST message that includes a NAS
 		// message container IE, the UE shall set the security header type of the initial NAS message to
 		// "integrity protected"; then the AMF shall decipher the value part of the NAS message container IE
+		ulCount, dlCount := ue.NASCounts()
 		securityContext := &nas_message.SecCtx{
 			Side:          nas_message.CoreNetworkSide,
 			Bearer:        nas_security.GetBearerType(anType),
-			UplinkCount:   &ue.ULCount,
-			DownlinkCount: &ue.DLCount,
+			UplinkCount:   &ulCount,
+			DownlinkCount: &dlCount,
 			CipheringAlg:  ie.AlgCiphering(ue.CipheringAlg),
 			IntegrityAlg:  ie.AlgIntegrity(ue.IntegrityAlg),
 			KnasEnc:       ue.KnasEnc,
@@ -2698,6 +2704,9 @@ func HandleDeregistrationRequest(ue *context.AmfUe, anType models.AccessType,
 	deregistrationRequest *nas_message.DeregReqUEOrig,
 ) error {
 	ue.GmmLog.Info("Handle Deregistration Request(UE Originating)")
+
+	// TS 24.501 5.4.4.6 c): abort an ongoing generic UE configuration update procedure
+	ue.StopT3555()
 
 	targetDeregistrationAccessType := deregistrationRequest.DeregType.AccessType
 	ue.SmContextList.Range(func(key, value interface{}) bool {

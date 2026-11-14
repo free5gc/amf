@@ -12,7 +12,10 @@ import (
 	"github.com/free5gc/openapi/models"
 )
 
-func TestEncodeNewSecurityContextResetsBothCounts(t *testing.T) {
+// The initial SECURITY MODE COMMAND resets the NAS COUNTs before it is encoded; Encode protects a
+// message under the current downlink NAS COUNT for every security header type, so that a
+// retransmitted SECURITY MODE COMMAND takes the next one (TS 24.501 4.4.3.1).
+func TestEncodeNewSecurityContextKeepsCounts(t *testing.T) {
 	ue := newSecurityTestUE()
 	ue.SecurityContextAvailable = true
 	ue.ULCount.Set(3, 9)
@@ -27,8 +30,11 @@ func TestEncodeNewSecurityContextResetsBothCounts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, message.SecHdrTypeIntegrityProtectedWithNew5gNasSecCtx,
 		message.GetSecHdrType(payload))
-	require.Equal(t, uint32(0), ue.ULCount.Get())
-	require.Equal(t, uint32(1), ue.DLCount.Get())
+	header := new(message.SecProtectedHdr)
+	require.NoError(t, header.UnmarshalBinary(payload))
+	require.Equal(t, uint8(10), header.SequenceNumber)
+	require.Equal(t, uint32(3<<8|9), ue.ULCount.Get())
+	require.Equal(t, uint32(4<<8|11), ue.DLCount.Get())
 }
 
 func TestDecodeIntegrityProtectedServiceRequest(t *testing.T) {
@@ -89,6 +95,51 @@ func TestDecodeCipheredMACFailureRestoresCount(t *testing.T) {
 	require.Error(t, err)
 	require.False(t, integrityProtected)
 	require.Equal(t, uint32(2<<8|7), ue.ULCount.Get())
+}
+
+// TS 24.501 4.4.3.2: a given NAS COUNT value is accepted at most one time.
+func TestDecodeRejectsReplayedUplinkCount(t *testing.T) {
+	ue := newSecurityTestUE()
+	ue.SecurityContextAvailable = true
+	pduSessionReleaseRequest, err := (&message.PDUSessRelReq{PDUSessId: 5, PTI: 2}).MarshalBinary()
+	require.NoError(t, err)
+	ulNasTransport := &message.ULNASTransport{
+		PayloadCntrType: &ie.PayloadCntrType{Value: ie.PayloadCntrType_N1SMInfo},
+		PayloadCntr:     &ie.PayloadCntr{Pct: ie.PayloadCntrType_N1SMInfo, Contents: pduSessionReleaseRequest},
+		PDUSessID:       &ie.PDUSessId2{Value: 5},
+	}
+	encode := func(count uint32) []byte {
+		uplinkSecurity := message.NewSecCtx(
+			message.UESide,
+			message.Bearer3GPP,
+			ie.AlgCiphering(ue.CipheringAlg),
+			ie.AlgIntegrity(ue.IntegrityAlg),
+			ue.KnasEnc[:],
+			ue.KnasInt[:],
+		)
+		uplinkSecurity.UplinkCount.Set(uint16(count>>8), uint8(count))
+		payload, marshalErr := message.Marshal(
+			ulNasTransport, uplinkSecurity, message.SecHdrTypeIntegrityProtectedAndCiphered)
+		require.NoError(t, marshalErr)
+		return payload
+	}
+	atCount100 := encode(100)
+
+	decoded, integrityProtected, err := Decode(ue, models.AccessType_3_GPP_ACCESS, atCount100, false)
+	require.NoError(t, err)
+	require.True(t, integrityProtected)
+	require.IsType(t, &message.ULNASTransport{}, decoded)
+	require.Equal(t, uint32(100), ue.ULCount.Get())
+
+	_, integrityProtected, err = Decode(ue, models.AccessType_3_GPP_ACCESS, atCount100, false)
+	require.Error(t, err)
+	require.False(t, integrityProtected)
+	require.Equal(t, uint32(100), ue.ULCount.Get())
+
+	_, integrityProtected, err = Decode(ue, models.AccessType_3_GPP_ACCESS, encode(101), false)
+	require.NoError(t, err)
+	require.True(t, integrityProtected)
+	require.Equal(t, uint32(101), ue.ULCount.Get())
 }
 
 func newSecurityTestUE() *context.AmfUe {
