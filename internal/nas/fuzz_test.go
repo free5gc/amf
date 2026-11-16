@@ -71,7 +71,7 @@ func newFuzzRanUe(amfSelf *amf_context.AMFContext, tai models.Tai) *amf_context.
 		Log: logger.NgapLog,
 		Tai: tai,
 	}
-	ue.AmfUe = amfSelf.NewAmfUe("")
+	ue.SetAmfUe(amfSelf.NewAmfUe(""))
 	return ue
 }
 
@@ -132,7 +132,7 @@ func FuzzHandleNAS2(f *testing.F) {
 
 		ue := newFuzzRanUe(amfSelf, tai)
 		amf_nas.HandleNAS(ue, ngapMessage.ProcedureCodeInitialUEMessage, registrationPacket, true)
-		amfUe := ue.AmfUe
+		amfUe := ue.GetAmfUe()
 		amfUe.State[models.AccessType_3_GPP_ACCESS].Set(amf_context.Authentication)
 		amfUe.RequestIdentityType = ie.IdType_5GS_SUCI
 		amfUe.AuthenticationCtx = &models.Ausf_UEAU_UEAuthenticationCtx{

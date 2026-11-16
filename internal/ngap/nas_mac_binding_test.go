@@ -45,6 +45,7 @@ func bindingVictim(t *testing.T, secured bool) *amf_context.AmfUe {
 	amfSelf := amf_context.GetSelf()
 	amfUe := amfSelf.NewAmfUe("imsi-208930000000001")
 	amfUe.Guti = "20893cafe0000000001"
+	amfUe.GutiSignalled = true // a registered UE holds the 5G-GUTI of its last REGISTRATION ACCEPT
 	amfUe.SetSuci(bindingSuci.IdStr())
 	amfUe.State[models.AccessType_3_GPP_ACCESS].Set(amf_context.Registered)
 	amfUe.SecurityContextAvailable = secured
@@ -377,12 +378,12 @@ func TestHandleInitialUEMessageVerifiesMACBeforeBinding(t *testing.T) {
 
 			ranUe := ran.RanUeFindByRanUeNgapID(1)
 			require.NotNil(t, ranUe)
-			require.Equal(t, test.bound, ranUe.AmfUe == victim, "bound to the found context")
+			require.Equal(t, test.bound, ranUe.GetAmfUe() == victim, "bound to the found context")
 			if test.linked {
-				require.NotNil(t, ranUe.AmfUe)
-				require.Same(t, victim, ranUe.AmfUe.AuthenticatingFor, "new context not linked to the found one")
+				require.NotNil(t, ranUe.GetAmfUe())
+				require.Same(t, victim, ranUe.GetAmfUe().AuthenticatingFor, "new context not linked to the found one")
 			} else if !test.bound {
-				require.Nil(t, ranUe.AmfUe)
+				require.Nil(t, ranUe.GetAmfUe())
 			}
 			require.Equal(t, test.countAfter, victim.ULCount.Get())
 			if !test.bound {

@@ -139,8 +139,9 @@ func linkHandoverTarget(amfUe *context.AmfUe, sourceRanUe, targetRanUe *context.
 
 func ClearHoldingRanUe(ranUe *context.RanUe) {
 	if ranUe != nil {
-		if ranUe.AmfUe != nil && ranUe.AmfUe.State[ranUe.Ran.AnType] != nil {
-			if ranUe.AmfUe.State[ranUe.Ran.AnType].Is(context.Registered) && ranUe.AmfUe.CmConnect(ranUe.Ran.AnType) {
+		amfUe := ranUe.GetAmfUe()
+		if amfUe != nil && amfUe.State[ranUe.Ran.AnType] != nil {
+			if amfUe.State[ranUe.Ran.AnType].Is(context.Registered) && amfUe.CmConnect(ranUe.Ran.AnType) {
 				business_metrics.DecrUeConnectivityGauge(ranUe.Ran.AnType)
 			}
 		}

@@ -306,7 +306,7 @@ func (s *namfService) UEContextTransferRequest(
 	}
 
 	// guti format is defined at TS 29.518 Table 6.1.3.2.2-1 5g-guti-[0-9]{5,6}[0-9a-fA-F]{14}
-	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
+	ueContextId := fmt.Sprintf("5g-guti-%s", ue.GetGuti())
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
 		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
@@ -374,7 +374,7 @@ func (s *namfService) RegistrationStatusUpdate(
 		return false, nil, err
 	}
 
-	ueContextId := fmt.Sprintf("5g-guti-%s", ue.Guti)
+	ueContextId := fmt.Sprintf("5g-guti-%s", ue.GetGuti())
 
 	ctx, _, err := amf_context.GetSelf().GetTokenCtxForNFInstance(
 		models.Nrf_NFMgmt_ServiceName_NAMF_COMM, models.Nrf_NFMgmt_NFType_AMF, targetAMFID)
