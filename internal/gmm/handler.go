@@ -1160,18 +1160,15 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 		return errors.Errorf("AMF can not select an UDM by NRF: SendSearchNFInstances failed")
 	}
 
-	// UECM and SDM are taken from the same selected UDM instance.
-	var sdmUri string
-	udm, uecmUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NUDM_UECM)
-	if udm != nil {
-		ue.UdmId = udm.NfInstanceId
-		sdmUri = util.SearchNFServiceUri(udm, models.Nrf_NFMgmt_ServiceName_NUDM_SDM)
+	// TS 23.502 4.2.2.2.2 steps 13-14: UECM registration and SDM go to the same
+	// selected UDM, so it must provide both services.
+	udm, uris := util.SelectNFServices(resp.NfInstances,
+		models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_ServiceName_NUDM_SDM)
+	if udm == nil {
+		return errors.Errorf("AMF can not select an UDM by NRF: no UDM provides both UECM and SDM")
 	}
-	ue.NudmUECMUri = uecmUri
-	ue.NudmSDMUri = sdmUri
-	if ue.NudmUECMUri == "" || ue.NudmSDMUri == "" {
-		return errors.Errorf("AMF can not select an UDM by NRF: SearchNFServiceUri failed")
-	}
+	ue.UdmId = udm.NfInstanceId
+	ue.NudmUECMUri, ue.NudmSDMUri = uris[0], uris[1]
 
 	problemDetails, err := consumer.GetConsumer().UeCmRegistration(ue, accessType, true)
 	if problemDetails != nil {
