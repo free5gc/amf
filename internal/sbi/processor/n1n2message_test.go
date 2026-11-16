@@ -87,7 +87,7 @@ func TestN1N2MessageTransferProcedureRejectsDetachedRanUe(t *testing.T) {
 
 func TestN1N2MessageTransferProcedureAttachedRanUe(t *testing.T) {
 	ue, ranUe := newN1N2TestUe(t)
-	ranUe.AmfUe = ue
+	ranUe.SetAmfUe(ue)
 
 	p := &Processor{}
 	rsp, _, problemDetails, transferErr := p.N1N2MessageTransferProcedure(ue.Supi, "", newPduResSetupReq())
