@@ -71,13 +71,9 @@ func newRouter(s *Server) *gin.Engine {
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 
 	router.Use(metrics.InboundMetrics())
-	amfHttpCallBackGroup := router.Group(factory.AmfCallbackResUriPrefix)
-	amfHttpCallBackRoutes := s.getHttpCallBackRoutes()
-	callbackAuthCheck := util_oauth.NewRouterAuthorizationCheck(models.Nrf_NFMgmt_ServiceName("namf-callback"))
-	amfHttpCallBackGroup.Use(func(c *gin.Context) {
-		callbackAuthCheck.Check(c, amf_context.GetSelf())
-	})
-	applyRoutes(amfHttpCallBackGroup, amfHttpCallBackRoutes)
+	callbackGroup := router.Group(factory.AmfCallbackResUriPrefix)
+	// 3GPP TS 29.500 Rel-17 §6.7.3 does not use OAuth access tokens for Notify.
+	applyRoutes(callbackGroup, s.getNotificationRoutes())
 
 	for _, serverName := range factory.AmfConfig.Configuration.ServiceNameList {
 		switch models.Nrf_NFMgmt_ServiceName(serverName) {

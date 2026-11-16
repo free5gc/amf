@@ -1,6 +1,7 @@
 package callback
 
 import (
+	"context"
 	"fmt"
 
 	amf_context "github.com/free5gc/amf/internal/context"
@@ -25,15 +26,8 @@ func SendN2InfoNotifyN2Handover(ue *amf_context.AmfUe, releaseList []int32) erro
 		RequestBody: &n2InformationNotification,
 	}
 
-	ctx, pd, err := amf_context.GetSelf().GetTokenCtx(
-		models.Nrf_NFMgmt_ServiceName("namf-callback"), models.Nrf_NFMgmt_NFType_AMF)
-	if err != nil {
-		HttpLog.Warnf("SendN2InfoNotifyN2Handover get token failed: %+v", pd)
-		return err
-	}
-
-	_, err = client.IndividualUeContextDocumentApi.
-		N2InfoNotifyHandoverComplete(ctx, ue.HandoverNotifyUri, &n2InformationNotificationReq)
+	_, err := client.IndividualUeContextDocumentApi.
+		N2InfoNotifyHandoverComplete(context.Background(), ue.HandoverNotifyUri, &n2InformationNotificationReq)
 
 	if err == nil {
 		// TODO: handle Msg

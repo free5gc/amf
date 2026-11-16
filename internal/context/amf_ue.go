@@ -85,6 +85,9 @@ type AmfUe struct {
 	Pei                    string
 	Tmsi                   int32 // 5G-Tmsi
 	Guti                   string
+	GutiSignalled          bool   // Guti has been sent to the UE
+	OldTmsi                int32  // previous 5G-TMSI while the new 5G-GUTI is unacknowledged
+	OldGuti                string // TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)
 	GroupID                string
 	EBI                    int32
 	EventSubscriptionsInfo map[string]*AmfUeEventSubscription
@@ -161,6 +164,7 @@ type AmfUe struct {
 	NCC                      uint8     // 0..7
 	ULCount                  message.Count
 	DLCount                  message.Count
+	nasCountMu               sync.Mutex // guards ULCount and DLCount, see WithNASCounts
 	CipheringAlg             uint8
 	IntegrityAlg             uint8
 	/* Registration Area */
@@ -209,8 +213,10 @@ type AmfUe struct {
 	timerMu sync.Mutex
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
-	// identityMu serializes Suci: AmfUeFindBySuci scans the UE pool from an
-	// NGAP worker while a GMM handler records the SUCI on another goroutine.
+	// identityMu serializes the identities the UE presents: Suci, Guti, Tmsi,
+	// OldGuti and OldTmsi.  AmfUeFindBySuci and AmfUeFindByGuti scan the UE
+	// pool from NGAP and SBI goroutines while a GMM handler records them on
+	// another goroutine.
 	identityMu sync.RWMutex
 
 	// logger
@@ -331,6 +337,73 @@ func (ue *AmfUe) SetSuci(suci string) {
 	ue.Suci = suci
 }
 
+// GetGuti returns the 5G-GUTI the UE holds, or "" when it has none.
+func (ue *AmfUe) GetGuti() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Guti
+}
+
+// PagingGuti returns the 5G-GUTI whose 5G-S-TMSI pages the UE. While the UE has not acknowledged a
+// new 5G-GUTI, it may not have received it, and the AMF pages it with the old 5G-S-TMSI (TS 24.501
+// 5.4.4.6 b)1)i), 5.5.1.3.8 a)3)).
+func (ue *AmfUe) PagingGuti() string {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	if ue.OldGuti != "" {
+		return ue.OldGuti
+	}
+	return ue.Guti
+}
+
+// SetGuti records the 5G-GUTI the UE holds.
+func (ue *AmfUe) SetGuti(guti string) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Guti = guti
+}
+
+// SetGutiAndTmsi replaces the 5G-GUTI and the 5G-TMSI in one step and returns
+// the 5G-TMSI the UE held before, which its holder has to free.
+func (ue *AmfUe) SetGutiAndTmsi(guti string, tmsi int32) int32 {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	previousTmsi := ue.Tmsi
+	ue.Guti, ue.Tmsi = guti, tmsi
+	return previousTmsi
+}
+
+// GetTmsi returns the 5G-TMSI the UE holds, or 0 when it has none.
+func (ue *AmfUe) GetTmsi() int32 {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Tmsi
+}
+
+// SetTmsi records the 5G-TMSI of the 5G-GUTI the UE presented.
+func (ue *AmfUe) SetTmsi(tmsi int32) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	ue.Tmsi = tmsi
+}
+
+// HasOldGuti reports whether the UE still holds a 5G-GUTI it was given in a
+// REGISTRATION ACCEPT that it has not acknowledged yet.
+func (ue *AmfUe) HasOldGuti() bool {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.OldGuti != ""
+}
+
+// MatchesGuti reports whether guti is the 5G-GUTI the UE holds or the one it
+// was given in a REGISTRATION ACCEPT it has not acknowledged yet (TS 24.501
+// 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (ue *AmfUe) MatchesGuti(guti string) bool {
+	ue.identityMu.RLock()
+	defer ue.identityMu.RUnlock()
+	return ue.Guti == guti || (ue.OldGuti != "" && ue.OldGuti == guti)
+}
+
 func (ue *AmfUe) CmConnect(anType models.AccessType) bool {
 	return ue.GetRanUe(anType) != nil
 }
@@ -380,7 +453,18 @@ func (ue *AmfUe) Remove() {
 			business_metrics.DecrUeCmIdleStateGauge(accessType)
 		}
 	}
-	tmsiGenerator.FreeID(int64(ue.Tmsi))
+	// Take both 5G-TMSIs out of the UE in one step, so that a concurrent
+	// ReleaseOldGuti cannot free one of them a second time.
+	ue.identityMu.Lock()
+	tmsi, oldTmsi := ue.Tmsi, ue.OldTmsi
+	ue.Tmsi, ue.OldTmsi, ue.OldGuti = 0, 0, ""
+	ue.identityMu.Unlock()
+	if tmsi != 0 {
+		tmsiGenerator.FreeID(int64(tmsi))
+	}
+	if oldTmsi != 0 && oldTmsi != tmsi {
+		tmsiGenerator.FreeID(int64(oldTmsi))
+	}
 	if len(ue.Supi) > 0 {
 		// Only this context's own entry: a context that has authenticated a SUPI without being
 		// stored under it (e.g. one with AuthenticatingFor set) must not remove the stored context.
@@ -439,10 +523,12 @@ func (ue *AmfUe) AttachRanUe(ranUe *RanUe) {
 }
 
 // AttachRanUeLocked updates the link.  The caller must hold ue.RanUeMu.
+// ranUe.SetAmfUe is called last, so a goroutine that reaches the AmfUe through
+// ranUe.GetAmfUe() also sees the log fields set here.
 func (ue *AmfUe) AttachRanUeLocked(ranUe *RanUe) {
 	ue.RanUe[ranUe.Ran.AnType] = ranUe
-	ranUe.AmfUe = ue
 	ue.updateLogFields(ranUe.Ran.AnType)
+	ranUe.SetAmfUe(ue)
 }
 
 // UpdateLogFields refreshes the per-UE logger fields.  It is serialized with
@@ -629,11 +715,32 @@ func (ue *AmfUe) DerivateAlgKey() {
 	copy(ue.KnasInt[:], kint[16:32])
 }
 
+// WithNASCounts runs f with exclusive access to the uplink and downlink NAS COUNTs. Every
+// read-modify-write of ULCount or DLCount (message.Parse, message.Marshal, a COUNT reset or a
+// transferred COUNT) runs in it, so an uplink COUNT is accepted at most once (TS 24.501 4.4.3.2)
+// and no downlink COUNT is used twice (TS 24.501 4.4.3.1). nasCountMu is a leaf lock: f must not
+// block, send, or take another lock. The lock is on the AmfUe whose COUNTs it guards, so a
+// concurrent change of RanUe.AmfUe cannot make a caller lock one AmfUe and use another's COUNTs.
+func (ue *AmfUe) WithNASCounts(f func(ulCount, dlCount *message.Count)) {
+	ue.nasCountMu.Lock()
+	defer ue.nasCountMu.Unlock()
+	f(&ue.ULCount, &ue.DLCount)
+}
+
+// NASCounts returns a consistent copy of the uplink and downlink NAS COUNTs.
+func (ue *AmfUe) NASCounts() (ulCount, dlCount message.Count) {
+	ue.WithNASCounts(func(ul, dl *message.Count) {
+		ulCount, dlCount = *ul, *dl
+	})
+	return ulCount, dlCount
+}
+
 // Access Network key Derivation function defined in TS 33.501 Annex A.9
 func (ue *AmfUe) DerivateAnKey(anType models.AccessType) {
 	accessType := message.AccessType3GPP // Defalut 3gpp
 	P0 := make([]byte, 4)
-	binary.BigEndian.PutUint32(P0, ue.ULCount.Get())
+	ulCount, _ := ue.NASCounts()
+	binary.BigEndian.PutUint32(P0, ulCount.Get())
 	L0 := ueauth.KDFLen(P0)
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
 		accessType = message.AccessTypeNon3GPP
@@ -972,17 +1079,21 @@ func (ue *AmfUe) CopyDataFromUeContextModel(ueContext *models.Amf_Comm_UeContext
 						ue.CipheringAlg = uint8(message.AlgCiphering128NEA3)
 					}
 
-					if mmContext.NasDownlinkCount != 0 {
-						overflow := uint16((uint32(mmContext.NasDownlinkCount) & 0x00ffff00) >> 8)
-						sqn := uint8(uint32(mmContext.NasDownlinkCount & 0x000000ff))
-						ue.DLCount.Set(overflow, sqn)
-					}
+					ue.WithNASCounts(func(ulCount, dlCount *message.Count) {
+						if mmContext.NasDownlinkCount != 0 {
+							overflow := uint16((uint32(mmContext.NasDownlinkCount) & 0x00ffff00) >> 8)
+							sqn := uint8(uint32(mmContext.NasDownlinkCount & 0x000000ff))
+							dlCount.Set(overflow, sqn)
+						}
 
-					if mmContext.NasUplinkCount != 0 {
-						overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
-						sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
-						ue.ULCount.Set(overflow, sqn)
-					}
+						if mmContext.NasUplinkCount != 0 {
+							overflow := uint16((uint32(mmContext.NasUplinkCount) & 0x00ffff00) >> 8)
+							sqn := uint8(uint32(mmContext.NasUplinkCount & 0x000000ff))
+							ulCount.Set(overflow, sqn)
+							// TS 24.501 4.4.3.1: this is the largest uplink NAS COUNT the old AMF accepted.
+							ulCount.MarkAccepted()
+						}
+					})
 
 					// TS 29.518 Table 6.1.6.3.2.1
 					if mmContext.UeSecurityCapability != "" {

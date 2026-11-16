@@ -98,7 +98,7 @@ func (p *Processor) buildUEContext(ue *context.AmfUe, accessType models.AccessTy
 		ueContext := &UEContext{
 			AccessType: models.AccessType_3_GPP_ACCESS,
 			Supi:       ue.Supi,
-			Guti:       ue.Guti,
+			Guti:       ue.GetGuti(),
 			Mcc:        ue.Tai.PlmnId.Mcc,
 			Mnc:        ue.Tai.PlmnId.Mnc,
 			Tac:        ue.Tai.Tac,

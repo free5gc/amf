@@ -221,3 +221,37 @@ func TestLowerLayerFailureAbortsT3550(t *testing.T) {
 	assert.True(t, amfUe.State[anType].Is(context.Authentication),
 		"the old T3550 moved the new procedure to %s", amfUe.State[anType].Current())
 }
+
+// TestAuthenticationRequestRacesHoldingRanUeRelease drives the RanUe->AmfUe
+// link from two goroutines: the old N2 connection of a UE is still sending its
+// Authentication Request (SendAuthenticationRequest, also run by the T3560
+// retransmission) while the HandleNAS of the UE's new connection releases the
+// old RanUe (ClearHoldingRanUe detaches it).  Every reader must take one
+// snapshot of ranUe.AmfUe: a detach between the nil check and a second read
+// would dereference nil.
+func TestAuthenticationRequestRacesHoldingRanUeRelease(t *testing.T) {
+	amfUe, ranUe, _ := newAuthenticatingUe(t, "imsi-208930000000103",
+		factory.TimerValue{Enable: true, ExpireTime: time.Minute, MaxRetryTimes: 4})
+
+	const iterations = 200
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < iterations; i++ {
+			SendAuthenticationRequest(ranUe)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		gmm_common.ClearHoldingRanUe(ranUe)
+	}()
+	close(start)
+	wg.Wait()
+
+	amfUe.StopT3560()
+	require.Nil(t, ranUe.GetAmfUe())
+}

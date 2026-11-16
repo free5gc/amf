@@ -2,6 +2,7 @@ package context
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -11,6 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/free5gc/amf/internal/logger"
 	"github.com/free5gc/amf/pkg/factory"
@@ -74,6 +77,7 @@ type AMFContext struct {
 	AMFStatusSubscriptions       sync.Map // map[subscriptionID]models.SubscriptionData
 	NrfUri                       string
 	NrfCertPem                   string
+	NrfNfInstanceID              string
 	SecurityAlgorithm            SecurityAlgorithm
 	NetworkName                  factory.NetworkName
 	NgapIpList                   []string // NGAP Server IP
@@ -217,12 +221,75 @@ func (context *AMFContext) AllocateAmfUeNgapID() (int64, error) {
 }
 
 func (context *AMFContext) AllocateGutiToUe(ue *AmfUe) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	context.allocateGutiLocked(ue)
+}
+
+// allocateGutiLocked allocates a 5G-GUTI for ue.  The caller holds ue.identityMu.
+func (context *AMFContext) allocateGutiLocked(ue *AmfUe) {
 	servedGuami := context.ServedGuamiList[0]
 	ue.Tmsi = context.TmsiAllocate()
 
 	plmnID := servedGuami.PlmnId.Mcc + servedGuami.PlmnId.Mnc
 	tmsiStr := fmt.Sprintf("%08x", ue.Tmsi)
 	ue.Guti = plmnID + servedGuami.AmfId + tmsiStr
+}
+
+// ReallocateGuti selects the 5G-GUTI for a REGISTRATION ACCEPT or a CONFIGURATION
+// UPDATE COMMAND. usedGuti is the 5G-GUTI the UE identified itself with, if any.
+//
+// A 5G-GUTI this AMF allocated and has not sent yet (a new context) is used as
+// is. Otherwise a new 5G-GUTI is allocated and the one the UE holds stays valid
+// until the UE acknowledges or uses the new one (TS 24.501 5.3.3,
+// 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (context *AMFContext) ReallocateGuti(ue *AmfUe, usedGuti string) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	if !ue.GutiSignalled && ue.Tmsi != 0 {
+		ue.GutiSignalled = true
+		return
+	}
+	// An empty usedGuti (SUCI, IMEI or no identity at all) does not prove
+	// either that the UE received the unacknowledged 5G-GUTI, so it keeps the
+	// old one valid exactly as a request that names the old 5G-GUTI does.
+	if ue.OldGuti != "" && (usedGuti == "" || usedGuti == ue.OldGuti) {
+		// The UE never received the unacknowledged 5G-GUTI: it is superseded.
+		// The retained 5G-TMSI is freed by releaseOldGutiLocked, so it must not
+		// be the same 5G-TMSI or it would be freed twice.
+		if ue.OldTmsi != ue.Tmsi {
+			context.FreeTmsi(int64(ue.Tmsi))
+		}
+	} else {
+		// The UE did not use the old 5G-GUTI, so it is no longer valid. Keep
+		// the current one valid if this AMF allocated it.
+		context.releaseOldGutiLocked(ue)
+		if ue.Tmsi != 0 {
+			ue.OldTmsi, ue.OldGuti = ue.Tmsi, ue.Guti
+		}
+	}
+	context.allocateGutiLocked(ue)
+	ue.GutiSignalled = true
+}
+
+// ReleaseOldGuti invalidates the 5G-GUTI that was kept valid while a new one was
+// unacknowledged (TS 24.501 5.5.1.2.8 a), 5.5.1.3.8 a)).
+func (context *AMFContext) ReleaseOldGuti(ue *AmfUe) {
+	ue.identityMu.Lock()
+	defer ue.identityMu.Unlock()
+	context.releaseOldGutiLocked(ue)
+}
+
+// releaseOldGutiLocked invalidates the retained 5G-GUTI.  The caller holds
+// ue.identityMu.
+func (context *AMFContext) releaseOldGutiLocked(ue *AmfUe) {
+	if ue.OldGuti == "" {
+		return
+	}
+	if ue.OldTmsi != ue.Tmsi {
+		context.FreeTmsi(int64(ue.OldTmsi))
+	}
+	ue.OldTmsi, ue.OldGuti = 0, ""
 }
 
 func (context *AMFContext) AllocateRegistrationArea(ue *AmfUe, anType models.AccessType) {
@@ -315,7 +382,7 @@ func (context *AMFContext) NewAmfUe(supi string) *AmfUe {
 
 	context.AllocateGutiToUe(&ue)
 
-	logger.CtxLog.Infof("New AmfUe [supi:%s][guti:%s]", supi, ue.Guti)
+	logger.CtxLog.Infof("New AmfUe [supi:%s][guti:%s]", supi, ue.GetGuti())
 	return &ue
 }
 
@@ -454,7 +521,7 @@ func (context *AMFContext) AmfUeFindByGuti(guti string) (*AmfUe, bool) {
 	var ok bool
 	context.UePool.Range(func(key, value interface{}) bool {
 		candidate := value.(*AmfUe)
-		if ok = (candidate.Guti == guti); ok {
+		if ok = candidate.MatchesGuti(guti); ok {
 			ue = candidate
 			return false
 		}
@@ -553,6 +620,8 @@ func (context *AMFContext) Reset() {
 	context.Name = "amf"
 	context.NrfUri = ""
 	context.NrfCertPem = ""
+
+	context.NrfNfInstanceID = ""
 	context.OAuth2Required.Store(false)
 }
 
@@ -567,8 +636,71 @@ func (c *AMFContext) GetTokenCtx(serviceName models.Nrf_NFMgmt_ServiceName, targ
 	if !c.OAuth2Required.Load() {
 		return context.TODO(), nil, nil
 	}
-	return oauth.GetTokenCtx(models.Nrf_NFMgmt_NFType_AMF, targetNF,
-		c.NfId, c.NrfUri, string(serviceName))
+	return oauth.GetTokenCtx(c.tokenRequest(serviceName, targetNF))
+}
+
+func (c *AMFContext) GetTokenCtxForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) (context.Context, *models.ProblemDetails, error) {
+	if !c.OAuth2Required.Load() {
+		return context.TODO(), nil, nil
+	}
+	targetID, err := uuid.Parse(strings.TrimSpace(targetNFInstanceID))
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid target NF instance ID: %w", err)
+	}
+	if targetID.Version() != 4 {
+		return nil, nil, errors.New("invalid target NF instance ID: UUID must be version 4")
+	}
+	return oauth.GetTokenCtx(c.tokenRequestForNFInstance(serviceName, targetNF, targetNFInstanceID))
+}
+
+func (c *AMFContext) GetTokenCtxForNRF(serviceName models.Nrf_NFMgmt_ServiceName) (
+	context.Context, *models.ProblemDetails, error,
+) {
+	return c.GetTokenCtxForNFInstance(serviceName, models.Nrf_NFMgmt_NFType_NRF, c.NrfNfInstanceID)
+}
+
+func (c *AMFContext) tokenRequest(
+	serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType,
+) oauth.TokenRequest {
+	return oauth.TokenRequest{
+		ConsumerNFType:       models.Nrf_NFMgmt_NFType_AMF,
+		ConsumerNFInstanceID: c.NfId,
+		TargetNFType:         targetNF,
+		NRFURI:               c.NrfUri,
+		Scope:                string(serviceName),
+	}
+}
+
+func (c *AMFContext) tokenRequestForNFInstance(serviceName models.Nrf_NFMgmt_ServiceName,
+	targetNF models.Nrf_NFMgmt_NFType, targetNFInstanceID string,
+) oauth.TokenRequest {
+	request := c.tokenRequest(serviceName, targetNF)
+	request.TargetNFInstanceID = targetNFInstanceID
+	return request
+}
+
+func (c *AMFContext) SetOAuth2Required(required bool) error {
+	if !required {
+		c.OAuth2Required.Store(false)
+		c.NrfNfInstanceID = ""
+		return nil
+	}
+	if strings.TrimSpace(c.NrfCertPem) == "" {
+		return errors.New("OAuth2 enabled but NRF certificate path is empty")
+	}
+	if strings.TrimSpace(c.NrfUri) == "" {
+		return errors.New("OAuth2 enabled but NRF URI is empty")
+	}
+	nrfNfInstanceID, err := oauth.NFInstanceIDFromCertificate(c.NrfCertPem)
+	if err != nil {
+		return fmt.Errorf("derive trusted NRF instance ID from certificate: %w", err)
+	}
+	c.NrfNfInstanceID = nrfNfInstanceID
+	c.OAuth2Required.Store(true)
+	return nil
 }
 
 func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFMgmt_ServiceName) error {
@@ -577,6 +709,9 @@ func (c *AMFContext) AuthorizationCheck(token string, serviceName models.Nrf_NFM
 		return nil
 	}
 
-	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: token[%s] serviceName[%s]\n", token, serviceName)
-	return oauth.VerifyOAuth(token, string(serviceName), c.NrfCertPem)
+	logger.UtilLog.Debugf("AMFContext::AuthorizationCheck: tokenPresent[%t] serviceName[%s]", token != "", serviceName)
+	return oauth.VerifyOAuth(token, string(serviceName), oauth.AudiencePolicy{
+		NFInstanceID: c.NfId,
+		NFType:       models.Nrf_NFMgmt_NFType_AMF,
+	}, c.NrfNfInstanceID, c.NrfCertPem)
 }

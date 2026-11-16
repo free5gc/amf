@@ -436,8 +436,9 @@ func (p *Processor) buildUEContextModel(
 				mmContext.UeSecurityCapability = base64.StdEncoding.EncodeToString(capability)
 			}
 		}
-		mmContext.NasDownlinkCount = int32(ue.DLCount.Get())
-		mmContext.NasUplinkCount = int32(ue.ULCount.Get())
+		ulCount, dlCount := ue.NASCounts()
+		mmContext.NasDownlinkCount = int32(dlCount.Get())
+		mmContext.NasUplinkCount = int32(ulCount.Get())
 		if ue.AllowedNssai[models.AccessType_3_GPP_ACCESS] != nil {
 			for _, allowedSnssai := range ue.AllowedNssai[models.AccessType_3_GPP_ACCESS] {
 				mmContext.AllowedNssai = append(mmContext.AllowedNssai, *(allowedSnssai.AllowedSnssai))
