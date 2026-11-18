@@ -44,7 +44,7 @@ func NewSctpConfig(cfg *factory.Sctp) *sctp.SocketConfig {
 			MaxInitTimeout: uint16(cfg.MaxInitTimeout),
 		},
 		RtoInfo:   &sctp.RtoInfo{SrtoAssocID: 0, SrtoInitial: 500, SrtoMax: 1500, StroMin: 100},
-		AssocInfo: &sctp.AssocInfo{AsocMaxRxt: 4},
+		AssocInfo: &sctp.AssocInfo{AsocMaxRxt: 7},
 	}
 	return sctpConfig
 }
