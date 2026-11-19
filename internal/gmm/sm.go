@@ -10,6 +10,7 @@ import (
 	business_metrics "github.com/free5gc/amf/internal/metrics/business"
 	ngap_message "github.com/free5gc/amf/internal/ngap/message"
 	"github.com/free5gc/amf/internal/sbi/consumer"
+	callback "github.com/free5gc/amf/internal/sbi/processor/notifier"
 	"github.com/free5gc/nas/ie"
 	nas_message "github.com/free5gc/nas/message"
 	ngapType "github.com/free5gc/ngap/ie"
@@ -75,6 +76,8 @@ func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		if amfUe.CmConnect(accessType) {
 			business_metrics.IncrUeConnectivityGauge(accessType)
 		}
+		callback.FireContinuousEventReport(amfUe, models.Amf_EvtExpos_AmfEventType_REGISTRATION_STATE_REPORT)
+		callback.FireContinuousEventReport(amfUe, models.Amf_EvtExpos_AmfEventType_ACCESS_TYPE_REPORT)
 
 	case GmmMessageEvent:
 		amfUe := args[ArgAmfUe].(*context.AmfUe)
@@ -141,6 +144,8 @@ func Registered(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 		if amfUe.CmConnect(accessType) {
 			business_metrics.DecrUeConnectivityGauge(accessType)
 		}
+		callback.FireContinuousEventReport(amfUe, models.Amf_EvtExpos_AmfEventType_REGISTRATION_STATE_REPORT)
+		callback.FireContinuousEventReport(amfUe, models.Amf_EvtExpos_AmfEventType_ACCESS_TYPE_REPORT)
 	default:
 		logger.GmmLog.Errorf("Unknown event [%+v]", event)
 	}
