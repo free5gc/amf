@@ -869,15 +869,9 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 		if err != nil {
 			ue.GmmLog.Error("AMF can not select an PCF by NRF")
 		} else {
-			// select the first PCF, TODO: select base on other info
-			var pcfUri string
-			for index := range resp.NfInstances {
-				pcfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL,
-					models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-				if pcfUri != "" {
-					ue.PcfId = resp.NfInstances[index].NfInstanceId
-					break
-				}
+			pcf, pcfUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NPCF_AM_POLICY_CONTROL)
+			if pcf != nil {
+				ue.PcfId = pcf.NfInstanceId
 			}
 			if ue.PcfUri = pcfUri; ue.PcfUri == "" {
 				ue.GmmLog.Error("AMF can not select an PCF by NRF")
@@ -1166,22 +1160,15 @@ func communicateWithUDM(ue *context.AmfUe, accessType models.AccessType) error {
 		return errors.Errorf("AMF can not select an UDM by NRF: SendSearchNFInstances failed")
 	}
 
-	var uecmUri, sdmUri string
-	for index := range resp.NfInstances {
-		ue.UdmId = resp.NfInstances[index].NfInstanceId
-		uecmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NUDM_UECM,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		sdmUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NUDM_SDM,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if uecmUri != "" && sdmUri != "" {
-			break
-		}
+	// TS 23.502 4.2.2.2.2 steps 13-14: UECM registration and SDM go to the same
+	// selected UDM, so it must provide both services.
+	udm, uris := util.SelectNFServices(resp.NfInstances,
+		models.Nrf_NFMgmt_ServiceName_NUDM_UECM, models.Nrf_NFMgmt_ServiceName_NUDM_SDM)
+	if udm == nil {
+		return errors.Errorf("AMF can not select an UDM by NRF: no UDM provides both UECM and SDM")
 	}
-	ue.NudmUECMUri = uecmUri
-	ue.NudmSDMUri = sdmUri
-	if ue.NudmUECMUri == "" || ue.NudmSDMUri == "" {
-		return errors.Errorf("AMF can not select an UDM by NRF: SearchNFServiceUri failed")
-	}
+	ue.UdmId = udm.NfInstanceId
+	ue.NudmUECMUri, ue.NudmSDMUri = uris[0], uris[1]
 
 	problemDetails, err := consumer.GetConsumer().UeCmRegistration(ue, accessType, true)
 	if problemDetails != nil {
@@ -1961,15 +1948,9 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		return false, err
 	}
 
-	// select the first AUSF, TODO: select base on other info
-	var ausfUri string
-	for index := range resp.NfInstances {
-		ue.AusfId = resp.NfInstances[index].NfInstanceId
-		ausfUri = util.SearchNFServiceUri(&resp.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if ausfUri != "" {
-			break
-		}
+	ausf, ausfUri := util.SelectNFService(resp.NfInstances, models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH)
+	if ausf != nil {
+		ue.AusfId = ausf.NfInstanceId
 	}
 	if ausfUri == "" {
 		err = fmt.Errorf("AMF can not select an AUSF by NRF")

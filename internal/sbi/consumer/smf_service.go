@@ -139,14 +139,8 @@ func (s *nsmfService) SelectSmf(
 		return nil, ie.Cause5GMM_DNNNotSupportedOrNotSubscribedInTheSlice, err
 	}
 
-	// select the first SMF, TODO: select base on other info
-	for index := range result.NfInstances {
-		smfUri = util.SearchNFServiceUri(&result.NfInstances[index], models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION,
-			models.Nrf_NFMgmt_NFServiceStatus_REGISTERED)
-		if smfUri != "" {
-			smfID = result.NfInstances[index].NfInstanceId
-			break
-		}
+	if smf, uri := util.SelectNFService(result.NfInstances, models.Nrf_NFMgmt_ServiceName_NSMF_PDUSESSION); smf != nil {
+		smfID, smfUri = smf.NfInstanceId, uri
 	}
 	smContext.SetSmfID(smfID)
 	smContext.SetSmfUri(smfUri)
