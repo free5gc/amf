@@ -2210,8 +2210,8 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 			}
 		}
 
-		// downlink signaling
-		if ue.N1N2Message == nil && (pagingResponse || ue.ConfigurationUpdateCommandFlags != nil) {
+		// downlink signaling (sent after the switch) or nothing pending: the request is accepted (TS 24.501 5.6.1.4)
+		if ue.N1N2Message == nil {
 			err := gmm_message.SendServiceAccept(ue, anType, cxtList,
 				pduStatusResult, reactivationResult, errPduSessionId, errCause)
 			if err != nil {
@@ -2240,7 +2240,7 @@ func HandleServiceRequest(ue *context.AmfUe, anType models.AccessType,
 		if err != nil {
 			return err
 		}
-	case uint8(ie.SvcType_HighPriorityAccess):
+	case uint8(ie.SvcType_HighPriorityAccess), uint8(ie.SvcType_ElevatedSignalling):
 		// TODO: support HighPriorityAccess
 		err := gmm_message.SendServiceAccept(ue, anType, cxtList, pduStatusResult,
 			reactivationResult, errPduSessionId, errCause)
