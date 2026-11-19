@@ -362,7 +362,7 @@ func (p *Processor) N1MessageNotifyProcedure(n1MessageNotify models.N1MessageNot
 			return
 		}
 
-		currentRanUe.Location = *registrationCtxtContainer.UserLocation
+		currentRanUe.SetLocation(*registrationCtxtContainer.UserLocation)
 		amfUe.Location = *registrationCtxtContainer.UserLocation
 		currentRanUe.UeContextRequest = registrationCtxtContainer.UeContextRequest
 		currentRanUe.OldAmfName = registrationCtxtContainer.InitialAmfName
