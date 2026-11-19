@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/free5gc/amf/internal/context"
+	"github.com/free5gc/amf/internal/sbi/consumer"
 	"github.com/free5gc/nas/ie"
 	nasMessage "github.com/free5gc/nas/message"
 	"github.com/free5gc/openapi/models"
@@ -90,10 +91,13 @@ func TestAuthenticationResponseWithResStarStopsT3560(t *testing.T) {
 	ue := newAuthTimerTestUe(t)
 	authTimerTestStartChallenge(ue, make([]byte, 16), make([]byte, 16))
 	ue.IdentityTypeUsedForRegistration = ie.IdType_5GS_GUTI
+	// The RES* goes to the AUSF (TS 33.501 6.1.3.2.2); the challenge has no AUSF link, so it gets no answer.
+	_, err := consumer.NewConsumer(nssaiTestApp{})
+	require.NoError(t, err)
 
 	wrongRes := make([]byte, 16)
 	wrongRes[0] = 1
-	err := HandleAuthenticationResponse(ue, models.AccessType_3_GPP_ACCESS,
+	err = HandleAuthenticationResponse(ue, models.AccessType_3_GPP_ACCESS,
 		&nasMessage.AuthRsp{AuthRspParam: &ie.AuthRspParam{Res: wrongRes}})
 
 	require.NoError(t, err)
