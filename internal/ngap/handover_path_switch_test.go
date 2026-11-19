@@ -86,12 +86,14 @@ func TestPathSwitchSourceReusesRanUeNgapID(t *testing.T) {
 }
 
 // A path switch that fails (no PDU session switched) leaves the UE on the
-// source node, which keeps addressing it with its own RAN-UE-NGAP-ID.
+// source node, which keeps addressing it with its own RAN-UE-NGAP-ID.  The AMF
+// answers it with a PATH SWITCH REQUEST FAILURE that releases the session
+// (TS 38.413 9.2.3.10), which no other test checks for this failure.
 func TestPathSwitchFailureKeepsRanUeNgapID(t *testing.T) {
 	e := newHoTestEnv(t, false)
 	sendXnPathSwitch(e, 10, 9) // PDU session 9 does not exist
 
-	hoRequireSent(t, e.tgtConn, "failed path switch acknowledged")
+	hoRequireSent(t, e.tgtConn, "failed path switch not answered", "PathSwitchRequestFailure")
 	e.smf.requireRequests(t, 0, "SMF asked to switch an unknown PDU session")
 	require.Same(t, e.srcRan, e.src.Ran)
 	require.EqualValues(t, 1, e.src.RanUeNgapId)
