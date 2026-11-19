@@ -142,8 +142,9 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 				}
 				ue.GmmLog.Warningf("Duplicated PDU session ID[%d]", pduSessionID)
 				smContext.SetDuplicatedPduSessionID(true)
-				response, _, _, err := consumer.GetConsumer().SendUpdateSmContextRequest(smContext, &updateData, nil, nil)
-				if err != nil {
+				response, errResponse, problemDetail, err := consumer.GetConsumer().SendUpdateSmContextRequest(
+					smContext, &updateData, nil, nil)
+				if err != nil || errResponse != nil || problemDetail != nil {
 					ue.GmmLog.Errorf("Failed to update smContext, local release SmContext[%d]", pduSessionID)
 					ue.DeleteSmContext(pduSessionID, smContext.AccessType())
 					return err
@@ -291,8 +292,13 @@ func CreatePDUSession(ulNasTransport *nas_message.ULNASTransport,
 		} else if errResponse != nil {
 			ue.GmmLog.Warnf("PDU Session Establishment Request is rejected by SMF[pduSessionId:%d]",
 				pduSessionID)
+			n1SmMsg := relatedContentBytes(errResponse.BinaryDataN1SmMessage)
+			if n1SmMsg == nil {
+				ue.GmmLog.Errorf("SMF rejected the request without an N1 SM message[pduSessionId:%d]", pduSessionID)
+				return false, nil
+			}
 			gmm_message.SendDLNASTransport(ue.GetRanUe(anType), ie.PayloadCntrType_N1SMInfo,
-				relatedContentBytes(errResponse.BinaryDataN1SmMessage), pduSessionID, 0, nil, 0)
+				n1SmMsg, pduSessionID, 0, nil, 0)
 		} else {
 			newSmContext.SetSmContextRef(smContextRef)
 			newSmContext.SetUserLocation(deepcopy.Copy(ue.Location).(models.UserLocation))
