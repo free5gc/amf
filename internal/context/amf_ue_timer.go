@@ -142,8 +142,44 @@ func (ue *AmfUe) HasT3550() bool {
 	return ue.hasTimer(&ue.T3550)
 }
 
+// SetRegistrationAcceptResend records resend, which sends the Registration
+// Accept again, for a configuration without T3550, where no timer holds the
+// accept; nil forgets it.
+func (ue *AmfUe) SetRegistrationAcceptResend(resend func()) {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	ue.registrationAcceptResend = resend
+}
+
+// RegistrationAcceptSent reports whether a Registration Accept is waiting for
+// Registration Complete: T3550 is running or, in a configuration without
+// T3550, the accept has been sent.
+func (ue *AmfUe) RegistrationAcceptSent() bool {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	return ue.T3550 != nil || ue.registrationAcceptResend != nil
+}
+
+// ResendRegistrationAccept resends the Registration Accept that is waiting for
+// Registration Complete, and reports whether there is one.  A running T3550
+// resends it at once and restarts, without counting an expiry (see
+// Timer.Retransmit); in a configuration without T3550 the accept is sent again.
+func (ue *AmfUe) ResendRegistrationAccept() bool {
+	ue.timerMu.Lock()
+	timer, resend := ue.T3550, ue.registrationAcceptResend
+	if timer != nil {
+		timer.Retransmit()
+	}
+	ue.timerMu.Unlock()
+	if timer == nil && resend != nil {
+		resend()
+	}
+	return timer != nil || resend != nil
+}
+
 // StopAll5GSMMTimers stops every 5GMM timer of the UE and, if paging was in
-// progress, ends the paging procedure.
+// progress, ends the paging procedure.  A Registration Accept sent without
+// T3550 is no longer resent either.
 func (ue *AmfUe) StopAll5GSMMTimers() {
 	if timer := ue.takeTimer(&ue.T3513); timer != nil {
 		timer.Stop()
@@ -158,4 +194,5 @@ func (ue *AmfUe) StopAll5GSMMTimers() {
 			timer.Stop()
 		}
 	}
+	ue.SetRegistrationAcceptResend(nil)
 }

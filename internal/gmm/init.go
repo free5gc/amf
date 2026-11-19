@@ -41,6 +41,8 @@ var transitions = fsm.Transitions{
 	{Event: GmmMessageEvent, From: context.Registered, To: context.Registered},
 	{Event: StartAuthEvent, From: context.Deregistered, To: context.Authentication},
 	{Event: StartAuthEvent, From: context.Registered, To: context.Authentication},
+	{Event: StartAuthEvent, From: context.SecurityMode, To: context.Authentication},
+	{Event: StartAuthEvent, From: context.ContextSetup, To: context.Authentication},
 	{Event: AuthRestartEvent, From: context.Authentication, To: context.Authentication},
 	{Event: AuthSuccessEvent, From: context.Authentication, To: context.SecurityMode},
 	{Event: AuthFailEvent, From: context.Authentication, To: context.Deregistered},
@@ -50,6 +52,9 @@ var transitions = fsm.Transitions{
 	{Event: ContextSetupSuccessEvent, From: context.ContextSetup, To: context.Registered},
 	{Event: ContextSetupFailEvent, From: context.ContextSetup, To: context.Deregistered},
 	{Event: InitDeregistrationEvent, From: context.Registered, To: context.DeregistrationInitiated},
+	{Event: InitDeregistrationEvent, From: context.Authentication, To: context.DeregistrationInitiated},
+	{Event: InitDeregistrationEvent, From: context.SecurityMode, To: context.DeregistrationInitiated},
+	{Event: InitDeregistrationEvent, From: context.ContextSetup, To: context.DeregistrationInitiated},
 	{Event: DeregistrationAcceptEvent, From: context.DeregistrationInitiated, To: context.Deregistered},
 }
 
