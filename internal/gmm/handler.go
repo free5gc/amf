@@ -109,6 +109,7 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 	if ulNasTransport.OldPDUSessID == nil {
 		smContext, smContextExist := ue.SmContextFindByPDUSessionID(pduSessionID)
 		requestType := ulNasTransport.ReqType
+		interpretRequestType(requestType)
 
 		if requestType != nil {
 			switch requestType.Value {
@@ -223,6 +224,14 @@ func transport5GSMMessage(ue *context.AmfUe, anType models.AccessType,
 		return fmt.Errorf("SSC mode3 operation has not been implemented yet")
 	}
 	return nil
+}
+
+// interpretRequestType interprets the Request type IE as the network does (TS 24.501 9.11.3.47): the unused value,
+// and "MA PDU request" in a network that does not support MA PDU sessions, are "initial request".
+func interpretRequestType(requestType *ie.ReqType) {
+	if requestType != nil && (requestType.Value == 0 || requestType.Value == ie.ReqType_MAPDUReq) {
+		requestType.Value = ie.ReqType_InitialReq
+	}
 }
 
 func CreatePDUSession(ulNasTransport *nas_message.ULNASTransport,
