@@ -2039,6 +2039,12 @@ func handleHandoverRequiredMain(ran *context.AmfRan,
 		sourceUe.Log.Warnf("Handover required : cannot find target Ran Node Id[%+v] in this AMF", targetRanNodeId)
 		sourceUe.Log.Error("Handover between different AMF has not been implemented yet")
 		hoFailCause = business_metrics.HANDOVER_BETWEEN_DIFFERENT_AMF_NOT_SUPPORTED
+		cause = &ngapType.Cause{
+			Choice: &ngapType.CauseRadioNetwork{
+				Value: ngapType.CauseRadioNetworkPresentUnknownTargetID,
+			},
+		}
+		ngap_message.SendHandoverPreparationFailure(sourceUe, *cause, nil)
 		return
 		// TODO: Send to T-AMF
 		// Described in (23.502 4.9.1.3.2) step 3.Namf_Communication_CreateUEContext Request
