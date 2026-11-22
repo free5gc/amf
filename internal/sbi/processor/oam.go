@@ -51,7 +51,7 @@ func (p *Processor) HandleOAMRegisteredUEContext(c *gin.Context) {
 }
 
 func (p *Processor) OAMRegisteredUEContextProcedure(supi string) (UEContexts, *models.ProblemDetails) {
-	var ueContexts UEContexts
+	ueContexts := make(UEContexts, 0)
 	amfSelf := context.GetSelf()
 
 	if supi != "" {
