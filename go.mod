@@ -7,7 +7,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/free5gc/nas v1.3.1
 	github.com/free5gc/ngap v1.2.0
-	github.com/free5gc/openapi v1.3.1-0.20261104070955-7fad8e868cb2
+	github.com/free5gc/openapi v1.3.1-0.20261123104051-bc062c4e038c
 	github.com/free5gc/sctp v1.2.0
 	github.com/free5gc/util v1.4.1-0.20261118044530-a14766fe79d2
 	github.com/gin-gonic/gin v1.10.0
