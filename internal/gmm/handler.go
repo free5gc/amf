@@ -1992,13 +1992,7 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	ue.AusfUri = ausfUri
 
 	response, problemDetails, err := consumer.GetConsumer().SendUEAuthenticationAuthenticateRequest(ue, nil)
-	if err != nil {
-		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error: %+v", err)
-		gmm_message.SendRegistrationReject(ue.GetRanUe(accessType), ie.Cause5GMM_Congestion, "")
-		err = fmt.Errorf("Authentication procedure failed")
-		ue.GmmLog.Error(err)
-		return false, err
-	} else if problemDetails != nil {
+	if problemDetails != nil {
 		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
 		var cause uint8
 		switch problemDetails.Status {
@@ -2010,6 +2004,12 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 		gmm_message.SendRegistrationReject(ue.GetRanUe(accessType), cause, "")
 		err = fmt.Errorf("Authentication procedure failed")
 		ue.GmmLog.Warn(err)
+		return false, err
+	} else if err != nil {
+		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error: %+v", err)
+		gmm_message.SendRegistrationReject(ue.GetRanUe(accessType), ie.Cause5GMM_Congestion, "")
+		err = fmt.Errorf("Authentication procedure failed")
+		ue.GmmLog.Error(err)
 		return false, err
 	}
 	ue.AuthenticationCtx = response
