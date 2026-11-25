@@ -44,7 +44,8 @@ func BuildDLNASTransport(
 			Contents: nasPdu,
 		},
 	}
-	if pduSessionID != 0 {
+	// TS 24.501 8.2.11.2: the PDU session ID is included with N1 SM information, the unassigned value 0 too
+	if pduSessionID != 0 || payloadContainerType == ie.PayloadCntrType_N1SMInfo {
 		msg.PDUSessID = &ie.PDUSessId2{Value: pduSessionID}
 	}
 	if cause != nil {
