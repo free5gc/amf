@@ -43,8 +43,12 @@ func NewSctpConfig(cfg *factory.Sctp) *sctp.SocketConfig {
 			MaxAttempts:    uint16(cfg.MaxAttempts),
 			MaxInitTimeout: uint16(cfg.MaxInitTimeout),
 		},
-		RtoInfo:   &sctp.RtoInfo{SrtoAssocID: 0, SrtoInitial: 500, SrtoMax: 1500, StroMin: 100},
-		AssocInfo: &sctp.AssocInfo{AsocMaxRxt: 4},
+		RtoInfo: &sctp.RtoInfo{SrtoAssocID: 0, SrtoInitial: 500, SrtoMax: 1500, StroMin: 100},
+		// Allow a failed path to become inactive before aborting a multihomed association.
+		// With Linux's default Path.Max.Retrans of 5, this requires Association.Max.Retrans
+		// of at least 7. The AMF inherits net.sctp.path_max_retrans; revisit this value
+		// if the host's path limit is raised above 5.
+		AssocInfo: &sctp.AssocInfo{AsocMaxRxt: 7},
 	}
 	return sctpConfig
 }
