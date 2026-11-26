@@ -8,6 +8,14 @@ import (
 )
 
 type SmContext struct {
+	// upCnxMu orders the requests that activate the user plane of the session with the deactivations
+	// that a local release of an N2 connection sends. upCnxRanUe at upCnxRan is the N2 connection of
+	// the last activation that the SMF accepted, or of the last deactivation sent (upCnxReleased).
+	upCnxMu       sync.Mutex
+	upCnxRan      *AmfRan
+	upCnxRanUe    *RanUe
+	upCnxReleased bool
+
 	mu sync.RWMutex // protect the following fields
 
 	// pdu session information
@@ -29,6 +37,36 @@ type SmContext struct {
 	// for duplicate pdu session id handling
 	ulNASTransport *message.ULNASTransport
 	duplicated     bool
+}
+
+// ActivateUpCnx runs send, a request to the SMF that activates the user plane of the session at the
+// N2 connection ranUe at ran, after any deactivation that is being sent, unless the release of that
+// connection has already deactivated the session. send reports whether the SMF accepted the request
+// (a 2xx answer, 204 No Content included).
+func (c *SmContext) ActivateUpCnx(ran *AmfRan, ranUe *RanUe, send func() bool) {
+	c.upCnxMu.Lock()
+	defer c.upCnxMu.Unlock()
+	if c.upCnxReleased && c.upCnxRan == ran && c.upCnxRanUe == ranUe {
+		ranUe.Log.Infof("PDU session %d: the connection is released, its activation is not sent", c.PduSessionID())
+		return
+	}
+	if send() {
+		c.upCnxRan, c.upCnxRanUe, c.upCnxReleased = ran, ranUe, false
+	}
+}
+
+// DeactivateUpCnx runs send, a request to the SMF that deactivates the user plane of the session once
+// the N2 connection ranUe at ran is released, unless the last activation that the SMF accepted, or the
+// last deactivation sent, was for another connection. It reports whether send ran.
+func (c *SmContext) DeactivateUpCnx(ran *AmfRan, ranUe *RanUe, send func()) bool {
+	c.upCnxMu.Lock()
+	defer c.upCnxMu.Unlock()
+	if c.upCnxRanUe != nil && (c.upCnxRan != ran || c.upCnxRanUe != ranUe) {
+		return false
+	}
+	send()
+	c.upCnxRan, c.upCnxRanUe, c.upCnxReleased = ran, ranUe, true
+	return true
 }
 
 func NewSmContext(pduSessionID int32) *SmContext {
