@@ -19,33 +19,88 @@ import (
 
 // Regression for free5gc/free5gc#1278. Exercise the real OpenAPI client and
 // consumer: a decoded AUSF rejection also carries a non-nil Go error. The
-// handler must prefer its ProblemDetails when choosing the NAS reject cause.
+// handler must prefer ProblemDetails and map Status + Cause to the NAS message.
+// TS 29.524 V17.4.0, Table 4.2.2-1. Unknown combinations use the chosen
+// Registration Reject / Congestion fallback; that fallback is not a claim
+// that the specification mandates it for every unknown error.
+//
+// HTTP 504 mappings are not covered here: the current UeAuthenticationsPost
+// OpenAPI client does not decode a 504 ProblemDetails body. It must preserve
+// that response before the handler's 504 application-cause branches can be
+// exercised through the real client. This suite does not prove 504 support.
+// Reuses newNssaiTestUe from requested_nssai_test.go.
 //
 // Call the procedure directly so the separate duplicate-reject issue in the
 // FSM's HandleAuthenticationError does not affect this test.
 func TestAuthenticationProcedureAUSFRejectionCause(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     int
-		body       string
-		invalidMNC bool
-		wantCause  uint8
-		wantAUSF   int32
+		name           string
+		status         int
+		body           string
+		invalidMNC     bool
+		wantAuthReject bool
+		wantCause      uint8
+		wantAUSF       int32
 	}{
 		{
-			name: "forbidden", status: http.StatusForbidden,
-			body:      `{"status":403,"cause":"AUTHENTICATION_REJECTED"}`,
-			wantCause: ie.Cause5GMM_IllegalUE, wantAUSF: 1,
+			name: "serving_network_not_authorized", status: 403,
+			body:           `{"status":403,"cause":"SERVING_NETWORK_NOT_AUTHORIZED"}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_ServingNwNotAutho, wantAUSF: 1,
 		},
 		{
-			name: "not_found", status: http.StatusNotFound,
-			body:      `{"status":404,"cause":"USER_NOT_FOUND"}`,
-			wantCause: ie.Cause5GMM_IllegalUE, wantAUSF: 1,
+			name: "authentication_rejected", status: 403,
+			body:           `{"status":403,"cause":"AUTHENTICATION_REJECTED"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
 		},
 		{
-			name: "server_error", status: http.StatusInternalServerError,
-			body:      `{"status":500,"cause":"SYSTEM_FAILURE"}`,
-			wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
+			name: "invalid_hn_public_key", status: 403,
+			body:           `{"status":403,"cause":"INVALID_HN_PUBLIC_KEY_IDENTIFIER"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
+		},
+		{
+			name: "user_not_found", status: 404,
+			body:           `{"status":404,"cause":"USER_NOT_FOUND"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
+		},
+		{
+			name: "context_not_found", status: 404,
+			body:           `{"status":404,"cause":"CONTEXT_NOT_FOUND"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
+		},
+		{
+			name: "av_generation_problem", status: 500,
+			body:           `{"status":500,"cause":"AV_GENERATION_PROBLEM"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
+		},
+		{
+			name: "unsupported_protection_scheme", status: 501,
+			body:           `{"status":501,"cause":"UNSUPPORTED_PROTECTION_SCHEME"}`,
+			wantAuthReject: true, wantCause: 0, wantAUSF: 1,
+		},
+		{
+			name: "system_failure_fallback", status: 500,
+			body:           `{"status":500,"cause":"SYSTEM_FAILURE"}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
+		},
+		{
+			name: "unknown_403_cause", status: 403,
+			body:           `{"status":403,"cause":"UNRECOGNIZED_CAUSE"}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
+		},
+		{
+			name: "unknown_404_cause", status: 404,
+			body:           `{"status":404,"cause":"UNRECOGNIZED_CAUSE"}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
+		},
+		{
+			name: "missing_cause", status: 403,
+			body:           `{"status":403,"cause":""}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
+		},
+		{
+			name: "cause_with_wrong_status", status: 400,
+			body:           `{"status":400,"cause":"AUTHENTICATION_REJECTED"}`,
+			wantAuthReject: false, wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
 		},
 		{
 			name: "malformed_body", status: http.StatusNotFound,
@@ -53,8 +108,7 @@ func TestAuthenticationProcedureAUSFRejectionCause(t *testing.T) {
 			wantCause: ie.Cause5GMM_Congestion, wantAUSF: 1,
 		},
 		{
-			// strconv.Atoi in the consumer returns an error without
-			// ProblemDetails, before sending the AUSF request.
+			// Return an err without ProblemDetails before sending the request.
 			name: "local_error_without_problem_details", invalidMNC: true,
 			wantCause: ie.Cause5GMM_Congestion,
 		},
@@ -133,6 +187,12 @@ func TestAuthenticationProcedureAUSFRejectionCause(t *testing.T) {
 			require.True(t, ok, "NGAP message is %T", decoded)
 			nasMsg, err := nasMessage.ParseGMM(downlink.NASPDU.Value)
 			require.NoError(t, err)
+			if tc.wantAuthReject {
+				require.IsType(t, &nasMessage.AuthRej{}, nasMsg,
+					"this application cause requires Authentication Reject")
+				// Authentication Reject has no Cause5GMM field.
+				return
+			}
 			reject, ok := nasMsg.(*nasMessage.RegRej)
 			require.True(t, ok, "NAS message is %T", nasMsg)
 			require.NotNil(t, reject.Cause5GMM)
