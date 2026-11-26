@@ -797,6 +797,38 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	return true
 }
 
+// terminateReplacedAMPolicyAssociation deletes the AM policy association that ue still holds when an
+// initial registration over anType replaces its 5GMM context (TS 24.501 5.5.1.2.8 f), e.g. one that
+// continues on the stored UE context in continueOnStoredContext): the association belongs to the
+// replaced registration and is deleted like on de-registration (TS 29.507 4.2.5) before
+// HandleInitialRegistration establishes a new one. Otherwise the new association overwrites
+// PolicyAssociationId and the old one stays at the PCF with nothing to delete it.
+//
+// The AMF keeps one association per UE. While the UE stays registered over the other access the
+// association is left alone, as HandleDeregistrationRequest does: the PCF looks AM policies up by
+// access type for the PDU sessions of that access.
+func terminateReplacedAMPolicyAssociation(ue *context.AmfUe, anType models.AccessType) {
+	if ue.AmPolicyAssociation == nil || ue.PolicyAssociationId == "" || ue.PcfUri == "" {
+		return
+	}
+	otherAccess := models.AccessType_NON_3_GPP_ACCESS
+	if anType == models.AccessType_NON_3_GPP_ACCESS {
+		otherAccess = models.AccessType_3_GPP_ACCESS
+	}
+	if !ue.State[otherAccess].Is(context.Deregistered) {
+		return
+	}
+	ue.GmmLog.Infof("Delete AM Policy Association[%s] of the replaced registration", ue.PolicyAssociationId)
+	problemDetails, err := consumer.GetConsumer().AMPolicyControlDelete(ue)
+	if problemDetails != nil {
+		ue.GmmLog.Warnf("AM Policy Control Delete Failed Problem[%+v]", problemDetails)
+	} else if err != nil {
+		ue.GmmLog.Warnf("AM Policy Control Delete Error[%v]", err)
+	}
+	// Also when the PCF no longer has it (e.g. after a restart): a new association is created next.
+	ue.RemoveAmPolicyAssociation()
+}
+
 func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) error {
 	ue.GmmLog.Infoln("Handle InitialRegistration")
 
@@ -876,6 +908,8 @@ func HandleInitialRegistration(ue *context.AmfUe, anType models.AccessType) erro
 			}
 		}
 	}
+
+	terminateReplacedAMPolicyAssociation(ue, anType)
 
 	param := Nnrf_NFDiscovery.SearchNFInstancesRequest{
 		Supi: &ue.Supi,
