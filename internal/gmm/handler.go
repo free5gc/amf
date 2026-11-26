@@ -647,6 +647,23 @@ func IdentityVerification(ue *context.AmfUe) bool {
 	return ue.Supi != "" || len(ue.GetSuci()) != 0
 }
 
+// storedContextOfSubscriber returns the UE context that this AMF stores for the subscriber ue has
+// authenticated as, if that is another context than ue and ue runs an initial registration. Such a
+// registration continues there (continueOnStoredContext, TS 24.501 5.5.1.2.8 f)) however the UE
+// identified itself: a concealed SUCI is fresh each time (TS 33.501 6.12.4), so only the
+// authenticated SUPI finds the stored context. A UE context transferred from another AMF
+// (ServingAmfChanged) registers on its own context as before.
+func storedContextOfSubscriber(ue *context.AmfUe) *context.AmfUe {
+	if ue.RegistrationType5GS != ie.RegType_InitialReg || ue.UnauthenticatedSupi || ue.ServingAmfChanged ||
+		ue.Supi == "" {
+		return nil
+	}
+	if storedUe, ok := context.GetSelf().AmfUeFindBySupi(ue.Supi); ok && storedUe != ue {
+		return storedUe
+	}
+	return nil
+}
+
 // continueOnStoredContext moves a registration from ue, a new UE context that has authenticated the UE
 // because the REGISTRATION REQUEST failed the integrity check against the UE context it named
 // (ue.AuthenticatingFor), to the UE context stored for the authenticated SUPI. TS 24.501 4.4.4.3 requires
