@@ -188,6 +188,14 @@ func Authentication(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 			if err := HandleIdentityResponse(amfUe, msg); err != nil {
 				logger.GmmLog.Errorln(err)
 			} else {
+				// Resolve a subscriber discovered by Identity Response through the same
+				// post-authentication reconciliation as an initially known identity.
+				if amfUe.RegistrationType5GS == ie.RegType_InitialReg &&
+					msg.MobileId.TypeOfId == ie.IdType_5GS_SUCI {
+					if storedUe, ok := context.GetSelf().AmfUeFindBySuci(amfUe.GetSuci()); ok && storedUe != amfUe {
+						amfUe.AuthenticatingFor = storedUe
+					}
+				}
 				// update identity type used for reauthentication
 				amfUe.IdentityTypeUsedForRegistration = msg.MobileId.TypeOfId
 
