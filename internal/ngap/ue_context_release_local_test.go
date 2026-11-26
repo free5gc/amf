@@ -75,6 +75,12 @@ func TestUeContextReleaseCompletedOnLocalN2Release(t *testing.T) {
 			},
 		},
 		{
+			name: "NG SETUP REQUEST again",
+			release: func(_ *testing.T, _ *ngaptesting.SctpConnStub, ran *amf_context.AmfRan, _ *amf_context.RanUe) {
+				handleNGSetupRequestMain(ran, nil, nil, supportedTAList(servedPLMN), nil, nil)
+			},
+		},
+		{
 			name: "SCTP connection error",
 			release: func(_ *testing.T, conn *ngaptesting.SctpConnStub, _ *amf_context.AmfRan, _ *amf_context.RanUe) {
 				HandleSCTPConnError(conn)
