@@ -37,7 +37,10 @@ import (
 	"github.com/free5gc/util/validator"
 )
 
-const psiArraySize = 16
+const (
+	psiArraySize         = 16
+	causeContextNotFound = "CONTEXT_NOT_FOUND"
+)
 
 func relatedContentBytes(content *multipart.RelatedContent) []byte {
 	if content == nil {
@@ -648,7 +651,7 @@ func contextTransferFromOldAmf(ue *context.AmfUe, anType models.AccessType, oldA
 
 	ueContextTransferRspData, pd, err := consumer.GetConsumer().UEContextTransferRequest(ue, anType, transferReason)
 	if pd != nil {
-		if pd.Cause == "INTEGRITY_CHECK_FAIL" || pd.Cause == "CONTEXT_NOT_FOUND" {
+		if pd.Cause == "INTEGRITY_CHECK_FAIL" || pd.Cause == causeContextNotFound {
 			// TODO 9a. After successful authentication in new AMF, which is triggered by the integrity check failure
 			// in old AMF at step 5, the new AMF invokes step 4 above again and indicates that the UE is validated
 			// (i.e. through the reason parameter as specified in clause 5.2.2.2.2).
@@ -2000,24 +2003,31 @@ func AuthenticationProcedure(ue *context.AmfUe, accessType models.AccessType) (b
 	ue.AusfUri = ausfUri
 
 	response, problemDetails, err := consumer.GetConsumer().SendUEAuthenticationAuthenticateRequest(ue, nil)
-	if err != nil {
+	if problemDetails != nil {
+		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
+		ranUe := ue.GetRanUe(accessType)
+		switch {
+		case problemDetails.Status == http.StatusForbidden && problemDetails.Cause == "SERVING_NETWORK_NOT_AUTHORIZED":
+			gmm_message.SendRegistrationReject(ranUe, ie.Cause5GMM_ServingNwNotAutho, "")
+		case problemDetails.Status == http.StatusForbidden && (problemDetails.Cause == "AUTHENTICATION_REJECTED" ||
+			problemDetails.Cause == "INVALID_HN_PUBLIC_KEY_IDENTIFIER"):
+			gmm_message.SendAuthenticationReject(ranUe, "", 0, "")
+		case problemDetails.Status == http.StatusNotFound &&
+			(problemDetails.Cause == "USER_NOT_FOUND" || problemDetails.Cause == causeContextNotFound):
+			gmm_message.SendAuthenticationReject(ranUe, "", 0, "")
+		case problemDetails.Status == http.StatusInternalServerError && problemDetails.Cause == "AV_GENERATION_PROBLEM":
+			gmm_message.SendAuthenticationReject(ranUe, "", 0, "")
+		case problemDetails.Status == http.StatusNotImplemented && problemDetails.Cause == "UNSUPPORTED_PROTECTION_SCHEME":
+			gmm_message.SendAuthenticationReject(ranUe, "", 0, "")
+		default:
+			gmm_message.SendRegistrationReject(ranUe, ie.Cause5GMM_Congestion, "")
+		}
+		return false, fmt.Errorf("Authentication procedure failed")
+	} else if err != nil {
 		ue.GmmLog.Errorf("Nausf_UEAU Authenticate Request Error: %+v", err)
 		gmm_message.SendRegistrationReject(ue.GetRanUe(accessType), ie.Cause5GMM_Congestion, "")
 		err = fmt.Errorf("Authentication procedure failed")
 		ue.GmmLog.Error(err)
-		return false, err
-	} else if problemDetails != nil {
-		ue.GmmLog.Warnf("Nausf_UEAU Authenticate Request Failed: %+v", problemDetails)
-		var cause uint8
-		switch problemDetails.Status {
-		case http.StatusForbidden, http.StatusNotFound:
-			cause = ie.Cause5GMM_IllegalUE
-		default:
-			cause = ie.Cause5GMM_Congestion
-		}
-		gmm_message.SendRegistrationReject(ue.GetRanUe(accessType), cause, "")
-		err = fmt.Errorf("Authentication procedure failed")
-		ue.GmmLog.Warn(err)
 		return false, err
 	}
 	ue.AuthenticationCtx = response
