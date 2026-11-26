@@ -215,6 +215,9 @@ type AmfUe struct {
 	// cleared by its own goroutine, each on a different goroutine.  Only the
 	// field update is done under the lock; Timer.Stop is called after it.
 	timerMu sync.Mutex
+	// registrationAcceptResend rebuilds a pending accept after an authenticated
+	// connection change, using the new NAS security context and the saved retry count.
+	registrationAcceptResend func(int32)
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
 	// identityMu serializes the identities the UE presents: Suci, Guti, Tmsi,
@@ -427,6 +430,7 @@ func (ue *AmfUe) CmIdle(anType models.AccessType) bool {
 }
 
 func (ue *AmfUe) Remove() {
+	ue.SetRegistrationAcceptResend(nil)
 	ue.StopT3513()
 	ue.StopT3565()
 	ue.StopT3560()
@@ -889,6 +893,7 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) error {
 }
 
 func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
+	ue.SetRegistrationAcceptResend(nil)
 	ue.RegistrationRequest = nil
 	ue.RegistrationType5GS = 0
 	ue.IdentityTypeUsedForRegistration = 0

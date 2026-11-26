@@ -617,6 +617,16 @@ func SendRegistrationAccept(
 	errPduSessionId, errCause []uint8,
 	cxtList *ngapType.PDUSessionResourceSetupListCxtReq,
 ) {
+	sendRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause,
+		cxtList, true, 0)
+}
+
+func sendRegistrationAccept(
+	amfUe *context.AmfUe, anType models.AccessType,
+	pDUSessionStatus *[16]bool, reactivationResult *[16]bool,
+	errPduSessionId, errCause []uint8, cxtList *ngapType.PDUSessionResourceSetupListCxtReq,
+	allocateGuti bool, retries int32,
+) {
 	isNasMsgSent := false
 	additionalCause := getErrCauseSingleStr(errCause)
 
@@ -639,7 +649,9 @@ func SendRegistrationAccept(
 		req.MobileId5GS.TypeOfId == ie.IdType_5GS_GUTI {
 		usedGuti = req.MobileId5GS.GUTIStr()
 	}
-	context.GetSelf().ReallocateGuti(amfUe, usedGuti)
+	if allocateGuti {
+		context.GetSelf().ReallocateGuti(amfUe, usedGuti)
+	}
 
 	nasMsg, err := BuildRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause)
 	if err != nil {
@@ -649,6 +661,12 @@ func SendRegistrationAccept(
 	}
 
 	isNasMsgSent = true
+	amfUe.SetRegistrationAcceptResend(func(retryCount int32) {
+		// Rebuild under the authenticated connection's keys and NAS COUNT; keep
+		// the GUTI and the policy/session decisions of the original accept.
+		sendRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause,
+			cxtList, false, retryCount)
+	})
 	if anType == models.AccessType_NON_3_GPP_ACCESS {
 		amfUe.RegistrationAcceptForNon3GPPAccess = nasMsg
 	}
@@ -677,7 +695,7 @@ func SendRegistrationAccept(
 			// TS 24.501 5.5.1.2.8 case c, 5.5.1.3.8 case c
 			amfUe.State[anType].Set(context.Registered)
 			amfUe.ClearRegistrationRequestData(anType)
-		})
+		}, retries)
 	}
 
 	if anType == models.AccessType_NON_3_GPP_ACCESS {

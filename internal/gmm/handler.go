@@ -725,18 +725,40 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 		ue.GmmLog.Warnln("The UE did not authenticate as the subscriber of the UE context it named")
 		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
 	}
+	if storedUe == ue {
+		return false
+	}
+	storedUe.Lock.Lock()
+	defer storedUe.Lock.Unlock()
 	state := storedUe.State[anType]
 	if state.Is(context.Deregistered) && ue.RegistrationType5GS != ie.RegType_InitialReg {
 		// As HandleRegistrationRequest answers on the stored context.
 		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
 	}
-	if !state.Is(context.Registered) && !state.Is(context.Deregistered) ||
+	// An authenticated initial request may collide with an earlier initial
+	// registration (TS 24.501 5.5.1.2.8 d/e), not just with a registered UE.
+	registrationCollision := state.Is(context.ContextSetup) &&
+		ue.RegistrationType5GS == ie.RegType_InitialReg &&
+		storedUe.RegistrationType5GS == ie.RegType_InitialReg && storedUe.RegistrationRequest != nil
+	if !state.Is(context.Registered) && !state.Is(context.Deregistered) && !registrationCollision ||
 		storedUe.OnGoing(anType).Procedure == context.OnGoingProcedureN2Handover {
 		// Another procedure is running on the stored context, as for the N2 handover check in
 		// ngap handleInitialUEMessageMain.
 		ue.GmmLog.Warnf("The stored UE context is busy (state %s, procedure %s)",
 			state.Current(), storedUe.OnGoing(anType).Procedure)
 		return reject(ie.Cause5GMM_Congestion)
+	}
+	sameRequest := registrationCollision && reflect.DeepEqual(storedUe.RegistrationRequest, ue.RegistrationRequest)
+	resendAccept, retries := storedUe.RegistrationAcceptResend()
+	pendingIdentity := storedUe.RequestIdentityType
+	if registrationCollision {
+		// Retire callbacks bound to the old connection before replacing its keys.
+		// A repeated request keeps the earlier procedure and its retry count.
+		gmm_common.StopAll5GSMMTimers(storedUe)
+		if !sameRequest {
+			storedUe.ClearRegistrationRequestData(anType)
+			storedUe.RequestIdentityType = ie.IdType_5GS_None
+		}
 	}
 	ue.GmmLog.Infoln("The UE authenticated; continue the registration on its stored UE context")
 
@@ -787,6 +809,28 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	leaveContextSetup()
 	ue.Remove()
 	gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(storedUe, ranUe)
+	if sameRequest {
+		if resendAccept != nil {
+			resendAccept(retries)
+		} else if pendingIdentity != ie.IdType_5GS_None {
+			// Continue the outstanding identification on the authenticated connection.
+			gmm_message.SendIdentityRequest(ranUe, anType, pendingIdentity)
+		}
+		return true
+	}
+	if registrationCollision {
+		// The new connection has already completed authentication and security
+		// mode. Replace the earlier initial registration without authenticating twice.
+		if err := HandleInitialRegistration(storedUe, anType); err != nil {
+			storedUe.GmmLog.Errorln(err)
+			if failErr := GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{
+				ArgAmfUe: storedUe, ArgAccessType: anType,
+			}, logger.GmmLog); failErr != nil {
+				storedUe.GmmLog.Errorln(failErr)
+			}
+		}
+		return true
+	}
 	// Authentication and security mode control are skipped: the security context is valid.
 	if err := GmmFSM.SendEvent(state, StartAuthEvent, fsm.ArgsType{
 		ArgAmfUe:      storedUe,
