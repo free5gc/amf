@@ -153,6 +153,8 @@ type AmfUe struct {
 	UESpecificDRX                              uint8
 	/* Security Context */
 	SecurityContextAvailable bool
+	SMCPending               bool
+	smcPendingMu             sync.RWMutex
 	UESecurityCapability     ie.UESecCapability // for security command
 	NgKsi                    models.Amf_Comm_NgKsi
 	StoredNgKsi              models.Amf_Comm_NgKsi
@@ -665,7 +667,7 @@ func (ue *AmfUe) HasWildCardSubscribedDNN() bool {
 }
 
 func (ue *AmfUe) SecurityContextIsValid() bool {
-	return ue.SecurityContextAvailable && ue.NgKsi.Ksi != int32(ie.NASKeyNA) && !ue.MacFailed
+	return ue.SecurityContextForSMCCompleteIsValid() && !ue.IsSMCPending()
 }
 
 // Kamf Derivation function defined in TS 33.501 Annex A.7

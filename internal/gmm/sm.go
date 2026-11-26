@@ -327,8 +327,10 @@ func SecurityMode(state *fsm.State, event fsm.EventType, args fsm.ArgsType) {
 				gmmMessage.MsgType(), state.Current())
 		}
 	case SecurityModeSuccessEvent:
+		args[ArgAmfUe].(*context.AmfUe).CompleteSMC()
 		logger.GmmLog.Debugln(event)
 	case SecurityModeFailEvent:
+		args[ArgAmfUe].(*context.AmfUe).AbortSMC()
 		logger.GmmLog.Debugln(event)
 	case fsm.ExitEvent:
 		logger.GmmLog.Debugln(event)

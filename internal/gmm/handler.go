@@ -2667,7 +2667,7 @@ func HandleSecurityModeComplete(ue *context.AmfUe, anType models.AccessType, pro
 
 	ue.StopT3560()
 
-	if ue.SecurityContextIsValid() {
+	if ue.SecurityContextForSMCCompleteIsValid() {
 		// update Kgnb/Kn3iwf
 		ue.UpdateSecurityContext(anType)
 	}

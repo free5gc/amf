@@ -269,7 +269,7 @@ func BuildSecurityModeCommand(
 			msg.ABBA = &ie.ABBA{Abba: ue.ABBA}
 		}
 	}
-
+	ue.BeginSMC()
 	ue.SecurityContextAvailable = true
 	payload, err := nas_security.Encode(
 		ue,
