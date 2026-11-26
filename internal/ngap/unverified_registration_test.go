@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -66,11 +67,13 @@ func newCorePeers(t *testing.T, supi string) *corePeers {
 				// Its requests get 204 No Content, so a registration that reaches the UDM fails.
 				"UDM": {"nudm-uecm", "nudm-sdm"},
 			}[nfType]
+			addr := peers.Listener.Addr().(*net.TCPAddr)
 			nfServices := make([]string, 0, len(services))
 			for i, service := range services {
 				nfServices = append(nfServices, `{"serviceInstanceId":"`+strconv.Itoa(i)+`","serviceName":"`+service+
 					`","versions":[{"apiVersionInUri":"v1","apiFullVersion":"1.0.0"}],"scheme":"http",`+
-					`"nfServiceStatus":"REGISTERED","apiPrefix":"`+peers.URL+`"}`)
+					`"nfServiceStatus":"REGISTERED","ipEndPoints":[{"ipv4Address":"`+addr.IP.String()+
+					`","port":`+strconv.Itoa(addr.Port)+`}]}`)
 			}
 			body = `{"validityPeriod":100,"nfInstances":[{"nfInstanceId":"` + nfType + `-1","nfType":"` + nfType +
 				`","nfStatus":"REGISTERED","nfServices":[` + strings.Join(nfServices, ",") + `]}]}`

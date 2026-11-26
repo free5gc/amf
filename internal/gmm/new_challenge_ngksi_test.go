@@ -2,6 +2,7 @@ package gmm
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -28,13 +29,18 @@ func newAusf(t *testing.T) string {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /nnrf-disc/v1/nf-instances", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		addr := server.Listener.Addr().(*net.TCPAddr)
 		if err := json.NewEncoder(w).Encode(models.Nrf_NFDisc_SearchResult{
 			NfInstances: []models.Nrf_NFDisc_NFProfile{{
 				NfInstanceId: "ausf", NfType: models.Nrf_NFMgmt_NFType_AUSF, NfStatus: models.Nrf_NFMgmt_NFStatus_REGISTERED,
 				NfServices: []models.Nrf_NFDisc_NFService{{
 					ServiceInstanceId: "1", ServiceName: models.Nrf_NFMgmt_ServiceName_NAUSF_AUTH,
 					Scheme: models.UriScheme_HTTP, NfServiceStatus: models.Nrf_NFMgmt_NFServiceStatus_REGISTERED,
-					ApiPrefix: server.URL,
+					IpEndPoints: []models.Nrf_NFMgmt_IpEndPoint{{
+						Ipv4Address: addr.IP.String(),
+						Transport:   models.Nrf_NFMgmt_TransportProtocol_TCP,
+						Port:        int32(addr.Port),
+					}},
 				}},
 			}},
 		}); err != nil {
