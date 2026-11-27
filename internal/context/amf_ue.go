@@ -214,7 +214,7 @@ type AmfUe struct {
 	// a NAS/NGAP procedure, stopped by another procedure or a release, and
 	// cleared by its own goroutine, each on a different goroutine.  Only the
 	// field update is done under the lock; Timer.Stop is called after it.
-	timerMu sync.Mutex
+	timerMu                  sync.Mutex
 	registrationAcceptResend func(int32)
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
