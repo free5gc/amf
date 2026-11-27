@@ -662,8 +662,6 @@ func sendRegistrationAccept(
 
 	isNasMsgSent = true
 	amfUe.SetRegistrationAcceptResend(func(retryCount int32) {
-		// Rebuild under the authenticated connection's keys and NAS COUNT; keep
-		// the GUTI and the policy/session decisions of the original accept.
 		sendRegistrationAccept(amfUe, anType, pDUSessionStatus, reactivationResult, errPduSessionId, errCause,
 			cxtList, false, retryCount)
 	})

@@ -735,8 +735,7 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 		// As HandleRegistrationRequest answers on the stored context.
 		return reject(ie.Cause5GMM_ImplicitlyDeregistered)
 	}
-	// An authenticated initial request may collide with an earlier initial
-	// registration (TS 24.501 5.5.1.2.8 d/e), not just with a registered UE.
+	// TS 24.501 5.5.1.2.8 d/e: Handle overlapping initial registration requests.
 	registrationCollision := state.Is(context.ContextSetup) &&
 		ue.RegistrationType5GS == ie.RegType_InitialReg &&
 		storedUe.RegistrationType5GS == ie.RegType_InitialReg && storedUe.RegistrationRequest != nil
@@ -752,8 +751,6 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	resendAccept, retries := storedUe.RegistrationAcceptResend()
 	pendingIdentity := storedUe.RequestIdentityType
 	if registrationCollision {
-		// Retire callbacks bound to the old connection before replacing its keys.
-		// A repeated request keeps the earlier procedure and its retry count.
 		gmm_common.StopAll5GSMMTimers(storedUe)
 		if !sameRequest {
 			storedUe.ClearRegistrationRequestData(anType)
@@ -810,17 +807,16 @@ func continueOnStoredContext(ue *context.AmfUe, anType models.AccessType) bool {
 	ue.Remove()
 	gmm_common.AttachRanUeToAmfUeAndReleaseOldIfAny(storedUe, ranUe)
 	if sameRequest {
+		// TS 24.501 5.5.1.2.8 d)2), e)2): Resend Accept without increasing retries, or continue the earlier registration.
 		if resendAccept != nil {
 			resendAccept(retries)
 		} else if pendingIdentity != ie.IdType_5GS_None {
-			// Continue the outstanding identification on the authenticated connection.
 			gmm_message.SendIdentityRequest(ranUe, anType, pendingIdentity)
 		}
 		return true
 	}
 	if registrationCollision {
-		// The new connection has already completed authentication and security
-		// mode. Replace the earlier initial registration without authenticating twice.
+		// TS 24.501 5.5.1.2.8 d)1), e)1): Abort the earlier registration and progress the new request.
 		if err := HandleInitialRegistration(storedUe, anType); err != nil {
 			storedUe.GmmLog.Errorln(err)
 			if failErr := GmmFSM.SendEvent(state, ContextSetupFailEvent, fsm.ArgsType{

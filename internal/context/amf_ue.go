@@ -215,8 +215,6 @@ type AmfUe struct {
 	// cleared by its own goroutine, each on a different goroutine.  Only the
 	// field update is done under the lock; Timer.Stop is called after it.
 	timerMu sync.Mutex
-	// registrationAcceptResend rebuilds a pending accept after an authenticated
-	// connection change, using the new NAS security context and the saved retry count.
 	registrationAcceptResend func(int32)
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex

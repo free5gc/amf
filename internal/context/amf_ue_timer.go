@@ -149,16 +149,12 @@ func (ue *AmfUe) HasT3550() bool {
 	return ue.hasTimer(&ue.T3550)
 }
 
-// SetRegistrationAcceptResend records how to resend the pending accept, including
-// when T3550 is disabled. Clear it when the registration or its connection ends.
 func (ue *AmfUe) SetRegistrationAcceptResend(resend func(int32)) {
 	ue.timerMu.Lock()
 	defer ue.timerMu.Unlock()
 	ue.registrationAcceptResend = resend
 }
 
-// RegistrationAcceptResend snapshots the pending accept and its retry count
-// before the old connection's timers are stopped during reconciliation.
 func (ue *AmfUe) RegistrationAcceptResend() (func(int32), int32) {
 	ue.timerMu.Lock()
 	defer ue.timerMu.Unlock()
