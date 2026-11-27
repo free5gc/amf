@@ -912,6 +912,10 @@ func SendPaging(ue *context.AmfUe, ngapBuf []byte) {
 			if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure != context.OnGoingProcedureN2Handover {
 				callback.SendN1N2TransferFailureNotification(ue, models.Amf_Comm_N1N2MessageTransferCause_UE_NOT_RESPONDING)
 			}
+
+			if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure == context.OnGoingProcedurePaging {
+				ue.SetOnGoing(models.AccessType_3_GPP_ACCESS, &context.OnGoing{Procedure: context.OnGoingProcedureNothing})
+			}
 		})
 	}
 
