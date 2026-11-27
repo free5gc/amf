@@ -1,6 +1,8 @@
 package context
 
 import (
+	"sync/atomic"
+
 	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/models"
 )
@@ -57,8 +59,12 @@ func (ue *AmfUe) hasTimer(field **Timer) bool {
 // whether it did.
 func (ue *AmfUe) startTimer(field **Timer, cfg factory.TimerValue,
 	expired func(expireTimes int32, abort func() bool), cancel func(),
+	initialRetryTimes ...int32,
 ) {
 	timer := newTimer(cfg.ExpireTime, cfg.MaxRetryTimes)
+	if len(initialRetryTimes) != 0 {
+		atomic.StoreInt32(&timer.expireTimes, initialRetryTimes[0])
+	}
 	abort := func() bool {
 		if !ue.clearTimer(field, timer) {
 			return false
@@ -111,8 +117,9 @@ func (ue *AmfUe) StartT3522(cfg factory.TimerValue, expired func(expireTimes int
 // one, for a lower layer failure before Registration Complete.
 func (ue *AmfUe) StartT3550(cfg factory.TimerValue, expired func(expireTimes int32, abort func() bool),
 	cancel func(),
+	initialRetryTimes ...int32,
 ) {
-	ue.startTimer(&ue.T3550, cfg, expired, cancel)
+	ue.startTimer(&ue.T3550, cfg, expired, cancel, initialRetryTimes...)
 }
 
 // StartT3555 starts T3555 (configuration update command); see StartT3513.
@@ -142,9 +149,26 @@ func (ue *AmfUe) HasT3550() bool {
 	return ue.hasTimer(&ue.T3550)
 }
 
+func (ue *AmfUe) SetRegistrationAcceptResend(resend func(int32)) {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	ue.registrationAcceptResend = resend
+}
+
+func (ue *AmfUe) RegistrationAcceptResend() (func(int32), int32) {
+	ue.timerMu.Lock()
+	defer ue.timerMu.Unlock()
+	var retries int32
+	if ue.T3550 != nil {
+		retries = ue.T3550.ExpireTimes()
+	}
+	return ue.registrationAcceptResend, retries
+}
+
 // StopAll5GSMMTimers stops every 5GMM timer of the UE and, if paging was in
 // progress, ends the paging procedure.
 func (ue *AmfUe) StopAll5GSMMTimers() {
+	ue.SetRegistrationAcceptResend(nil)
 	if timer := ue.takeTimer(&ue.T3513); timer != nil {
 		timer.Stop()
 		if ue.OnGoing(models.AccessType_3_GPP_ACCESS).Procedure == OnGoingProcedurePaging {
