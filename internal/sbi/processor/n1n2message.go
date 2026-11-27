@@ -401,9 +401,9 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				Ppi:       requestData.Ppi,
 			})
 
-			if onGoing.Ppi != 0 {
+			if requestData.Ppi != 0 {
 				pagingPriority = new(ngapType.PagingPriority)
-				pagingPriority.Value = aper.Enumerated(onGoing.Ppi)
+				pagingPriority.Value = aper.Enumerated(requestData.Ppi)
 			}
 			pkg, err := ngap_message.BuildPaging(ue, pagingPriority, false)
 			if err != nil {
@@ -453,9 +453,9 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 				Procedure: context.OnGoingProcedurePaging,
 				Ppi:       requestData.Ppi,
 			})
-			if onGoing.Ppi != 0 {
+			if requestData.Ppi != 0 {
 				pagingPriority = new(ngapType.PagingPriority)
-				pagingPriority.Value = aper.Enumerated(onGoing.Ppi)
+				pagingPriority.Value = aper.Enumerated(requestData.Ppi)
 			}
 			pkg, err := ngap_message.BuildPaging(ue, pagingPriority, true)
 			if err != nil {
