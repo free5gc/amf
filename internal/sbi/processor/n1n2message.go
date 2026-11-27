@@ -408,7 +408,17 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			pkg, err := ngap_message.BuildPaging(ue, pagingPriority, false)
 			if err != nil {
 				logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
-				return n1n2MessageTransferRspData, locationHeader, problemDetails, transferErr
+				ue.N1N2Message = nil
+				ue.SetOnGoing(anType, &context.OnGoing{
+					Procedure: context.OnGoingProcedureNothing,
+				})
+
+				problemDetails = &models.ProblemDetails{
+					Status: http.StatusInternalServerError,
+					Cause:  "SYSTEM_FAILURE",
+				}
+
+				return nil, "", problemDetails, nil
 			}
 			ngap_message.SendPaging(ue, pkg)
 		}
@@ -460,6 +470,15 @@ func (p *Processor) N1N2MessageTransferProcedure(ueContextID string, reqUri stri
 			pkg, err := ngap_message.BuildPaging(ue, pagingPriority, true)
 			if err != nil {
 				logger.NgapLog.Errorf("Build Paging failed : %s", err.Error())
+				ue.N1N2Message = nil
+				ue.SetOnGoing(anType, &context.OnGoing{
+					Procedure: context.OnGoingProcedureNothing,
+				})
+				problemDetails = &models.ProblemDetails{
+					Status: http.StatusInternalServerError,
+					Cause:  "SYSTEM_FAILURE",
+				}
+				return nil, "", problemDetails, nil
 			}
 			ngap_message.SendPaging(ue, pkg)
 			return n1n2MessageTransferRspData, locationHeader, nil, nil
