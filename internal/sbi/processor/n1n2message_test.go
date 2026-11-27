@@ -3,11 +3,14 @@ package processor
 import (
 	"net/http"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/free5gc/amf/internal/context"
 	"github.com/free5gc/amf/internal/logger"
+	"github.com/free5gc/amf/pkg/factory"
 	"github.com/free5gc/openapi/mediatype/multipart"
 	"github.com/free5gc/openapi/models"
 )
@@ -96,4 +99,108 @@ func TestN1N2MessageTransferProcedureAttachedRanUe(t *testing.T) {
 	require.Nil(t, transferErr)
 	require.NotNil(t, rsp)
 	require.Equal(t, models.Amf_Comm_N1N2MessageTransferCause_N1_N2_TRANSFER_INITIATED, rsp.Cause)
+}
+
+func TestN1N2MessageTransferAfterPagingTimeout(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const anType = models.AccessType_3_GPP_ACCESS
+
+		amfSelf := context.GetSelf()
+
+		prevT3513 := amfSelf.T3513Cfg
+		prevGuami := amfSelf.ServedGuamiList
+
+		defer func() {
+			amfSelf.T3513Cfg = prevT3513
+			amfSelf.ServedGuamiList = prevGuami
+		}()
+
+		amfSelf.T3513Cfg = factory.TimerValue{
+			Enable:        true,
+			ExpireTime:    time.Second,
+			MaxRetryTimes: 1,
+		}
+
+		amfSelf.ServedGuamiList = []models.Guami{{
+			PlmnId: &models.PlmnIdNid{
+				Mcc: "208",
+				Mnc: "93",
+			},
+			AmfId: "cafe00",
+		}}
+
+		// Create a registered UE in CM-IDLE.
+		ue := amfSelf.NewAmfUe("imsi-208930000007488")
+		defer amfSelf.UePool.Delete(ue.Supi)
+		defer ue.StopT3513()
+
+		ue.State[anType].Set(context.Registered)
+
+		ue.RegistrationArea[anType] = []models.Tai{{
+			PlmnId: &models.PlmnId{
+				Mcc: "208",
+				Mnc: "93",
+			},
+			Tac: "000001",
+		}}
+
+		request := models.N1N2MessageTransferRequestBody{
+			JsonData: &models.Amf_Comm_N1N2MessageTransferReqData{
+				N1MessageContainer: &models.Amf_Comm_N1MessageContainer{
+					N1MessageClass: models.Amf_Comm_N1MessageClass_SMS,
+					N1MessageContent: &models.RefToBinaryData{
+						ContentId: "n1",
+					},
+				},
+			},
+			BinaryDataN1Message: &multipart.RelatedContent{
+				Content: []byte{0x01},
+			},
+		}
+
+		p := &Processor{}
+
+		// First request starts paging.
+		rsp, _, problemDetails, transferErr := p.N1N2MessageTransferProcedure(ue.Supi, "", request)
+
+		require.Nil(t, problemDetails)
+		require.Nil(t, transferErr)
+		require.NotNil(t, rsp)
+		require.Equal(t,
+			models.Amf_Comm_N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE,
+			rsp.Cause,
+		)
+
+		synctest.Wait()
+
+		require.NotNil(t, ue.T3513)
+		require.Equal(t,
+			context.OnGoingProcedurePaging,
+			ue.OnGoing(anType).Procedure,
+		)
+
+		// Wait until T3513 exhausts all retries.
+		time.Sleep(3 * time.Second)
+		synctest.Wait()
+
+		require.Nil(t, ue.T3513)
+
+		// A new request should be accepted after paging has ended.
+		rsp, _, problemDetails, transferErr = p.N1N2MessageTransferProcedure(ue.Supi, "", request)
+
+		require.Nil(t, problemDetails)
+
+		if transferErr != nil {
+			t.Fatalf("second N1N2 request rejected: status=%d cause=%s",
+				transferErr.Error.Status,
+				transferErr.Error.Cause,
+			)
+		}
+
+		require.NotNil(t, rsp)
+		require.Equal(t,
+			models.Amf_Comm_N1N2MessageTransferCause_ATTEMPTING_TO_REACH_UE,
+			rsp.Cause,
+		)
+	})
 }
