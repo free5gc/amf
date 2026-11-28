@@ -1530,6 +1530,20 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 		return
 	}
 
+	if existing, loaded := ran.RanUeList.Load(rANUENGAPID.Value); loaded && existing != ranUe {
+		ranUe.Log.Errorf("RAN UE NGAP ID %d already occupied", rANUENGAPID.Value)
+		ngap_message.SendPathSwitchRequestFailure(
+			ran,
+			sourceAMFUENGAPID.Value,
+			rANUENGAPID.Value,
+			nil,
+			nil,
+			business_metrics.HANDOVER_SWITCH_RAN_ERR,
+			xnHandoverStartTime,
+		)
+		return
+	}
+
 	if amfUe.SecurityContextIsValid() {
 		// Update NH
 		amfUe.UpdateNH()
