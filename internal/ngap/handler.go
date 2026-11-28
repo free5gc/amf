@@ -797,9 +797,11 @@ func handlePDUSessionResourceSetupResponseMain(ran *context.AmfRan,
 			}
 			var err error
 			smContext.ActivateUpCnx(ran, ranUe, func() bool {
-				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
+				var errResponse *models.UpdateSmContextResponse400
+				var problemDetail *models.ProblemDetails
+				_, errResponse, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 					models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
-				return err == nil
+				return err == nil && errResponse == nil && problemDetail == nil
 			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
@@ -975,7 +977,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				}
 			} else if errResponse != nil {
 				errJSON := errResponse.JsonData
-				n1Msg := relatedContentBytes(errResponse.BinaryDataN2SmInformation)
+				n1Msg := relatedContentBytes(errResponse.BinaryDataN1SmMessage)
 				ranUe.Log.Warnf("PDU Session Modification is rejected by SMF[pduSessionId:%d], Error[%s]\n",
 					pduSessionID, errJSON.Error.Cause)
 				if n1Msg != nil {
@@ -1034,7 +1036,7 @@ func handlePDUSessionResourceNotifyMain(ran *context.AmfRan,
 				}
 			} else if errResponse != nil {
 				errJSON := errResponse.JsonData
-				n1Msg := relatedContentBytes(errResponse.BinaryDataN2SmInformation)
+				n1Msg := relatedContentBytes(errResponse.BinaryDataN1SmMessage)
 				ranUe.Log.Warnf("PDU Session Release is rejected by SMF[pduSessionID:%d], Error[%s]\n",
 					pduSessionID, errJSON.Error.Cause)
 				if n1Msg != nil {
@@ -1162,9 +1164,11 @@ func handleInitialContextSetupResponseMain(ran *context.AmfRan,
 			}
 			var err error
 			smContext.ActivateUpCnx(ran, ranUe, func() bool {
-				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
+				var errResponse *models.UpdateSmContextResponse400
+				var problemDetail *models.ProblemDetails
+				_, errResponse, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextN2Info(amfUe, smContext,
 					models.Smf_PDUSess_N2SmInfoType_PDU_RES_SETUP_RSP, transfer)
-				return err == nil
+				return err == nil && errResponse == nil && problemDetail == nil
 			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextN2Info[PDUSessionResourceSetupResponseTransfer] Error: %+v", err)
@@ -1467,8 +1471,11 @@ func handleHandoverNotifyMain(ran *context.AmfRan,
 			}
 			var err error
 			smContext.ActivateUpCnx(ran, targetUe, func() bool {
-				_, _, _, err = consumer.GetConsumer().SendUpdateSmContextN2HandoverComplete(amfUe, smContext, "", nil)
-				return err == nil
+				var errResponse *models.UpdateSmContextResponse400
+				var problemDetail *models.ProblemDetails
+				_, errResponse, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextN2HandoverComplete(
+					amfUe, smContext, "", nil)
+				return err == nil && errResponse == nil && problemDetail == nil
 			})
 			if err != nil {
 				ran.Log.Errorf("Send UpdateSmContextN2HandoverComplete Error[%s]", err.Error())
@@ -1624,11 +1631,12 @@ func handlePathSwitchRequestMain(ran *context.AmfRan,
 			// The path is switched to the target: ranUe is then at ran.
 			var response *models.UpdateSmContextResponse200
 			var errResponse *models.UpdateSmContextResponse400
+			var problemDetail *models.ProblemDetails
 			var err error
 			smContext.ActivateUpCnx(ran, ranUe, func() bool {
-				response, errResponse, _, err = consumer.GetConsumer().SendUpdateSmContextXnHandover(amfUe, smContext,
-					models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, transfer)
-				return err == nil
+				response, errResponse, problemDetail, err = consumer.GetConsumer().SendUpdateSmContextXnHandover(
+					amfUe, smContext, models.Smf_PDUSess_N2SmInfoType_PATH_SWITCH_REQ, transfer)
+				return err == nil && errResponse == nil && problemDetail == nil
 			})
 			if err != nil {
 				ranUe.Log.Errorf("SendUpdateSmContextXnHandover[PathSwitchRequestTransfer] Error:\n%s", err.Error())
