@@ -63,6 +63,7 @@ type AmfUe struct {
 	RegistrationType5GS                uint8
 	IdentityTypeUsedForRegistration    uint8
 	RegistrationRequest                *message.RegReq
+	DeferredDeregistrationRequest      *message.DeregReqUEOrig // progressed once the procedure completes
 	ServingAmfChanged                  bool
 	DeregistrationTargetAccessType     uint8 // only used when deregistration procedure is initialized by the network
 	RegistrationAcceptForNon3GPPAccess []byte
@@ -215,6 +216,10 @@ type AmfUe struct {
 	// cleared by its own goroutine, each on a different goroutine.  Only the
 	// field update is done under the lock; Timer.Stop is called after it.
 	timerMu sync.Mutex
+	// registrationAcceptResend sends the Registration Accept of the ongoing
+	// registration again, in a configuration without T3550; nil when no such
+	// accept waits for Registration Complete.  Guarded by timerMu.
+	registrationAcceptResend func()
 	// onGoingMu serializes the onGoing map and the OnGoing values it holds.
 	onGoingMu sync.RWMutex
 	// identityMu serializes the identities the UE presents: Suci, Guti, Tmsi,
@@ -890,12 +895,14 @@ func (ue *AmfUe) SelectSecurityAlg(intOrder, encOrder []uint8) error {
 
 func (ue *AmfUe) ClearRegistrationRequestData(accessType models.AccessType) {
 	ue.RegistrationRequest = nil
+	ue.DeferredDeregistrationRequest = nil
 	ue.RegistrationType5GS = 0
 	ue.IdentityTypeUsedForRegistration = 0
 	ue.AuthFailureCauseSynchFailureTimes = 0
 	ue.IdentityRequestSendTimes = 0
 	ue.ServingAmfChanged = false
 	ue.RegistrationAcceptForNon3GPPAccess = nil
+	ue.SetRegistrationAcceptResend(nil)
 	if ranUe := ue.GetRanUe(accessType); ranUe != nil {
 		ranUe.UeContextRequest = factory.AmfConfig.Configuration.DefaultUECtxReq
 	}
