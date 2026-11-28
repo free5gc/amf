@@ -193,11 +193,18 @@ func (ranUe *RanUe) SwitchToRan(newRan *AmfRan, ranUeNgapId int64) error {
 
 	oldRan := ranUe.Ran
 
-	// remove ranUe from oldRan (only its own entry, as in Remove)
-	oldRan.RanUeList.CompareAndDelete(ranUe.RanUeNgapId, ranUe)
+	oldRanUeNgapId := ranUe.RanUeNgapId
 
-	// add ranUe to newRan
-	newRan.RanUeList.Store(ranUeNgapId, ranUe)
+	// Reserve the target ID without overwriting another RanUe.
+	actual, loaded := newRan.RanUeList.LoadOrStore(ranUeNgapId, ranUe)
+	if loaded && actual != ranUe {
+		return fmt.Errorf("RAN UE NGAP ID %d already occupied", ranUeNgapId)
+	}
+
+	// Remove the old mapping unless it is also the target mapping.
+	if oldRan != newRan || oldRanUeNgapId != ranUeNgapId {
+		oldRan.RanUeList.CompareAndDelete(oldRanUeNgapId, ranUe)
+	}
 
 	// switch to newRan
 	ranUe.Ran = newRan
