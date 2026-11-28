@@ -557,6 +557,7 @@ func handleInitialUEMessageMain(ran *context.AmfRan,
 	ranUe, err = ran.NewRanUe(rANUENGAPID.Value)
 	if err != nil {
 		ran.Log.Errorf("NewRanUe Error: %+v", err)
+		return
 	}
 	ran.Log.Debugf("New RanUe [RanUeNgapID: %d]", ranUe.RanUeNgapId)
 
