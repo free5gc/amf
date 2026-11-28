@@ -164,7 +164,8 @@ func dispatchMain(ran *context.AmfRan, decoded ngapMessage.Message, encoded []by
 		}
 	case *ngapMessage.HandoverFailure:
 		if targetUe := findRanUeForMessage(ran, message.AMFUENGAPID, nil, true); targetUe != nil {
-			handleHandoverFailureMain(ran, targetUe, message.Cause, message.CriticalityDiagnostics)
+			handleHandoverFailureMain(ran, targetUe, message.Cause, message.CriticalityDiagnostics,
+				message.TargettoSourceFailureTransparentContainer)
 		}
 	case *ngapMessage.HandoverRequired:
 		if sourceUe := findRanUeForMessage(ran, message.AMFUENGAPID, message.RANUENGAPID, false); sourceUe != nil {
