@@ -94,7 +94,10 @@ func (ran *AmfRan) newRanUe(ranUeNgapID int64, assigned bool) (*RanUe, error) {
 	ranUe.UpdateLogFields()
 
 	if assigned {
-		ran.RanUeList.Store(ranUeNgapID, &ranUe)
+		if _, loaded := ran.RanUeList.LoadOrStore(ranUeNgapID, &ranUe); loaded {
+			amfUeNGAPIDGenerator.FreeID(amfUeNgapID)
+			return nil, fmt.Errorf("RAN UE NGAP ID %d already occupied", ranUeNgapID)
+		}
 	}
 	self.RanUePool.Store(ranUe.AmfUeNgapId, &ranUe)
 	ranUe.Log.Infof("New RanUe [RanUeNgapID:%d][AmfUeNgapID:%d]", ranUe.RanUeNgapId, ranUe.AmfUeNgapId)
